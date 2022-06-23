@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"reflect"
 	"testing"
+
+	_ "github.com/goccy/go-zetasqlite"
 )
 
 func TestQuery(t *testing.T) {
