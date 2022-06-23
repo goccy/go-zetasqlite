@@ -1,0 +1,4 @@
+github.com/goccy/go-zetasql v0.2.5 h1:iW5qsWW4XA8LMRQ2pSJcYpT6S3EteFvXHRLc9LxXrno=
+github.com/goccy/go-zetasql v0.2.5/go.mod h1:6W14CJVKh7crrSPyj6NPk4c49L2NWnxvyDLsRkOm4BI=
+github.com/mattn/go-sqlite3 v1.14.13 h1:1tj15ngiFfcZzii7yd82foL+ks+ouQcj8j/TPq3fk1I=
+github.com/mattn/go-sqlite3 v1.14.13/go.mod h1:NyWgC/yNuGj7Q9rpYnZvas74GogHl5/Z4A/KQRfk6bU=
