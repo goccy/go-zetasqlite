@@ -2,9 +2,7 @@ package zetasqlite
 
 import (
 	"context"
-	"database/sql/driver"
 	"fmt"
-	"io"
 	"strings"
 
 	ast "github.com/goccy/go-zetasql/resolved_ast"
@@ -43,39 +41,6 @@ func (s *FunctionSpec) SQL() string {
 		retType.Kind(),
 		s.Body,
 	)
-}
-
-func (s *FunctionSpec) FuncBody(c *ZetaSQLiteConn) interface{} {
-	switch types.TypeKind(s.Return.Kind) {
-	case types.INT64:
-		return func(args ...interface{}) (int64, error) {
-			stmt, err := c.conn.Prepare(s.Body)
-			if err != nil {
-				return 0, err
-			}
-			driverArgs := []driver.Value{}
-			for _, arg := range args {
-				driverArgs = append(driverArgs, arg)
-			}
-			newArgs, err := convertValues(driverArgs)
-			if err != nil {
-				return 0, err
-			}
-			rows, err := stmt.Query(newArgs)
-			if err != nil {
-				return 0, err
-			}
-			defer rows.Close()
-			values := make([]driver.Value, 1)
-			if err := rows.Next(values); err != nil {
-				if err != io.EOF {
-					return 0, err
-				}
-			}
-			return values[0].(int64), nil
-		}
-	}
-	return nil
 }
 
 type TableSpec struct {

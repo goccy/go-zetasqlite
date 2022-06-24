@@ -2,6 +2,7 @@ package zetasqlite
 
 import (
 	"bytes"
+	"database/sql"
 	"database/sql/driver"
 	"encoding/base64"
 	"encoding/json"
@@ -972,8 +973,8 @@ func isNULLValue(v interface{}) bool {
 	return len(vv) == 0
 }
 
-func convertNamedValues(v []driver.NamedValue) ([]driver.NamedValue, error) {
-	ret := make([]driver.NamedValue, 0, len(v))
+func convertNamedValues(v []driver.NamedValue) ([]sql.NamedArg, error) {
+	ret := make([]sql.NamedArg, 0, len(v))
 	for _, vv := range v {
 		converted, err := convertNamedValue(vv)
 		if err != nil {
@@ -984,20 +985,19 @@ func convertNamedValues(v []driver.NamedValue) ([]driver.NamedValue, error) {
 	return ret, nil
 }
 
-func convertNamedValue(v driver.NamedValue) (driver.NamedValue, error) {
+func convertNamedValue(v driver.NamedValue) (sql.NamedArg, error) {
 	value, err := SQLiteValue(v.Value)
 	if err != nil {
-		return driver.NamedValue{}, err
+		return sql.NamedArg{}, err
 	}
-	return driver.NamedValue{
-		Name:    strings.ToLower(v.Name),
-		Ordinal: v.Ordinal,
-		Value:   value,
+	return sql.NamedArg{
+		Name:  strings.ToLower(v.Name),
+		Value: value,
 	}, nil
 }
 
-func convertValues(v []driver.Value) ([]driver.Value, error) {
-	ret := make([]driver.Value, 0, len(v))
+func convertValues(v []interface{}) ([]interface{}, error) {
+	ret := make([]interface{}, 0, len(v))
 	for _, vv := range v {
 		value, err := SQLiteValue(vv)
 		if err != nil {

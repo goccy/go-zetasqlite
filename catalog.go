@@ -1,12 +1,11 @@
 package zetasqlite
 
 import (
-	"database/sql/driver"
+	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"reflect"
-	"sync"
+	"time"
 
 	"github.com/goccy/go-zetasql/types"
 )
@@ -37,7 +36,6 @@ type Catalog struct {
 	functions []*FunctionSpec
 	tableMap  map[string]*TableSpec
 	funcMap   map[string]*FunctionSpec
-	mu        sync.Mutex
 }
 
 func newCatalog(conn *ZetaSQLiteConn) *Catalog {
@@ -51,38 +49,25 @@ func newCatalog(conn *ZetaSQLiteConn) *Catalog {
 	}
 }
 
-func (c *Catalog) Sync() error {
-	if err := c.createCatalogTablesIfNotExists(); err != nil {
+func (c *Catalog) Sync(ctx context.Context) error {
+	if err := c.createCatalogTablesIfNotExists(ctx); err != nil {
 		return err
 	}
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	stmt, err := c.conn.sqliteConn.Prepare(loadCatalogQuery)
-	if err != nil {
-		return fmt.Errorf("failed to prepare load catalog: %w", err)
-	}
-	defer stmt.Close()
-	rows, err := stmt.Query(nil)
+	rows, err := c.conn.conn.QueryContext(ctx, loadCatalogQuery)
 	if err != nil {
 		return fmt.Errorf("failed to query load catalog: %w", err)
 	}
 	defer rows.Close()
-	for {
+	for rows.Next() {
 		var (
 			name string
 			kind CatalogSpecKind
 			spec string
 		)
-		values := []driver.Value{&name, &kind, &spec}
-		if err := rows.Next(values); err != nil {
-			if err != io.EOF {
-				return fmt.Errorf("failed to load catalog values: %w", err)
-			}
-			break
+		if err := rows.Scan(&name, &kind, &spec); err != nil {
+			return fmt.Errorf("failed to scan catalog values: %w", err)
 		}
-		spec = values[2].(string)
-		switch CatalogSpecKind(values[1].(string)) {
+		switch kind {
 		case TableSpecKind:
 			if err := c.loadTableSpec(spec); err != nil {
 				return fmt.Errorf("failed to load table spec: %w", err)
@@ -98,61 +83,65 @@ func (c *Catalog) Sync() error {
 	return nil
 }
 
-func (c *Catalog) AddNewTableSpec(spec *TableSpec) error {
+func (c *Catalog) AddNewTableSpec(ctx context.Context, spec *TableSpec) error {
 	if err := c.addTableSpec(spec); err != nil {
 		return err
 	}
-	if err := c.saveTableSpec(spec); err != nil {
+	if err := c.saveTableSpec(ctx, spec); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (c *Catalog) AddNewFunctionSpec(spec *FunctionSpec) error {
+func (c *Catalog) AddNewFunctionSpec(ctx context.Context, spec *FunctionSpec) error {
 	if err := c.addFunctionSpec(spec); err != nil {
 		return err
 	}
-	if err := c.saveFunctionSpec(spec); err != nil {
+	if err := c.saveFunctionSpec(ctx, spec); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (c *Catalog) saveTableSpec(spec *TableSpec) error {
+func (c *Catalog) saveTableSpec(ctx context.Context, spec *TableSpec) error {
 	encoded, err := json.Marshal(spec)
 	if err != nil {
 		return fmt.Errorf("failed to encode table spec: %w", err)
 	}
 
-	if err := c.exec(upsertCatalogQuery, []driver.Value{
+	if err := c.exec(
+		ctx,
+		upsertCatalogQuery,
 		spec.TableName(),
 		string(TableSpecKind),
 		string(encoded),
 		string(encoded),
-	}); err != nil {
+	); err != nil {
 		return fmt.Errorf("failed to save a new table spec: %w", err)
 	}
 	return nil
 }
 
-func (c *Catalog) saveFunctionSpec(spec *FunctionSpec) error {
+func (c *Catalog) saveFunctionSpec(ctx context.Context, spec *FunctionSpec) error {
 	encoded, err := json.Marshal(spec)
 	if err != nil {
 		return fmt.Errorf("failed to encode function spec: %w", err)
 	}
-	if err := c.exec(upsertCatalogQuery, []driver.Value{
+	if err := c.exec(
+		ctx,
+		upsertCatalogQuery,
 		spec.FuncName(),
 		string(FunctionSpecKind),
 		string(encoded),
 		string(encoded),
-	}); err != nil {
+	); err != nil {
 		return fmt.Errorf("failed to save a new function spec: %w", err)
 	}
 	return nil
 }
 
-func (c *Catalog) createCatalogTablesIfNotExists() error {
-	if err := c.exec(createCatalogTableQuery, nil); err != nil {
+func (c *Catalog) createCatalogTablesIfNotExists(ctx context.Context) error {
+	if err := c.exec(ctx, createCatalogTableQuery); err != nil {
 		return fmt.Errorf("failed to create catalog table: %w", err)
 	}
 	return nil
@@ -184,9 +173,6 @@ func (c *Catalog) addFunctionSpec(spec *FunctionSpec) error {
 	funcName := spec.FuncName()
 	if _, exists := c.funcMap[funcName]; exists {
 		return nil
-	}
-	if err := c.conn.sqliteConn.RegisterFunc(funcName, spec.FuncBody(c.conn), true); err != nil {
-		return fmt.Errorf("failed to register user defined function: %w", err)
 	}
 	c.functions = append(c.functions, spec)
 	c.funcMap[funcName] = spec
@@ -338,32 +324,15 @@ func (c *Catalog) copyFunctionSpec(spec *FunctionSpec, newNamePath []string) *Fu
 	}
 }
 
-func (c *Catalog) exec(query string, args []driver.Value) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	stmt, err := c.conn.sqliteConn.Prepare(query)
-	if err != nil {
-		return fmt.Errorf("failed to prepare %s: %w", query, err)
+func (c *Catalog) exec(ctx context.Context, query string, args ...interface{}) error {
+	var retErr error
+	for i := 0; i < 5; i++ {
+		if _, err := c.conn.conn.ExecContext(ctx, query, args...); err != nil {
+			retErr = err
+			time.Sleep(100 * time.Millisecond)
+			continue
+		}
+		return nil
 	}
-	defer stmt.Close()
-	if _, err := stmt.Exec(args); err != nil {
-		return fmt.Errorf("failed to exec %s: %w", query, err)
-	}
-	return nil
-}
-
-func (c *Catalog) query(query string, args []driver.Value) (driver.Rows, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	stmt, err := c.conn.sqliteConn.Prepare(query)
-	if err != nil {
-		return nil, fmt.Errorf("failed to prepare %s: %w", query, err)
-	}
-	rows, err := stmt.Query(args)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query %s: %w", query, err)
-	}
-	return rows, nil
+	return retErr
 }

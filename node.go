@@ -536,6 +536,15 @@ func (n *FunctionCallNode) FormatSQL(ctx context.Context) (string, error) {
 			),
 		)
 		fullpath.idx++
+		funcMap := funcMapFromContext(ctx)
+		if spec, exists := funcMap[funcName]; exists {
+			body := spec.Body
+			for _, arg := range args {
+				// TODO: Need to recognize the argument exactly.
+				body = strings.Replace(body, "?", arg, 1)
+			}
+			return fmt.Sprintf("( %s )", body), nil
+		}
 	}
 	return fmt.Sprintf(
 		"%s(%s)",
@@ -576,6 +585,15 @@ func (n *AggregateFunctionCallNode) FormatSQL(ctx context.Context) (string, erro
 			),
 		)
 		fullpath.idx++
+		funcMap := funcMapFromContext(ctx)
+		if spec, exists := funcMap[funcName]; exists {
+			body := spec.Body
+			for _, arg := range args {
+				// TODO: Need to recognize the argument exactly.
+				body = strings.Replace(body, "?", arg, 1)
+			}
+			return fmt.Sprintf("( %s )", body), nil
+		}
 	}
 	return fmt.Sprintf(
 		"%s(%s)",
