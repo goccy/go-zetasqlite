@@ -2,6 +2,7 @@ package zetasqlite
 
 import (
 	"context"
+	"database/sql"
 	"database/sql/driver"
 	"fmt"
 )
@@ -14,7 +15,7 @@ var (
 )
 
 type CreateTableStmt struct {
-	stmt    driver.Stmt
+	stmt    *sql.Stmt
 	catalog *Catalog
 	spec    *TableSpec
 }
@@ -31,7 +32,7 @@ func (s *CreateTableStmt) Exec(args []driver.Value) (driver.Result, error) {
 	if _, err := s.stmt.Exec(args); err != nil {
 		return nil, err
 	}
-	if err := s.catalog.AddNewTableSpec(s.spec); err != nil {
+	if err := s.catalog.AddNewTableSpec(context.Background(), s.spec); err != nil {
 		return nil, fmt.Errorf("failed to add new table spec: %w", err)
 	}
 	return nil, nil
@@ -41,7 +42,7 @@ func (s *CreateTableStmt) Query(args []driver.Value) (driver.Rows, error) {
 	return nil, fmt.Errorf("failed to query for CreateTableStmt")
 }
 
-func newCreateTableStmt(stmt driver.Stmt, catalog *Catalog, spec *TableSpec) *CreateTableStmt {
+func newCreateTableStmt(stmt *sql.Stmt, catalog *Catalog, spec *TableSpec) *CreateTableStmt {
 	return &CreateTableStmt{
 		stmt:    stmt,
 		catalog: catalog,
@@ -63,7 +64,7 @@ func (s *CreateFunctionStmt) NumInput() int {
 }
 
 func (s *CreateFunctionStmt) Exec(args []driver.Value) (driver.Result, error) {
-	if err := s.catalog.AddNewFunctionSpec(s.spec); err != nil {
+	if err := s.catalog.AddNewFunctionSpec(context.Background(), s.spec); err != nil {
 		return nil, fmt.Errorf("failed to add new function spec: %w", err)
 	}
 	return nil, nil
@@ -81,12 +82,12 @@ func newCreateFunctionStmt(catalog *Catalog, spec *FunctionSpec) *CreateFunction
 }
 
 type DMLStmt struct {
-	stmt           driver.Stmt
+	stmt           *sql.Stmt
 	argsNum        int
 	formattedQuery string
 }
 
-func newDMLStmt(stmt driver.Stmt, argsNum int, formattedQuery string) *DMLStmt {
+func newDMLStmt(stmt *sql.Stmt, argsNum int, formattedQuery string) *DMLStmt {
 	return &DMLStmt{
 		stmt:           stmt,
 		argsNum:        argsNum,
@@ -107,11 +108,15 @@ func (s *DMLStmt) NumInput() int {
 }
 
 func (s *DMLStmt) Exec(args []driver.Value) (driver.Result, error) {
-	newArgs, err := convertValues(args)
+	values := make([]interface{}, 0, len(args))
+	for _, arg := range args {
+		values = append(values, arg)
+	}
+	newArgs, err := convertValues(values)
 	if err != nil {
 		return nil, err
 	}
-	result, err := s.stmt.Exec(newArgs)
+	result, err := s.stmt.Exec(newArgs...)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"failed to execute query %s: args %v: %w",
@@ -136,13 +141,13 @@ func (s *DMLStmt) QueryContext(ctx context.Context, query string, args []driver.
 }
 
 type QueryStmt struct {
-	stmt           driver.Stmt
+	stmt           *sql.Stmt
 	argsNum        int
 	formattedQuery string
 	outputColumns  []*ColumnSpec
 }
 
-func newQueryStmt(stmt driver.Stmt, argsNum int, formattedQuery string, outputColumns []*ColumnSpec) *QueryStmt {
+func newQueryStmt(stmt *sql.Stmt, argsNum int, formattedQuery string, outputColumns []*ColumnSpec) *QueryStmt {
 	return &QueryStmt{
 		stmt:           stmt,
 		argsNum:        argsNum,
@@ -176,12 +181,15 @@ func (s *QueryStmt) ExecContext(ctx context.Context, query string, args []driver
 }
 
 func (s *QueryStmt) Query(args []driver.Value) (driver.Rows, error) {
-	newArgs, err := convertValues(args)
+	values := make([]interface{}, 0, len(args))
+	for _, arg := range args {
+		values = append(values, arg)
+	}
+	newArgs, err := convertValues(values)
 	if err != nil {
 		return nil, err
 	}
-	return s.stmt.Query(newArgs)
-	rows, err := s.stmt.Query(newArgs)
+	rows, err := s.stmt.Query(newArgs...)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"failed to query %s: args: %v: %w",

@@ -1,13 +1,16 @@
 package zetasqlite
 
 import (
+	"database/sql"
 	"database/sql/driver"
+	"io"
+	"reflect"
 
 	"github.com/goccy/go-zetasql/types"
 )
 
 type Rows struct {
-	rows    driver.Rows
+	rows    *sql.Rows
 	columns []*ColumnSpec
 }
 
@@ -19,7 +22,14 @@ func (r *Rows) Columns() []string {
 	return colNames
 }
 
+func (r *Rows) ColumnTypeDatabaseTypeName(i int) string {
+	return r.columns[i].Type.Name
+}
+
 func (r *Rows) Close() error {
+	if r.rows == nil {
+		return nil
+	}
 	return r.rows.Close()
 }
 
@@ -32,14 +42,28 @@ func (r *Rows) columnTypes() ([]*Type, error) {
 }
 
 func (r *Rows) Next(dest []driver.Value) error {
+	if r.rows == nil {
+		return io.EOF
+	}
+	if !r.rows.Next() {
+		return io.EOF
+	}
+	if err := r.rows.Err(); err != nil {
+		return err
+	}
 	colTypes, err := r.columnTypes()
 	if err != nil {
 		return err
 	}
-	values := make([]driver.Value, len(colTypes))
-	retErr := r.rows.Next(values)
+	values := make([]interface{}, 0, len(dest))
+	for i := 0; i < len(dest); i++ {
+		var v interface{}
+		values = append(values, &v)
+	}
+	retErr := r.rows.Scan(values...)
 	for idx, colType := range colTypes {
-		value, err := r.convertValue(values[idx], colType)
+		v := reflect.ValueOf(values[idx]).Elem().Interface()
+		value, err := r.convertValue(v, colType)
 		if err != nil {
 			return err
 		}
@@ -48,7 +72,7 @@ func (r *Rows) Next(dest []driver.Value) error {
 	return retErr
 }
 
-func (r *Rows) convertValue(value driver.Value, typ *Type) (driver.Value, error) {
+func (r *Rows) convertValue(value interface{}, typ *Type) (driver.Value, error) {
 	if typ.IsArray() {
 		val, err := ValueOf(value)
 		if err != nil {

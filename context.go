@@ -6,6 +6,7 @@ type (
 	namePathKey     struct{}
 	fullNamePathKey struct{}
 	columnRefMapKey struct{}
+	funcMapKey      struct{}
 )
 
 func namePathFromContext(ctx context.Context) []string {
@@ -47,4 +48,16 @@ func columnRefMap(ctx context.Context) map[string]string {
 		return nil
 	}
 	return value.(map[string]string)
+}
+
+func withFuncMap(ctx context.Context, m map[string]*FunctionSpec) context.Context {
+	return context.WithValue(ctx, funcMapKey{}, m)
+}
+
+func funcMapFromContext(ctx context.Context) map[string]*FunctionSpec {
+	value := ctx.Value(funcMapKey{})
+	if value == nil {
+		return nil
+	}
+	return value.(map[string]*FunctionSpec)
 }

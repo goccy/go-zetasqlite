@@ -1,12 +1,13 @@
 package zetasqlite
 
 import (
-	"database/sql/driver"
+	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
-	"io"
 	"reflect"
 	"sync"
+	"time"
 
 	"github.com/goccy/go-zetasql/types"
 )
@@ -16,11 +17,28 @@ var (
 CREATE TABLE IF NOT EXISTS zetasqlite_catalog(
   name STRING NOT NULL PRIMARY KEY,
   kind STRING NOT NULL,
-  spec STRING NOT NULL
+  spec STRING NOT NULL,
+  updatedAt TIMESTAMP NOT NULL,
+  createdAt TIMESTAMP NOT NULL
 )
 `
-	loadCatalogQuery   = `SELECT name, kind, spec FROM zetasqlite_catalog`
-	upsertCatalogQuery = `INSERT INTO zetasqlite_catalog (name, kind, spec) VALUES (?, ?, ?) ON CONFLICT(name) DO UPDATE SET spec = ?`
+	upsertCatalogQuery = `
+INSERT INTO zetasqlite_catalog (
+  name,
+  kind,
+  spec,
+  updatedAt,
+  createdAt
+) VALUES (
+  @name,
+  @kind,
+  @spec,
+  @updatedAt,
+  @createdAt
+) ON CONFLICT(name) DO UPDATE SET
+  spec = @spec,
+  updatedAt = @updatedAt
+`
 )
 
 type CatalogSpecKind string
@@ -31,58 +49,59 @@ const (
 )
 
 type Catalog struct {
-	conn      *ZetaSQLiteConn
-	catalog   *types.SimpleCatalog
-	tables    []*TableSpec
-	functions []*FunctionSpec
-	tableMap  map[string]*TableSpec
-	funcMap   map[string]*FunctionSpec
-	mu        sync.Mutex
+	db           *sql.DB
+	catalog      *types.SimpleCatalog
+	lastSyncedAt time.Time
+	mu           sync.Mutex
+	tables       []*TableSpec
+	functions    []*FunctionSpec
+	tableMap     map[string]*TableSpec
+	funcMap      map[string]*FunctionSpec
 }
 
-func newCatalog(conn *ZetaSQLiteConn) *Catalog {
+func newCatalog(db *sql.DB) *Catalog {
 	catalog := types.NewSimpleCatalog("zetasqlite")
 	catalog.AddZetaSQLBuiltinFunctions()
 	return &Catalog{
-		conn:     conn,
+		db:       db,
 		catalog:  catalog,
 		tableMap: map[string]*TableSpec{},
 		funcMap:  map[string]*FunctionSpec{},
 	}
 }
 
-func (c *Catalog) Sync() error {
-	if err := c.createCatalogTablesIfNotExists(); err != nil {
-		return err
-	}
+func (c *Catalog) Sync(ctx context.Context) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	stmt, err := c.conn.sqliteConn.Prepare(loadCatalogQuery)
+	tx, err := c.db.Begin()
 	if err != nil {
-		return fmt.Errorf("failed to prepare load catalog: %w", err)
+		return fmt.Errorf("failed to start transaction for zetasqlite_catalog: %w", err)
 	}
-	defer stmt.Close()
-	rows, err := stmt.Query(nil)
+	defer tx.Commit()
+	if err := c.createCatalogTablesIfNotExists(ctx, tx); err != nil {
+		return fmt.Errorf("failed to create catalog tables: %w", err)
+	}
+	now := time.Now()
+	rows, err := tx.QueryContext(
+		ctx,
+		`SELECT name, kind, spec FROM zetasqlite_catalog WHERE updatedAt >= @lastUpdatedAt`,
+		c.lastSyncedAt,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to query load catalog: %w", err)
 	}
 	defer rows.Close()
-	for {
+	for rows.Next() {
 		var (
 			name string
 			kind CatalogSpecKind
 			spec string
 		)
-		values := []driver.Value{&name, &kind, &spec}
-		if err := rows.Next(values); err != nil {
-			if err != io.EOF {
-				return fmt.Errorf("failed to load catalog values: %w", err)
-			}
-			break
+		if err := rows.Scan(&name, &kind, &spec); err != nil {
+			return fmt.Errorf("failed to scan catalog values: %w", err)
 		}
-		spec = values[2].(string)
-		switch CatalogSpecKind(values[1].(string)) {
+		switch kind {
 		case TableSpecKind:
 			if err := c.loadTableSpec(spec); err != nil {
 				return fmt.Errorf("failed to load table spec: %w", err)
@@ -95,64 +114,88 @@ func (c *Catalog) Sync() error {
 			return fmt.Errorf("unknown catalog spec kind %s", kind)
 		}
 	}
+	c.lastSyncedAt = now
 	return nil
 }
 
-func (c *Catalog) AddNewTableSpec(spec *TableSpec) error {
+func (c *Catalog) AddNewTableSpec(ctx context.Context, spec *TableSpec) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if err := c.addTableSpec(spec); err != nil {
 		return err
 	}
-	if err := c.saveTableSpec(spec); err != nil {
+	tx, err := c.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Commit()
+	if err := c.saveTableSpec(ctx, tx, spec); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (c *Catalog) AddNewFunctionSpec(spec *FunctionSpec) error {
+func (c *Catalog) AddNewFunctionSpec(ctx context.Context, spec *FunctionSpec) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if err := c.addFunctionSpec(spec); err != nil {
 		return err
 	}
-	if err := c.saveFunctionSpec(spec); err != nil {
+	tx, err := c.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Commit()
+	if err := c.saveFunctionSpec(ctx, tx, spec); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (c *Catalog) saveTableSpec(spec *TableSpec) error {
+func (c *Catalog) saveTableSpec(ctx context.Context, tx *sql.Tx, spec *TableSpec) error {
 	encoded, err := json.Marshal(spec)
 	if err != nil {
 		return fmt.Errorf("failed to encode table spec: %w", err)
 	}
-
-	if err := c.exec(upsertCatalogQuery, []driver.Value{
-		spec.TableName(),
-		string(TableSpecKind),
-		string(encoded),
-		string(encoded),
-	}); err != nil {
+	now := time.Now()
+	if _, err := tx.ExecContext(
+		ctx,
+		upsertCatalogQuery,
+		sql.Named("name", spec.TableName()),
+		sql.Named("kind", string(TableSpecKind)),
+		sql.Named("spec", string(encoded)),
+		sql.Named("updatedAt", now),
+		sql.Named("createdAt", now),
+	); err != nil {
 		return fmt.Errorf("failed to save a new table spec: %w", err)
 	}
 	return nil
 }
 
-func (c *Catalog) saveFunctionSpec(spec *FunctionSpec) error {
+func (c *Catalog) saveFunctionSpec(ctx context.Context, tx *sql.Tx, spec *FunctionSpec) error {
 	encoded, err := json.Marshal(spec)
 	if err != nil {
 		return fmt.Errorf("failed to encode function spec: %w", err)
 	}
-	if err := c.exec(upsertCatalogQuery, []driver.Value{
-		spec.FuncName(),
-		string(FunctionSpecKind),
-		string(encoded),
-		string(encoded),
-	}); err != nil {
+	now := time.Now()
+	if _, err := tx.ExecContext(
+		ctx,
+		upsertCatalogQuery,
+		sql.Named("name", spec.FuncName()),
+		sql.Named("kind", string(FunctionSpecKind)),
+		sql.Named("spec", string(encoded)),
+		sql.Named("updatedAt", now),
+		sql.Named("createdAt", now),
+	); err != nil {
 		return fmt.Errorf("failed to save a new function spec: %w", err)
 	}
 	return nil
 }
 
-func (c *Catalog) createCatalogTablesIfNotExists() error {
-	if err := c.exec(createCatalogTableQuery, nil); err != nil {
+func (c *Catalog) createCatalogTablesIfNotExists(ctx context.Context, tx *sql.Tx) error {
+	if _, err := tx.ExecContext(ctx, createCatalogTableQuery); err != nil {
 		return fmt.Errorf("failed to create catalog table: %w", err)
 	}
 	return nil
@@ -183,10 +226,8 @@ func (c *Catalog) loadFunctionSpec(spec string) error {
 func (c *Catalog) addFunctionSpec(spec *FunctionSpec) error {
 	funcName := spec.FuncName()
 	if _, exists := c.funcMap[funcName]; exists {
+		c.funcMap[funcName] = spec // update current spec
 		return nil
-	}
-	if err := c.conn.sqliteConn.RegisterFunc(funcName, spec.FuncBody(c.conn), true); err != nil {
-		return fmt.Errorf("failed to register user defined function: %w", err)
 	}
 	c.functions = append(c.functions, spec)
 	c.funcMap[funcName] = spec
@@ -196,6 +237,7 @@ func (c *Catalog) addFunctionSpec(spec *FunctionSpec) error {
 func (c *Catalog) addTableSpec(spec *TableSpec) error {
 	tableName := spec.TableName()
 	if _, exists := c.tableMap[tableName]; exists {
+		c.tableMap[tableName] = spec // update current spec
 		return nil
 	}
 	c.tables = append(c.tables, spec)
@@ -336,34 +378,4 @@ func (c *Catalog) copyFunctionSpec(spec *FunctionSpec, newNamePath []string) *Fu
 		Code:     spec.Code,
 		Body:     spec.Body,
 	}
-}
-
-func (c *Catalog) exec(query string, args []driver.Value) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	stmt, err := c.conn.sqliteConn.Prepare(query)
-	if err != nil {
-		return fmt.Errorf("failed to prepare %s: %w", query, err)
-	}
-	defer stmt.Close()
-	if _, err := stmt.Exec(args); err != nil {
-		return fmt.Errorf("failed to exec %s: %w", query, err)
-	}
-	return nil
-}
-
-func (c *Catalog) query(query string, args []driver.Value) (driver.Rows, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	stmt, err := c.conn.sqliteConn.Prepare(query)
-	if err != nil {
-		return nil, fmt.Errorf("failed to prepare %s: %w", query, err)
-	}
-	rows, err := stmt.Query(args)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query %s: %w", query, err)
-	}
-	return rows, nil
 }
