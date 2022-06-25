@@ -17,8 +17,9 @@ var (
 )
 
 var (
-	nameToDBMap   = map[string]*sql.DB{}
-	nameToDBMapMu sync.Mutex
+	nameToCatalogMap = map[string]*Catalog{}
+	nameToDBMap      = map[string]*sql.DB{}
+	nameToValueMapMu sync.Mutex
 )
 
 func init() {
@@ -33,19 +34,21 @@ func init() {
 	})
 }
 
-func openDB(name string) (*sql.DB, error) {
-	nameToDBMapMu.Lock()
-	defer nameToDBMapMu.Unlock()
+func newDBAndCatalog(name string) (*sql.DB, *Catalog, error) {
+	nameToValueMapMu.Lock()
+	defer nameToValueMapMu.Unlock()
 	db, exists := nameToDBMap[name]
 	if exists {
-		return db, nil
+		return db, nameToCatalogMap[name], nil
 	}
 	db, err := sql.Open("zetasqlite_sqlite3", name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open database by %s: %w", name, err)
+		return nil, nil, fmt.Errorf("failed to open database by %s: %w", name, err)
 	}
+	catalog := newCatalog(db)
 	nameToDBMap[name] = db
-	return db, nil
+	nameToCatalogMap[name] = catalog
+	return db, catalog, nil
 }
 
 type ZetaSQLiteDriver struct {
@@ -53,11 +56,11 @@ type ZetaSQLiteDriver struct {
 }
 
 func (d *ZetaSQLiteDriver) Open(name string) (driver.Conn, error) {
-	db, err := openDB(name)
+	db, catalog, err := newDBAndCatalog(name)
 	if err != nil {
 		return nil, err
 	}
-	conn, err := newZetaSQLiteConn(db)
+	conn, err := newZetaSQLiteConn(db, catalog)
 	if err != nil {
 		return nil, err
 	}
@@ -74,14 +77,15 @@ type ZetaSQLiteConn struct {
 	analyzer *Analyzer
 }
 
-func newZetaSQLiteConn(db *sql.DB) (*ZetaSQLiteConn, error) {
+func newZetaSQLiteConn(db *sql.DB, catalog *Catalog) (*ZetaSQLiteConn, error) {
 	conn, err := db.Conn(context.Background())
 	if err != nil {
 		return nil, fmt.Errorf("failed to get sqlite3 connection: %w", err)
 	}
-	c := &ZetaSQLiteConn{conn: conn}
-	c.analyzer = newAnalyzer(newCatalog(c))
-	return c, nil
+	return &ZetaSQLiteConn{
+		conn:     conn,
+		analyzer: newAnalyzer(catalog),
+	}, nil
 }
 
 func (c *ZetaSQLiteConn) NamePath() []string {
