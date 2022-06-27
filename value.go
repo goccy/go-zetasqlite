@@ -9,8 +9,10 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Value interface {
@@ -29,6 +31,7 @@ type Value interface {
 	ToBool() (bool, error)
 	ToArray() (*ArrayValue, error)
 	ToStruct() (*StructValue, error)
+	ToJSON() (string, error)
 }
 
 type IntValue int64
@@ -139,6 +142,10 @@ func (iv IntValue) ToStruct() (*StructValue, error) {
 	return nil, fmt.Errorf("falied to convert %d to struct type", iv)
 }
 
+func (iv IntValue) ToJSON() (string, error) {
+	return fmt.Sprint(iv), nil
+}
+
 type StringValue string
 
 func (sv StringValue) Add(v Value) (Value, error) {
@@ -238,6 +245,10 @@ func (sv StringValue) ToStruct() (*StructValue, error) {
 		return nil, nil
 	}
 	return nil, fmt.Errorf("failed to convert struct from string: %v", sv)
+}
+
+func (sv StringValue) ToJSON() (string, error) {
+	return strconv.Quote(string(sv)), nil
 }
 
 type FloatValue float64
@@ -341,6 +352,10 @@ func (fv FloatValue) ToStruct() (*StructValue, error) {
 	return nil, fmt.Errorf("failed to convert struct from float64: %v", fv)
 }
 
+func (fv FloatValue) ToJSON() (string, error) {
+	return fmt.Sprint(fv), nil
+}
+
 type BoolValue bool
 
 func (bv BoolValue) Add(v Value) (Value, error) {
@@ -411,6 +426,10 @@ func (bv BoolValue) ToArray() (*ArrayValue, error) {
 
 func (bv BoolValue) ToStruct() (*StructValue, error) {
 	return nil, fmt.Errorf("failed to convert bool from struct: %v", bv)
+}
+
+func (bv BoolValue) ToJSON() (string, error) {
+	return fmt.Sprint(bv), nil
 }
 
 type ArrayValue struct {
@@ -551,7 +570,11 @@ func (av *ArrayValue) ToInt64() (int64, error) {
 }
 
 func (av *ArrayValue) ToString() (string, error) {
-	return "", fmt.Errorf("failed to convert string from array %v", av)
+	json, err := av.ToJSON()
+	if err != nil {
+		return "", err
+	}
+	return toArrayValueFromJSONString(json), nil
 }
 
 func (av *ArrayValue) ToFloat64() (float64, error) {
@@ -568,6 +591,18 @@ func (av *ArrayValue) ToArray() (*ArrayValue, error) {
 
 func (av *ArrayValue) ToStruct() (*StructValue, error) {
 	return nil, fmt.Errorf("failed to convert struct from array %v", av)
+}
+
+func (av *ArrayValue) ToJSON() (string, error) {
+	elems := []string{}
+	for _, v := range av.values {
+		elem, err := v.ToJSON()
+		if err != nil {
+			return "", err
+		}
+		elems = append(elems, elem)
+	}
+	return fmt.Sprintf("[%s]", strings.Join(elems, ",")), nil
 }
 
 type StructValue struct {
@@ -697,7 +732,11 @@ func (sv *StructValue) ToInt64() (int64, error) {
 }
 
 func (sv *StructValue) ToString() (string, error) {
-	return "", fmt.Errorf("failed to convert string from struct %v", sv)
+	json, err := sv.ToJSON()
+	if err != nil {
+		return "", err
+	}
+	return toStructValueFromJSONString(json), nil
 }
 
 func (sv *StructValue) ToFloat64() (float64, error) {
@@ -714,6 +753,22 @@ func (sv *StructValue) ToArray() (*ArrayValue, error) {
 
 func (sv *StructValue) ToStruct() (*StructValue, error) {
 	return sv, nil
+}
+
+func (sv *StructValue) ToJSON() (string, error) {
+	fields := []string{}
+	for i := 0; i < len(sv.keys); i++ {
+		key := sv.keys[i]
+		value, err := sv.values[i].ToJSON()
+		if err != nil {
+			return "", err
+		}
+		fields = append(
+			fields,
+			fmt.Sprintf("%s:%s", strconv.Quote(key), value),
+		)
+	}
+	return fmt.Sprintf("{%s}", strings.Join(fields, ",")), nil
 }
 
 const (
@@ -971,6 +1026,26 @@ func isNULLValue(v interface{}) bool {
 		return false
 	}
 	return len(vv) == 0
+}
+
+var (
+	dateRe = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}$`)
+)
+
+func isDate(date string) bool {
+	return dateRe.MatchString(date)
+}
+
+func parseDate(date string) (time.Time, error) {
+	return time.Parse("2006-01-02", date)
+}
+
+func toTimeValue(s string) (time.Time, error) {
+	switch {
+	case isDate(s):
+		return parseDate(s)
+	}
+	return time.Time{}, fmt.Errorf("unsupported time format %s", s)
 }
 
 func convertNamedValues(v []driver.NamedValue) ([]sql.NamedArg, error) {

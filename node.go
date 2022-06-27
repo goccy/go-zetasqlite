@@ -521,6 +521,9 @@ func (n *FunctionCallNode) FormatSQL(ctx context.Context) (string, error) {
 		args = append(args, arg)
 	}
 	resultType := strings.ToLower(n.node.Signature().ResultType().Type().TypeName(0))
+	if strings.HasPrefix(resultType, "struct") {
+		resultType = "struct"
+	}
 	funcName := n.node.Function().FullName(false)
 	if strings.HasPrefix(funcName, "$") {
 		funcName = fmt.Sprintf("zetasqlite_%s_%s", funcName[1:], resultType)
@@ -570,6 +573,9 @@ func (n *AggregateFunctionCallNode) FormatSQL(ctx context.Context) (string, erro
 		args = append(args, arg)
 	}
 	resultType := strings.ToLower(n.node.Signature().ResultType().Type().TypeName(0))
+	if strings.HasPrefix(resultType, "struct") {
+		resultType = "struct"
+	}
 	funcName := n.node.Function().FullName(false)
 	if strings.HasPrefix(funcName, "$") {
 		funcName = fmt.Sprintf("zetasqlite_%s_%s", funcName[1:], resultType)
@@ -671,6 +677,9 @@ func (n *GetStructFieldNode) FormatSQL(ctx context.Context) (string, error) {
 		return "", err
 	}
 	typeSuffix := strings.ToLower(n.node.Type().TypeName(0))
+	if strings.HasPrefix(typeSuffix, "struct") {
+		typeSuffix = "struct"
+	}
 	idx := n.node.FieldIdx()
 	return fmt.Sprintf("zetasqlite_get_struct_field_%s(%s, %d)", typeSuffix, expr, idx), nil
 }
@@ -737,7 +746,7 @@ func (n *SubqueryExprNode) FormatSQL(ctx context.Context) (string, error) {
 	}
 	switch n.node.SubqueryType() {
 	case ast.SubqueryTypeExists:
-		return fmt.Sprintf("EXISTS (SELECT * %s)", sql), nil
+		return fmt.Sprintf("EXISTS (%s)", sql), nil
 	}
 	return sql, nil
 }
@@ -824,7 +833,7 @@ func (n *ArrayScanNode) FormatSQL(ctx context.Context) (string, error) {
 	}
 	colName := n.node.ElementColumn().Name()
 	return fmt.Sprintf(
-		"FROM ( SELECT json_each.value AS %s FROM json_each(zetasqlite_decode_array(%s)) )",
+		"FROM ( SELECT json_each.value AS `%s` FROM json_each(zetasqlite_decode_array(%s)) )",
 		colName,
 		arrayExpr,
 	), nil
@@ -883,16 +892,7 @@ func (n *AggregateScanNode) FormatSQL(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	columns := []string{}
-	for _, col := range n.node.ColumnList() {
-		columnMap := columnRefMap(ctx)
-		if ref, exists := columnMap[col.Name()]; exists {
-			columns = append(columns, ref)
-		} else {
-			columns = append(columns, col.Name())
-		}
-	}
-	return fmt.Sprintf("%s %s", strings.Join(columns, ","), input), nil
+	return input, nil
 }
 
 type AnonymizedAggregateScanNode struct {
@@ -908,7 +908,10 @@ type SetOperationItemNode struct {
 }
 
 func (n *SetOperationItemNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
+	if n.node == nil {
+		return "", nil
+	}
+	return newNode(n.node.Scan()).FormatSQL(ctx)
 }
 
 type SetOperationScanNode struct {
@@ -916,7 +919,35 @@ type SetOperationScanNode struct {
 }
 
 func (n *SetOperationScanNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
+	if n.node == nil {
+		return "", nil
+	}
+	var opType string
+	switch n.node.OpType() {
+	case ast.SetOperationTypeUnionAll:
+		opType = "UNION ALL"
+	case ast.SetOperationTypeUnionDistinct:
+		opType = "UNION DISTINCT"
+	case ast.SetOperationTypeIntersectAll:
+		opType = "INTERSECT ALL"
+	case ast.SetOperationTypeIntersectDistinct:
+		opType = "INTERSECT DISTINCT"
+	case ast.SetOperationTypeExceptAll:
+		opType = "EXCEPT ALL"
+	case ast.SetOperationTypeExceptDistinct:
+		opType = "EXCEPT DISTINCT"
+	default:
+		opType = "UNKONWN"
+	}
+	var queries []string
+	for _, item := range n.node.InputItemList() {
+		query, err := newNode(item).FormatSQL(ctx)
+		if err != nil {
+			return "", err
+		}
+		queries = append(queries, query)
+	}
+	return strings.Join(queries, fmt.Sprintf(" %s ", opType)), nil
 }
 
 type OrderByScanNode struct {
@@ -940,7 +971,11 @@ type WithRefScanNode struct {
 }
 
 func (n *WithRefScanNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
+	if n.node == nil {
+		return "", nil
+	}
+	queryName := n.node.WithQueryName()
+	return fmt.Sprintf("FROM %s", queryName), nil
 }
 
 type AnalyticScanNode struct {
@@ -967,13 +1002,15 @@ func (n *ComputedColumnNode) FormatSQL(ctx context.Context) (string, error) {
 	if n.node == nil {
 		return "", nil
 	}
-	sql, err := newNode(n.node.Expr()).FormatSQL(ctx)
+	expr, err := newNode(n.node.Expr()).FormatSQL(ctx)
 	if err != nil {
 		return "", err
 	}
+	name := n.node.Column().Name()
+	query := fmt.Sprintf("%s AS `%s`", expr, name)
 	columnMap := columnRefMap(ctx)
-	columnMap[n.node.Column().Name()] = sql
-	return "", nil
+	columnMap[name] = query
+	return query, nil
 }
 
 type OrderByItemNode struct {
@@ -1073,7 +1110,18 @@ func (n *ProjectScanNode) FormatSQL(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return input, nil
+	columns := []string{}
+	columnMap := columnRefMap(ctx)
+	for _, col := range n.node.ColumnList() {
+		colName := col.Name()
+		if ref, exists := columnMap[colName]; exists {
+			columns = append(columns, ref)
+			delete(columnMap, colName)
+		} else {
+			columns = append(columns, fmt.Sprintf("`%s`", colName))
+		}
+	}
+	return fmt.Sprintf("SELECT %s %s", strings.Join(columns, ","), input), nil
 }
 
 type TVFScanNode struct {
@@ -1116,19 +1164,7 @@ func (n *QueryStmtNode) FormatSQL(ctx context.Context) (string, error) {
 	if n.node == nil {
 		return "", nil
 	}
-	query, err := newNode(n.node.Query()).FormatSQL(ctx)
-	if err != nil {
-		return "", err
-	}
-	cols := []string{}
-	for _, c := range n.node.OutputColumnList() {
-		col, err := newNode(c).FormatSQL(ctx)
-		if err != nil {
-			return "", err
-		}
-		cols = append(cols, col)
-	}
-	return fmt.Sprintf("SELECT %s %s", strings.Join(cols, ","), query), nil
+	return newNode(n.node.Query()).FormatSQL(ctx)
 }
 
 type CreateDatabaseStmtNode struct {
@@ -1368,7 +1404,26 @@ type WithScanNode struct {
 }
 
 func (n *WithScanNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
+	if n.node == nil {
+		return "", nil
+	}
+	queries := []string{}
+	for _, entry := range n.node.WithEntryList() {
+		sql, err := newNode(entry).FormatSQL(ctx)
+		if err != nil {
+			return "", err
+		}
+		queries = append(queries, sql)
+	}
+	query, err := newNode(n.node.Query()).FormatSQL(ctx)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf(
+		"WITH %s %s",
+		strings.Join(queries, ", "),
+		query,
+	), nil
 }
 
 type WithEntryNode struct {
@@ -1376,7 +1431,15 @@ type WithEntryNode struct {
 }
 
 func (n *WithEntryNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
+	if n.node == nil {
+		return "", nil
+	}
+	queryName := n.node.WithQueryName()
+	subquery, err := newNode(n.node.WithSubquery()).FormatSQL(ctx)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s AS ( %s )", queryName, subquery), nil
 }
 
 type OptionNode struct {

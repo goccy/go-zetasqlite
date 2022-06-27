@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	_ "github.com/goccy/go-zetasqlite"
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestQuery(t *testing.T) {
@@ -296,18 +297,81 @@ FROM UNNEST([1, 2, 3, 4]) AS val`,
 			query:        `SELECT NULLIF(10, 0)`,
 			expectedRows: [][]interface{}{{int64(10)}},
 		},
+		{
+			name: "with clause",
+			query: `
+WITH sub1 AS (SELECT ["a", "b"]),
+     sub2 AS (SELECT ["c", "d"])
+SELECT * FROM sub1
+UNION ALL
+SELECT * FROM sub2`,
+			expectedRows: [][]interface{}{
+				{[]string{"a", "b"}},
+				{[]string{"c", "d"}},
+			},
+		},
+		{
+			name: "field access operator",
+			query: `
+WITH orders AS (
+  SELECT STRUCT(STRUCT('Yonge Street' AS street, 'Canada' AS country) AS address) AS customer
+)
+SELECT t.customer.address.country FROM orders AS t`,
+			expectedRows: [][]interface{}{{"Canada"}},
+		},
+		{
+			name: "array index access operator",
+			query: `
+WITH Items AS (SELECT ["coffee", "tea", "milk"] AS item_array)
+SELECT
+  item_array,
+  item_array[OFFSET(1)] AS item_offset,
+  item_array[ORDINAL(1)] AS item_ordinal,
+  item_array[SAFE_OFFSET(6)] AS item_safe_offset,
+FROM Items`,
+			expectedRows: [][]interface{}{{
+				[]string{"coffee", "tea", "milk"},
+				"tea",
+				"coffee",
+				nil,
+			}},
+		},
+		{
+			name: "create function",
+			query: `
+CREATE FUNCTION customfunc(
+  arr ARRAY<STRUCT<name STRING, val INT64>>
+) AS (
+  (SELECT SUM(IF(elem.name = "foo",elem.val,null)) FROM UNNEST(arr) AS elem)
+)`,
+			expectedRows: [][]interface{}{},
+		},
+		{
+			name: "use function",
+			query: `
+SELECT customfunc([
+  STRUCT<name STRING, val INT64>("foo", 10),
+  STRUCT<name STRING, val INT64>("bar", 40),
+  STRUCT<name STRING, val INT64>("foo", 20)
+])`,
+			expectedRows: [][]interface{}{{int64(30)}},
+		},
+		{
+			name: "out of range error",
+			query: `
+WITH Items AS (SELECT ["coffee", "tea", "milk"] AS item_array)
+SELECT
+  item_array[OFFSET(6)] AS item_offset
+FROM Items`,
+			expectedRows: [][]interface{}{},
+			expectedErr:  true,
+		},
 	} {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			rows, err := db.Query(test.query, test.args...)
-			if test.expectedErr {
-				if err == nil {
-					t.Fatal("expected error")
-				}
-			} else {
-				if err != nil {
-					t.Fatal(err)
-				}
+			if err != nil {
+				t.Fatal(err)
 			}
 			defer rows.Close()
 			if len(test.expectedRows) == 0 {
@@ -330,11 +394,24 @@ FROM UNNEST([1, 2, 3, 4]) AS val`,
 				}
 				for i := 0; i < len(args); i++ {
 					value := reflect.ValueOf(args[i]).Elem().Interface()
-					if expectedRow[i] != value {
-						t.Fatalf("failed to get value. expected %[1]v(%[1]T) but got %[2]v(%[2]T)", expectedRow[i], value)
+					if diff := cmp.Diff(expectedRow[i], value); diff != "" {
+						t.Errorf("(-want +got):\n%s", diff)
 					}
 				}
 				rowNum++
+			}
+			rowsErr := rows.Err()
+			if test.expectedErr {
+				if rowsErr == nil {
+					t.Fatal("expected error")
+				}
+			} else {
+				if rowsErr != nil {
+					t.Fatal(rowsErr)
+				}
+			}
+			if len(test.expectedRows) != rowNum {
+				t.Fatalf("failed to get rows. expected %d but got %d", len(test.expectedRows), rowNum)
 			}
 		})
 	}

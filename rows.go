@@ -46,6 +46,9 @@ func (r *Rows) Next(dest []driver.Value) error {
 		return io.EOF
 	}
 	if !r.rows.Next() {
+		if err := r.rows.Err(); err != nil {
+			return err
+		}
 		return io.EOF
 	}
 	if err := r.rows.Err(); err != nil {
@@ -73,6 +76,9 @@ func (r *Rows) Next(dest []driver.Value) error {
 }
 
 func (r *Rows) convertValue(value interface{}, typ *Type) (driver.Value, error) {
+	if value == "NULL" {
+		return nil, nil
+	}
 	if typ.IsArray() {
 		val, err := ValueOf(value)
 		if err != nil {
