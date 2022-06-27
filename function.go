@@ -17,7 +17,9 @@ const (
 	lessOrEqualFuncName              = "zetasqlite_less_or_equal_bool"
 	inArrayFuncName                  = "zetasqlite_in_array_bool"
 	addI64FuncName                   = "zetasqlite_add_int64"
+	addDateFuncName                  = "zetasqlite_add_date"
 	subI64FuncName                   = "zetasqlite_subtract_int64"
+	subDateFuncName                  = "zetasqlite_subtract_date"
 	mulI64FuncName                   = "zetasqlite_multiply_int64"
 	divI64FuncName                   = "zetasqlite_div_int64"
 	divDoubleFuncName                = "zetasqlite_divide_double"
@@ -65,7 +67,9 @@ var (
 		lessOrEqualFuncName:              lessOrEqualFunc,
 		inArrayFuncName:                  inArrayFunc,
 		addI64FuncName:                   addI64Func,
+		addDateFuncName:                  addDateFunc,
 		subI64FuncName:                   subI64Func,
+		subDateFuncName:                  subDateFunc,
 		mulI64FuncName:                   mulI64Func,
 		divI64FuncName:                   divI64Func,
 		divDoubleFuncName:                divDoubleFunc,
@@ -155,6 +159,22 @@ func addI64Func(a, b interface{}) (int64, error) {
 	return ret.ToInt64()
 }
 
+func addDateFunc(a, b interface{}) (string, error) {
+	va, err := ValueOf(a)
+	if err != nil {
+		return "", err
+	}
+	vb, err := ValueOf(b)
+	if err != nil {
+		return "", err
+	}
+	ret, err := va.Add(vb)
+	if err != nil {
+		return "", err
+	}
+	return ret.ToString()
+}
+
 func subI64Func(a, b interface{}) (int64, error) {
 	va, err := ValueOf(a)
 	if err != nil {
@@ -169,6 +189,22 @@ func subI64Func(a, b interface{}) (int64, error) {
 		return 0, err
 	}
 	return ret.ToInt64()
+}
+
+func subDateFunc(a, b interface{}) (string, error) {
+	va, err := ValueOf(a)
+	if err != nil {
+		return "", err
+	}
+	vb, err := ValueOf(b)
+	if err != nil {
+		return "", err
+	}
+	ret, err := va.Sub(vb)
+	if err != nil {
+		return "", err
+	}
+	return ret.ToString()
 }
 
 func mulI64Func(a, b interface{}) (int64, error) {

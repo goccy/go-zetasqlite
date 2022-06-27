@@ -58,6 +58,7 @@ func newAnalyzerOptions() *zetasql.AnalyzerOptions {
 		zetasql.FeatureJsonArrayFunctions,
 		zetasql.FeatureJsonStrictNumberParsing,
 		zetasql.FeatureV13IsDistinct,
+		zetasql.FeatureV13DateArithmetics,
 	})
 	langOpt.SetSupportedStatementKinds([]ast.Kind{
 		ast.QueryStmt,

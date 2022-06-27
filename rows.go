@@ -79,7 +79,8 @@ func (r *Rows) convertValue(value interface{}, typ *Type) (driver.Value, error) 
 	if value == "NULL" {
 		return nil, nil
 	}
-	if typ.IsArray() {
+	switch types.TypeKind(typ.Kind) {
+	case types.ARRAY:
 		val, err := ValueOf(value)
 		if err != nil {
 			return nil, err
@@ -104,6 +105,12 @@ func (r *Rows) convertValue(value interface{}, typ *Type) (driver.Value, error) 
 			}
 			return v, nil
 		}
+	case types.DATE:
+		val, err := ValueOf(value)
+		if err != nil {
+			return nil, err
+		}
+		return val.ToJSON()
 	}
 	return value, nil
 }

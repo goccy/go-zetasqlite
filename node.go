@@ -394,6 +394,8 @@ type LiteralNode struct {
 func (n *LiteralNode) toJSONValue(value types.Value) string {
 	jsonValue := n.toJSONValueRecursive(value)
 	switch value.Type().Kind() {
+	case types.DATE:
+		return toDateValueFromString(jsonValue)
 	case types.ARRAY:
 		return toArrayValueFromJSONString(jsonValue)
 	case types.STRUCT:
@@ -404,6 +406,8 @@ func (n *LiteralNode) toJSONValue(value types.Value) string {
 
 func (n *LiteralNode) toJSONValueRecursive(value types.Value) string {
 	switch value.Type().Kind() {
+	case types.DATE:
+		return toDateValueFromInt64(value.ToInt64())
 	case types.ARRAY:
 		elems := []string{}
 		for i := 0; i < value.NumElements(); i++ {

@@ -366,6 +366,29 @@ FROM Items`,
 			expectedRows: [][]interface{}{},
 			expectedErr:  true,
 		},
+		// INVALID_ARGUMENT: Subscript access using [INT64] is not supported on values of type JSON [at 2:34]
+		//{
+		//	name: "json",
+		//	query: `
+		//	SELECT json_value.class.students[0]['name'] AS first_student
+		//	FROM
+		//	  UNNEST(
+		//	    [
+		//	      JSON '{"class" : {"students" : [{"name" : "Jane"}]}}',
+		//	      JSON '{"class" : {"students" : []}}',
+		//	      JSON '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'])
+		//	    AS json_value`,
+		//	expectedRows: [][]interface{}{
+		//		{"Jane"},
+		//		{nil},
+		//		{"John"},
+		//	},
+		//},
+		{
+			name:         "date operator",
+			query:        `SELECT DATE "2020-09-22" + 1 AS day_later, DATE "2020-09-22" - 7 AS week_ago`,
+			expectedRows: [][]interface{}{{"2020-09-23", "2020-09-15"}},
+		},
 	} {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
