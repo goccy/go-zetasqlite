@@ -98,120 +98,120 @@ func TestQuery(t *testing.T) {
 		{
 			name:         "eq operator",
 			query:        "SELECT 100 = 100",
-			expectedRows: [][]interface{}{{int64(1)}},
+			expectedRows: [][]interface{}{{true}},
 		},
 		{
 			name:         "lt operator",
 			query:        "SELECT 10 < 100",
-			expectedRows: [][]interface{}{{int64(1)}},
+			expectedRows: [][]interface{}{{true}},
 		},
 		{
 			name:         "gt operator",
 			query:        "SELECT 100 > 10",
-			expectedRows: [][]interface{}{{int64(1)}},
+			expectedRows: [][]interface{}{{true}},
 		},
 		{
 			name:         "lte operator",
 			query:        "SELECT 10 <= 10",
-			expectedRows: [][]interface{}{{int64(1)}},
+			expectedRows: [][]interface{}{{true}},
 		},
 		{
 			name:         "gte operator",
 			query:        "SELECT 10 >= 10",
-			expectedRows: [][]interface{}{{int64(1)}},
+			expectedRows: [][]interface{}{{true}},
 		},
 		{
 			name:         "ne operator",
 			query:        "SELECT 100 != 10",
-			expectedRows: [][]interface{}{{int64(1)}},
+			expectedRows: [][]interface{}{{true}},
 		},
 		{
 			name:         "like operator",
 			query:        `SELECT "abcd" LIKE "a%d"`,
-			expectedRows: [][]interface{}{{int64(1)}},
+			expectedRows: [][]interface{}{{true}},
 		},
 		{
 			name:         "not like operator",
 			query:        `SELECT "abcd" NOT LIKE "a%d"`,
-			expectedRows: [][]interface{}{{int64(0)}},
+			expectedRows: [][]interface{}{{false}},
 		},
 		{
 			name:         "between operator",
 			query:        `SELECT "2022-09-10" BETWEEN "2022-09-01" and "2022-10-01"`,
-			expectedRows: [][]interface{}{{int64(1)}},
+			expectedRows: [][]interface{}{{true}},
 		},
 		{
 			name:         "not between operator",
 			query:        `SELECT "2020-09-10" NOT BETWEEN "2022-09-01" and "2022-10-01"`,
-			expectedRows: [][]interface{}{{int64(1)}},
+			expectedRows: [][]interface{}{{true}},
 		},
 		{
 			name:         "in operator",
 			query:        `SELECT 3 IN (1, 2, 3, 4)`,
-			expectedRows: [][]interface{}{{int64(1)}},
+			expectedRows: [][]interface{}{{true}},
 		},
 		{
 			name:         "not in operator",
 			query:        `SELECT 5 NOT IN (1, 2, 3, 4)`,
-			expectedRows: [][]interface{}{{int64(1)}},
+			expectedRows: [][]interface{}{{true}},
 		},
 		{
 			name:         "is null operator",
 			query:        `SELECT NULL IS NULL`,
-			expectedRows: [][]interface{}{{int64(1)}},
+			expectedRows: [][]interface{}{{true}},
 		},
 		{
 			name:         "is not null operator",
 			query:        `SELECT 1 IS NOT NULL`,
-			expectedRows: [][]interface{}{{int64(1)}},
+			expectedRows: [][]interface{}{{true}},
 		},
 		{
 			name:         "is true operator",
 			query:        `SELECT true IS TRUE`,
-			expectedRows: [][]interface{}{{int64(1)}},
+			expectedRows: [][]interface{}{{true}},
 		},
 		{
 			name:         "is not true operator",
 			query:        `SELECT false IS NOT TRUE`,
-			expectedRows: [][]interface{}{{int64(1)}},
+			expectedRows: [][]interface{}{{true}},
 		},
 		{
 			name:         "is false operator",
 			query:        `SELECT false IS FALSE`,
-			expectedRows: [][]interface{}{{int64(1)}},
+			expectedRows: [][]interface{}{{true}},
 		},
 		{
 			name:         "is not false operator",
 			query:        `SELECT true IS NOT FALSE`,
-			expectedRows: [][]interface{}{{int64(1)}},
+			expectedRows: [][]interface{}{{true}},
 		},
 		// priority 10 operator
 		{
 			name:         "not operator",
 			query:        `SELECT NOT 1 = 2`,
-			expectedRows: [][]interface{}{{int64(1)}},
+			expectedRows: [][]interface{}{{true}},
 		},
 		// priority 11 operator
 		{
 			name:         "and operator",
 			query:        `SELECT 1 = 1 AND 2 = 2`,
-			expectedRows: [][]interface{}{{int64(1)}},
+			expectedRows: [][]interface{}{{true}},
 		},
 		// priority 12 operator
 		{
 			name:         "or operator",
 			query:        `SELECT 1 = 2 OR 1 = 1`,
-			expectedRows: [][]interface{}{{int64(1)}},
+			expectedRows: [][]interface{}{{true}},
 		},
 		{
 			name:         "exists",
 			query:        `SELECT EXISTS ( SELECT val FROM UNNEST([1, 2, 3]) AS val WHERE val = 1 )`,
-			expectedRows: [][]interface{}{{int64(1)}},
+			expectedRows: [][]interface{}{{true}},
 		},
 		{
 			name:         "not exists",
 			query:        `SELECT EXISTS ( SELECT val FROM UNNEST([1, 2, 3]) AS val WHERE val = 4 )`,
-			expectedRows: [][]interface{}{{int64(0)}},
+			expectedRows: [][]interface{}{{false}},
 		},
 		// not supported `IS DISTINCT FROM` by zetasql
 		//{
@@ -388,6 +388,122 @@ FROM Items`,
 			name:         "date operator",
 			query:        `SELECT DATE "2020-09-22" + 1 AS day_later, DATE "2020-09-22" - 7 AS week_ago`,
 			expectedRows: [][]interface{}{{"2020-09-23", "2020-09-15"}},
+		},
+		{
+			name:         "avg",
+			query:        `SELECT AVG(x) as avg FROM UNNEST([0, 2, 4, 4, 5]) as x`,
+			expectedRows: [][]interface{}{{float64(3)}},
+		},
+		{
+			name:         "avg with distinct",
+			query:        `SELECT AVG(DISTINCT x) AS avg FROM UNNEST([0, 2, 4, 4, 5]) AS x`,
+			expectedRows: [][]interface{}{{float64(2.75)}},
+		},
+		{
+			name:         "bit_and",
+			query:        `SELECT BIT_AND(x) as bit_and FROM UNNEST([0xF001, 0x00A1]) as x`,
+			expectedRows: [][]interface{}{{int64(1)}},
+		},
+		{
+			name:         "bit_or",
+			query:        `SELECT BIT_OR(x) as bit_or FROM UNNEST([0xF001, 0x00A1]) as x`,
+			expectedRows: [][]interface{}{{int64(61601)}},
+		},
+		{
+			name:         "bit_xor",
+			query:        `SELECT BIT_XOR(x) AS bit_xor FROM UNNEST([5678, 1234]) AS x`,
+			expectedRows: [][]interface{}{{int64(4860)}},
+		},
+		{
+			name:         "bit_xor 2",
+			query:        `SELECT BIT_XOR(x) AS bit_xor FROM UNNEST([1234, 5678, 1234]) AS x`,
+			expectedRows: [][]interface{}{{int64(5678)}},
+		},
+		{
+			name:         "bit_xor 3",
+			query:        `SELECT BIT_XOR(DISTINCT x) AS bit_xor FROM UNNEST([1234, 5678, 1234]) AS x`,
+			expectedRows: [][]interface{}{{int64(4860)}},
+		},
+		{
+			name:         "count",
+			query:        `SELECT COUNT(*) AS count_star, COUNT(DISTINCT x) AS count_dist_x FROM UNNEST([1, 4, 4, 5]) AS x`,
+			expectedRows: [][]interface{}{{int64(4), int64(3)}},
+		},
+		{
+			name: "count with if",
+			// TODO: needs to return NULL from IF function and ignore NULL by COUNT(DISTINCT)
+			query:        `SELECT COUNT(DISTINCT IF(x > 0, x, NULL)) AS distinct_positive FROM UNNEST([1, -2, 4, 1, -5, 4, 1, 3, -6, 1]) AS x`,
+			expectedRows: [][]interface{}{{int64(4)}},
+		},
+		{
+			name:         "countif",
+			query:        `SELECT COUNTIF(x<0) AS num_negative, COUNTIF(x>0) AS num_positive FROM UNNEST([5, -2, 3, 6, -10, -7, 4, 0]) AS x`,
+			expectedRows: [][]interface{}{{int64(3), int64(4)}},
+		},
+		{
+			name:         "logical_and",
+			query:        `SELECT LOGICAL_AND(x) AS logical_and FROM UNNEST([true, false, true]) AS x`,
+			expectedRows: [][]interface{}{{false}},
+		},
+		{
+			name:         "logical_or",
+			query:        `SELECT LOGICAL_OR(x) AS logical_or FROM UNNEST([true, false, true]) AS x`,
+			expectedRows: [][]interface{}{{true}},
+		},
+		{
+			name:         "max",
+			query:        `SELECT MAX(x) AS max FROM UNNEST([8, 37, 4, 55]) AS x`,
+			expectedRows: [][]interface{}{{int64(55)}},
+		},
+		{
+			name:         "min",
+			query:        `SELECT MIN(x) AS min FROM UNNEST([8, 37, 4, 55]) AS x`,
+			expectedRows: [][]interface{}{{int64(4)}},
+		},
+		{
+			name:         "string_agg",
+			query:        `SELECT STRING_AGG(fruit) AS string_agg FROM UNNEST(["apple", NULL, "pear", "banana", "pear"]) AS fruit`,
+			expectedRows: [][]interface{}{{"apple,pear,banana,pear"}},
+		},
+		{
+			name:         "string_agg with delimiter",
+			query:        `SELECT STRING_AGG(fruit, " & ") AS string_agg FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit`,
+			expectedRows: [][]interface{}{{"apple & pear & banana & pear"}},
+		},
+		{
+			name:         "string_agg with distinct",
+			query:        `SELECT STRING_AGG(DISTINCT fruit, " & ") AS string_agg FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit`,
+			expectedRows: [][]interface{}{{"apple & pear & banana"}},
+		},
+		{
+			name:         "string_agg with order by",
+			query:        `SELECT STRING_AGG(fruit, " & " ORDER BY LENGTH(fruit)) AS string_agg FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit`,
+			expectedRows: [][]interface{}{{"pear & pear & apple & banana"}},
+		},
+		{
+			name:         "string_agg with limit",
+			query:        `SELECT STRING_AGG(fruit, " & " LIMIT 2) AS string_agg FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit`,
+			expectedRows: [][]interface{}{{"apple & pear"}},
+		},
+		{
+			name:         "string_agg with distinct and order by and limit",
+			query:        `SELECT STRING_AGG(DISTINCT fruit, " & " ORDER BY fruit DESC LIMIT 2) AS string_agg FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit`,
+			expectedRows: [][]interface{}{{"pear & banana"}},
+		},
+		{
+			name:         "sum",
+			query:        `SELECT SUM(x) AS sum FROM UNNEST([1, 2, 3, 4, 5, 4, 3, 2, 1]) AS x`,
+			expectedRows: [][]interface{}{{int64(25)}},
+		},
+		{
+			name:         "sum with distinct",
+			query:        `SELECT SUM(DISTINCT x) AS sum FROM UNNEST([1, 2, 3, 4, 5, 4, 3, 2, 1]) AS x`,
+			expectedRows: [][]interface{}{{int64(15)}},
+		},
+		{
+			name:         "sum null",
+			query:        `SELECT SUM(x) AS sum FROM UNNEST([]) AS x`,
+			expectedRows: [][]interface{}{{int64(0)}},
 		},
 	} {
 		test := test

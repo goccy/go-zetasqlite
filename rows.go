@@ -80,6 +80,12 @@ func (r *Rows) convertValue(value interface{}, typ *Type) (driver.Value, error) 
 		return nil, nil
 	}
 	switch types.TypeKind(typ.Kind) {
+	case types.BOOL:
+		val, err := ValueOf(value)
+		if err != nil {
+			return nil, err
+		}
+		return val.ToBool()
 	case types.ARRAY:
 		val, err := ValueOf(value)
 		if err != nil {

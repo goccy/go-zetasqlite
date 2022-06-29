@@ -429,7 +429,11 @@ func (n *LiteralNode) toJSONValueRecursive(value types.Value) string {
 		}
 		return fmt.Sprintf("{%s}", strings.Join(fields, ","))
 	default:
-		return value.SQLLiteral(0)
+		v := value.SQLLiteral(0)
+		if v == "NULL" {
+			return "null"
+		}
+		return v
 	}
 }
 
@@ -446,7 +450,6 @@ type ParameterNode struct {
 
 func (n *ParameterNode) FormatSQL(ctx context.Context) (string, error) {
 	return fmt.Sprintf("@%s", n.node.Name()), nil
-	//return "?", nil
 }
 
 type ExpressionColumnNode struct {
@@ -605,6 +608,31 @@ func (n *AggregateFunctionCallNode) FormatSQL(ctx context.Context) (string, erro
 			return fmt.Sprintf("( %s )", body), nil
 		}
 	}
+	var opts []string
+	for _, item := range n.node.OrderByItemList() {
+		columnRef := item.ColumnRef()
+		columnName, err := newNode(columnRef).FormatSQL(ctx)
+		if err != nil {
+			return "", err
+		}
+		typeSuffix := strings.ToLower(columnRef.Column().Type().TypeName(0))
+		if item.IsDescending() {
+			opts = append(opts, fmt.Sprintf("zetasqlite_order_by_opt_%s(%s, false)", typeSuffix, columnName))
+		} else {
+			opts = append(opts, fmt.Sprintf("zetasqlite_order_by_opt_%s(%s, true)", typeSuffix, columnName))
+		}
+	}
+	if n.node.Distinct() {
+		opts = append(opts, "zetasqlite_distinct_opt()")
+	}
+	if n.node.Limit() != nil {
+		limitValue, err := newNode(n.node.Limit()).FormatSQL(ctx)
+		if err != nil {
+			return "", err
+		}
+		opts = append(opts, fmt.Sprintf("zetasqlite_limit_opt(%s)", limitValue))
+	}
+	args = append(args, opts...)
 	return fmt.Sprintf(
 		"%s(%s)",
 		funcName,
@@ -895,6 +923,9 @@ func (n *AggregateScanNode) FormatSQL(ctx context.Context) (string, error) {
 	input, err := newNode(n.node.InputScan()).FormatSQL(ctx)
 	if err != nil {
 		return "", err
+	}
+	if strings.HasPrefix(input, "SELECT") {
+		return fmt.Sprintf("FROM ( %s )", input), nil
 	}
 	return input, nil
 }

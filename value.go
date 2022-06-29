@@ -1200,7 +1200,7 @@ func isNULLValue(v interface{}) bool {
 	if !ok {
 		return false
 	}
-	return len(vv) == 0
+	return vv == nil
 }
 
 var (

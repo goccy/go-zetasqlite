@@ -3,6 +3,8 @@ package zetasqlite
 import (
 	"fmt"
 	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/mattn/go-sqlite3"
@@ -55,6 +57,21 @@ const (
 	arrayAtOrdinalStringFuncName     = "zetasqlite_array_at_ordinal_string"
 	safeArrayAtOffsetStringFuncName  = "zetasqlite_safe_array_at_offset_string"
 	safeArrayAtOrdinalStringFuncName = "zetasqlite_safe_array_at_ordinal_string"
+	bitAndFuncName                   = "zetasqlite_bit_and_int64"
+	bitOrFuncName                    = "zetasqlite_bit_or_int64"
+	bitXorFuncName                   = "zetasqlite_bit_xor_int64"
+	countI64FuncName                 = "zetasqlite_count_int64"
+	countStarI64FuncName             = "zetasqlite_count_star_int64"
+	countifI64FuncName               = "zetasqlite_countif_int64"
+	logicalAndFuncName               = "zetasqlite_logical_and_bool"
+	logicalOrFuncName                = "zetasqlite_logical_or_bool"
+	stringAggFuncName                = "zetasqlite_string_agg_string"
+	distinctOptFuncName              = "zetasqlite_distinct_opt"
+	limitOptFuncName                 = "zetasqlite_limit_opt"
+	orderByOptI64FuncName            = "zetasqlite_order_by_opt_int64"
+	orderByOptStringFuncName         = "zetasqlite_order_by_opt_string"
+	lengthFuncName                   = "zetasqlite_length_int64"
+	avgFuncName                      = "zetasqlite_avg_double"
 )
 
 var (
@@ -104,15 +121,32 @@ var (
 		arrayAtOrdinalStringFuncName:     arrayAtOrdinalStringFunc,
 		safeArrayAtOffsetStringFuncName:  safeArrayAtOffsetStringFunc,
 		safeArrayAtOrdinalStringFuncName: safeArrayAtOrdinalStringFunc,
+		distinctOptFuncName:              distinctOptFunc,
+		limitOptFuncName:                 limitOptFunc,
+		orderByOptI64FuncName:            orderByOptI64Func,
+		orderByOptStringFuncName:         orderByOptStringFunc,
+		lengthFuncName:                   lengthFunc,
 	}
 	zetasqliteAggregatorFuncMap = map[string]interface{}{
-		sumI64FuncName: newSumFunc,
+		sumI64FuncName:       newSumFunc,
+		bitAndFuncName:       newBitAndFunc,
+		bitOrFuncName:        newBitOrFunc,
+		bitXorFuncName:       newBitXorFunc,
+		countI64FuncName:     newCountFunc,
+		countStarI64FuncName: newCountStarFunc,
+		countifI64FuncName:   newCountIfFunc,
+		logicalAndFuncName:   newLogicalAndFunc,
+		logicalOrFuncName:    newLogicalOrFunc,
+		stringAggFuncName:    newStringAggFunc,
+		avgFuncName:          newAvgFunc,
 	}
 	builtinFunctions = []string{
-		"if", "concat", "coalesce", "ifnull", "nullif",
+		"if", "concat", "coalesce", "ifnull", "nullif", "length",
 	}
 	builtinAggregateFunctions = []string{
-		"sum",
+		"sum", "bit_and", "bit_or", "bit_xor",
+		"count", "countif", "logical_and", "logical_or",
+		"string_agg", "avg",
 	}
 	builtinFuncMap          = map[string]struct{}{}
 	builtinAggregateFuncMap = map[string]struct{}{}
@@ -141,7 +175,17 @@ func registerBuiltinFunctions(conn *sqlite3.SQLiteConn) error {
 	return nil
 }
 
-func newSumFunc() *sumFunc { return &sumFunc{} }
+func newSumFunc() *sumFunc               { return &sumFunc{} }
+func newBitAndFunc() *bitAndFunc         { return &bitAndFunc{-1} }
+func newBitOrFunc() *bitOrFunc           { return &bitOrFunc{-1} }
+func newBitXorFunc() *bitXorFunc         { return &bitXorFunc{bitXor: -1} }
+func newCountFunc() *countFunc           { return &countFunc{} }
+func newCountStarFunc() *countStarFunc   { return &countStarFunc{} }
+func newCountIfFunc() *countIfFunc       { return &countIfFunc{} }
+func newLogicalAndFunc() *logicalAndFunc { return &logicalAndFunc{true} }
+func newLogicalOrFunc() *logicalOrFunc   { return &logicalOrFunc{false} }
+func newAvgFunc() *avgFunc               { return &avgFunc{} }
+func newStringAggFunc() *stringAggFunc   { return &stringAggFunc{} }
 
 func addI64Func(a, b interface{}) (int64, error) {
 	va, err := ValueOf(a)
@@ -888,16 +932,323 @@ func nullifI64Func(expr, exprToMatch interface{}) (int64, error) {
 	return exprV.ToInt64()
 }
 
+func lengthFunc(value interface{}) (int64, error) {
+	if isNULLValue(value) {
+		return 0, nil
+	}
+	v, err := ValueOf(value)
+	if err != nil {
+		return 0, err
+	}
+	s, err := v.ToString()
+	if err != nil {
+		return 0, err
+	}
+	return int64(len(s)), nil
+}
+
 type sumFunc struct {
-	sum int64
+	sum    int64
+	aggMap map[int64]struct{}
 }
 
-func (s *sumFunc) Step(v int64) {
-	s.sum += v
+func (f *sumFunc) Step(v int64, args ...string) error {
+	distinct := parseDistinctOpt(args)
+	if distinct {
+		if f.aggMap == nil {
+			f.aggMap = map[int64]struct{}{}
+		}
+		if _, exists := f.aggMap[v]; exists {
+			return nil
+		}
+		f.aggMap[v] = struct{}{}
+	}
+	f.sum += v
+	return nil
 }
 
-func (s *sumFunc) Done() int64 {
-	return s.sum
+func (f *sumFunc) Done() int64 {
+	return f.sum
+}
+
+type bitAndFunc struct {
+	bitAnd int64
+}
+
+func (f *bitAndFunc) Step(v int64) {
+	if f.bitAnd == -1 {
+		f.bitAnd = v
+	} else {
+		f.bitAnd &= v
+	}
+}
+
+func (f *bitAndFunc) Done() int64 {
+	return f.bitAnd
+}
+
+type bitOrFunc struct {
+	bitOr int64
+}
+
+func (f *bitOrFunc) Step(v int64) {
+	if f.bitOr == -1 {
+		f.bitOr = v
+	} else {
+		f.bitOr |= v
+	}
+}
+
+func (f *bitOrFunc) Done() int64 {
+	return f.bitOr
+}
+
+type bitXorFunc struct {
+	bitXor int64
+	aggMap map[int64]struct{}
+}
+
+func (f *bitXorFunc) Step(v int64, args ...string) error {
+	distinct := parseDistinctOpt(args)
+	if distinct {
+		if f.aggMap == nil {
+			f.aggMap = map[int64]struct{}{}
+		}
+		if _, exists := f.aggMap[v]; exists {
+			return nil
+		}
+		f.aggMap[v] = struct{}{}
+	}
+	if f.bitXor == -1 {
+		f.bitXor = v
+	} else {
+		f.bitXor ^= v
+	}
+	return nil
+}
+
+func (f *bitXorFunc) Done() int64 {
+	return f.bitXor
+}
+
+type countFunc struct {
+	aggMap map[int64]struct{}
+	count  int64
+}
+
+func (f *countFunc) Step(v int64, args ...string) error {
+	distinct := parseDistinctOpt(args)
+	if distinct {
+		if f.aggMap == nil {
+			f.aggMap = map[int64]struct{}{}
+		}
+		if _, exists := f.aggMap[v]; exists {
+			return nil
+		}
+		f.aggMap[v] = struct{}{}
+	}
+	f.count++
+	return nil
+}
+
+func (f *countFunc) Done() int64 {
+	return f.count
+}
+
+type countStarFunc struct {
+	count int64
+}
+
+func (f *countStarFunc) Step() {
+	f.count++
+}
+
+func (f *countStarFunc) Done() int64 {
+	return f.count
+}
+
+type countIfFunc struct {
+	count int64
+}
+
+func (f *countIfFunc) Step(cond bool) {
+	if cond {
+		f.count++
+	}
+}
+
+func (f *countIfFunc) Done() int64 {
+	return f.count
+}
+
+type logicalAndFunc struct {
+	v bool
+}
+
+func (f *logicalAndFunc) Step(cond bool) {
+	if !cond {
+		f.v = false
+	}
+}
+
+func (f *logicalAndFunc) Done() bool {
+	return f.v
+}
+
+type logicalOrFunc struct {
+	v bool
+}
+
+func (f *logicalOrFunc) Step(cond bool) {
+	if cond {
+		f.v = true
+	}
+}
+
+func (f *logicalOrFunc) Done() bool {
+	return f.v
+}
+
+type avgFunc struct {
+	aggMap map[int64]struct{}
+	sum    int64
+	num    int64
+}
+
+func (f *avgFunc) Step(v interface{}, args ...string) error {
+	if isNULLValue(v) {
+		return nil
+	}
+	distinct := parseDistinctOpt(args)
+	value, err := ValueOf(v)
+	if err != nil {
+		return err
+	}
+	i64, err := value.ToInt64()
+	if err != nil {
+		return err
+	}
+	if distinct {
+		if f.aggMap == nil {
+			f.aggMap = map[int64]struct{}{}
+		}
+		if _, exists := f.aggMap[i64]; exists {
+			return nil
+		}
+		f.aggMap[i64] = struct{}{}
+	}
+	f.num++
+	f.sum += i64
+	return nil
+}
+
+func (f *avgFunc) Done() float64 {
+	return float64(f.sum) / float64(f.num)
+}
+
+type orderedValue struct {
+	value string
+	opt   *orderByOpt
+}
+
+type stringAggFunc struct {
+	aggMap       map[string]struct{}
+	values       []*orderedValue
+	delim        string
+	limit        int64
+	enabledSort  bool
+	enabledLimit bool
+}
+
+func (f *stringAggFunc) getDelim(args []string) string {
+	if len(args) == 0 {
+		return ""
+	}
+	if isOpt(args[0]) {
+		return ""
+	}
+	return args[0]
+}
+
+func (f *stringAggFunc) Step(v interface{}, args ...string) error {
+	if isNULLValue(v) {
+		return nil
+	}
+	f.delim = f.getDelim(args)
+	distinct := parseDistinctOpt(args)
+	limit, enabledLimit := parseLimitOpt(args)
+	orderByOpts, err := parseOrderByOpt(args)
+	if err != nil {
+		return err
+	}
+	if len(orderByOpts) > 1 {
+		return fmt.Errorf("STRING_AGG: unsupported multiple ORDER BY expression")
+	}
+	if enabledLimit {
+		f.enabledLimit = true
+		f.limit = limit
+	}
+	var orderBy *orderByOpt
+	if len(orderByOpts) != 0 {
+		f.enabledSort = true
+		orderBy = orderByOpts[0]
+	}
+
+	value, err := ValueOf(v)
+	if err != nil {
+		return err
+	}
+	text, err := value.ToString()
+	if err != nil {
+		return err
+	}
+	if distinct {
+		if f.aggMap == nil {
+			f.aggMap = map[string]struct{}{}
+		}
+		if _, exists := f.aggMap[text]; exists {
+			return nil
+		}
+		f.aggMap[text] = struct{}{}
+	}
+	f.values = append(f.values, &orderedValue{
+		value: text,
+		opt:   orderBy,
+	})
+	return nil
+}
+
+func (f *stringAggFunc) Done() string {
+	if f.enabledSort {
+		switch f.values[0].opt.typ {
+		case orderByAsc:
+			sort.Slice(f.values, func(i, j int) bool {
+				v, _ := f.values[i].opt.value.LT(f.values[j].opt.value)
+				return v
+			})
+		case orderByDsc:
+			sort.Slice(f.values, func(i, j int) bool {
+				v, _ := f.values[i].opt.value.GT(f.values[j].opt.value)
+				return v
+			})
+		}
+	}
+	if f.enabledLimit {
+		minLen := int64(len(f.values))
+		if f.limit < minLen {
+			minLen = f.limit
+		}
+		f.values = f.values[:minLen]
+	}
+	values := make([]string, 0, len(f.values))
+	for _, v := range f.values {
+		values = append(values, v.value)
+	}
+	delim := f.delim
+	if delim == "" {
+		delim = ","
+	}
+	return strings.Join(values, delim)
 }
 
 func decodeArrayFunc(v string) (string, error) {
@@ -906,4 +1257,174 @@ func decodeArrayFunc(v string) (string, error) {
 		return "", err
 	}
 	return string(json), nil
+}
+
+const (
+	distinctOptHeader = "zetasqlitedistinct:"
+	limitOptHeader    = "zetasqlitelimit:"
+	orderByOptHeader  = "zetasqliteorderby:"
+)
+
+func distinctOptFunc() string {
+	return encodeDistinctOpt(true)
+}
+
+func limitOptFunc(limit int64) string {
+	return encodeLimitOpt(limit)
+}
+
+func orderByOptI64Func(value int64, isAsc bool) string {
+	if isAsc {
+		return encodeOrderByI64Opt(value, orderByAsc)
+	}
+	return encodeOrderByI64Opt(value, orderByDsc)
+}
+
+func orderByOptStringFunc(value string, isAsc bool) string {
+	if isAsc {
+		return encodeOrderByStringOpt(value, orderByAsc)
+	}
+	return encodeOrderByStringOpt(value, orderByDsc)
+}
+
+func isOpt(opt string) bool {
+	switch {
+	case strings.HasPrefix(opt, distinctOptHeader):
+		return true
+	case strings.HasPrefix(opt, limitOptHeader):
+		return true
+	case strings.HasPrefix(opt, orderByOptHeader):
+		return true
+	}
+	return false
+}
+
+func encodeDistinctOpt(isDistinct bool) string {
+	return fmt.Sprintf("%s%t", distinctOptHeader, isDistinct)
+}
+
+func decodeDistinctOpt(opt string) bool {
+	if strings.HasPrefix(opt, distinctOptHeader) {
+		b, _ := strconv.ParseBool(opt[len(distinctOptHeader):])
+		return b
+	}
+	return false
+}
+
+func parseDistinctOpt(opts []string) bool {
+	for _, opt := range opts {
+		if decodeDistinctOpt(opt) {
+			return true
+		}
+	}
+	return false
+}
+
+func encodeLimitOpt(limit int64) string {
+	return fmt.Sprintf("%s%d", limitOptHeader, limit)
+}
+
+func decodeLimitOpt(opt string) int64 {
+	if strings.HasPrefix(opt, limitOptHeader) {
+		i, _ := strconv.ParseInt(opt[len(limitOptHeader):], 10, 64)
+		return i
+	}
+	return 0
+}
+
+func parseLimitOpt(opts []string) (int64, bool) {
+	for _, opt := range opts {
+		limit := decodeLimitOpt(opt)
+		if limit > 0 {
+			return limit, true
+		}
+	}
+	return 0, false
+}
+
+type orderByType string
+
+const (
+	orderByAsc orderByType = "asc"
+	orderByDsc orderByType = "dsc"
+)
+
+type orderByOpt struct {
+	typ   orderByType
+	value Value
+}
+
+func encodeOrderByI64Opt(value int64, typ orderByType) string {
+	return fmt.Sprintf("%si:%s:%d", orderByOptHeader, typ, value)
+}
+
+func encodeOrderByStringOpt(value string, typ orderByType) string {
+	return fmt.Sprintf("%ss:%s:%s", orderByOptHeader, typ, value)
+}
+
+func decodeOrderByI64Opt(opt string) (*orderByOpt, error) {
+	if !strings.HasPrefix(opt, orderByOptHeader) {
+		return nil, nil
+	}
+	removedHeader := opt[len(orderByOptHeader):]
+	if removedHeader[0] != 'i' {
+		return nil, fmt.Errorf("order by option is not int64 type")
+	}
+	removedTypeInfo := removedHeader[1:]
+	orderType := orderByType(removedTypeInfo[1:4]) // asc or dsc
+	i64, err := strconv.ParseInt(removedTypeInfo[5:], 10, 64)
+	if err != nil {
+		return nil, err
+	}
+	return &orderByOpt{
+		typ:   orderType,
+		value: IntValue(i64),
+	}, nil
+}
+
+func decodeOrderByStringOpt(opt string) (*orderByOpt, error) {
+	if !strings.HasPrefix(opt, orderByOptHeader) {
+		return nil, nil
+	}
+	removedHeader := opt[len(orderByOptHeader):]
+	if removedHeader[0] != 's' {
+		return nil, fmt.Errorf("order by option is not string type")
+	}
+	removedTypeInfo := removedHeader[1:]
+	orderType := orderByType(removedTypeInfo[1:4]) // asc or dsc
+	return &orderByOpt{
+		typ:   orderType,
+		value: StringValue(removedTypeInfo[5:]),
+	}, nil
+}
+
+func parseOrderByOpt(opts []string) ([]*orderByOpt, error) {
+	var ret []*orderByOpt
+	for _, opt := range opts {
+		if !strings.HasPrefix(opt, orderByOptHeader) {
+			continue
+		}
+		removedHeader := opt[len(orderByOptHeader):]
+		switch removedHeader[0] {
+		case 'i':
+			// int64 type
+			v, err := decodeOrderByI64Opt(opt)
+			if err != nil {
+				return nil, err
+			}
+			if v != nil {
+				ret = append(ret, v)
+			}
+		case 's':
+			// string type
+			v, err := decodeOrderByStringOpt(opt)
+			if err != nil {
+				return nil, err
+			}
+			if v != nil {
+				ret = append(ret, v)
+			}
+		}
+	}
+	return ret, nil
 }
