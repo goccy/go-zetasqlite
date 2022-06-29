@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/mattn/go-sqlite3"
 )
@@ -72,6 +73,10 @@ const (
 	orderByOptStringFuncName         = "zetasqlite_order_by_opt_string"
 	lengthFuncName                   = "zetasqlite_length_int64"
 	avgFuncName                      = "zetasqlite_avg_double"
+	unitFrameFuncName                = "zetasqlite_frame_unit"
+	windowStartFuncName              = "zetasqlite_window_start"
+	windowEndFuncName                = "zetasqlite_window_end"
+	analyticSumI64FuncName           = "zetasqlite_analytic_sum_int64"
 )
 
 var (
@@ -126,19 +131,23 @@ var (
 		orderByOptI64FuncName:            orderByOptI64Func,
 		orderByOptStringFuncName:         orderByOptStringFunc,
 		lengthFuncName:                   lengthFunc,
+		unitFrameFuncName:                unitFrameFunc,
+		windowStartFuncName:              windowStartFunc,
+		windowEndFuncName:                windowEndFunc,
 	}
 	zetasqliteAggregatorFuncMap = map[string]interface{}{
-		sumI64FuncName:       newSumFunc,
-		bitAndFuncName:       newBitAndFunc,
-		bitOrFuncName:        newBitOrFunc,
-		bitXorFuncName:       newBitXorFunc,
-		countI64FuncName:     newCountFunc,
-		countStarI64FuncName: newCountStarFunc,
-		countifI64FuncName:   newCountIfFunc,
-		logicalAndFuncName:   newLogicalAndFunc,
-		logicalOrFuncName:    newLogicalOrFunc,
-		stringAggFuncName:    newStringAggFunc,
-		avgFuncName:          newAvgFunc,
+		sumI64FuncName:         newSumFunc,
+		analyticSumI64FuncName: newAnalyticSumFunc,
+		bitAndFuncName:         newBitAndFunc,
+		bitOrFuncName:          newBitOrFunc,
+		bitXorFuncName:         newBitXorFunc,
+		countI64FuncName:       newCountFunc,
+		countStarI64FuncName:   newCountStarFunc,
+		countifI64FuncName:     newCountIfFunc,
+		logicalAndFuncName:     newLogicalAndFunc,
+		logicalOrFuncName:      newLogicalOrFunc,
+		stringAggFuncName:      newStringAggFunc,
+		avgFuncName:            newAvgFunc,
 	}
 	builtinFunctions = []string{
 		"if", "concat", "coalesce", "ifnull", "nullif", "length",
@@ -175,17 +184,18 @@ func registerBuiltinFunctions(conn *sqlite3.SQLiteConn) error {
 	return nil
 }
 
-func newSumFunc() *sumFunc               { return &sumFunc{} }
-func newBitAndFunc() *bitAndFunc         { return &bitAndFunc{-1} }
-func newBitOrFunc() *bitOrFunc           { return &bitOrFunc{-1} }
-func newBitXorFunc() *bitXorFunc         { return &bitXorFunc{bitXor: -1} }
-func newCountFunc() *countFunc           { return &countFunc{} }
-func newCountStarFunc() *countStarFunc   { return &countStarFunc{} }
-func newCountIfFunc() *countIfFunc       { return &countIfFunc{} }
-func newLogicalAndFunc() *logicalAndFunc { return &logicalAndFunc{true} }
-func newLogicalOrFunc() *logicalOrFunc   { return &logicalOrFunc{false} }
-func newAvgFunc() *avgFunc               { return &avgFunc{} }
-func newStringAggFunc() *stringAggFunc   { return &stringAggFunc{} }
+func newSumFunc() *sumFunc                 { return &sumFunc{} }
+func newAnalyticSumFunc() *analyticSumFunc { return &analyticSumFunc{} }
+func newBitAndFunc() *bitAndFunc           { return &bitAndFunc{-1} }
+func newBitOrFunc() *bitOrFunc             { return &bitOrFunc{-1} }
+func newBitXorFunc() *bitXorFunc           { return &bitXorFunc{bitXor: -1} }
+func newCountFunc() *countFunc             { return &countFunc{} }
+func newCountStarFunc() *countStarFunc     { return &countStarFunc{} }
+func newCountIfFunc() *countIfFunc         { return &countIfFunc{} }
+func newLogicalAndFunc() *logicalAndFunc   { return &logicalAndFunc{true} }
+func newLogicalOrFunc() *logicalOrFunc     { return &logicalOrFunc{false} }
+func newAvgFunc() *avgFunc                 { return &avgFunc{} }
+func newStringAggFunc() *stringAggFunc     { return &stringAggFunc{} }
 
 func addI64Func(a, b interface{}) (int64, error) {
 	va, err := ValueOf(a)
@@ -868,13 +878,19 @@ func coalesceStringFunc(args ...interface{}) (string, error) {
 	return "", fmt.Errorf("COALESCE requried arguments")
 }
 
-func ifI64Func(cond bool, trueV interface{}, falseV interface{}) (int64, error) {
+func ifI64Func(cond bool, trueV interface{}, falseV interface{}) (interface{}, error) {
 	if cond {
+		if isNULLValue(trueV) {
+			return nil, nil
+		}
 		v, err := ValueOf(trueV)
 		if err != nil {
 			return 0, err
 		}
 		return v.ToInt64()
+	}
+	if isNULLValue(falseV) {
+		return nil, nil
 	}
 	v, err := ValueOf(falseV)
 	if err != nil {
@@ -947,27 +963,103 @@ func lengthFunc(value interface{}) (int64, error) {
 	return int64(len(s)), nil
 }
 
-type sumFunc struct {
-	sum    int64
-	aggMap map[int64]struct{}
+const (
+	unitFrameHeader   = "zetasqliteunitframe:"
+	windowStartHeader = "zetasqlitewindowstart:"
+	windowEndHeader   = "zetasqlitewindowend:"
+)
+
+func unitFrameFunc(frameType string) string {
+	return fmt.Sprintf("%s%s", unitFrameHeader, frameType)
 }
 
-func (f *sumFunc) Step(v int64, args ...string) error {
+func windowStartFunc(windowType string) string {
+	return fmt.Sprintf("%s%s", windowStartHeader, windowType)
+}
+
+func windowEndFunc(windowType string) string {
+	return fmt.Sprintf("%s%s", windowEndHeader, windowType)
+}
+
+type analyticSumFunc struct {
+	initialized bool
+	once        sync.Once
+	sum         int64
+	aggMap      map[int64]struct{}
+}
+
+func (f *analyticSumFunc) Step(v interface{}, args ...string) error {
+	if isNULLValue(v) {
+		return nil
+	}
+	value, err := ValueOf(v)
+	if err != nil {
+		return err
+	}
+	i64, err := value.ToInt64()
+	if err != nil {
+		return err
+	}
+	f.once.Do(func() { f.initialized = true })
 	distinct := parseDistinctOpt(args)
 	if distinct {
 		if f.aggMap == nil {
 			f.aggMap = map[int64]struct{}{}
 		}
-		if _, exists := f.aggMap[v]; exists {
+		if _, exists := f.aggMap[i64]; exists {
 			return nil
 		}
-		f.aggMap[v] = struct{}{}
+		f.aggMap[i64] = struct{}{}
 	}
-	f.sum += v
+	f.sum += i64
 	return nil
 }
 
-func (f *sumFunc) Done() int64 {
+func (f *analyticSumFunc) Done() interface{} {
+	if !f.initialized {
+		return nil
+	}
+	return f.sum
+}
+
+type sumFunc struct {
+	initialized bool
+	once        sync.Once
+	sum         int64
+	aggMap      map[int64]struct{}
+}
+
+func (f *sumFunc) Step(v interface{}, args ...string) error {
+	if isNULLValue(v) {
+		return nil
+	}
+	value, err := ValueOf(v)
+	if err != nil {
+		return err
+	}
+	i64, err := value.ToInt64()
+	if err != nil {
+		return err
+	}
+	f.once.Do(func() { f.initialized = true })
+	distinct := parseDistinctOpt(args)
+	if distinct {
+		if f.aggMap == nil {
+			f.aggMap = map[int64]struct{}{}
+		}
+		if _, exists := f.aggMap[i64]; exists {
+			return nil
+		}
+		f.aggMap[i64] = struct{}{}
+	}
+	f.sum += i64
+	return nil
+}
+
+func (f *sumFunc) Done() interface{} {
+	if !f.initialized {
+		return nil
+	}
 	return f.sum
 }
 
@@ -975,12 +1067,24 @@ type bitAndFunc struct {
 	bitAnd int64
 }
 
-func (f *bitAndFunc) Step(v int64) {
-	if f.bitAnd == -1 {
-		f.bitAnd = v
-	} else {
-		f.bitAnd &= v
+func (f *bitAndFunc) Step(v interface{}) error {
+	if isNULLValue(v) {
+		return nil
 	}
+	value, err := ValueOf(v)
+	if err != nil {
+		return err
+	}
+	i64, err := value.ToInt64()
+	if err != nil {
+		return err
+	}
+	if f.bitAnd == -1 {
+		f.bitAnd = i64
+	} else {
+		f.bitAnd &= i64
+	}
+	return nil
 }
 
 func (f *bitAndFunc) Done() int64 {
@@ -991,12 +1095,24 @@ type bitOrFunc struct {
 	bitOr int64
 }
 
-func (f *bitOrFunc) Step(v int64) {
-	if f.bitOr == -1 {
-		f.bitOr = v
-	} else {
-		f.bitOr |= v
+func (f *bitOrFunc) Step(v interface{}) error {
+	if isNULLValue(v) {
+		return nil
 	}
+	value, err := ValueOf(v)
+	if err != nil {
+		return err
+	}
+	i64, err := value.ToInt64()
+	if err != nil {
+		return err
+	}
+	if f.bitOr == -1 {
+		f.bitOr = i64
+	} else {
+		f.bitOr |= i64
+	}
+	return nil
 }
 
 func (f *bitOrFunc) Done() int64 {
@@ -1008,21 +1124,32 @@ type bitXorFunc struct {
 	aggMap map[int64]struct{}
 }
 
-func (f *bitXorFunc) Step(v int64, args ...string) error {
+func (f *bitXorFunc) Step(v interface{}, args ...string) error {
+	if isNULLValue(v) {
+		return nil
+	}
+	value, err := ValueOf(v)
+	if err != nil {
+		return err
+	}
+	i64, err := value.ToInt64()
+	if err != nil {
+		return err
+	}
 	distinct := parseDistinctOpt(args)
 	if distinct {
 		if f.aggMap == nil {
 			f.aggMap = map[int64]struct{}{}
 		}
-		if _, exists := f.aggMap[v]; exists {
+		if _, exists := f.aggMap[i64]; exists {
 			return nil
 		}
-		f.aggMap[v] = struct{}{}
+		f.aggMap[i64] = struct{}{}
 	}
 	if f.bitXor == -1 {
-		f.bitXor = v
+		f.bitXor = i64
 	} else {
-		f.bitXor ^= v
+		f.bitXor ^= i64
 	}
 	return nil
 }
@@ -1036,16 +1163,27 @@ type countFunc struct {
 	count  int64
 }
 
-func (f *countFunc) Step(v int64, args ...string) error {
+func (f *countFunc) Step(v interface{}, args ...string) error {
+	if isNULLValue(v) {
+		return nil
+	}
+	value, err := ValueOf(v)
+	if err != nil {
+		return err
+	}
+	i64, err := value.ToInt64()
+	if err != nil {
+		return err
+	}
 	distinct := parseDistinctOpt(args)
 	if distinct {
 		if f.aggMap == nil {
 			f.aggMap = map[int64]struct{}{}
 		}
-		if _, exists := f.aggMap[v]; exists {
+		if _, exists := f.aggMap[i64]; exists {
 			return nil
 		}
-		f.aggMap[v] = struct{}{}
+		f.aggMap[i64] = struct{}{}
 	}
 	f.count++
 	return nil

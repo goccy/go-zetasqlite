@@ -645,6 +645,104 @@ type AnalyticFunctionCallNode struct {
 }
 
 func (n *AnalyticFunctionCallNode) FormatSQL(ctx context.Context) (string, error) {
+	if n.node == nil {
+		return "", nil
+	}
+	windowFrame := n.node.WindowFrame()
+	if windowFrame == nil {
+		return "", fmt.Errorf("missing window frame")
+	}
+	var frameUnit string
+	switch windowFrame.FrameUnit() {
+	case ast.FrameUnitRows:
+		frameUnit = "rows"
+	case ast.FrameUnitRange:
+		frameUnit = "range"
+	}
+	start, err := newNode(windowFrame.StartExpr()).FormatSQL(ctx)
+	if err != nil {
+		return "", err
+	}
+	end, err := newNode(windowFrame.EndExpr()).FormatSQL(ctx)
+	if err != nil {
+		return "", err
+	}
+	args := []string{}
+	tableNameMap := map[string]struct{}{}
+	orderColumnNames := analyticOrderColumnNamesFromContext(ctx)
+	for _, a := range n.node.ArgumentList() {
+		switch t := a.(type) {
+		case *ast.ColumnRefNode:
+			tableNameMap[t.Column().TableName()] = struct{}{}
+		default:
+			return "", fmt.Errorf("unexpected argument node type %T for analytic function", a)
+		}
+		arg, err := newNode(a).FormatSQL(ctx)
+		if err != nil {
+			return "", err
+		}
+		orderColumnNames.values = append(orderColumnNames.values, arg)
+		args = append(args, arg)
+	}
+	if len(tableNameMap) == 0 {
+		return "", fmt.Errorf("unknown table name from %s", n.node.DebugString())
+	}
+	if len(tableNameMap) > 1 {
+		names := []string{}
+		for name := range tableNameMap {
+			names = append(names, name)
+		}
+		return "", fmt.Errorf("unsupported window function with multiple tables: %v", names)
+	}
+	var tableName string
+	for name := range tableNameMap {
+		tableName = name
+		break
+	}
+	resultType := strings.ToLower(n.node.Signature().ResultType().Type().TypeName(0))
+	if strings.HasPrefix(resultType, "struct") {
+		resultType = "struct"
+	}
+	funcName := n.node.Function().FullName(false)
+	if strings.HasPrefix(funcName, "$") {
+		funcName = fmt.Sprintf("zetasqlite_analytic_%s_%s", funcName[1:], resultType)
+	} else if _, exists := builtinAggregateFuncMap[funcName]; exists {
+		funcName = fmt.Sprintf("zetasqlite_analytic_%s_%s", funcName, resultType)
+	} else {
+		fullpath := fullNamePathFromContext(ctx)
+		path := fullpath.paths[fullpath.idx]
+		funcName = formatName(
+			mergeNamePath(
+				namePathFromContext(ctx),
+				path,
+			),
+		)
+		fullpath.idx++
+		funcMap := funcMapFromContext(ctx)
+		if spec, exists := funcMap[funcName]; exists {
+			body := spec.Body
+			for _, arg := range args {
+				// TODO: Need to recognize the argument exactly.
+				body = strings.Replace(body, "?", arg, 1)
+			}
+			return fmt.Sprintf("( %s )", body), nil
+		}
+	}
+	var opts []string
+	if n.node.Distinct() {
+		opts = append(opts, "zetasqlite_distinct_opt()")
+	}
+	args = append(args, opts...)
+	args = append(args, fmt.Sprintf(`zetasqlite_frame_unit("%s")`, frameUnit))
+	args = append(args, fmt.Sprintf(`zetasqlite_window_start("%s")`, start))
+	args = append(args, fmt.Sprintf(`zetasqlite_window_end("%s")`, end))
+	return fmt.Sprintf(
+		"( SELECT %s(%s) FROM %s )",
+		funcName,
+		strings.Join(args, ","),
+		tableName,
+	), nil
+
 	return "", nil
 }
 
@@ -1018,7 +1116,25 @@ type AnalyticScanNode struct {
 }
 
 func (n *AnalyticScanNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
+	if n.node == nil {
+		return "", nil
+	}
+	input, err := newNode(n.node.InputScan()).FormatSQL(ctx)
+	if err != nil {
+		return "", err
+	}
+	for _, group := range n.node.FunctionGroupList() {
+		if _, err := newNode(group).FormatSQL(ctx); err != nil {
+			return "", err
+		}
+	}
+	orderColumnNames := analyticOrderColumnNamesFromContext(ctx)
+	orderBy := fmt.Sprintf("ORDER BY %s", strings.Join(orderColumnNames.values, ","))
+	orderColumnNames.values = []string{}
+	if strings.HasPrefix(input, "SELECT") {
+		return fmt.Sprintf("FROM ( %s %s )", input, orderBy), nil
+	}
+	return fmt.Sprintf("%s %s", input, orderBy), nil
 }
 
 type SampleScanNode struct {
@@ -1514,7 +1630,23 @@ type AnalyticFunctionGroupNode struct {
 }
 
 func (n *AnalyticFunctionGroupNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
+	if n.node == nil {
+		return "", nil
+	}
+	orderColumnNames := analyticOrderColumnNamesFromContext(ctx)
+	var queries []string
+	for _, column := range n.node.AnalyticFunctionList() {
+		sql, err := newNode(column).FormatSQL(ctx)
+		if err != nil {
+			return "", err
+		}
+		queries = append(queries, sql)
+		orderColumnNames.values = append(
+			orderColumnNames.values,
+			fmt.Sprintf("`%s`", column.Column().Name()),
+		)
+	}
+	return strings.Join(queries, ","), nil
 }
 
 type WindowFrameExprNode struct {
@@ -1522,6 +1654,27 @@ type WindowFrameExprNode struct {
 }
 
 func (n *WindowFrameExprNode) FormatSQL(ctx context.Context) (string, error) {
+	if n.node == nil {
+		return "", nil
+	}
+	if n.node.Expression() != nil {
+		if _, err := newNode(n.node.Expression()).FormatSQL(ctx); err != nil {
+			return "", err
+		}
+		return "", fmt.Errorf("currently unsupported window frame expression: %s", n.node.DebugString())
+	}
+	switch n.node.BoundaryType() {
+	case ast.UnboundedPrecedingType:
+		return "unbounded_preceding", nil
+	case ast.OffsetPrecedingType:
+		return "offset_preceding", nil
+	case ast.CurrentRowType:
+		return "current_row", nil
+	case ast.OffsetFollowingType:
+		return "offset_following", nil
+	case ast.UnboundedFollowingType:
+		return "unbounded_following", nil
+	}
 	return "", nil
 }
 

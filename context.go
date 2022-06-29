@@ -3,10 +3,11 @@ package zetasqlite
 import "context"
 
 type (
-	namePathKey     struct{}
-	fullNamePathKey struct{}
-	columnRefMapKey struct{}
-	funcMapKey      struct{}
+	namePathKey                 struct{}
+	fullNamePathKey             struct{}
+	columnRefMapKey             struct{}
+	funcMapKey                  struct{}
+	analyticOrderColumnNamesKey struct{}
 )
 
 func namePathFromContext(ctx context.Context) []string {
@@ -60,4 +61,20 @@ func funcMapFromContext(ctx context.Context) map[string]*FunctionSpec {
 		return nil
 	}
 	return value.(map[string]*FunctionSpec)
+}
+
+type analyticOrderColumnNames struct {
+	values []string
+}
+
+func withAnalyticOrderColumnNames(ctx context.Context, v *analyticOrderColumnNames) context.Context {
+	return context.WithValue(ctx, analyticOrderColumnNamesKey{}, v)
+}
+
+func analyticOrderColumnNamesFromContext(ctx context.Context) *analyticOrderColumnNames {
+	value := ctx.Value(analyticOrderColumnNamesKey{})
+	if value == nil {
+		return nil
+	}
+	return value.(*analyticOrderColumnNames)
 }

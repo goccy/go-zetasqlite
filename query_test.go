@@ -430,10 +430,9 @@ FROM Items`,
 			expectedRows: [][]interface{}{{int64(4), int64(3)}},
 		},
 		{
-			name: "count with if",
-			// TODO: needs to return NULL from IF function and ignore NULL by COUNT(DISTINCT)
+			name:         "count with if",
 			query:        `SELECT COUNT(DISTINCT IF(x > 0, x, NULL)) AS distinct_positive FROM UNNEST([1, -2, 4, 1, -5, 4, 1, 3, -6, 1]) AS x`,
-			expectedRows: [][]interface{}{{int64(4)}},
+			expectedRows: [][]interface{}{{int64(3)}},
 		},
 		{
 			name:         "countif",
@@ -503,7 +502,36 @@ FROM Items`,
 		{
 			name:         "sum null",
 			query:        `SELECT SUM(x) AS sum FROM UNNEST([]) AS x`,
-			expectedRows: [][]interface{}{{int64(0)}},
+			expectedRows: [][]interface{}{},
+		},
+		{
+			name:         "null",
+			query:        `SELECT NULL`,
+			expectedRows: [][]interface{}{},
+		},
+
+		// window function
+		{
+			name: `window total`,
+			query: `
+WITH Produce AS
+ (SELECT 'kale' as item, 23 as purchases, 'vegetable' as category
+  UNION ALL SELECT 'banana', 2, 'fruit'
+  UNION ALL SELECT 'cabbage', 9, 'vegetable'
+  UNION ALL SELECT 'apple', 8, 'fruit'
+  UNION ALL SELECT 'leek', 2, 'vegetable'
+  UNION ALL SELECT 'lettuce', 10, 'vegetable')
+SELECT item, purchases, category, SUM(purchases)
+  OVER () AS total_purchases
+FROM Produce`,
+			expectedRows: [][]interface{}{
+				{"banana", int64(2), "fruit", int64(54)},
+				{"leek", int64(2), "vegetable", int64(54)},
+				{"apple", int64(8), "fruit", int64(54)},
+				{"cabbage", int64(9), "vegetable", int64(54)},
+				{"lettuce", int64(10), "vegetable", int64(54)},
+				{"kale", int64(23), "vegetable", int64(54)},
+			},
 		},
 	} {
 		test := test
