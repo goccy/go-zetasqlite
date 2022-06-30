@@ -533,6 +533,58 @@ FROM Produce`,
 				{"kale", int64(23), "vegetable", int64(54)},
 			},
 		},
+		{
+			name: `window subtotal`,
+			query: `
+WITH Produce AS
+ (SELECT 'kale' as item, 23 as purchases, 'vegetable' as category
+  UNION ALL SELECT 'banana', 2, 'fruit'
+  UNION ALL SELECT 'cabbage', 9, 'vegetable'
+  UNION ALL SELECT 'apple', 8, 'fruit'
+  UNION ALL SELECT 'leek', 2, 'vegetable'
+  UNION ALL SELECT 'lettuce', 10, 'vegetable')
+SELECT item, purchases, category, SUM(purchases)
+  OVER (
+    PARTITION BY category
+    ORDER BY purchases
+    ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+  ) AS total_purchases
+FROM Produce`,
+			expectedRows: [][]interface{}{
+				{"banana", int64(2), "fruit", int64(10)},
+				{"apple", int64(8), "fruit", int64(10)},
+				{"leek", int64(2), "vegetable", int64(44)},
+				{"cabbage", int64(9), "vegetable", int64(44)},
+				{"lettuce", int64(10), "vegetable", int64(44)},
+				{"kale", int64(23), "vegetable", int64(44)},
+			},
+		},
+		{
+			name: `window cumulative`,
+			query: `
+WITH Produce AS
+ (SELECT 'kale' as item, 23 as purchases, 'vegetable' as category
+  UNION ALL SELECT 'banana', 2, 'fruit'
+  UNION ALL SELECT 'cabbage', 9, 'vegetable'
+  UNION ALL SELECT 'apple', 8, 'fruit'
+  UNION ALL SELECT 'leek', 2, 'vegetable'
+  UNION ALL SELECT 'lettuce', 10, 'vegetable')
+SELECT item, purchases, category, SUM(purchases)
+  OVER (
+    PARTITION BY category
+    ORDER BY purchases
+    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+  ) AS total_purchases
+FROM Produce`,
+			expectedRows: [][]interface{}{
+				{"banana", int64(2), "fruit", int64(2)},
+				{"apple", int64(8), "fruit", int64(10)},
+				{"leek", int64(2), "vegetable", int64(2)},
+				{"cabbage", int64(9), "vegetable", int64(11)},
+				{"lettuce", int64(10), "vegetable", int64(21)},
+				{"kale", int64(23), "vegetable", int64(44)},
+			},
+		},
 	} {
 		test := test
 		t.Run(test.name, func(t *testing.T) {

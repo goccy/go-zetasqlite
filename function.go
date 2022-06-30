@@ -12,128 +12,134 @@ import (
 )
 
 const (
-	notEqualFuncName                 = "zetasqlite_not_equal_bool"
-	equalFuncName                    = "zetasqlite_equal_bool"
-	greaterFuncName                  = "zetasqlite_greater_bool"
-	greaterOrEqualFuncName           = "zetasqlite_greater_or_equal_bool"
-	lessFuncName                     = "zetasqlite_less_bool"
-	lessOrEqualFuncName              = "zetasqlite_less_or_equal_bool"
-	inArrayFuncName                  = "zetasqlite_in_array_bool"
-	addI64FuncName                   = "zetasqlite_add_int64"
-	addDateFuncName                  = "zetasqlite_add_date"
-	subI64FuncName                   = "zetasqlite_subtract_int64"
-	subDateFuncName                  = "zetasqlite_subtract_date"
-	mulI64FuncName                   = "zetasqlite_multiply_int64"
-	divI64FuncName                   = "zetasqlite_div_int64"
-	divDoubleFuncName                = "zetasqlite_divide_double"
-	bitwiseNotI64FuncName            = "zetasqlite_bitwise_not_int64"
-	bitwiseLeftShiftI64FuncName      = "zetasqlite_bitwise_left_shift_int64"
-	bitwiseAndI64FuncName            = "zetasqlite_bitwise_and_int64"
-	bitwiseOrI64FuncName             = "zetasqlite_bitwise_or_int64"
-	bitwiseXorI64FuncName            = "zetasqlite_bitwise_xor_int64"
-	bitwiseRightShiftI64FuncName     = "zetasqlite_bitwise_right_shift_int64"
-	getStructFieldI64FuncName        = "zetasqlite_get_struct_field_int64"
-	getStructFieldStringFuncName     = "zetasqlite_get_struct_field_string"
-	getStructFieldStructFuncName     = "zetasqlite_get_struct_field_struct"
-	sumI64FuncName                   = "zetasqlite_sum_int64"
-	decodeArrayFuncName              = "zetasqlite_decode_array"
-	concatStringFuncName             = "zetasqlite_concat_string"
-	likeFuncName                     = "zetasqlite_like_bool"
-	betweenFuncName                  = "zetasqlite_between_bool"
-	inFuncName                       = "zetasqlite_in_bool"
-	isNullFuncName                   = "zetasqlite_is_null_bool"
-	isTrueFuncName                   = "zetasqlite_is_true_bool"
-	isFalseFuncName                  = "zetasqlite_is_false_bool"
-	notFuncName                      = "zetasqlite_not_bool"
-	andFuncName                      = "zetasqlite_and_bool"
-	orFuncName                       = "zetasqlite_or_bool"
-	caseWithValueStringFuncName      = "zetasqlite_case_with_value_string"
-	caseNoValueStringFuncName        = "zetasqlite_case_no_value_string"
-	coalesceStringFuncName           = "zetasqlite_coalesce_string"
-	ifI64FuncName                    = "zetasqlite_if_int64"
-	ifStringFuncName                 = "zetasqlite_if_string"
-	ifnullI64FuncName                = "zetasqlite_ifnull_int64"
-	nullifI64FuncName                = "zetasqlite_nullif_int64"
-	arrayAtOffsetStringFuncName      = "zetasqlite_array_at_offset_string"
-	arrayAtOrdinalStringFuncName     = "zetasqlite_array_at_ordinal_string"
-	safeArrayAtOffsetStringFuncName  = "zetasqlite_safe_array_at_offset_string"
-	safeArrayAtOrdinalStringFuncName = "zetasqlite_safe_array_at_ordinal_string"
-	bitAndFuncName                   = "zetasqlite_bit_and_int64"
-	bitOrFuncName                    = "zetasqlite_bit_or_int64"
-	bitXorFuncName                   = "zetasqlite_bit_xor_int64"
-	countI64FuncName                 = "zetasqlite_count_int64"
-	countStarI64FuncName             = "zetasqlite_count_star_int64"
-	countifI64FuncName               = "zetasqlite_countif_int64"
-	logicalAndFuncName               = "zetasqlite_logical_and_bool"
-	logicalOrFuncName                = "zetasqlite_logical_or_bool"
-	stringAggFuncName                = "zetasqlite_string_agg_string"
-	distinctOptFuncName              = "zetasqlite_distinct_opt"
-	limitOptFuncName                 = "zetasqlite_limit_opt"
-	orderByOptI64FuncName            = "zetasqlite_order_by_opt_int64"
-	orderByOptStringFuncName         = "zetasqlite_order_by_opt_string"
-	lengthFuncName                   = "zetasqlite_length_int64"
-	avgFuncName                      = "zetasqlite_avg_double"
-	unitFrameFuncName                = "zetasqlite_frame_unit"
-	windowStartFuncName              = "zetasqlite_window_start"
-	windowEndFuncName                = "zetasqlite_window_end"
-	analyticSumI64FuncName           = "zetasqlite_analytic_sum_int64"
+	notEqualFuncName                  = "zetasqlite_not_equal_bool"
+	equalFuncName                     = "zetasqlite_equal_bool"
+	greaterFuncName                   = "zetasqlite_greater_bool"
+	greaterOrEqualFuncName            = "zetasqlite_greater_or_equal_bool"
+	lessFuncName                      = "zetasqlite_less_bool"
+	lessOrEqualFuncName               = "zetasqlite_less_or_equal_bool"
+	inArrayFuncName                   = "zetasqlite_in_array_bool"
+	addI64FuncName                    = "zetasqlite_add_int64"
+	addDateFuncName                   = "zetasqlite_add_date"
+	subI64FuncName                    = "zetasqlite_subtract_int64"
+	subDateFuncName                   = "zetasqlite_subtract_date"
+	mulI64FuncName                    = "zetasqlite_multiply_int64"
+	divI64FuncName                    = "zetasqlite_div_int64"
+	divDoubleFuncName                 = "zetasqlite_divide_double"
+	bitwiseNotI64FuncName             = "zetasqlite_bitwise_not_int64"
+	bitwiseLeftShiftI64FuncName       = "zetasqlite_bitwise_left_shift_int64"
+	bitwiseAndI64FuncName             = "zetasqlite_bitwise_and_int64"
+	bitwiseOrI64FuncName              = "zetasqlite_bitwise_or_int64"
+	bitwiseXorI64FuncName             = "zetasqlite_bitwise_xor_int64"
+	bitwiseRightShiftI64FuncName      = "zetasqlite_bitwise_right_shift_int64"
+	getStructFieldI64FuncName         = "zetasqlite_get_struct_field_int64"
+	getStructFieldStringFuncName      = "zetasqlite_get_struct_field_string"
+	getStructFieldStructFuncName      = "zetasqlite_get_struct_field_struct"
+	sumI64FuncName                    = "zetasqlite_sum_int64"
+	decodeArrayFuncName               = "zetasqlite_decode_array"
+	concatStringFuncName              = "zetasqlite_concat_string"
+	likeFuncName                      = "zetasqlite_like_bool"
+	betweenFuncName                   = "zetasqlite_between_bool"
+	inFuncName                        = "zetasqlite_in_bool"
+	isNullFuncName                    = "zetasqlite_is_null_bool"
+	isTrueFuncName                    = "zetasqlite_is_true_bool"
+	isFalseFuncName                   = "zetasqlite_is_false_bool"
+	notFuncName                       = "zetasqlite_not_bool"
+	andFuncName                       = "zetasqlite_and_bool"
+	orFuncName                        = "zetasqlite_or_bool"
+	caseWithValueStringFuncName       = "zetasqlite_case_with_value_string"
+	caseNoValueStringFuncName         = "zetasqlite_case_no_value_string"
+	coalesceStringFuncName            = "zetasqlite_coalesce_string"
+	ifI64FuncName                     = "zetasqlite_if_int64"
+	ifStringFuncName                  = "zetasqlite_if_string"
+	ifnullI64FuncName                 = "zetasqlite_ifnull_int64"
+	nullifI64FuncName                 = "zetasqlite_nullif_int64"
+	arrayAtOffsetStringFuncName       = "zetasqlite_array_at_offset_string"
+	arrayAtOrdinalStringFuncName      = "zetasqlite_array_at_ordinal_string"
+	safeArrayAtOffsetStringFuncName   = "zetasqlite_safe_array_at_offset_string"
+	safeArrayAtOrdinalStringFuncName  = "zetasqlite_safe_array_at_ordinal_string"
+	bitAndFuncName                    = "zetasqlite_bit_and_int64"
+	bitOrFuncName                     = "zetasqlite_bit_or_int64"
+	bitXorFuncName                    = "zetasqlite_bit_xor_int64"
+	countI64FuncName                  = "zetasqlite_count_int64"
+	countStarI64FuncName              = "zetasqlite_count_star_int64"
+	countifI64FuncName                = "zetasqlite_countif_int64"
+	logicalAndFuncName                = "zetasqlite_logical_and_bool"
+	logicalOrFuncName                 = "zetasqlite_logical_or_bool"
+	stringAggFuncName                 = "zetasqlite_string_agg_string"
+	distinctOptFuncName               = "zetasqlite_distinct_opt"
+	limitOptFuncName                  = "zetasqlite_limit_opt"
+	orderByOptI64FuncName             = "zetasqlite_order_by_opt_int64"
+	orderByOptStringFuncName          = "zetasqlite_order_by_opt_string"
+	lengthFuncName                    = "zetasqlite_length_int64"
+	avgFuncName                       = "zetasqlite_avg_double"
+	windowPartitionOptionFuncName     = "zetasqlite_window_partition"
+	windowFrameUnitOptionFuncName     = "zetasqlite_window_frame_unit"
+	windowBoundaryStartOptionFuncName = "zetasqlite_window_boundary_start"
+	windowBoundaryEndOptionFuncName   = "zetasqlite_window_boundary_end"
+	windowRowIDOptionFuncName         = "zetasqlite_window_rowid"
+	windowOrderByOptionFuncName       = "zetasqlite_window_order_by"
+	analyticSumI64FuncName            = "zetasqlite_analytic_sum_int64"
 )
 
 var (
 	zetasqliteFuncMap = map[string]interface{}{
-		notEqualFuncName:                 notEqualFunc,
-		equalFuncName:                    equalFunc,
-		greaterFuncName:                  greaterFunc,
-		greaterOrEqualFuncName:           greaterOrEqualFunc,
-		lessFuncName:                     lessFunc,
-		lessOrEqualFuncName:              lessOrEqualFunc,
-		inArrayFuncName:                  inArrayFunc,
-		addI64FuncName:                   addI64Func,
-		addDateFuncName:                  addDateFunc,
-		subI64FuncName:                   subI64Func,
-		subDateFuncName:                  subDateFunc,
-		mulI64FuncName:                   mulI64Func,
-		divI64FuncName:                   divI64Func,
-		divDoubleFuncName:                divDoubleFunc,
-		bitwiseNotI64FuncName:            bitwiseNotI64Func,
-		bitwiseLeftShiftI64FuncName:      bitwiseLeftShiftI64Func,
-		bitwiseRightShiftI64FuncName:     bitwiseRightShiftI64Func,
-		bitwiseAndI64FuncName:            bitwiseAndI64Func,
-		bitwiseOrI64FuncName:             bitwiseOrI64Func,
-		bitwiseXorI64FuncName:            bitwiseXorI64Func,
-		getStructFieldI64FuncName:        getStructFieldI64Func,
-		getStructFieldStringFuncName:     getStructFieldStringFunc,
-		getStructFieldStructFuncName:     getStructFieldStructFunc,
-		decodeArrayFuncName:              decodeArrayFunc,
-		concatStringFuncName:             concatStringFunc,
-		likeFuncName:                     likeFunc,
-		betweenFuncName:                  betweenFunc,
-		inFuncName:                       inFunc,
-		isNullFuncName:                   isNullFunc,
-		isTrueFuncName:                   isTrueFunc,
-		isFalseFuncName:                  isFalseFunc,
-		notFuncName:                      notFunc,
-		andFuncName:                      andFunc,
-		orFuncName:                       orFunc,
-		caseWithValueStringFuncName:      caseWithValueStringFunc,
-		caseNoValueStringFuncName:        caseNoValueStringFunc,
-		coalesceStringFuncName:           coalesceStringFunc,
-		ifI64FuncName:                    ifI64Func,
-		ifStringFuncName:                 ifStringFunc,
-		ifnullI64FuncName:                ifnullI64Func,
-		nullifI64FuncName:                nullifI64Func,
-		arrayAtOffsetStringFuncName:      arrayAtOffsetStringFunc,
-		arrayAtOrdinalStringFuncName:     arrayAtOrdinalStringFunc,
-		safeArrayAtOffsetStringFuncName:  safeArrayAtOffsetStringFunc,
-		safeArrayAtOrdinalStringFuncName: safeArrayAtOrdinalStringFunc,
-		distinctOptFuncName:              distinctOptFunc,
-		limitOptFuncName:                 limitOptFunc,
-		orderByOptI64FuncName:            orderByOptI64Func,
-		orderByOptStringFuncName:         orderByOptStringFunc,
-		lengthFuncName:                   lengthFunc,
-		unitFrameFuncName:                unitFrameFunc,
-		windowStartFuncName:              windowStartFunc,
-		windowEndFuncName:                windowEndFunc,
+		notEqualFuncName:                  notEqualFunc,
+		equalFuncName:                     equalFunc,
+		greaterFuncName:                   greaterFunc,
+		greaterOrEqualFuncName:            greaterOrEqualFunc,
+		lessFuncName:                      lessFunc,
+		lessOrEqualFuncName:               lessOrEqualFunc,
+		inArrayFuncName:                   inArrayFunc,
+		addI64FuncName:                    addI64Func,
+		addDateFuncName:                   addDateFunc,
+		subI64FuncName:                    subI64Func,
+		subDateFuncName:                   subDateFunc,
+		mulI64FuncName:                    mulI64Func,
+		divI64FuncName:                    divI64Func,
+		divDoubleFuncName:                 divDoubleFunc,
+		bitwiseNotI64FuncName:             bitwiseNotI64Func,
+		bitwiseLeftShiftI64FuncName:       bitwiseLeftShiftI64Func,
+		bitwiseRightShiftI64FuncName:      bitwiseRightShiftI64Func,
+		bitwiseAndI64FuncName:             bitwiseAndI64Func,
+		bitwiseOrI64FuncName:              bitwiseOrI64Func,
+		bitwiseXorI64FuncName:             bitwiseXorI64Func,
+		getStructFieldI64FuncName:         getStructFieldI64Func,
+		getStructFieldStringFuncName:      getStructFieldStringFunc,
+		getStructFieldStructFuncName:      getStructFieldStructFunc,
+		decodeArrayFuncName:               decodeArrayFunc,
+		concatStringFuncName:              concatStringFunc,
+		likeFuncName:                      likeFunc,
+		betweenFuncName:                   betweenFunc,
+		inFuncName:                        inFunc,
+		isNullFuncName:                    isNullFunc,
+		isTrueFuncName:                    isTrueFunc,
+		isFalseFuncName:                   isFalseFunc,
+		notFuncName:                       notFunc,
+		andFuncName:                       andFunc,
+		orFuncName:                        orFunc,
+		caseWithValueStringFuncName:       caseWithValueStringFunc,
+		caseNoValueStringFuncName:         caseNoValueStringFunc,
+		coalesceStringFuncName:            coalesceStringFunc,
+		ifI64FuncName:                     ifI64Func,
+		ifStringFuncName:                  ifStringFunc,
+		ifnullI64FuncName:                 ifnullI64Func,
+		nullifI64FuncName:                 nullifI64Func,
+		arrayAtOffsetStringFuncName:       arrayAtOffsetStringFunc,
+		arrayAtOrdinalStringFuncName:      arrayAtOrdinalStringFunc,
+		safeArrayAtOffsetStringFuncName:   safeArrayAtOffsetStringFunc,
+		safeArrayAtOrdinalStringFuncName:  safeArrayAtOrdinalStringFunc,
+		distinctOptFuncName:               distinctOptFunc,
+		limitOptFuncName:                  limitOptFunc,
+		orderByOptI64FuncName:             orderByOptI64Func,
+		orderByOptStringFuncName:          orderByOptStringFunc,
+		lengthFuncName:                    lengthFunc,
+		windowPartitionOptionFuncName:     windowPartitionOptionFunc,
+		windowFrameUnitOptionFuncName:     windowFrameUnitOptionFunc,
+		windowBoundaryStartOptionFuncName: windowBoundaryStartOptionFunc,
+		windowBoundaryEndOptionFuncName:   windowBoundaryEndOptionFunc,
+		windowRowIDOptionFuncName:         windowRowIDOptionFunc,
+		windowOrderByOptionFuncName:       windowOrderByOptionFunc,
 	}
 	zetasqliteAggregatorFuncMap = map[string]interface{}{
 		sumI64FuncName:         newSumFunc,
@@ -184,18 +190,20 @@ func registerBuiltinFunctions(conn *sqlite3.SQLiteConn) error {
 	return nil
 }
 
-func newSumFunc() *sumFunc                 { return &sumFunc{} }
-func newAnalyticSumFunc() *analyticSumFunc { return &analyticSumFunc{} }
-func newBitAndFunc() *bitAndFunc           { return &bitAndFunc{-1} }
-func newBitOrFunc() *bitOrFunc             { return &bitOrFunc{-1} }
-func newBitXorFunc() *bitXorFunc           { return &bitXorFunc{bitXor: -1} }
-func newCountFunc() *countFunc             { return &countFunc{} }
-func newCountStarFunc() *countStarFunc     { return &countStarFunc{} }
-func newCountIfFunc() *countIfFunc         { return &countIfFunc{} }
-func newLogicalAndFunc() *logicalAndFunc   { return &logicalAndFunc{true} }
-func newLogicalOrFunc() *logicalOrFunc     { return &logicalOrFunc{false} }
-func newAvgFunc() *avgFunc                 { return &avgFunc{} }
-func newStringAggFunc() *stringAggFunc     { return &stringAggFunc{} }
+func newSumFunc() *sumFunc { return &sumFunc{} }
+func newAnalyticSumFunc() *analyticSumFunc {
+	return &analyticSumFunc{agg: newWindowFuncAggregatedStatus()}
+}
+func newBitAndFunc() *bitAndFunc         { return &bitAndFunc{-1} }
+func newBitOrFunc() *bitOrFunc           { return &bitOrFunc{-1} }
+func newBitXorFunc() *bitXorFunc         { return &bitXorFunc{bitXor: -1} }
+func newCountFunc() *countFunc           { return &countFunc{} }
+func newCountStarFunc() *countStarFunc   { return &countStarFunc{} }
+func newCountIfFunc() *countIfFunc       { return &countIfFunc{} }
+func newLogicalAndFunc() *logicalAndFunc { return &logicalAndFunc{true} }
+func newLogicalOrFunc() *logicalOrFunc   { return &logicalOrFunc{false} }
+func newAvgFunc() *avgFunc               { return &avgFunc{} }
+func newStringAggFunc() *stringAggFunc   { return &stringAggFunc{} }
 
 func addI64Func(a, b interface{}) (int64, error) {
 	va, err := ValueOf(a)
@@ -963,29 +971,12 @@ func lengthFunc(value interface{}) (int64, error) {
 	return int64(len(s)), nil
 }
 
-const (
-	unitFrameHeader   = "zetasqliteunitframe:"
-	windowStartHeader = "zetasqlitewindowstart:"
-	windowEndHeader   = "zetasqlitewindowend:"
-)
-
-func unitFrameFunc(frameType string) string {
-	return fmt.Sprintf("%s%s", unitFrameHeader, frameType)
-}
-
-func windowStartFunc(windowType string) string {
-	return fmt.Sprintf("%s%s", windowStartHeader, windowType)
-}
-
-func windowEndFunc(windowType string) string {
-	return fmt.Sprintf("%s%s", windowEndHeader, windowType)
-}
-
 type analyticSumFunc struct {
 	initialized bool
 	once        sync.Once
 	sum         int64
 	aggMap      map[int64]struct{}
+	agg         *WindowFuncAggregatedStatus
 }
 
 func (f *analyticSumFunc) Step(v interface{}, args ...string) error {
@@ -1011,15 +1002,35 @@ func (f *analyticSumFunc) Step(v interface{}, args ...string) error {
 		}
 		f.aggMap[i64] = struct{}{}
 	}
+	status, err := parseWindowOptions(args...)
+	if err != nil {
+		return err
+	}
+	if err := f.agg.Step(value, status); err != nil {
+		return err
+	}
 	f.sum += i64
 	return nil
 }
 
-func (f *analyticSumFunc) Done() interface{} {
+func (f *analyticSumFunc) Done() (interface{}, error) {
 	if !f.initialized {
-		return nil
+		return nil, nil
 	}
-	return f.sum
+	var sum int64
+	if err := f.agg.Done(func(values []Value, start, end int) error {
+		for _, value := range values[start : end+1] {
+			i64, err := value.ToInt64()
+			if err != nil {
+				return err
+			}
+			sum += i64
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return sum, nil
 }
 
 type sumFunc struct {

@@ -652,24 +652,10 @@ func (n *AnalyticFunctionCallNode) FormatSQL(ctx context.Context) (string, error
 	if windowFrame == nil {
 		return "", fmt.Errorf("missing window frame")
 	}
-	var frameUnit string
-	switch windowFrame.FrameUnit() {
-	case ast.FrameUnitRows:
-		frameUnit = "rows"
-	case ast.FrameUnitRange:
-		frameUnit = "range"
-	}
-	start, err := newNode(windowFrame.StartExpr()).FormatSQL(ctx)
-	if err != nil {
-		return "", err
-	}
-	end, err := newNode(windowFrame.EndExpr()).FormatSQL(ctx)
-	if err != nil {
-		return "", err
-	}
 	args := []string{}
 	tableNameMap := map[string]struct{}{}
 	orderColumnNames := analyticOrderColumnNamesFromContext(ctx)
+	orderColumns := orderColumnNames.values
 	for _, a := range n.node.ArgumentList() {
 		switch t := a.(type) {
 		case *ast.ColumnRefNode:
@@ -733,9 +719,16 @@ func (n *AnalyticFunctionCallNode) FormatSQL(ctx context.Context) (string, error
 		opts = append(opts, "zetasqlite_distinct_opt()")
 	}
 	args = append(args, opts...)
-	args = append(args, fmt.Sprintf(`zetasqlite_frame_unit("%s")`, frameUnit))
-	args = append(args, fmt.Sprintf(`zetasqlite_window_start("%s")`, start))
-	args = append(args, fmt.Sprintf(`zetasqlite_window_end("%s")`, end))
+	for _, column := range analyticPartitionColumnNamesFromContext(ctx) {
+		args = append(args, getWindowPartitionOptionFuncSQL(column))
+	}
+	for _, column := range orderColumns {
+		args = append(args, getWindowOrderByOptionFuncSQL(column))
+	}
+	args = append(args, getWindowFrameUnitOptionFuncSQL(windowFrame.FrameUnit()))
+	args = append(args, getWindowBoundaryStartOptionFuncSQL(windowFrame.StartExpr().BoundaryType()))
+	args = append(args, getWindowBoundaryEndOptionFuncSQL(windowFrame.EndExpr().BoundaryType()))
+	args = append(args, getWindowRowIDOptionFuncSQL())
 	return fmt.Sprintf(
 		"( SELECT %s(%s) FROM %s )",
 		funcName,
@@ -1123,18 +1116,36 @@ func (n *AnalyticScanNode) FormatSQL(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	orderColumnNames := analyticOrderColumnNamesFromContext(ctx)
 	for _, group := range n.node.FunctionGroupList() {
+		if group.PartitionBy() != nil {
+			var partitionColumns []string
+			for _, columnRef := range group.PartitionBy().PartitionByList() {
+				partitionColumns = append(
+					partitionColumns,
+					fmt.Sprintf("`%s`", columnRef.Column().Name()),
+				)
+			}
+			orderColumnNames.values = append(orderColumnNames.values, partitionColumns...)
+			ctx = withAnalyticPartitionColumnNames(ctx, partitionColumns)
+		}
+		if group.OrderBy() != nil {
+			var orderByColumns []string
+			for _, item := range group.OrderBy().OrderByItemList() {
+				orderByColumns = append(
+					orderByColumns,
+					fmt.Sprintf("`%s`", item.ColumnRef().Column().Name()),
+				)
+			}
+			orderColumnNames.values = append(orderColumnNames.values, orderByColumns...)
+		}
 		if _, err := newNode(group).FormatSQL(ctx); err != nil {
 			return "", err
 		}
 	}
-	orderColumnNames := analyticOrderColumnNamesFromContext(ctx)
 	orderBy := fmt.Sprintf("ORDER BY %s", strings.Join(orderColumnNames.values, ","))
 	orderColumnNames.values = []string{}
-	if strings.HasPrefix(input, "SELECT") {
-		return fmt.Sprintf("FROM ( %s %s )", input, orderBy), nil
-	}
-	return fmt.Sprintf("%s %s", input, orderBy), nil
+	return fmt.Sprintf("FROM ( SELECT *, ROW_NUMBER() OVER() AS `rowid` %s ) %s", input, orderBy), nil
 }
 
 type SampleScanNode struct {
@@ -1654,27 +1665,6 @@ type WindowFrameExprNode struct {
 }
 
 func (n *WindowFrameExprNode) FormatSQL(ctx context.Context) (string, error) {
-	if n.node == nil {
-		return "", nil
-	}
-	if n.node.Expression() != nil {
-		if _, err := newNode(n.node.Expression()).FormatSQL(ctx); err != nil {
-			return "", err
-		}
-		return "", fmt.Errorf("currently unsupported window frame expression: %s", n.node.DebugString())
-	}
-	switch n.node.BoundaryType() {
-	case ast.UnboundedPrecedingType:
-		return "unbounded_preceding", nil
-	case ast.OffsetPrecedingType:
-		return "offset_preceding", nil
-	case ast.CurrentRowType:
-		return "current_row", nil
-	case ast.OffsetFollowingType:
-		return "offset_following", nil
-	case ast.UnboundedFollowingType:
-		return "unbounded_following", nil
-	}
 	return "", nil
 }
 
