@@ -394,6 +394,8 @@ type LiteralNode struct {
 func (n *LiteralNode) toJSONValue(value types.Value) string {
 	jsonValue := n.toJSONValueRecursive(value)
 	switch value.Type().Kind() {
+	case types.DATE:
+		return toDateValueFromString(jsonValue)
 	case types.ARRAY:
 		return toArrayValueFromJSONString(jsonValue)
 	case types.STRUCT:
@@ -404,6 +406,8 @@ func (n *LiteralNode) toJSONValue(value types.Value) string {
 
 func (n *LiteralNode) toJSONValueRecursive(value types.Value) string {
 	switch value.Type().Kind() {
+	case types.DATE:
+		return toDateValueFromInt64(value.ToInt64())
 	case types.ARRAY:
 		elems := []string{}
 		for i := 0; i < value.NumElements(); i++ {
@@ -425,7 +429,11 @@ func (n *LiteralNode) toJSONValueRecursive(value types.Value) string {
 		}
 		return fmt.Sprintf("{%s}", strings.Join(fields, ","))
 	default:
-		return value.SQLLiteral(0)
+		v := value.SQLLiteral(0)
+		if v == "NULL" {
+			return "null"
+		}
+		return v
 	}
 }
 
@@ -442,7 +450,6 @@ type ParameterNode struct {
 
 func (n *ParameterNode) FormatSQL(ctx context.Context) (string, error) {
 	return fmt.Sprintf("@%s", n.node.Name()), nil
-	//return "?", nil
 }
 
 type ExpressionColumnNode struct {
@@ -521,6 +528,9 @@ func (n *FunctionCallNode) FormatSQL(ctx context.Context) (string, error) {
 		args = append(args, arg)
 	}
 	resultType := strings.ToLower(n.node.Signature().ResultType().Type().TypeName(0))
+	if strings.HasPrefix(resultType, "struct") {
+		resultType = "struct"
+	}
 	funcName := n.node.Function().FullName(false)
 	if strings.HasPrefix(funcName, "$") {
 		funcName = fmt.Sprintf("zetasqlite_%s_%s", funcName[1:], resultType)
@@ -570,6 +580,9 @@ func (n *AggregateFunctionCallNode) FormatSQL(ctx context.Context) (string, erro
 		args = append(args, arg)
 	}
 	resultType := strings.ToLower(n.node.Signature().ResultType().Type().TypeName(0))
+	if strings.HasPrefix(resultType, "struct") {
+		resultType = "struct"
+	}
 	funcName := n.node.Function().FullName(false)
 	if strings.HasPrefix(funcName, "$") {
 		funcName = fmt.Sprintf("zetasqlite_%s_%s", funcName[1:], resultType)
@@ -595,6 +608,31 @@ func (n *AggregateFunctionCallNode) FormatSQL(ctx context.Context) (string, erro
 			return fmt.Sprintf("( %s )", body), nil
 		}
 	}
+	var opts []string
+	for _, item := range n.node.OrderByItemList() {
+		columnRef := item.ColumnRef()
+		columnName, err := newNode(columnRef).FormatSQL(ctx)
+		if err != nil {
+			return "", err
+		}
+		typeSuffix := strings.ToLower(columnRef.Column().Type().TypeName(0))
+		if item.IsDescending() {
+			opts = append(opts, fmt.Sprintf("zetasqlite_order_by_opt_%s(%s, false)", typeSuffix, columnName))
+		} else {
+			opts = append(opts, fmt.Sprintf("zetasqlite_order_by_opt_%s(%s, true)", typeSuffix, columnName))
+		}
+	}
+	if n.node.Distinct() {
+		opts = append(opts, "zetasqlite_distinct_opt()")
+	}
+	if n.node.Limit() != nil {
+		limitValue, err := newNode(n.node.Limit()).FormatSQL(ctx)
+		if err != nil {
+			return "", err
+		}
+		opts = append(opts, fmt.Sprintf("zetasqlite_limit_opt(%s)", limitValue))
+	}
+	args = append(args, opts...)
 	return fmt.Sprintf(
 		"%s(%s)",
 		funcName,
@@ -607,7 +645,114 @@ type AnalyticFunctionCallNode struct {
 }
 
 func (n *AnalyticFunctionCallNode) FormatSQL(ctx context.Context) (string, error) {
+	if n.node == nil {
+		return "", nil
+	}
+	args := []string{}
+	orderColumnNames := analyticOrderColumnNamesFromContext(ctx)
+	orderColumns := orderColumnNames.values
+	for _, a := range n.node.ArgumentList() {
+		switch t := a.(type) {
+		case *ast.ColumnRefNode:
+			ctx = withAnalyticTableName(ctx, t.Column().TableName())
+		default:
+			return "", fmt.Errorf("unexpected argument node type %T for analytic function", a)
+		}
+		arg, err := newNode(a).FormatSQL(ctx)
+		if err != nil {
+			return "", err
+		}
+		orderColumnNames.values = append(orderColumnNames.values, arg)
+		args = append(args, arg)
+	}
+	tableName := analyticTableNameFromContext(ctx)
+	if tableName == "" {
+		return "", fmt.Errorf("failed to find table name from analytic query")
+	}
+	resultType := strings.ToLower(n.node.Signature().ResultType().Type().TypeName(0))
+	if strings.HasPrefix(resultType, "struct") {
+		resultType = "struct"
+	}
+	funcName := n.node.Function().FullName(false)
+	if strings.HasPrefix(funcName, "$") {
+		funcName = fmt.Sprintf("zetasqlite_analytic_%s_%s", funcName[1:], resultType)
+	} else if _, exists := builtinAggregateFuncMap[funcName]; exists {
+		funcName = fmt.Sprintf("zetasqlite_analytic_%s_%s", funcName, resultType)
+	} else {
+		fullpath := fullNamePathFromContext(ctx)
+		path := fullpath.paths[fullpath.idx]
+		funcName = formatName(
+			mergeNamePath(
+				namePathFromContext(ctx),
+				path,
+			),
+		)
+		fullpath.idx++
+		funcMap := funcMapFromContext(ctx)
+		if spec, exists := funcMap[funcName]; exists {
+			body := spec.Body
+			for _, arg := range args {
+				// TODO: Need to recognize the argument exactly.
+				body = strings.Replace(body, "?", arg, 1)
+			}
+			return fmt.Sprintf("( %s )", body), nil
+		}
+	}
+	var opts []string
+	if n.node.Distinct() {
+		opts = append(opts, "zetasqlite_distinct_opt()")
+	}
+	args = append(args, opts...)
+	for _, column := range analyticPartitionColumnNamesFromContext(ctx) {
+		args = append(args, getWindowPartitionOptionFuncSQL(column))
+	}
+	for _, column := range orderColumns {
+		args = append(args, getWindowOrderByOptionFuncSQL(column))
+	}
+	windowFrame := n.node.WindowFrame()
+	if windowFrame != nil {
+		args = append(args, getWindowFrameUnitOptionFuncSQL(windowFrame.FrameUnit()))
+		startSQL, err := n.getWindowBoundaryOptionFuncSQL(ctx, windowFrame.StartExpr(), true)
+		if err != nil {
+			return "", err
+		}
+		endSQL, err := n.getWindowBoundaryOptionFuncSQL(ctx, windowFrame.EndExpr(), false)
+		if err != nil {
+			return "", err
+		}
+		args = append(args, startSQL)
+		args = append(args, endSQL)
+	}
+	args = append(args, getWindowRowIDOptionFuncSQL())
+	return fmt.Sprintf(
+		"( SELECT %s(%s) FROM %s )",
+		funcName,
+		strings.Join(args, ","),
+		tableName,
+	), nil
+
 	return "", nil
+}
+
+func (n *AnalyticFunctionCallNode) getWindowBoundaryOptionFuncSQL(ctx context.Context, expr *ast.WindowFrameExprNode, isStart bool) (string, error) {
+	typ := expr.BoundaryType()
+	switch typ {
+	case ast.UnboundedPrecedingType, ast.CurrentRowType, ast.UnboundedFollowingType:
+		if isStart {
+			return getWindowBoundaryStartOptionFuncSQL(typ, ""), nil
+		}
+		return getWindowBoundaryEndOptionFuncSQL(typ, ""), nil
+	case ast.OffsetPrecedingType, ast.OffsetFollowingType:
+		literal, err := newNode(expr.Expression()).FormatSQL(ctx)
+		if err != nil {
+			return "", err
+		}
+		if isStart {
+			return getWindowBoundaryStartOptionFuncSQL(typ, literal), nil
+		}
+		return getWindowBoundaryEndOptionFuncSQL(typ, literal), nil
+	}
+	return "", fmt.Errorf("unexpected boundary type %d", typ)
 }
 
 type ExtendedCastElementNode struct {
@@ -671,6 +816,9 @@ func (n *GetStructFieldNode) FormatSQL(ctx context.Context) (string, error) {
 		return "", err
 	}
 	typeSuffix := strings.ToLower(n.node.Type().TypeName(0))
+	if strings.HasPrefix(typeSuffix, "struct") {
+		typeSuffix = "struct"
+	}
 	idx := n.node.FieldIdx()
 	return fmt.Sprintf("zetasqlite_get_struct_field_%s(%s, %d)", typeSuffix, expr, idx), nil
 }
@@ -737,7 +885,7 @@ func (n *SubqueryExprNode) FormatSQL(ctx context.Context) (string, error) {
 	}
 	switch n.node.SubqueryType() {
 	case ast.SubqueryTypeExists:
-		return fmt.Sprintf("EXISTS (SELECT * %s)", sql), nil
+		return fmt.Sprintf("EXISTS (%s)", sql), nil
 	}
 	return sql, nil
 }
@@ -824,7 +972,7 @@ func (n *ArrayScanNode) FormatSQL(ctx context.Context) (string, error) {
 	}
 	colName := n.node.ElementColumn().Name()
 	return fmt.Sprintf(
-		"FROM ( SELECT json_each.value AS %s FROM json_each(zetasqlite_decode_array(%s)) )",
+		"FROM ( SELECT json_each.value AS `%s` FROM json_each(zetasqlite_decode_array(%s)) )",
 		colName,
 		arrayExpr,
 	), nil
@@ -883,16 +1031,10 @@ func (n *AggregateScanNode) FormatSQL(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	columns := []string{}
-	for _, col := range n.node.ColumnList() {
-		columnMap := columnRefMap(ctx)
-		if ref, exists := columnMap[col.Name()]; exists {
-			columns = append(columns, ref)
-		} else {
-			columns = append(columns, col.Name())
-		}
+	if strings.HasPrefix(input, "SELECT") {
+		return fmt.Sprintf("FROM ( %s )", input), nil
 	}
-	return fmt.Sprintf("%s %s", strings.Join(columns, ","), input), nil
+	return input, nil
 }
 
 type AnonymizedAggregateScanNode struct {
@@ -908,7 +1050,10 @@ type SetOperationItemNode struct {
 }
 
 func (n *SetOperationItemNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
+	if n.node == nil {
+		return "", nil
+	}
+	return newNode(n.node.Scan()).FormatSQL(ctx)
 }
 
 type SetOperationScanNode struct {
@@ -916,7 +1061,35 @@ type SetOperationScanNode struct {
 }
 
 func (n *SetOperationScanNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
+	if n.node == nil {
+		return "", nil
+	}
+	var opType string
+	switch n.node.OpType() {
+	case ast.SetOperationTypeUnionAll:
+		opType = "UNION ALL"
+	case ast.SetOperationTypeUnionDistinct:
+		opType = "UNION DISTINCT"
+	case ast.SetOperationTypeIntersectAll:
+		opType = "INTERSECT ALL"
+	case ast.SetOperationTypeIntersectDistinct:
+		opType = "INTERSECT DISTINCT"
+	case ast.SetOperationTypeExceptAll:
+		opType = "EXCEPT ALL"
+	case ast.SetOperationTypeExceptDistinct:
+		opType = "EXCEPT DISTINCT"
+	default:
+		opType = "UNKONWN"
+	}
+	var queries []string
+	for _, item := range n.node.InputItemList() {
+		query, err := newNode(item).FormatSQL(ctx)
+		if err != nil {
+			return "", err
+		}
+		queries = append(queries, query)
+	}
+	return strings.Join(queries, fmt.Sprintf(" %s ", opType)), nil
 }
 
 type OrderByScanNode struct {
@@ -940,7 +1113,11 @@ type WithRefScanNode struct {
 }
 
 func (n *WithRefScanNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
+	if n.node == nil {
+		return "", nil
+	}
+	queryName := n.node.WithQueryName()
+	return fmt.Sprintf("FROM %s", queryName), nil
 }
 
 type AnalyticScanNode struct {
@@ -948,7 +1125,45 @@ type AnalyticScanNode struct {
 }
 
 func (n *AnalyticScanNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
+	if n.node == nil {
+		return "", nil
+	}
+	input, err := newNode(n.node.InputScan()).FormatSQL(ctx)
+	if err != nil {
+		return "", err
+	}
+	orderColumnNames := analyticOrderColumnNamesFromContext(ctx)
+	for _, group := range n.node.FunctionGroupList() {
+		if group.PartitionBy() != nil {
+			var partitionColumns []string
+			for _, columnRef := range group.PartitionBy().PartitionByList() {
+				ctx = withAnalyticTableName(ctx, columnRef.Column().TableName())
+				partitionColumns = append(
+					partitionColumns,
+					fmt.Sprintf("`%s`", columnRef.Column().Name()),
+				)
+			}
+			orderColumnNames.values = append(orderColumnNames.values, partitionColumns...)
+			ctx = withAnalyticPartitionColumnNames(ctx, partitionColumns)
+		}
+		if group.OrderBy() != nil {
+			var orderByColumns []string
+			for _, item := range group.OrderBy().OrderByItemList() {
+				ctx = withAnalyticTableName(ctx, item.ColumnRef().Column().TableName())
+				orderByColumns = append(
+					orderByColumns,
+					fmt.Sprintf("`%s`", item.ColumnRef().Column().Name()),
+				)
+			}
+			orderColumnNames.values = append(orderColumnNames.values, orderByColumns...)
+		}
+		if _, err := newNode(group).FormatSQL(ctx); err != nil {
+			return "", err
+		}
+	}
+	orderBy := fmt.Sprintf("ORDER BY %s", strings.Join(orderColumnNames.values, ","))
+	orderColumnNames.values = []string{}
+	return fmt.Sprintf("FROM ( SELECT *, ROW_NUMBER() OVER() AS `rowid` %s ) %s", input, orderBy), nil
 }
 
 type SampleScanNode struct {
@@ -967,13 +1182,15 @@ func (n *ComputedColumnNode) FormatSQL(ctx context.Context) (string, error) {
 	if n.node == nil {
 		return "", nil
 	}
-	sql, err := newNode(n.node.Expr()).FormatSQL(ctx)
+	expr, err := newNode(n.node.Expr()).FormatSQL(ctx)
 	if err != nil {
 		return "", err
 	}
+	name := n.node.Column().Name()
+	query := fmt.Sprintf("%s AS `%s`", expr, name)
 	columnMap := columnRefMap(ctx)
-	columnMap[n.node.Column().Name()] = sql
-	return "", nil
+	columnMap[name] = query
+	return query, nil
 }
 
 type OrderByItemNode struct {
@@ -1073,7 +1290,18 @@ func (n *ProjectScanNode) FormatSQL(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return input, nil
+	columns := []string{}
+	columnMap := columnRefMap(ctx)
+	for _, col := range n.node.ColumnList() {
+		colName := col.Name()
+		if ref, exists := columnMap[colName]; exists {
+			columns = append(columns, ref)
+			delete(columnMap, colName)
+		} else {
+			columns = append(columns, fmt.Sprintf("`%s`", colName))
+		}
+	}
+	return fmt.Sprintf("SELECT %s %s", strings.Join(columns, ","), input), nil
 }
 
 type TVFScanNode struct {
@@ -1116,19 +1344,7 @@ func (n *QueryStmtNode) FormatSQL(ctx context.Context) (string, error) {
 	if n.node == nil {
 		return "", nil
 	}
-	query, err := newNode(n.node.Query()).FormatSQL(ctx)
-	if err != nil {
-		return "", err
-	}
-	cols := []string{}
-	for _, c := range n.node.OutputColumnList() {
-		col, err := newNode(c).FormatSQL(ctx)
-		if err != nil {
-			return "", err
-		}
-		cols = append(cols, col)
-	}
-	return fmt.Sprintf("SELECT %s %s", strings.Join(cols, ","), query), nil
+	return newNode(n.node.Query()).FormatSQL(ctx)
 }
 
 type CreateDatabaseStmtNode struct {
@@ -1368,7 +1584,26 @@ type WithScanNode struct {
 }
 
 func (n *WithScanNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
+	if n.node == nil {
+		return "", nil
+	}
+	queries := []string{}
+	for _, entry := range n.node.WithEntryList() {
+		sql, err := newNode(entry).FormatSQL(ctx)
+		if err != nil {
+			return "", err
+		}
+		queries = append(queries, sql)
+	}
+	query, err := newNode(n.node.Query()).FormatSQL(ctx)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf(
+		"WITH %s %s",
+		strings.Join(queries, ", "),
+		query,
+	), nil
 }
 
 type WithEntryNode struct {
@@ -1376,7 +1611,15 @@ type WithEntryNode struct {
 }
 
 func (n *WithEntryNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
+	if n.node == nil {
+		return "", nil
+	}
+	queryName := n.node.WithQueryName()
+	subquery, err := newNode(n.node.WithSubquery()).FormatSQL(ctx)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s AS ( %s )", queryName, subquery), nil
 }
 
 type OptionNode struct {
@@ -1416,7 +1659,23 @@ type AnalyticFunctionGroupNode struct {
 }
 
 func (n *AnalyticFunctionGroupNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
+	if n.node == nil {
+		return "", nil
+	}
+	orderColumnNames := analyticOrderColumnNamesFromContext(ctx)
+	var queries []string
+	for _, column := range n.node.AnalyticFunctionList() {
+		sql, err := newNode(column).FormatSQL(ctx)
+		if err != nil {
+			return "", err
+		}
+		queries = append(queries, sql)
+		orderColumnNames.values = append(
+			orderColumnNames.values,
+			fmt.Sprintf("`%s`", column.Column().Name()),
+		)
+	}
+	return strings.Join(queries, ","), nil
 }
 
 type WindowFrameExprNode struct {

@@ -43,6 +43,7 @@ func newAnalyzerOptions() *zetasql.AnalyzerOptions {
 	langOpt.SetNameResolutionMode(zetasql.NameResolutionDefault)
 	langOpt.SetProductMode(types.ProductExternal)
 	langOpt.SetEnabledLanguageFeatures([]zetasql.LanguageFeature{
+		zetasql.FeatureAnalyticFunctions,
 		zetasql.FeatureNamedArguments,
 		zetasql.FeatureNumericType,
 		zetasql.FeatureCreateTableNotNull,
@@ -58,6 +59,9 @@ func newAnalyzerOptions() *zetasql.AnalyzerOptions {
 		zetasql.FeatureJsonArrayFunctions,
 		zetasql.FeatureJsonStrictNumberParsing,
 		zetasql.FeatureV13IsDistinct,
+		zetasql.FeatureV13DateArithmetics,
+		zetasql.FeatureV11OrderByInAggregate,
+		zetasql.FeatureV11LimitInAggregate,
 	})
 	langOpt.SetSupportedStatementKinds([]ast.Kind{
 		ast.QueryStmt,
@@ -95,6 +99,7 @@ func (a *Analyzer) Analyze(ctx context.Context, query string) (*AnalyzerOutput, 
 	ctx = withColumnRefMap(ctx, map[string]string{})
 	ctx = withFullNamePath(ctx, fullpath)
 	ctx = withFuncMap(ctx, funcMap)
+	ctx = withAnalyticOrderColumnNames(ctx, &analyticOrderColumnNames{})
 	stmtNode := out.Statement()
 	switch stmtNode.Kind() {
 	case ast.CreateTableStmt:

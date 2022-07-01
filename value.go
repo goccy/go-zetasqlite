@@ -9,8 +9,10 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Value interface {
@@ -29,6 +31,8 @@ type Value interface {
 	ToBool() (bool, error)
 	ToArray() (*ArrayValue, error)
 	ToStruct() (*StructValue, error)
+	ToJSON() (string, error)
+	ToTime() (time.Time, error)
 }
 
 type IntValue int64
@@ -127,16 +131,24 @@ func (iv IntValue) ToBool() (bool, error) {
 	case 1:
 		return true, nil
 	default:
-		return false, fmt.Errorf("falied to convert %d to bool type", iv)
+		return false, fmt.Errorf("failed to convert %d to bool type", iv)
 	}
 }
 
 func (iv IntValue) ToArray() (*ArrayValue, error) {
-	return nil, fmt.Errorf("falied to convert %d to array type", iv)
+	return nil, fmt.Errorf("failed to convert %d to array type", iv)
 }
 
 func (iv IntValue) ToStruct() (*StructValue, error) {
-	return nil, fmt.Errorf("falied to convert %d to struct type", iv)
+	return nil, fmt.Errorf("failed to convert %d to struct type", iv)
+}
+
+func (iv IntValue) ToJSON() (string, error) {
+	return fmt.Sprint(iv), nil
+}
+
+func (iv IntValue) ToTime() (time.Time, error) {
+	return time.Time{}, fmt.Errorf("failed to convert %d to time.Time type", iv)
 }
 
 type StringValue string
@@ -240,6 +252,14 @@ func (sv StringValue) ToStruct() (*StructValue, error) {
 	return nil, fmt.Errorf("failed to convert struct from string: %v", sv)
 }
 
+func (sv StringValue) ToJSON() (string, error) {
+	return strconv.Quote(string(sv)), nil
+}
+
+func (sv StringValue) ToTime() (time.Time, error) {
+	return time.Time{}, fmt.Errorf("failed to convert %s to time.Time type", sv)
+}
+
 type FloatValue float64
 
 func (fv FloatValue) Add(v Value) (Value, error) {
@@ -330,7 +350,7 @@ func (fv FloatValue) ToFloat64() (float64, error) {
 }
 
 func (fv FloatValue) ToBool() (bool, error) {
-	return false, fmt.Errorf("falied to convert %f to bool type", fv)
+	return false, fmt.Errorf("failed to convert %f to bool type", fv)
 }
 
 func (fv FloatValue) ToArray() (*ArrayValue, error) {
@@ -339,6 +359,14 @@ func (fv FloatValue) ToArray() (*ArrayValue, error) {
 
 func (fv FloatValue) ToStruct() (*StructValue, error) {
 	return nil, fmt.Errorf("failed to convert struct from float64: %v", fv)
+}
+
+func (fv FloatValue) ToJSON() (string, error) {
+	return fmt.Sprint(fv), nil
+}
+
+func (fv FloatValue) ToTime() (time.Time, error) {
+	return time.Time{}, fmt.Errorf("failed to convert time.Time from float64: %v", fv)
 }
 
 type BoolValue bool
@@ -411,6 +439,14 @@ func (bv BoolValue) ToArray() (*ArrayValue, error) {
 
 func (bv BoolValue) ToStruct() (*StructValue, error) {
 	return nil, fmt.Errorf("failed to convert bool from struct: %v", bv)
+}
+
+func (bv BoolValue) ToJSON() (string, error) {
+	return fmt.Sprint(bv), nil
+}
+
+func (bv BoolValue) ToTime() (time.Time, error) {
+	return time.Time{}, fmt.Errorf("failed to convert bool from time.Time: %v", bv)
 }
 
 type ArrayValue struct {
@@ -551,7 +587,11 @@ func (av *ArrayValue) ToInt64() (int64, error) {
 }
 
 func (av *ArrayValue) ToString() (string, error) {
-	return "", fmt.Errorf("failed to convert string from array %v", av)
+	json, err := av.ToJSON()
+	if err != nil {
+		return "", err
+	}
+	return toArrayValueFromJSONString(json), nil
 }
 
 func (av *ArrayValue) ToFloat64() (float64, error) {
@@ -568,6 +608,22 @@ func (av *ArrayValue) ToArray() (*ArrayValue, error) {
 
 func (av *ArrayValue) ToStruct() (*StructValue, error) {
 	return nil, fmt.Errorf("failed to convert struct from array %v", av)
+}
+
+func (av *ArrayValue) ToJSON() (string, error) {
+	elems := []string{}
+	for _, v := range av.values {
+		elem, err := v.ToJSON()
+		if err != nil {
+			return "", err
+		}
+		elems = append(elems, elem)
+	}
+	return fmt.Sprintf("[%s]", strings.Join(elems, ",")), nil
+}
+
+func (av *ArrayValue) ToTime() (time.Time, error) {
+	return time.Time{}, fmt.Errorf("failed to convert time.Time from array %v", av)
 }
 
 type StructValue struct {
@@ -697,7 +753,11 @@ func (sv *StructValue) ToInt64() (int64, error) {
 }
 
 func (sv *StructValue) ToString() (string, error) {
-	return "", fmt.Errorf("failed to convert string from struct %v", sv)
+	json, err := sv.ToJSON()
+	if err != nil {
+		return "", err
+	}
+	return toStructValueFromJSONString(json), nil
 }
 
 func (sv *StructValue) ToFloat64() (float64, error) {
@@ -716,9 +776,134 @@ func (sv *StructValue) ToStruct() (*StructValue, error) {
 	return sv, nil
 }
 
+func (sv *StructValue) ToJSON() (string, error) {
+	fields := []string{}
+	for i := 0; i < len(sv.keys); i++ {
+		key := sv.keys[i]
+		value, err := sv.values[i].ToJSON()
+		if err != nil {
+			return "", err
+		}
+		fields = append(
+			fields,
+			fmt.Sprintf("%s:%s", strconv.Quote(key), value),
+		)
+	}
+	return fmt.Sprintf("{%s}", strings.Join(fields, ",")), nil
+}
+
+func (sv *StructValue) ToTime() (time.Time, error) {
+	return time.Time{}, fmt.Errorf("failed to convert time.Time from struct %v", sv)
+}
+
+type DateValue time.Time
+
+func (d DateValue) Add(v Value) (Value, error) {
+	v2, err := v.ToInt64()
+	if err != nil {
+		return nil, err
+	}
+	duration := time.Duration(v2) * 24 * time.Hour
+	return DateValue(time.Time(d).Add(duration)), nil
+}
+
+func (d DateValue) Sub(v Value) (Value, error) {
+	v2, err := v.ToInt64()
+	if err != nil {
+		return nil, err
+	}
+	duration := -time.Duration(v2) * 24 * time.Hour
+	return DateValue(time.Time(d).Add(duration)), nil
+}
+
+func (d DateValue) Mul(v Value) (Value, error) {
+	return nil, fmt.Errorf("mul operation is unsupported for date %v", d)
+}
+
+func (d DateValue) Div(v Value) (Value, error) {
+	return nil, fmt.Errorf("div operation is unsupported for date %v", d)
+}
+
+func (d DateValue) EQ(v Value) (bool, error) {
+	v2, err := v.ToTime()
+	if err != nil {
+		return false, fmt.Errorf("failed to convert %v to time.Time", v)
+	}
+	return time.Time(d).Equal(v2), nil
+}
+
+func (d DateValue) GT(v Value) (bool, error) {
+	v2, err := v.ToTime()
+	if err != nil {
+		return false, fmt.Errorf("failed to convert %v to time.Time", v)
+	}
+	return time.Time(d).After(v2), nil
+}
+
+func (d DateValue) GTE(v Value) (bool, error) {
+	v2, err := v.ToTime()
+	if err != nil {
+		return false, fmt.Errorf("failed to convert %v to time.Time", v)
+	}
+	return time.Time(d).Equal(v2) || time.Time(d).After(v2), nil
+}
+
+func (d DateValue) LT(v Value) (bool, error) {
+	v2, err := v.ToTime()
+	if err != nil {
+		return false, fmt.Errorf("failed to convert %v to time.Time", v)
+	}
+	return time.Time(d).Before(v2), nil
+}
+
+func (d DateValue) LTE(v Value) (bool, error) {
+	v2, err := v.ToTime()
+	if err != nil {
+		return false, fmt.Errorf("failed to convert %v to time.Time", v)
+	}
+	return time.Time(d).Equal(v2) || time.Time(d).Before(v2), nil
+}
+
+func (d DateValue) ToInt64() (int64, error) {
+	return time.Time(d).Unix(), nil
+}
+
+func (d DateValue) ToString() (string, error) {
+	json, err := d.ToJSON()
+	if err != nil {
+		return "", err
+	}
+	return toDateValueFromString(json), nil
+}
+
+func (d DateValue) ToFloat64() (float64, error) {
+	return float64(time.Time(d).Unix()), nil
+}
+
+func (d DateValue) ToBool() (bool, error) {
+	return false, fmt.Errorf("failed to convert %v to bool type", d)
+}
+
+func (d DateValue) ToArray() (*ArrayValue, error) {
+	return nil, fmt.Errorf("failed to convert %v to array type", d)
+}
+
+func (d DateValue) ToStruct() (*StructValue, error) {
+	return nil, fmt.Errorf("failed to convert %v to struct type", d)
+}
+
+func (d DateValue) ToJSON() (string, error) {
+	return time.Time(d).Format("2006-01-02"), nil
+}
+
+func (d DateValue) ToTime() (time.Time, error) {
+	return time.Time(d), nil
+}
+
 const (
 	ArrayValueHeader  = "zetasqlitearray:"
 	StructValueHeader = "zetasqlitestruct:"
+	DateValueHeader   = "zetasqlitedate:"
 )
 
 func ValueOf(v interface{}) (Value, error) {
@@ -749,6 +934,8 @@ func ValueOf(v interface{}) (Value, error) {
 			return ArrayValueOf(vv)
 		case isStructValue(vv):
 			return StructValueOf(vv)
+		case isDateValue(vv):
+			return DateValueOf(vv)
 		}
 		return StringValue(vv), nil
 	case []byte:
@@ -781,6 +968,24 @@ func isStructValue(v string) bool {
 		return strings.HasPrefix(v[1:], StructValueHeader)
 	}
 	return strings.HasPrefix(v, StructValueHeader)
+}
+
+func isDateValue(v string) bool {
+	if len(v) < len(DateValueHeader) {
+		return false
+	}
+	if v[0] == '"' {
+		return strings.HasPrefix(v[1:], DateValueHeader)
+	}
+	return strings.HasPrefix(v, DateValueHeader)
+}
+
+func DateValueOf(v string) (Value, error) {
+	date, err := dateValueFromEncodedString(v)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get date value from encoded string: %w", err)
+	}
+	return DateValue(date), nil
 }
 
 func ArrayValueOf(v string) (Value, error) {
@@ -913,6 +1118,21 @@ func toArrayValueFromJSONString(json string) string {
 	)
 }
 
+func dateValueFromEncodedString(v string) (time.Time, error) {
+	if len(v) == 0 {
+		return time.Time{}, nil
+	}
+	if v[0] == '"' {
+		unquoted, err := strconv.Unquote(v)
+		if err != nil {
+			return time.Time{}, fmt.Errorf("failed to unquote value %q: %w", v, err)
+		}
+		v = unquoted
+	}
+	content := v[len(DateValueHeader):]
+	return parseDate(content)
+}
+
 func arrayValueFromEncodedString(v string) ([]interface{}, error) {
 	if len(v) == 0 {
 		return nil, nil
@@ -965,12 +1185,47 @@ func toStructValueFromJSONString(json string) string {
 	)
 }
 
+func toDateValueFromString(s string) string {
+	return strconv.Quote(
+		fmt.Sprintf(
+			"%s%s",
+			DateValueHeader,
+			s,
+		),
+	)
+}
+
 func isNULLValue(v interface{}) bool {
 	vv, ok := v.([]byte)
 	if !ok {
 		return false
 	}
-	return len(vv) == 0
+	return vv == nil
+}
+
+var (
+	dateRe = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}$`)
+)
+
+func isDate(date string) bool {
+	return dateRe.MatchString(date)
+}
+
+func parseDate(date string) (time.Time, error) {
+	return time.Parse("2006-01-02", date)
+}
+
+func toDateValueFromInt64(days int64) string {
+	t := time.Unix(int64(time.Duration(days)*24*time.Hour/time.Second), 0)
+	return t.Format("2006-01-02")
+}
+
+func toTimeValue(s string) (time.Time, error) {
+	switch {
+	case isDate(s):
+		return parseDate(s)
+	}
+	return time.Time{}, fmt.Errorf("unsupported time format %s", s)
 }
 
 func convertNamedValues(v []driver.NamedValue) ([]sql.NamedArg, error) {

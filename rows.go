@@ -46,6 +46,9 @@ func (r *Rows) Next(dest []driver.Value) error {
 		return io.EOF
 	}
 	if !r.rows.Next() {
+		if err := r.rows.Err(); err != nil {
+			return err
+		}
 		return io.EOF
 	}
 	if err := r.rows.Err(); err != nil {
@@ -73,7 +76,17 @@ func (r *Rows) Next(dest []driver.Value) error {
 }
 
 func (r *Rows) convertValue(value interface{}, typ *Type) (driver.Value, error) {
-	if typ.IsArray() {
+	if value == "NULL" {
+		return nil, nil
+	}
+	switch types.TypeKind(typ.Kind) {
+	case types.BOOL:
+		val, err := ValueOf(value)
+		if err != nil {
+			return nil, err
+		}
+		return val.ToBool()
+	case types.ARRAY:
 		val, err := ValueOf(value)
 		if err != nil {
 			return nil, err
@@ -98,6 +111,12 @@ func (r *Rows) convertValue(value interface{}, typ *Type) (driver.Value, error) 
 			}
 			return v, nil
 		}
+	case types.DATE:
+		val, err := ValueOf(value)
+		if err != nil {
+			return nil, err
+		}
+		return val.ToJSON()
 	}
 	return value, nil
 }

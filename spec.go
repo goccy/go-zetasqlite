@@ -190,13 +190,12 @@ func newFunctionSpec(ctx context.Context, namePath []string, stmt *ast.CreateFun
 	if err != nil {
 		return nil, fmt.Errorf("failed to format function expression: %w", err)
 	}
-	formattedQuery := fmt.Sprintf("SELECT %s", body)
 	return &FunctionSpec{
 		NamePath: mergeNamePath(namePath, stmt.NamePath()),
 		Args:     args,
 		Return:   newType(stmt.ReturnType()),
 		Code:     stmt.Code(),
-		Body:     formattedQuery,
+		Body:     body,
 		Language: stmt.Language(),
 	}, nil
 }
