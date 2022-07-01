@@ -13,7 +13,7 @@ type WindowFuncOptionType int
 
 const (
 	WindowFuncOptionUnknown   WindowFuncOptionType = 0
-	WindowFuncOptionUnitFrame WindowFuncOptionType = 1
+	WindowFuncOptionFrameUnit WindowFuncOptionType = 1
 	WindowFuncOptionStart     WindowFuncOptionType = 2
 	WindowFuncOptionEnd       WindowFuncOptionType = 3
 	WindowFuncOptionPartition WindowFuncOptionType = 4
@@ -26,12 +26,55 @@ type WindowFuncOption struct {
 	Value interface{}          `json:"value"`
 }
 
-type WindowUnitFrameType int
+func (o *WindowFuncOption) UnmarshalJSON(b []byte) error {
+	type windowFuncOption WindowFuncOption
+
+	var v windowFuncOption
+	if err := json.Unmarshal(b, &v); err != nil {
+		return err
+	}
+	o.Type = v.Type
+	switch v.Type {
+	case WindowFuncOptionFrameUnit:
+		var value struct {
+			Value WindowFrameUnitType `json:"value"`
+		}
+		if err := json.Unmarshal(b, &value); err != nil {
+			return err
+		}
+		o.Value = value.Value
+	case WindowFuncOptionStart, WindowFuncOptionEnd:
+		var value struct {
+			Value *WindowBoundary `json:"value"`
+		}
+		if err := json.Unmarshal(b, &value); err != nil {
+			return err
+		}
+		o.Value = value.Value
+	case WindowFuncOptionRowID:
+		var value struct {
+			Value int64 `json:"value"`
+		}
+		if err := json.Unmarshal(b, &value); err != nil {
+			return err
+		}
+		o.Value = value.Value
+	case WindowFuncOptionPartition, WindowFuncOptionOrderBy:
+		value, err := ValueOf(v.Value)
+		if err != nil {
+			return fmt.Errorf("failed to convert %v to Value: %w", v.Value, err)
+		}
+		o.Value = value
+	}
+	return nil
+}
+
+type WindowFrameUnitType int
 
 const (
-	WindowUnitFrameUnknown WindowUnitFrameType = 0
-	WindowUnitFrameRows    WindowUnitFrameType = 1
-	WindowUnitFrameRange   WindowUnitFrameType = 2
+	WindowFrameUnitUnknown WindowFrameUnitType = 0
+	WindowFrameUnitRows    WindowFrameUnitType = 1
+	WindowFrameUnitRange   WindowFrameUnitType = 2
 )
 
 type WindowBoundaryType int
@@ -45,49 +88,52 @@ const (
 	WindowUnboundedFollowingType WindowBoundaryType = 5
 )
 
+type WindowBoundary struct {
+	Type   WindowBoundaryType `json:"type"`
+	Offset int64              `json:"offset"`
+}
+
 func getWindowFrameUnitOptionFuncSQL(frameUnit ast.FrameUnit) string {
-	var typ WindowUnitFrameType
+	var typ WindowFrameUnitType
 	switch frameUnit {
 	case ast.FrameUnitRows:
-		typ = WindowUnitFrameRows
+		typ = WindowFrameUnitRows
 	case ast.FrameUnitRange:
-		typ = WindowUnitFrameRange
+		typ = WindowFrameUnitRange
 	}
 	return fmt.Sprintf("zetasqlite_window_frame_unit(%d)", typ)
 }
 
-func getWindowBoundaryStartOptionFuncSQL(boundaryType ast.BoundaryType) string {
-	var typ WindowBoundaryType
+func toWindowBoundaryType(boundaryType ast.BoundaryType) WindowBoundaryType {
 	switch boundaryType {
 	case ast.UnboundedPrecedingType:
-		typ = WindowUnboundedPrecedingType
+		return WindowUnboundedPrecedingType
 	case ast.OffsetPrecedingType:
-		typ = WindowOffsetPrecedingType
+		return WindowOffsetPrecedingType
 	case ast.CurrentRowType:
-		typ = WindowCurrentRowType
+		return WindowCurrentRowType
 	case ast.OffsetFollowingType:
-		typ = WindowOffsetFollowingType
+		return WindowOffsetFollowingType
 	case ast.UnboundedFollowingType:
-		typ = WindowUnboundedFollowingType
+		return WindowUnboundedFollowingType
 	}
-	return fmt.Sprintf("zetasqlite_window_boundary_start(%d)", typ)
+	return WindowBoundaryTypeUnknown
 }
 
-func getWindowBoundaryEndOptionFuncSQL(boundaryType ast.BoundaryType) string {
-	var typ WindowBoundaryType
-	switch boundaryType {
-	case ast.UnboundedPrecedingType:
-		typ = WindowUnboundedPrecedingType
-	case ast.OffsetPrecedingType:
-		typ = WindowOffsetPrecedingType
-	case ast.CurrentRowType:
-		typ = WindowCurrentRowType
-	case ast.OffsetFollowingType:
-		typ = WindowOffsetFollowingType
-	case ast.UnboundedFollowingType:
-		typ = WindowUnboundedFollowingType
+func getWindowBoundaryStartOptionFuncSQL(boundaryType ast.BoundaryType, offset string) string {
+	typ := toWindowBoundaryType(boundaryType)
+	if offset == "" {
+		offset = "0"
 	}
-	return fmt.Sprintf("zetasqlite_window_boundary_end(%d)", typ)
+	return fmt.Sprintf("zetasqlite_window_boundary_start(%d, %s)", typ, offset)
+}
+
+func getWindowBoundaryEndOptionFuncSQL(boundaryType ast.BoundaryType, offset string) string {
+	typ := toWindowBoundaryType(boundaryType)
+	if offset == "" {
+		offset = "0"
+	}
+	return fmt.Sprintf("zetasqlite_window_boundary_end(%d, %s)", typ, offset)
 }
 
 func getWindowPartitionOptionFuncSQL(column string) string {
@@ -104,24 +150,30 @@ func getWindowOrderByOptionFuncSQL(column string) string {
 
 func windowFrameUnitOptionFunc(frameUnit int64) string {
 	b, _ := json.Marshal(&WindowFuncOption{
-		Type:  WindowFuncOptionUnitFrame,
+		Type:  WindowFuncOptionFrameUnit,
 		Value: frameUnit,
 	})
 	return string(b)
 }
 
-func windowBoundaryStartOptionFunc(boundaryType int64) string {
+func windowBoundaryStartOptionFunc(boundaryType, offset int64) string {
 	b, _ := json.Marshal(&WindowFuncOption{
-		Type:  WindowFuncOptionStart,
-		Value: boundaryType,
+		Type: WindowFuncOptionStart,
+		Value: &WindowBoundary{
+			Type:   WindowBoundaryType(boundaryType),
+			Offset: offset,
+		},
 	})
 	return string(b)
 }
 
-func windowBoundaryEndOptionFunc(boundaryType int64) string {
+func windowBoundaryEndOptionFunc(boundaryType, offset int64) string {
 	b, _ := json.Marshal(&WindowFuncOption{
-		Type:  WindowFuncOptionEnd,
-		Value: boundaryType,
+		Type: WindowFuncOptionEnd,
+		Value: &WindowBoundary{
+			Type:   WindowBoundaryType(boundaryType),
+			Offset: offset,
+		},
 	})
 	return string(b)
 }
@@ -151,9 +203,9 @@ func windowOrderByOptionFunc(value interface{}) string {
 }
 
 type WindowFuncStatus struct {
-	UnitFrame WindowUnitFrameType
-	Start     WindowBoundaryType
-	End       WindowBoundaryType
+	FrameUnit WindowFrameUnitType
+	Start     *WindowBoundary
+	End       *WindowBoundary
 	Partition Value
 	RowID     int64
 	OrderBy   []Value
@@ -167,26 +219,18 @@ func parseWindowOptions(opts ...string) (*WindowFuncStatus, error) {
 			continue
 		}
 		switch v.Type {
-		case WindowFuncOptionUnitFrame:
-			status.UnitFrame = WindowUnitFrameType(int64(v.Value.(float64)))
+		case WindowFuncOptionFrameUnit:
+			status.FrameUnit = v.Value.(WindowFrameUnitType)
 		case WindowFuncOptionStart:
-			status.Start = WindowBoundaryType(int64(v.Value.(float64)))
+			status.Start = v.Value.(*WindowBoundary)
 		case WindowFuncOptionEnd:
-			status.End = WindowBoundaryType(int64(v.Value.(float64)))
+			status.End = v.Value.(*WindowBoundary)
 		case WindowFuncOptionPartition:
-			value, err := ValueOf(v.Value)
-			if err != nil {
-				return nil, fmt.Errorf("failed to convert %v to Value: %w", v.Value, err)
-			}
-			status.Partition = value
+			status.Partition = v.Value.(Value)
 		case WindowFuncOptionRowID:
-			status.RowID = int64(v.Value.(float64))
+			status.RowID = v.Value.(int64)
 		case WindowFuncOptionOrderBy:
-			value, err := ValueOf(v.Value)
-			if err != nil {
-				return nil, fmt.Errorf("failed to convert %v to Value: %w", v.Value, err)
-			}
-			status.OrderBy = append(status.OrderBy, value)
+			status.OrderBy = append(status.OrderBy, v.Value.(Value))
 		default:
 			return nil, fmt.Errorf("unknown window function type %d", v.Type)
 		}
@@ -205,14 +249,15 @@ type PartitionedValue struct {
 }
 
 type WindowFuncAggregatedStatus struct {
-	UnitFrame            WindowUnitFrameType
-	Start                WindowBoundaryType
-	End                  WindowBoundaryType
+	FrameUnit            WindowFrameUnitType
+	Start                *WindowBoundary
+	End                  *WindowBoundary
 	RowID                int64
 	once                 sync.Once
 	PartitionToValuesMap map[string][]*OrderedValue
 	PartitionedValues    []*PartitionedValue
 	Values               []*OrderedValue
+	SortedValues         []*OrderedValue
 }
 
 func newWindowFuncAggregatedStatus() *WindowFuncAggregatedStatus {
@@ -223,19 +268,23 @@ func newWindowFuncAggregatedStatus() *WindowFuncAggregatedStatus {
 
 func (s *WindowFuncAggregatedStatus) Step(value Value, status *WindowFuncStatus) error {
 	s.once.Do(func() {
-		s.UnitFrame = status.UnitFrame
+		s.FrameUnit = status.FrameUnit
 		s.Start = status.Start
 		s.End = status.End
 		s.RowID = status.RowID
 	})
-	if s.UnitFrame != status.UnitFrame {
-		return fmt.Errorf("mismatch unit frame type %d != %d", s.UnitFrame, status.UnitFrame)
+	if s.FrameUnit != status.FrameUnit {
+		return fmt.Errorf("mismatch frame unit type %d != %d", s.FrameUnit, status.FrameUnit)
 	}
-	if s.Start != status.Start {
-		return fmt.Errorf("mismatch boundary type %d != %d", s.Start, status.Start)
+	if s.Start != nil {
+		if s.Start.Type != status.Start.Type {
+			return fmt.Errorf("mismatch boundary type %d != %d", s.Start.Type, status.Start.Type)
+		}
 	}
-	if s.End != status.End {
-		return fmt.Errorf("mismatch boundary type %d != %d", s.End, status.End)
+	if s.End != nil {
+		if s.End.Type != status.End.Type {
+			return fmt.Errorf("mismatch boundary type %d != %d", s.End.Type, status.End.Type)
+		}
 	}
 	if s.RowID != status.RowID {
 		return fmt.Errorf("mismatch rowid %d != %d", s.RowID, status.RowID)
@@ -264,25 +313,29 @@ func (s *WindowFuncAggregatedStatus) Done(cb func([]Value, int, int) error) erro
 		return fmt.Errorf("invalid rowid. rowid must be greater than zero")
 	}
 	values := s.FilteredValues()
-	if len(values) != 0 {
-		for orderBy := 0; orderBy < len(values[0].OrderBy); orderBy++ {
-			sort.Slice(values, func(i, j int) bool {
-				cond, _ := values[i].OrderBy[orderBy].LT(values[j].OrderBy[orderBy])
+	sortedValues := make([]*OrderedValue, len(values))
+	for i := 0; i < len(values); i++ {
+		sortedValues[i] = values[i]
+	}
+	if len(sortedValues) != 0 {
+		for orderBy := 0; orderBy < len(sortedValues[0].OrderBy); orderBy++ {
+			sort.Slice(sortedValues, func(i, j int) bool {
+				cond, _ := sortedValues[i].OrderBy[orderBy].LT(sortedValues[j].OrderBy[orderBy])
 				return cond
 			})
 		}
 	}
-	s.Values = values
-	start, err := s.StartIdx()
+	s.SortedValues = sortedValues
+	start, err := s.getIndexFromBoundary(s.Start)
 	if err != nil {
 		return fmt.Errorf("failed to get start index: %w", err)
 	}
-	end, err := s.EndIdx()
+	end, err := s.getIndexFromBoundary(s.End)
 	if err != nil {
 		return fmt.Errorf("failed to get end index: %w", err)
 	}
-	resultValues := make([]Value, 0, len(values))
-	for _, value := range values {
+	resultValues := make([]Value, 0, len(sortedValues))
+	for _, value := range sortedValues {
 		resultValues = append(resultValues, value.Value)
 	}
 	return cb(resultValues, start, end)
@@ -299,33 +352,147 @@ func (s *WindowFuncAggregatedStatus) Partition() string {
 	return s.PartitionedValues[s.RowID-1].Partition
 }
 
-func (s *WindowFuncAggregatedStatus) PartitionedRowIndex() (int, error) {
-	curRowID := int(s.RowID - 1)
-	partitionedValue := s.PartitionedValues[curRowID]
-	for idx, value := range s.Values {
-		if value == partitionedValue.Value {
-			return idx, nil
-		}
+func (s *WindowFuncAggregatedStatus) getIndexFromBoundary(boundary *WindowBoundary) (int, error) {
+	switch s.FrameUnit {
+	case WindowFrameUnitRows:
+		return s.getIndexFromBoundaryByRows(boundary)
+	case WindowFrameUnitRange:
+		return s.getIndexFromBoundaryByRange(boundary)
+	default:
+		return s.currentIndexByRows()
 	}
-	return 0, fmt.Errorf("failed to find partitioned row index")
 }
 
-func (s *WindowFuncAggregatedStatus) StartIdx() (int, error) {
-	switch s.Start {
+func (s *WindowFuncAggregatedStatus) getIndexFromBoundaryByRows(boundary *WindowBoundary) (int, error) {
+	switch boundary.Type {
 	case WindowUnboundedPrecedingType:
 		return 0, nil
 	case WindowCurrentRowType:
-		return s.PartitionedRowIndex()
+		return s.currentIndexByRows()
+	case WindowUnboundedFollowingType:
+		return len(s.FilteredValues()) - 1, nil
+	case WindowOffsetPrecedingType:
+		cur, err := s.currentIndexByRows()
+		if err != nil {
+			return 0, err
+		}
+		return cur - int(boundary.Offset), nil
+	case WindowOffsetFollowingType:
+		cur, err := s.currentIndexByRows()
+		if err != nil {
+			return 0, err
+		}
+		return cur + int(boundary.Offset), nil
 	}
-	return 0, fmt.Errorf("unsupported boundary type %d", s.Start)
+	return 0, fmt.Errorf("unsupported boundary type %d", boundary.Type)
 }
 
-func (s *WindowFuncAggregatedStatus) EndIdx() (int, error) {
-	switch s.End {
+func (s *WindowFuncAggregatedStatus) currentIndexByRows() (int, error) {
+	if len(s.PartitionedValues) != 0 {
+		return s.partitionedCurrentIndexByRows()
+	}
+	curRowID := int(s.RowID - 1)
+	curValue := s.Values[curRowID]
+	for idx, value := range s.SortedValues {
+		if value == curValue {
+			return idx, nil
+		}
+	}
+	return 0, fmt.Errorf("failed to find current index")
+}
+
+func (s *WindowFuncAggregatedStatus) partitionedCurrentIndexByRows() (int, error) {
+	curRowID := int(s.RowID - 1)
+	curValue := s.PartitionedValues[curRowID]
+	for idx, value := range s.SortedValues {
+		if value == curValue.Value {
+			return idx, nil
+		}
+	}
+	return 0, fmt.Errorf("failed to find current index")
+}
+
+func (s *WindowFuncAggregatedStatus) getIndexFromBoundaryByRange(boundary *WindowBoundary) (int, error) {
+	switch boundary.Type {
+	case WindowUnboundedPrecedingType:
+		return 0, nil
 	case WindowUnboundedFollowingType:
 		return len(s.FilteredValues()) - 1, nil
 	case WindowCurrentRowType:
-		return s.PartitionedRowIndex()
+		value, err := s.currentRangeValue()
+		if err != nil {
+			return 0, err
+		}
+		return s.lookupMinIndexFromRangeValue(value)
+	case WindowOffsetPrecedingType:
+		value, err := s.currentRangeValue()
+		if err != nil {
+			return 0, err
+		}
+		return s.lookupMinIndexFromRangeValue(value - boundary.Offset)
+	case WindowOffsetFollowingType:
+		value, err := s.currentRangeValue()
+		if err != nil {
+			return 0, err
+		}
+		return s.lookupMaxIndexFromRangeValue(value + boundary.Offset)
 	}
-	return 0, fmt.Errorf("unsupported boundary type %d", s.End)
+	return 0, fmt.Errorf("unsupported boundary type %d", boundary.Type)
+}
+
+func (s *WindowFuncAggregatedStatus) currentRangeValue() (int64, error) {
+	if len(s.PartitionedValues) != 0 {
+		return s.partitionedCurrentRangeValue()
+	}
+	curRowID := int(s.RowID - 1)
+	curValue := s.Values[curRowID]
+	if len(curValue.OrderBy) == 0 {
+		return 0, fmt.Errorf("required order by column for analytic range scanning")
+	}
+	return curValue.OrderBy[len(curValue.OrderBy)-1].ToInt64()
+}
+
+func (s *WindowFuncAggregatedStatus) partitionedCurrentRangeValue() (int64, error) {
+	curRowID := int(s.RowID - 1)
+	curValue := s.PartitionedValues[curRowID]
+	if len(curValue.Value.OrderBy) == 0 {
+		return 0, fmt.Errorf("required order by column for analytic range scanning")
+	}
+	return curValue.Value.OrderBy[len(curValue.Value.OrderBy)-1].ToInt64()
+}
+
+func (s *WindowFuncAggregatedStatus) lookupMinIndexFromRangeValue(rangeValue int64) (int, error) {
+	minIndex := -1
+	for idx := len(s.SortedValues) - 1; idx >= 0; idx-- {
+		value := s.SortedValues[idx]
+		if len(value.OrderBy) != 1 {
+			continue
+		}
+		target, err := value.OrderBy[len(value.OrderBy)-1].ToInt64()
+		if err != nil {
+			return 0, err
+		}
+		if rangeValue <= target {
+			minIndex = idx
+		}
+	}
+	return minIndex, nil
+}
+
+func (s *WindowFuncAggregatedStatus) lookupMaxIndexFromRangeValue(rangeValue int64) (int, error) {
+	maxIndex := -1
+	for idx := 0; idx < len(s.SortedValues); idx++ {
+		value := s.SortedValues[idx]
+		if len(value.OrderBy) != 1 {
+			continue
+		}
+		target, err := value.OrderBy[len(value.OrderBy)-1].ToInt64()
+		if err != nil {
+			return 0, err
+		}
+		if rangeValue >= target {
+			maxIndex = idx
+		}
+	}
+	return maxIndex, nil
 }

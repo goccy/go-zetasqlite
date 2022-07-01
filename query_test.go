@@ -585,6 +585,255 @@ FROM Produce`,
 				{"kale", int64(23), "vegetable", int64(44)},
 			},
 		},
+		{
+			name: `window cumulative omit current row`,
+			query: `
+WITH Produce AS
+ (SELECT 'kale' as item, 23 as purchases, 'vegetable' as category
+  UNION ALL SELECT 'banana', 2, 'fruit'
+  UNION ALL SELECT 'cabbage', 9, 'vegetable'
+  UNION ALL SELECT 'apple', 8, 'fruit'
+  UNION ALL SELECT 'leek', 2, 'vegetable'
+  UNION ALL SELECT 'lettuce', 10, 'vegetable')
+SELECT item, purchases, category, SUM(purchases)
+  OVER (
+    PARTITION BY category
+    ORDER BY purchases
+    ROWS UNBOUNDED PRECEDING
+  ) AS total_purchases
+FROM Produce`,
+			expectedRows: [][]interface{}{
+				{"banana", int64(2), "fruit", int64(2)},
+				{"apple", int64(8), "fruit", int64(10)},
+				{"leek", int64(2), "vegetable", int64(2)},
+				{"cabbage", int64(9), "vegetable", int64(11)},
+				{"lettuce", int64(10), "vegetable", int64(21)},
+				{"kale", int64(23), "vegetable", int64(44)},
+			},
+		},
+
+		{
+			name: `window offset`,
+			query: `
+WITH Produce AS
+ (SELECT 'kale' as item, 23 as purchases, 'vegetable' as category
+  UNION ALL SELECT 'banana', 2, 'fruit'
+  UNION ALL SELECT 'cabbage', 9, 'vegetable'
+  UNION ALL SELECT 'apple', 8, 'fruit'
+  UNION ALL SELECT 'leek', 2, 'vegetable'
+  UNION ALL SELECT 'lettuce', 10, 'vegetable')
+SELECT item, purchases, category, SUM(purchases)
+  OVER (
+    ORDER BY purchases
+    ROWS BETWEEN UNBOUNDED PRECEDING AND 2 PRECEDING
+  ) AS total_purchases
+FROM Produce`,
+			expectedRows: [][]interface{}{
+				{"banana", int64(2), "fruit", nil},
+				{"leek", int64(2), "vegetable", nil},
+				{"apple", int64(8), "fruit", int64(2)},
+				{"cabbage", int64(9), "vegetable", int64(4)},
+				{"lettuce", int64(10), "vegetable", int64(12)},
+				{"kale", int64(23), "vegetable", int64(21)},
+			},
+		},
+		{
+			name: `window avg`,
+			query: `
+WITH Produce AS
+ (SELECT 'kale' as item, 23 as purchases, 'vegetable' as category
+  UNION ALL SELECT 'banana', 2, 'fruit'
+  UNION ALL SELECT 'cabbage', 9, 'vegetable'
+  UNION ALL SELECT 'apple', 8, 'fruit'
+  UNION ALL SELECT 'leek', 2, 'vegetable'
+  UNION ALL SELECT 'lettuce', 10, 'vegetable')
+SELECT item, purchases, category, AVG(purchases)
+  OVER (
+    ORDER BY purchases
+    ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING
+  ) AS avg_purchases
+FROM Produce`,
+			expectedRows: [][]interface{}{
+				{"banana", int64(2), "fruit", float64(2)},
+				{"leek", int64(2), "vegetable", float64(4)},
+				{"apple", int64(8), "fruit", float64(6.333333333333333)},
+				{"cabbage", int64(9), "vegetable", float64(9)},
+				{"lettuce", int64(10), "vegetable", float64(14)},
+				{"kale", int64(23), "vegetable", float64(16.5)},
+			},
+		},
+		{
+			name: `window last_value`,
+			query: `
+WITH Produce AS
+ (SELECT 'kale' as item, 23 as purchases, 'vegetable' as category
+  UNION ALL SELECT 'banana', 2, 'fruit'
+  UNION ALL SELECT 'cabbage', 9, 'vegetable'
+  UNION ALL SELECT 'apple', 8, 'fruit'
+  UNION ALL SELECT 'leek', 2, 'vegetable'
+  UNION ALL SELECT 'lettuce', 10, 'vegetable')
+SELECT item, purchases, category, LAST_VALUE(item)
+  OVER (
+    PARTITION BY category
+    ORDER BY purchases
+    ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+  ) AS most_popular
+FROM Produce`,
+			expectedRows: [][]interface{}{
+				{"banana", int64(2), "fruit", "apple"},
+				{"apple", int64(8), "fruit", "apple"},
+				{"leek", int64(2), "vegetable", "kale"},
+				{"cabbage", int64(9), "vegetable", "kale"},
+				{"lettuce", int64(10), "vegetable", "kale"},
+				{"kale", int64(23), "vegetable", "kale"},
+			},
+		},
+		{
+			name: `window last_value with offset`,
+			query: `
+WITH Produce AS
+ (SELECT 'kale' as item, 23 as purchases, 'vegetable' as category
+  UNION ALL SELECT 'banana', 2, 'fruit'
+  UNION ALL SELECT 'cabbage', 9, 'vegetable'
+  UNION ALL SELECT 'apple', 8, 'fruit'
+  UNION ALL SELECT 'leek', 2, 'vegetable'
+  UNION ALL SELECT 'lettuce', 10, 'vegetable')
+SELECT item, purchases, category, LAST_VALUE(item)
+  OVER (
+    PARTITION BY category
+    ORDER BY purchases
+    ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING
+  ) AS most_popular
+FROM Produce`,
+			expectedRows: [][]interface{}{
+				{"banana", int64(2), "fruit", "apple"},
+				{"apple", int64(8), "fruit", "apple"},
+				{"leek", int64(2), "vegetable", "cabbage"},
+				{"cabbage", int64(9), "vegetable", "lettuce"},
+				{"lettuce", int64(10), "vegetable", "kale"},
+				{"kale", int64(23), "vegetable", "kale"},
+			},
+		},
+		{
+			name: `window last_value with named window`,
+			query: `
+WITH Produce AS
+ (SELECT 'kale' as item, 23 as purchases, 'vegetable' as category
+  UNION ALL SELECT 'banana', 2, 'fruit'
+  UNION ALL SELECT 'cabbage', 9, 'vegetable'
+  UNION ALL SELECT 'apple', 8, 'fruit'
+  UNION ALL SELECT 'leek', 2, 'vegetable'
+  UNION ALL SELECT 'lettuce', 10, 'vegetable')
+SELECT item, purchases, category, LAST_VALUE(item)
+  OVER (
+    item_window
+    ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING
+  ) AS most_popular
+FROM Produce
+WINDOW item_window AS (
+  PARTITION BY category
+  ORDER BY purchases)`,
+			expectedRows: [][]interface{}{
+				{"banana", int64(2), "fruit", "apple"},
+				{"apple", int64(8), "fruit", "apple"},
+				{"leek", int64(2), "vegetable", "cabbage"},
+				{"cabbage", int64(9), "vegetable", "lettuce"},
+				{"lettuce", int64(10), "vegetable", "kale"},
+				{"kale", int64(23), "vegetable", "kale"},
+			},
+		},
+		{
+			name: "window range",
+			query: `
+WITH Farm AS
+ (SELECT 'cat' as animal, 23 as population, 'mammal' as category
+  UNION ALL SELECT 'duck', 3, 'bird'
+  UNION ALL SELECT 'dog', 2, 'mammal'
+  UNION ALL SELECT 'goose', 1, 'bird'
+  UNION ALL SELECT 'ox', 2, 'mammal'
+  UNION ALL SELECT 'goat', 2, 'mammal')
+SELECT animal, population, category, COUNT(*)
+  OVER (
+    ORDER BY population
+    RANGE BETWEEN 1 PRECEDING AND 1 FOLLOWING
+  ) AS similar_population
+FROM Farm`,
+			expectedRows: [][]interface{}{
+				{"goose", int64(1), "bird", int64(4)},
+				{"dog", int64(2), "mammal", int64(5)},
+				{"ox", int64(2), "mammal", int64(5)},
+				{"goat", int64(2), "mammal", int64(5)},
+				{"duck", int64(3), "bird", int64(4)},
+				{"cat", int64(23), "mammal", int64(1)},
+			},
+		},
+		{
+			name: "date type",
+			query: `
+WITH Employees AS
+ (SELECT 'Isabella' as name, 2 as department, DATE(1997, 09, 28) as start_date
+  UNION ALL SELECT 'Anthony', 1, DATE(1995, 11, 29)
+  UNION ALL SELECT 'Daniel', 2, DATE(2004, 06, 24)
+  UNION ALL SELECT 'Andrew', 1, DATE(1999, 01, 23)
+  UNION ALL SELECT 'Jacob', 1, DATE(1990, 07, 11)
+  UNION ALL SELECT 'Jose', 2, DATE(2013, 03, 17))
+SELECT * FROM Employees`,
+			expectedRows: [][]interface{}{
+				{"Isabella", int64(2), "1997-09-28"},
+				{"Anthony", int64(1), "1995-11-29"},
+				{"Daniel", int64(2), "2004-06-24"},
+				{"Andrew", int64(1), "1999-01-23"},
+				{"Jacob", int64(1), "1990-07-11"},
+				{"Jose", int64(2), "2013-03-17"},
+			},
+		},
+		{
+			name: "window rank",
+			query: `
+WITH Employees AS
+ (SELECT 'Isabella' as name, 2 as department, DATE(1997, 09, 28) as start_date
+  UNION ALL SELECT 'Anthony', 1, DATE(1995, 11, 29)
+  UNION ALL SELECT 'Daniel', 2, DATE(2004, 06, 24)
+  UNION ALL SELECT 'Andrew', 1, DATE(1999, 01, 23)
+  UNION ALL SELECT 'Jacob', 1, DATE(1990, 07, 11)
+  UNION ALL SELECT 'Jose', 2, DATE(2013, 03, 17))
+SELECT name, department, start_date,
+  RANK() OVER (PARTITION BY department ORDER BY start_date) AS rank
+FROM Employees`,
+			expectedRows: [][]interface{}{
+				{"Jacob", int64(1), "1990-07-11", int64(1)},
+				{"Anthony", int64(1), "1995-11-29", int64(2)},
+				{"Andrew", int64(1), "1999-01-23", int64(3)},
+				{"Isabella", int64(2), "1997-09-28", int64(1)},
+				{"Daniel", int64(2), "2004-06-24", int64(2)},
+				{"Jose", int64(2), "2013-03-17", int64(3)},
+			},
+		},
+		{
+			name: "rank with same order",
+			query: `
+WITH Numbers AS
+ (SELECT 1 as x
+  UNION ALL SELECT 2
+  UNION ALL SELECT 2
+  UNION ALL SELECT 5
+  UNION ALL SELECT 8
+  UNION ALL SELECT 10
+  UNION ALL SELECT 10
+)
+SELECT x,
+  RANK() OVER (ORDER BY x ASC) AS rank
+FROM Numbers`,
+			expectedRows: [][]interface{}{
+				{int64(1), int64(1)},
+				{int64(2), int64(2)},
+				{int64(2), int64(2)},
+				{int64(5), int64(4)},
+				{int64(8), int64(5)},
+				{int64(10), int64(6)},
+				{int64(10), int64(6)},
+			},
+		},
 	} {
 		test := test
 		t.Run(test.name, func(t *testing.T) {

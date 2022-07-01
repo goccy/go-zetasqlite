@@ -648,18 +648,13 @@ func (n *AnalyticFunctionCallNode) FormatSQL(ctx context.Context) (string, error
 	if n.node == nil {
 		return "", nil
 	}
-	windowFrame := n.node.WindowFrame()
-	if windowFrame == nil {
-		return "", fmt.Errorf("missing window frame")
-	}
 	args := []string{}
-	tableNameMap := map[string]struct{}{}
 	orderColumnNames := analyticOrderColumnNamesFromContext(ctx)
 	orderColumns := orderColumnNames.values
 	for _, a := range n.node.ArgumentList() {
 		switch t := a.(type) {
 		case *ast.ColumnRefNode:
-			tableNameMap[t.Column().TableName()] = struct{}{}
+			ctx = withAnalyticTableName(ctx, t.Column().TableName())
 		default:
 			return "", fmt.Errorf("unexpected argument node type %T for analytic function", a)
 		}
@@ -670,20 +665,9 @@ func (n *AnalyticFunctionCallNode) FormatSQL(ctx context.Context) (string, error
 		orderColumnNames.values = append(orderColumnNames.values, arg)
 		args = append(args, arg)
 	}
-	if len(tableNameMap) == 0 {
-		return "", fmt.Errorf("unknown table name from %s", n.node.DebugString())
-	}
-	if len(tableNameMap) > 1 {
-		names := []string{}
-		for name := range tableNameMap {
-			names = append(names, name)
-		}
-		return "", fmt.Errorf("unsupported window function with multiple tables: %v", names)
-	}
-	var tableName string
-	for name := range tableNameMap {
-		tableName = name
-		break
+	tableName := analyticTableNameFromContext(ctx)
+	if tableName == "" {
+		return "", fmt.Errorf("failed to find table name from analytic query")
 	}
 	resultType := strings.ToLower(n.node.Signature().ResultType().Type().TypeName(0))
 	if strings.HasPrefix(resultType, "struct") {
@@ -725,9 +709,20 @@ func (n *AnalyticFunctionCallNode) FormatSQL(ctx context.Context) (string, error
 	for _, column := range orderColumns {
 		args = append(args, getWindowOrderByOptionFuncSQL(column))
 	}
-	args = append(args, getWindowFrameUnitOptionFuncSQL(windowFrame.FrameUnit()))
-	args = append(args, getWindowBoundaryStartOptionFuncSQL(windowFrame.StartExpr().BoundaryType()))
-	args = append(args, getWindowBoundaryEndOptionFuncSQL(windowFrame.EndExpr().BoundaryType()))
+	windowFrame := n.node.WindowFrame()
+	if windowFrame != nil {
+		args = append(args, getWindowFrameUnitOptionFuncSQL(windowFrame.FrameUnit()))
+		startSQL, err := n.getWindowBoundaryOptionFuncSQL(ctx, windowFrame.StartExpr(), true)
+		if err != nil {
+			return "", err
+		}
+		endSQL, err := n.getWindowBoundaryOptionFuncSQL(ctx, windowFrame.EndExpr(), false)
+		if err != nil {
+			return "", err
+		}
+		args = append(args, startSQL)
+		args = append(args, endSQL)
+	}
 	args = append(args, getWindowRowIDOptionFuncSQL())
 	return fmt.Sprintf(
 		"( SELECT %s(%s) FROM %s )",
@@ -737,6 +732,27 @@ func (n *AnalyticFunctionCallNode) FormatSQL(ctx context.Context) (string, error
 	), nil
 
 	return "", nil
+}
+
+func (n *AnalyticFunctionCallNode) getWindowBoundaryOptionFuncSQL(ctx context.Context, expr *ast.WindowFrameExprNode, isStart bool) (string, error) {
+	typ := expr.BoundaryType()
+	switch typ {
+	case ast.UnboundedPrecedingType, ast.CurrentRowType, ast.UnboundedFollowingType:
+		if isStart {
+			return getWindowBoundaryStartOptionFuncSQL(typ, ""), nil
+		}
+		return getWindowBoundaryEndOptionFuncSQL(typ, ""), nil
+	case ast.OffsetPrecedingType, ast.OffsetFollowingType:
+		literal, err := newNode(expr.Expression()).FormatSQL(ctx)
+		if err != nil {
+			return "", err
+		}
+		if isStart {
+			return getWindowBoundaryStartOptionFuncSQL(typ, literal), nil
+		}
+		return getWindowBoundaryEndOptionFuncSQL(typ, literal), nil
+	}
+	return "", fmt.Errorf("unexpected boundary type %d", typ)
 }
 
 type ExtendedCastElementNode struct {
@@ -1121,6 +1137,7 @@ func (n *AnalyticScanNode) FormatSQL(ctx context.Context) (string, error) {
 		if group.PartitionBy() != nil {
 			var partitionColumns []string
 			for _, columnRef := range group.PartitionBy().PartitionByList() {
+				ctx = withAnalyticTableName(ctx, columnRef.Column().TableName())
 				partitionColumns = append(
 					partitionColumns,
 					fmt.Sprintf("`%s`", columnRef.Column().Name()),
@@ -1132,6 +1149,7 @@ func (n *AnalyticScanNode) FormatSQL(ctx context.Context) (string, error) {
 		if group.OrderBy() != nil {
 			var orderByColumns []string
 			for _, item := range group.OrderBy().OrderByItemList() {
+				ctx = withAnalyticTableName(ctx, item.ColumnRef().Column().TableName())
 				orderByColumns = append(
 					orderByColumns,
 					fmt.Sprintf("`%s`", item.ColumnRef().Column().Name()),

@@ -9,6 +9,7 @@ type (
 	funcMapKey                      struct{}
 	analyticOrderColumnNamesKey     struct{}
 	analyticPartitionColumnNamesKey struct{}
+	analyticTableNameKey            struct{}
 )
 
 func namePathFromContext(ctx context.Context) []string {
@@ -90,4 +91,16 @@ func analyticPartitionColumnNamesFromContext(ctx context.Context) []string {
 		return nil
 	}
 	return value.([]string)
+}
+
+func withAnalyticTableName(ctx context.Context, name string) context.Context {
+	return context.WithValue(ctx, analyticTableNameKey{}, name)
+}
+
+func analyticTableNameFromContext(ctx context.Context) string {
+	value := ctx.Value(analyticTableNameKey{})
+	if value == nil {
+		return ""
+	}
+	return value.(string)
 }

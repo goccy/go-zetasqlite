@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/mattn/go-sqlite3"
 )
@@ -19,6 +20,7 @@ const (
 	lessFuncName                      = "zetasqlite_less_bool"
 	lessOrEqualFuncName               = "zetasqlite_less_or_equal_bool"
 	inArrayFuncName                   = "zetasqlite_in_array_bool"
+	dateFuncName                      = "zetasqlite_date_date"
 	addI64FuncName                    = "zetasqlite_add_int64"
 	addDateFuncName                   = "zetasqlite_add_date"
 	subI64FuncName                    = "zetasqlite_subtract_int64"
@@ -80,6 +82,10 @@ const (
 	windowRowIDOptionFuncName         = "zetasqlite_window_rowid"
 	windowOrderByOptionFuncName       = "zetasqlite_window_order_by"
 	analyticSumI64FuncName            = "zetasqlite_analytic_sum_int64"
+	analyticCountStartI64FuncName     = "zetasqlite_analytic_count_star_int64"
+	analyticAvgDoubleFuncName         = "zetasqlite_analytic_avg_double"
+	analyticLastValueStringFuncName   = "zetasqlite_analytic_last_value_string"
+	analyticRankI64FuncName           = "zetasqlite_analytic_rank_int64"
 )
 
 var (
@@ -91,6 +97,7 @@ var (
 		lessFuncName:                      lessFunc,
 		lessOrEqualFuncName:               lessOrEqualFunc,
 		inArrayFuncName:                   inArrayFunc,
+		dateFuncName:                      dateFunc,
 		addI64FuncName:                    addI64Func,
 		addDateFuncName:                   addDateFunc,
 		subI64FuncName:                    subI64Func,
@@ -142,26 +149,31 @@ var (
 		windowOrderByOptionFuncName:       windowOrderByOptionFunc,
 	}
 	zetasqliteAggregatorFuncMap = map[string]interface{}{
-		sumI64FuncName:         newSumFunc,
-		analyticSumI64FuncName: newAnalyticSumFunc,
-		bitAndFuncName:         newBitAndFunc,
-		bitOrFuncName:          newBitOrFunc,
-		bitXorFuncName:         newBitXorFunc,
-		countI64FuncName:       newCountFunc,
-		countStarI64FuncName:   newCountStarFunc,
-		countifI64FuncName:     newCountIfFunc,
-		logicalAndFuncName:     newLogicalAndFunc,
-		logicalOrFuncName:      newLogicalOrFunc,
-		stringAggFuncName:      newStringAggFunc,
-		avgFuncName:            newAvgFunc,
+		sumI64FuncName:                  newSumFunc,
+		bitAndFuncName:                  newBitAndFunc,
+		bitOrFuncName:                   newBitOrFunc,
+		bitXorFuncName:                  newBitXorFunc,
+		countI64FuncName:                newCountFunc,
+		countStarI64FuncName:            newCountStarFunc,
+		countifI64FuncName:              newCountIfFunc,
+		logicalAndFuncName:              newLogicalAndFunc,
+		logicalOrFuncName:               newLogicalOrFunc,
+		stringAggFuncName:               newStringAggFunc,
+		avgFuncName:                     newAvgFunc,
+		analyticSumI64FuncName:          newAnalyticSumI64Func,
+		analyticCountStartI64FuncName:   newAnalyticCountStarI64Func,
+		analyticAvgDoubleFuncName:       newAnalyticAvgDoubleFunc,
+		analyticLastValueStringFuncName: newAnalyticLastValueStringFunc,
+		analyticRankI64FuncName:         newAnalyticRankI64Func,
 	}
 	builtinFunctions = []string{
 		"if", "concat", "coalesce", "ifnull", "nullif", "length",
+		"date",
 	}
 	builtinAggregateFunctions = []string{
 		"sum", "bit_and", "bit_or", "bit_xor",
 		"count", "countif", "logical_and", "logical_or",
-		"string_agg", "avg",
+		"string_agg", "avg", "last_value", "rank",
 	}
 	builtinFuncMap          = map[string]struct{}{}
 	builtinAggregateFuncMap = map[string]struct{}{}
@@ -191,9 +203,22 @@ func registerBuiltinFunctions(conn *sqlite3.SQLiteConn) error {
 }
 
 func newSumFunc() *sumFunc { return &sumFunc{} }
-func newAnalyticSumFunc() *analyticSumFunc {
-	return &analyticSumFunc{agg: newWindowFuncAggregatedStatus()}
+func newAnalyticSumI64Func() *analyticSumI64Func {
+	return &analyticSumI64Func{agg: newWindowFuncAggregatedStatus()}
 }
+func newAnalyticCountStarI64Func() *analyticCountStarI64Func {
+	return &analyticCountStarI64Func{agg: newWindowFuncAggregatedStatus()}
+}
+func newAnalyticAvgDoubleFunc() *analyticAvgDoubleFunc {
+	return &analyticAvgDoubleFunc{agg: newWindowFuncAggregatedStatus()}
+}
+func newAnalyticLastValueStringFunc() *analyticLastValueStringFunc {
+	return &analyticLastValueStringFunc{agg: newWindowFuncAggregatedStatus()}
+}
+func newAnalyticRankI64Func() *analyticRankI64Func {
+	return &analyticRankI64Func{agg: newWindowFuncAggregatedStatus()}
+}
+
 func newBitAndFunc() *bitAndFunc         { return &bitAndFunc{-1} }
 func newBitOrFunc() *bitOrFunc           { return &bitOrFunc{-1} }
 func newBitXorFunc() *bitXorFunc         { return &bitXorFunc{bitXor: -1} }
@@ -519,6 +544,37 @@ func inArrayFunc(a, b interface{}) (bool, error) {
 		return false, err
 	}
 	return array.Has(va)
+}
+
+func dateFunc(args ...interface{}) (interface{}, error) {
+	if len(args) == 3 {
+		year, err := ValueOf(args[0])
+		if err != nil {
+			return nil, err
+		}
+		month, err := ValueOf(args[1])
+		if err != nil {
+			return nil, err
+		}
+		day, err := ValueOf(args[2])
+		if err != nil {
+			return nil, err
+		}
+		yearI64, err := year.ToInt64()
+		if err != nil {
+			return nil, err
+		}
+		monthI64, err := month.ToInt64()
+		if err != nil {
+			return nil, err
+		}
+		dayI64, err := day.ToInt64()
+		if err != nil {
+			return nil, err
+		}
+		return DateValue(time.Time{}.AddDate(int(yearI64)-1, int(monthI64)-1, int(dayI64)-1)).ToString()
+	}
+	return nil, fmt.Errorf("DATE: unsupported arguments type %v", args)
 }
 
 func getStructFieldI64Func(v interface{}, fieldIdx int) (int64, error) {
@@ -971,7 +1027,7 @@ func lengthFunc(value interface{}) (int64, error) {
 	return int64(len(s)), nil
 }
 
-type analyticSumFunc struct {
+type analyticSumI64Func struct {
 	initialized bool
 	once        sync.Once
 	sum         int64
@@ -979,7 +1035,7 @@ type analyticSumFunc struct {
 	agg         *WindowFuncAggregatedStatus
 }
 
-func (f *analyticSumFunc) Step(v interface{}, args ...string) error {
+func (f *analyticSumI64Func) Step(v interface{}, args ...string) error {
 	if isNULLValue(v) {
 		return nil
 	}
@@ -1013,12 +1069,25 @@ func (f *analyticSumFunc) Step(v interface{}, args ...string) error {
 	return nil
 }
 
-func (f *analyticSumFunc) Done() (interface{}, error) {
+func (f *analyticSumI64Func) Done() (interface{}, error) {
 	if !f.initialized {
 		return nil, nil
 	}
-	var sum int64
+	var (
+		sum         int64
+		initialized bool
+	)
 	if err := f.agg.Done(func(values []Value, start, end int) error {
+		if start >= len(values) || end < 0 {
+			return nil
+		}
+		if start < 0 {
+			start = 0
+		}
+		if end >= len(values) {
+			end = len(values) - 1
+		}
+		initialized = true
 		for _, value := range values[start : end+1] {
 			i64, err := value.ToInt64()
 			if err != nil {
@@ -1030,7 +1099,215 @@ func (f *analyticSumFunc) Done() (interface{}, error) {
 	}); err != nil {
 		return nil, err
 	}
+	if !initialized {
+		return nil, nil
+	}
 	return sum, nil
+}
+
+type analyticCountStarI64Func struct {
+	agg *WindowFuncAggregatedStatus
+}
+
+func (f *analyticCountStarI64Func) Step(args ...string) error {
+	status, err := parseWindowOptions(args...)
+	if err != nil {
+		return err
+	}
+	if err := f.agg.Step(IntValue(1), status); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (f *analyticCountStarI64Func) Done() (interface{}, error) {
+	var (
+		count       int64
+		initialized bool
+	)
+	if err := f.agg.Done(func(values []Value, start, end int) error {
+		if start >= len(values) || end < 0 {
+			return nil
+		}
+		if start < 0 {
+			start = 0
+		}
+		if end >= len(values) {
+			end = len(values) - 1
+		}
+		initialized = true
+		count = int64(len(values[start : end+1]))
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	if !initialized {
+		return nil, nil
+	}
+	return count, nil
+}
+
+type analyticAvgDoubleFunc struct {
+	agg *WindowFuncAggregatedStatus
+}
+
+func (f *analyticAvgDoubleFunc) Step(v interface{}, args ...string) error {
+	if isNULLValue(v) {
+		return nil
+	}
+	value, err := ValueOf(v)
+	if err != nil {
+		return err
+	}
+	status, err := parseWindowOptions(args...)
+	if err != nil {
+		return err
+	}
+	if err := f.agg.Step(value, status); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (f *analyticAvgDoubleFunc) Done() (interface{}, error) {
+	var (
+		avg         float64
+		initialized bool
+	)
+	if err := f.agg.Done(func(values []Value, start, end int) error {
+		if start >= len(values) || end < 0 {
+			return nil
+		}
+		if len(values) == 0 {
+			return nil
+		}
+		if start < 0 {
+			start = 0
+		}
+		if end >= len(values) {
+			end = len(values) - 1
+		}
+		initialized = true
+		for _, value := range values[start : end+1] {
+			f64, err := value.ToFloat64()
+			if err != nil {
+				return err
+			}
+			avg += f64
+		}
+		avg /= float64(len(values[start : end+1]))
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	if !initialized {
+		return nil, nil
+	}
+	return avg, nil
+}
+
+type analyticLastValueStringFunc struct {
+	agg *WindowFuncAggregatedStatus
+}
+
+func (f *analyticLastValueStringFunc) Step(v interface{}, args ...string) error {
+	if isNULLValue(v) {
+		return nil
+	}
+	value, err := ValueOf(v)
+	if err != nil {
+		return err
+	}
+	status, err := parseWindowOptions(args...)
+	if err != nil {
+		return err
+	}
+	if err := f.agg.Step(value, status); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (f *analyticLastValueStringFunc) Done() (interface{}, error) {
+	var lastValue Value
+	if err := f.agg.Done(func(values []Value, start, end int) error {
+		if start >= len(values) || end < 0 {
+			return nil
+		}
+		if len(values) == 0 {
+			return nil
+		}
+		if start < 0 {
+			start = 0
+		}
+		if end >= len(values) {
+			end = len(values) - 1
+		}
+		values = values[start : end+1]
+		lastValue = values[len(values)-1]
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return lastValue.ToString()
+}
+
+type analyticRankI64Func struct {
+	agg *WindowFuncAggregatedStatus
+}
+
+func (f *analyticRankI64Func) Step(args ...string) error {
+	status, err := parseWindowOptions(args...)
+	if err != nil {
+		return err
+	}
+	if err := f.agg.Step(IntValue(1), status); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (f *analyticRankI64Func) Done() (interface{}, error) {
+	var rankValue Value
+	if err := f.agg.Done(func(_ []Value, start, end int) error {
+		var orderByValues []Value
+		for _, value := range f.agg.SortedValues {
+			orderByValues = append(orderByValues, value.OrderBy[len(value.OrderBy)-1])
+		}
+		if start >= len(orderByValues) || end < 0 {
+			return nil
+		}
+		if len(orderByValues) == 0 {
+			return nil
+		}
+		if start != end {
+			return fmt.Errorf("Rank must be same value of start and end")
+		}
+		lastIdx := start
+		var (
+			rank        = 0
+			sameRankNum = 1
+			maxValue    int64
+		)
+		for idx := 0; idx <= lastIdx; idx++ {
+			curValue, err := orderByValues[idx].ToInt64()
+			if err != nil {
+				return err
+			}
+			if maxValue < curValue {
+				maxValue = curValue
+				rank += sameRankNum
+				sameRankNum = 1
+			} else {
+				sameRankNum++
+			}
+		}
+		rankValue = IntValue(rank)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return rankValue.ToInt64()
 }
 
 type sumFunc struct {
