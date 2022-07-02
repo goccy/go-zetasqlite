@@ -1,4 +1,4 @@
-package zetasqlite
+package internal
 
 import (
 	"context"
@@ -24,7 +24,7 @@ type FunctionSpec struct {
 }
 
 func (s *FunctionSpec) FuncName() string {
-	return formatName(s.NamePath)
+	return FormatName(s.NamePath)
 }
 
 func (s *FunctionSpec) SQL() string {
@@ -59,7 +59,7 @@ func (s *TableSpec) Column(name string) *ColumnSpec {
 }
 
 func (s *TableSpec) TableName() string {
-	return formatName(s.NamePath)
+	return FormatName(s.NamePath)
 }
 
 func (s *TableSpec) SQLiteSchema() string {
@@ -191,7 +191,7 @@ func newFunctionSpec(ctx context.Context, namePath []string, stmt *ast.CreateFun
 		return nil, fmt.Errorf("failed to format function expression: %w", err)
 	}
 	return &FunctionSpec{
-		NamePath: mergeNamePath(namePath, stmt.NamePath()),
+		NamePath: MergeNamePath(namePath, stmt.NamePath()),
 		Args:     args,
 		Return:   newType(stmt.ReturnType()),
 		Code:     stmt.Code(),
@@ -220,29 +220,10 @@ func newTableSpec(namePath []string, stmt *ast.CreateTableStmtNode) *TableSpec {
 		})
 	}
 	return &TableSpec{
-		NamePath:   mergeNamePath(namePath, stmt.NamePath()),
+		NamePath:   MergeNamePath(namePath, stmt.NamePath()),
 		Columns:    columns,
 		CreateMode: stmt.CreateMode(),
 	}
-}
-
-func formatName(namePath []string) string {
-	return strings.Join(namePath, "_")
-}
-
-func mergeNamePath(namePath []string, queryPath []string) []string {
-	if len(queryPath) == 0 {
-		return namePath
-	}
-
-	merged := []string{}
-	for _, path := range namePath {
-		if queryPath[0] == path {
-			break
-		}
-		merged = append(merged, path)
-	}
-	return append(merged, queryPath...)
 }
 
 func newType(t types.Type) *Type {

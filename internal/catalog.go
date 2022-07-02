@@ -1,4 +1,4 @@
-package zetasqlite
+package internal
 
 import (
 	"context"
@@ -59,7 +59,7 @@ type Catalog struct {
 	funcMap      map[string]*FunctionSpec
 }
 
-func newCatalog(db *sql.DB) *Catalog {
+func NewCatalog(db *sql.DB) *Catalog {
 	catalog := types.NewSimpleCatalog("zetasqlite")
 	catalog.AddZetaSQLBuiltinFunctions()
 	return &Catalog{

@@ -1,4 +1,4 @@
-package zetasqlite
+package internal
 
 import (
 	"bytes"
@@ -1228,7 +1228,7 @@ func toTimeValue(s string) (time.Time, error) {
 	return time.Time{}, fmt.Errorf("unsupported time format %s", s)
 }
 
-func convertNamedValues(v []driver.NamedValue) ([]sql.NamedArg, error) {
+func ConvertNamedValues(v []driver.NamedValue) ([]sql.NamedArg, error) {
 	ret := make([]sql.NamedArg, 0, len(v))
 	for _, vv := range v {
 		converted, err := convertNamedValue(vv)

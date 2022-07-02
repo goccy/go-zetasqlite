@@ -1,4 +1,4 @@
-package zetasqlite
+package internal
 
 import (
 	"fmt"
@@ -188,7 +188,7 @@ func init() {
 	}
 }
 
-func registerBuiltinFunctions(conn *sqlite3.SQLiteConn) error {
+func RegisterBuiltinFunctions(conn *sqlite3.SQLiteConn) error {
 	for name, fn := range zetasqliteFuncMap {
 		if err := conn.RegisterFunc(name, fn, true); err != nil {
 			return fmt.Errorf("failed to register builtin function %s: %w", name, err)

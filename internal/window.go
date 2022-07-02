@@ -1,4 +1,4 @@
-package zetasqlite
+package internal
 
 import (
 	"encoding/json"
