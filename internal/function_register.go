@@ -224,6 +224,14 @@ var normalFuncs = []*FuncInfo{
 		ReturnTypes: []types.TypeKind{types.INT64},
 	},
 
+	// math functions
+
+	{
+		Name:        "abs",
+		BindFunc:    bindAbs,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+
 	// encoded array to json array helper func
 	{
 		Name:        "decode_array",
@@ -245,6 +253,11 @@ var normalFuncs = []*FuncInfo{
 	{
 		Name:        "order_by",
 		BindFunc:    bindOrderBy,
+		ReturnTypes: []types.TypeKind{types.STRING},
+	},
+	{
+		Name:        "ignore_nulls",
+		BindFunc:    bindIgnoreNulls,
 		ReturnTypes: []types.TypeKind{types.STRING},
 	},
 
@@ -282,6 +295,16 @@ var normalFuncs = []*FuncInfo{
 }
 
 var aggregateFuncs = []*AggregateFuncInfo{
+	{
+		Name:        "array_agg",
+		BindFunc:    bindArrayAgg,
+		ReturnTypes: []types.TypeKind{types.ARRAY},
+	},
+	{
+		Name:        "array_concat_agg",
+		BindFunc:    bindArrayConcatAgg,
+		ReturnTypes: []types.TypeKind{types.ARRAY},
+	},
 	{
 		Name:        "sum",
 		BindFunc:    bindSum,
@@ -450,6 +473,15 @@ func registerByAggregateFuncInfo(conn *sqlite3.SQLiteConn, info *AggregateFuncIn
 		case types.BOOL:
 			name = fmt.Sprintf("zetasqlite_%s_bool", info.Name)
 			aggregator = bindAggregateBoolFunc(info.BindFunc)
+		case types.DATE:
+			name = fmt.Sprintf("zetasqlite_%s_date", info.Name)
+			aggregator = bindAggregateDateFunc(info.BindFunc)
+		case types.ARRAY:
+			name = fmt.Sprintf("zetasqlite_%s_array", info.Name)
+			aggregator = bindAggregateArrayFunc(info.BindFunc)
+		case types.STRUCT:
+			name = fmt.Sprintf("zetasqlite_%s_struct", info.Name)
+			aggregator = bindAggregateStructFunc(info.BindFunc)
 		default:
 			return fmt.Errorf("unsupported return type %s for aggregate function: %s", retType)
 		}
@@ -480,6 +512,15 @@ func registerByWindowFuncInfo(conn *sqlite3.SQLiteConn, info *WindowFuncInfo) er
 		case types.BOOL:
 			name = fmt.Sprintf("zetasqlite_window_%s_bool", info.Name)
 			aggregator = bindWindowBoolFunc(info.BindFunc)
+		case types.DATE:
+			name = fmt.Sprintf("zetasqlite_window_%s_date", info.Name)
+			aggregator = bindWindowDateFunc(info.BindFunc)
+		case types.ARRAY:
+			name = fmt.Sprintf("zetasqlite_window_%s_array", info.Name)
+			aggregator = bindWindowArrayFunc(info.BindFunc)
+		case types.STRUCT:
+			name = fmt.Sprintf("zetasqlite_window_%s_struct", info.Name)
+			aggregator = bindWindowStructFunc(info.BindFunc)
 		default:
 			return fmt.Errorf("unsupported return type %s for window function: %s", retType)
 		}

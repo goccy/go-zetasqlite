@@ -390,6 +390,54 @@ FROM Items`,
 			expectedRows: [][]interface{}{{"2020-09-23", "2020-09-15"}},
 		},
 		{
+			name:  "array_agg",
+			query: `SELECT ARRAY_AGG(x) AS array_agg FROM UNNEST([2, 1,-2, 3, -2, 1, 2]) AS x`,
+			expectedRows: [][]interface{}{{
+				[]int64{2, 1, -2, 3, -2, 1, 2},
+			}},
+		},
+		{
+			name:  "array_agg with distinct",
+			query: `SELECT ARRAY_AGG(DISTINCT x) AS array_agg FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x`,
+			expectedRows: [][]interface{}{{
+				[]int64{2, 1, -2, 3},
+			}},
+		},
+		{
+			name:  "array_agg with limit",
+			query: `SELECT ARRAY_AGG(x LIMIT 5) AS array_agg FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x`,
+			expectedRows: [][]interface{}{{
+				[]int64{2, 1, -2, 3, -2},
+			}},
+		},
+		{
+			name:  "array_agg with ignore nulls",
+			query: `SELECT ARRAY_AGG(x IGNORE NULLS) AS array_agg FROM UNNEST([NULL, 1, -2, 3, -2, 1, NULL]) AS x`,
+			expectedRows: [][]interface{}{{
+				[]int64{1, -2, 3, -2, 1},
+			}},
+		},
+		{
+			name:  "array_agg with abs",
+			query: `SELECT ARRAY_AGG(x ORDER BY ABS(x)) AS array_agg FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x`,
+			expectedRows: [][]interface{}{{
+				[]int64{1, 1, 2, -2, -2, 2, 3},
+			}},
+		},
+		{
+			name: "array_concat_agg",
+			query: `
+SELECT ARRAY_CONCAT_AGG(x) AS array_concat_agg FROM (
+  SELECT [NULL, 1, 2, 3, 4] AS x
+  UNION ALL SELECT [5, 6]
+  UNION ALL SELECT [7, 8, 9]
+)`,
+			expectedRows: [][]interface{}{{
+				[]int64{int64(1), int64(2), int64(3), int64(4), int64(5), int64(6), int64(7), int64(8), int64(9)},
+			}},
+		},
+
+		{
 			name:         "avg",
 			query:        `SELECT AVG(x) as avg FROM UNNEST([0, 2, 4, 4, 5]) as x`,
 			expectedRows: [][]interface{}{{float64(3)}},

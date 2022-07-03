@@ -1,10 +1,118 @@
 package internal
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 	"sync"
 )
+
+type OrderedValue struct {
+	OrderBy []*AggregateOrderBy
+	Value   Value
+}
+
+type ARRAY_AGG struct {
+	once   sync.Once
+	opt    *AggregatorOption
+	values []*OrderedValue
+}
+
+func (f *ARRAY_AGG) Step(v Value, opt *AggregatorOption) error {
+	if v == nil {
+		return fmt.Errorf("ARRAY_AGG: NULL value unsupported")
+	}
+	f.once.Do(func() { f.opt = opt })
+	f.values = append(f.values, &OrderedValue{
+		OrderBy: opt.OrderBy,
+		Value:   v,
+	})
+	return nil
+}
+
+func (f *ARRAY_AGG) Done() (Value, error) {
+	if f.opt != nil && len(f.opt.OrderBy) != 0 {
+		for orderBy := 0; orderBy < len(f.opt.OrderBy); orderBy++ {
+			if f.opt.OrderBy[orderBy].IsAsc {
+				sort.Slice(f.values, func(i, j int) bool {
+					v, _ := f.values[i].OrderBy[orderBy].Value.LT(f.values[j].OrderBy[orderBy].Value)
+					return v
+				})
+			} else {
+				sort.Slice(f.values, func(i, j int) bool {
+					v, _ := f.values[i].OrderBy[orderBy].Value.GT(f.values[j].OrderBy[orderBy].Value)
+					return v
+				})
+			}
+		}
+	}
+	if f.opt != nil && f.opt.Limit != nil {
+		minLen := int64(len(f.values))
+		if *f.opt.Limit < minLen {
+			minLen = *f.opt.Limit
+		}
+		f.values = f.values[:minLen]
+	}
+	values := make([]Value, 0, len(f.values))
+	for _, v := range f.values {
+		values = append(values, v.Value)
+	}
+	return &ArrayValue{
+		values: values,
+	}, nil
+}
+
+type ARRAY_CONCAT_AGG struct {
+	once   sync.Once
+	opt    *AggregatorOption
+	values []*OrderedValue
+}
+
+func (f *ARRAY_CONCAT_AGG) Step(v *ArrayValue, opt *AggregatorOption) error {
+	if v == nil {
+		return fmt.Errorf("ARRAY_CONCAT_AGG: NULL value unsupported")
+	}
+	f.once.Do(func() { f.opt = opt })
+	for _, vv := range v.values {
+		f.values = append(f.values, &OrderedValue{
+			OrderBy: opt.OrderBy,
+			Value:   vv,
+		})
+	}
+	return nil
+}
+
+func (f *ARRAY_CONCAT_AGG) Done() (Value, error) {
+	if f.opt != nil && len(f.opt.OrderBy) != 0 {
+		for orderBy := 0; orderBy < len(f.opt.OrderBy); orderBy++ {
+			if f.opt.OrderBy[orderBy].IsAsc {
+				sort.Slice(f.values, func(i, j int) bool {
+					v, _ := f.values[i].OrderBy[orderBy].Value.LT(f.values[j].OrderBy[orderBy].Value)
+					return v
+				})
+			} else {
+				sort.Slice(f.values, func(i, j int) bool {
+					v, _ := f.values[i].OrderBy[orderBy].Value.GT(f.values[j].OrderBy[orderBy].Value)
+					return v
+				})
+			}
+		}
+	}
+	if f.opt != nil && f.opt.Limit != nil {
+		minLen := int64(len(f.values))
+		if *f.opt.Limit < minLen {
+			minLen = *f.opt.Limit
+		}
+		f.values = f.values[:minLen]
+	}
+	values := make([]Value, 0, len(f.values))
+	for _, v := range f.values {
+		values = append(values, v.Value)
+	}
+	return &ArrayValue{
+		values: values,
+	}, nil
+}
 
 type SUM struct {
 	sum Value
@@ -242,11 +350,6 @@ func (f *AVG) Done() (Value, error) {
 		return nil, err
 	}
 	return FloatValue(base / float64(f.num)), nil
-}
-
-type OrderedValue struct {
-	OrderBy []*AggregateOrderBy
-	Value   Value
 }
 
 type STRING_AGG struct {

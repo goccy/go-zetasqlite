@@ -92,6 +92,8 @@ func (n *FunctionCallNode) FormatSQL(ctx context.Context) (string, error) {
 	resultType := strings.ToLower(n.node.Signature().ResultType().Type().TypeName(0))
 	if strings.HasPrefix(resultType, "struct") {
 		resultType = "struct"
+	} else if strings.HasPrefix(resultType, "array") {
+		resultType = "array"
 	}
 	funcName := n.node.Function().FullName(false)
 	if strings.HasPrefix(funcName, "$") {
@@ -140,6 +142,8 @@ func (n *AggregateFunctionCallNode) FormatSQL(ctx context.Context) (string, erro
 	resultType := strings.ToLower(n.node.Signature().ResultType().Type().TypeName(0))
 	if strings.HasPrefix(resultType, "struct") {
 		resultType = "struct"
+	} else if strings.HasPrefix(resultType, "array") {
+		resultType = "array"
 	}
 	funcName := n.node.Function().FullName(false)
 	if strings.HasPrefix(funcName, "$") {
@@ -189,6 +193,11 @@ func (n *AggregateFunctionCallNode) FormatSQL(ctx context.Context) (string, erro
 		}
 		opts = append(opts, fmt.Sprintf("zetasqlite_limit_string(%s)", limitValue))
 	}
+	switch n.node.NullHandlingModifier() {
+	case ast.IgnoreNulls:
+		opts = append(opts, "zetasqlite_ignore_nulls_string()")
+	case ast.RespectNulls:
+	}
 	args = append(args, opts...)
 	return fmt.Sprintf(
 		"%s(%s)",
@@ -225,6 +234,8 @@ func (n *AnalyticFunctionCallNode) FormatSQL(ctx context.Context) (string, error
 	resultType := strings.ToLower(n.node.Signature().ResultType().Type().TypeName(0))
 	if strings.HasPrefix(resultType, "struct") {
 		resultType = "struct"
+	} else if strings.HasPrefix(resultType, "array") {
+		resultType = "array"
 	}
 	funcName := n.node.Function().FullName(false)
 	if strings.HasPrefix(funcName, "$") {
@@ -343,6 +354,8 @@ func (n *GetStructFieldNode) FormatSQL(ctx context.Context) (string, error) {
 	typeSuffix := strings.ToLower(n.node.Type().TypeName(0))
 	if strings.HasPrefix(typeSuffix, "struct") {
 		typeSuffix = "struct"
+	} else if strings.HasPrefix(typeSuffix, "array") {
+		typeSuffix = "array"
 	}
 	idx := n.node.FieldIdx()
 	return fmt.Sprintf("zetasqlite_get_struct_field_%s(%s, %d)", typeSuffix, expr, idx), nil

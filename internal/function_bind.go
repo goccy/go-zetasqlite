@@ -187,6 +187,24 @@ var (
 		}
 		return v.ToBool()
 	}
+	dateValueConverter = func(v Value) (interface{}, error) {
+		if v == nil {
+			return nil, nil
+		}
+		return v.ToString()
+	}
+	arrayValueConverter = func(v Value) (interface{}, error) {
+		if v == nil {
+			return nil, nil
+		}
+		return v.ToString()
+	}
+	structValueConverter = func(v Value) (interface{}, error) {
+		if v == nil {
+			return nil, nil
+		}
+		return v.ToString()
+	}
 )
 
 func bindAggregateIntFunc(bindFunc func(ReturnValueConverter) func() *Aggregator) func() *Aggregator {
@@ -205,6 +223,18 @@ func bindAggregateBoolFunc(bindFunc func(ReturnValueConverter) func() *Aggregato
 	return bindFunc(boolValueConverter)
 }
 
+func bindAggregateDateFunc(bindFunc func(ReturnValueConverter) func() *Aggregator) func() *Aggregator {
+	return bindFunc(dateValueConverter)
+}
+
+func bindAggregateArrayFunc(bindFunc func(ReturnValueConverter) func() *Aggregator) func() *Aggregator {
+	return bindFunc(arrayValueConverter)
+}
+
+func bindAggregateStructFunc(bindFunc func(ReturnValueConverter) func() *Aggregator) func() *Aggregator {
+	return bindFunc(structValueConverter)
+}
+
 type Aggregator struct {
 	distinctMap map[string]struct{}
 	step        func([]Value, *AggregatorOption) error
@@ -220,6 +250,19 @@ func (a *Aggregator) Step(stepArgs ...interface{}) error {
 	values, err := convertArgs(args...)
 	if err != nil {
 		return err
+	}
+	if opt.IgnoreNulls {
+		filtered := []Value{}
+		for _, v := range values {
+			if v == nil {
+				continue
+			}
+			filtered = append(filtered, v)
+		}
+		values = filtered
+		if len(values) == 0 {
+			return nil
+		}
 	}
 	if opt.Distinct {
 		if len(values) < 1 {
@@ -277,6 +320,18 @@ func bindWindowBoolFunc(bindFunc func(ReturnValueConverter) func() *WindowAggreg
 	return bindFunc(boolValueConverter)
 }
 
+func bindWindowDateFunc(bindFunc func(ReturnValueConverter) func() *WindowAggregator) func() *WindowAggregator {
+	return bindFunc(dateValueConverter)
+}
+
+func bindWindowArrayFunc(bindFunc func(ReturnValueConverter) func() *WindowAggregator) func() *WindowAggregator {
+	return bindFunc(arrayValueConverter)
+}
+
+func bindWindowStructFunc(bindFunc func(ReturnValueConverter) func() *WindowAggregator) func() *WindowAggregator {
+	return bindFunc(structValueConverter)
+}
+
 type WindowAggregator struct {
 	distinctMap map[string]struct{}
 	agg         *WindowFuncAggregatedStatus
@@ -297,6 +352,16 @@ func (a *WindowAggregator) Step(stepArgs ...interface{}) error {
 	values, err := convertArgs(newArgs...)
 	if err != nil {
 		return err
+	}
+	if opt.IgnoreNulls {
+		filtered := []Value{}
+		for _, v := range values {
+			if v == nil {
+				continue
+			}
+			filtered = append(filtered, v)
+		}
+		values = filtered
 	}
 	if opt.Distinct {
 		if len(values) < 1 {
@@ -632,6 +697,13 @@ func bindLength(args ...Value) (Value, error) {
 	return LENGTH(args[0])
 }
 
+func bindAbs(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("ABS: invalid argument num %d", len(args))
+	}
+	return ABS(args[0])
+}
+
 func bindDate(args ...Value) (Value, error) {
 	return DATE(args...)
 }
@@ -663,6 +735,13 @@ func bindLimit(args ...Value) (Value, error) {
 		return nil, err
 	}
 	return LIMIT(i64)
+}
+
+func bindIgnoreNulls(args ...Value) (Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("IGNORE_NULLS: invalid argument num %d", len(args))
+	}
+	return IGNORE_NULLS()
 }
 
 func bindOrderBy(args ...Value) (Value, error) {
@@ -740,6 +819,46 @@ func bindWindowOrderBy(args ...Value) (Value, error) {
 		return nil, fmt.Errorf("WINDOW_ORDER_BY: invalid argument num %d", len(args))
 	}
 	return WINDOW_ORDER_BY(args[0])
+}
+
+func bindArrayAgg(converter ReturnValueConverter) func() *Aggregator {
+	return func() *Aggregator {
+		fn := &ARRAY_AGG{}
+		return newAggregator(
+			func(args []Value, opt *AggregatorOption) error {
+				if len(args) != 1 {
+					return fmt.Errorf("ARRAY_AGG: invalid argument num %d", len(args))
+				}
+				return fn.Step(args[0], opt)
+			},
+			func() (Value, error) {
+				return fn.Done()
+			},
+			converter,
+		)
+	}
+}
+
+func bindArrayConcatAgg(converter ReturnValueConverter) func() *Aggregator {
+	return func() *Aggregator {
+		fn := &ARRAY_CONCAT_AGG{}
+		return newAggregator(
+			func(args []Value, opt *AggregatorOption) error {
+				if len(args) != 1 {
+					return fmt.Errorf("ARRAY_CONCAT_AGG: invalid argument num %d", len(args))
+				}
+				array, err := args[0].ToArray()
+				if err != nil {
+					return err
+				}
+				return fn.Step(array, opt)
+			},
+			func() (Value, error) {
+				return fn.Done()
+			},
+			converter,
+		)
+	}
 }
 
 func bindSum(converter ReturnValueConverter) func() *Aggregator {

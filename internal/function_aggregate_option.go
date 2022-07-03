@@ -20,6 +20,7 @@ func (o *AggregatorFuncOption) UnmarshalJSON(b []byte) error {
 	o.Type = v.Type
 	switch v.Type {
 	case AggregatorFuncOptionDistinct:
+	case AggregatorFuncOptionIgnoreNulls:
 	case AggregatorFuncOptionLimit:
 		var value struct {
 			Value int64 `json:"value"`
@@ -43,10 +44,11 @@ func (o *AggregatorFuncOption) UnmarshalJSON(b []byte) error {
 type AggregatorFuncOptionType string
 
 const (
-	AggregatorFuncOptionUnknown  AggregatorFuncOptionType = "aggregate_unknown"
-	AggregatorFuncOptionDistinct AggregatorFuncOptionType = "aggregate_distinct"
-	AggregatorFuncOptionLimit    AggregatorFuncOptionType = "aggregate_limit"
-	AggregatorFuncOptionOrderBy  AggregatorFuncOptionType = "aggregate_order_by"
+	AggregatorFuncOptionUnknown     AggregatorFuncOptionType = "aggregate_unknown"
+	AggregatorFuncOptionDistinct    AggregatorFuncOptionType = "aggregate_distinct"
+	AggregatorFuncOptionLimit       AggregatorFuncOptionType = "aggregate_limit"
+	AggregatorFuncOptionOrderBy     AggregatorFuncOptionType = "aggregate_order_by"
+	AggregatorFuncOptionIgnoreNulls AggregatorFuncOptionType = "aggregate_ignore_nulls"
 )
 
 func DISTINCT() (Value, error) {
@@ -60,6 +62,13 @@ func LIMIT(limit int64) (Value, error) {
 	b, _ := json.Marshal(&AggregatorFuncOption{
 		Type:  AggregatorFuncOptionLimit,
 		Value: limit,
+	})
+	return StringValue(string(b)), nil
+}
+
+func IGNORE_NULLS() (Value, error) {
+	b, _ := json.Marshal(&AggregatorFuncOption{
+		Type: AggregatorFuncOptionIgnoreNulls,
 	})
 	return StringValue(string(b)), nil
 }
@@ -98,9 +107,10 @@ func ORDER_BY(value Value, isAsc bool) (Value, error) {
 }
 
 type AggregatorOption struct {
-	Distinct bool
-	Limit    *int64
-	OrderBy  []*AggregateOrderBy
+	Distinct    bool
+	IgnoreNulls bool
+	Limit       *int64
+	OrderBy     []*AggregateOrderBy
 }
 
 func parseAggregateOptions(args ...interface{}) ([]interface{}, *AggregatorOption, error) {
@@ -122,6 +132,8 @@ func parseAggregateOptions(args ...interface{}) ([]interface{}, *AggregatorOptio
 		switch v.Type {
 		case AggregatorFuncOptionDistinct:
 			opt.Distinct = true
+		case AggregatorFuncOptionIgnoreNulls:
+			opt.IgnoreNulls = true
 		case AggregatorFuncOptionLimit:
 			i64 := v.Value.(int64)
 			opt.Limit = &i64
