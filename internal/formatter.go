@@ -96,7 +96,7 @@ func (n *FunctionCallNode) FormatSQL(ctx context.Context) (string, error) {
 	funcName := n.node.Function().FullName(false)
 	if strings.HasPrefix(funcName, "$") {
 		funcName = fmt.Sprintf("zetasqlite_%s_%s", funcName[1:], resultType)
-	} else if _, exists := builtinFuncMap[funcName]; exists {
+	} else if _, exists := normalFuncMap[funcName]; exists {
 		funcName = fmt.Sprintf("zetasqlite_%s_%s", funcName, resultType)
 	} else {
 		fullpath := fullNamePathFromContext(ctx)
@@ -144,7 +144,7 @@ func (n *AggregateFunctionCallNode) FormatSQL(ctx context.Context) (string, erro
 	funcName := n.node.Function().FullName(false)
 	if strings.HasPrefix(funcName, "$") {
 		funcName = fmt.Sprintf("zetasqlite_%s_%s", funcName[1:], resultType)
-	} else if _, exists := builtinAggregateFuncMap[funcName]; exists {
+	} else if _, exists := aggregateFuncMap[funcName]; exists {
 		funcName = fmt.Sprintf("zetasqlite_%s_%s", funcName, resultType)
 	} else {
 		fullpath := fullNamePathFromContext(ctx)
@@ -173,22 +173,21 @@ func (n *AggregateFunctionCallNode) FormatSQL(ctx context.Context) (string, erro
 		if err != nil {
 			return "", err
 		}
-		typeSuffix := strings.ToLower(columnRef.Column().Type().TypeName(0))
 		if item.IsDescending() {
-			opts = append(opts, fmt.Sprintf("zetasqlite_order_by_opt_%s(%s, false)", typeSuffix, columnName))
+			opts = append(opts, fmt.Sprintf("zetasqlite_order_by_string(%s, false)", columnName))
 		} else {
-			opts = append(opts, fmt.Sprintf("zetasqlite_order_by_opt_%s(%s, true)", typeSuffix, columnName))
+			opts = append(opts, fmt.Sprintf("zetasqlite_order_by_string(%s, true)", columnName))
 		}
 	}
 	if n.node.Distinct() {
-		opts = append(opts, "zetasqlite_distinct_opt()")
+		opts = append(opts, "zetasqlite_distinct_string()")
 	}
 	if n.node.Limit() != nil {
 		limitValue, err := newNode(n.node.Limit()).FormatSQL(ctx)
 		if err != nil {
 			return "", err
 		}
-		opts = append(opts, fmt.Sprintf("zetasqlite_limit_opt(%s)", limitValue))
+		opts = append(opts, fmt.Sprintf("zetasqlite_limit_string(%s)", limitValue))
 	}
 	args = append(args, opts...)
 	return fmt.Sprintf(
@@ -229,9 +228,9 @@ func (n *AnalyticFunctionCallNode) FormatSQL(ctx context.Context) (string, error
 	}
 	funcName := n.node.Function().FullName(false)
 	if strings.HasPrefix(funcName, "$") {
-		funcName = fmt.Sprintf("zetasqlite_analytic_%s_%s", funcName[1:], resultType)
-	} else if _, exists := builtinAggregateFuncMap[funcName]; exists {
-		funcName = fmt.Sprintf("zetasqlite_analytic_%s_%s", funcName, resultType)
+		funcName = fmt.Sprintf("zetasqlite_window_%s_%s", funcName[1:], resultType)
+	} else if _, exists := windowFuncMap[funcName]; exists {
+		funcName = fmt.Sprintf("zetasqlite_window_%s_%s", funcName, resultType)
 	} else {
 		fullpath := fullNamePathFromContext(ctx)
 		path := fullpath.paths[fullpath.idx]
@@ -254,7 +253,7 @@ func (n *AnalyticFunctionCallNode) FormatSQL(ctx context.Context) (string, error
 	}
 	var opts []string
 	if n.node.Distinct() {
-		opts = append(opts, "zetasqlite_distinct_opt()")
+		opts = append(opts, "zetasqlite_distinct_string()")
 	}
 	args = append(args, opts...)
 	for _, column := range analyticPartitionColumnNamesFromContext(ctx) {
@@ -438,7 +437,7 @@ func (n *ArrayScanNode) FormatSQL(ctx context.Context) (string, error) {
 	}
 	colName := n.node.ElementColumn().Name()
 	return fmt.Sprintf(
-		"FROM ( SELECT json_each.value AS `%s` FROM json_each(zetasqlite_decode_array(%s)) )",
+		"FROM ( SELECT json_each.value AS `%s` FROM json_each(zetasqlite_decode_array_string(%s)) )",
 		colName,
 		arrayExpr,
 	), nil

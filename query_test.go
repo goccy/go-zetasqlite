@@ -290,7 +290,7 @@ FROM UNNEST([1, 2, 3, 4]) AS val`,
 		{
 			name:         "nullif true",
 			query:        `SELECT NULLIF(0, 0)`,
-			expectedRows: [][]interface{}{{int64(0)}},
+			expectedRows: [][]interface{}{},
 		},
 		{
 			name:         "nullif false",

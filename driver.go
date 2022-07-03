@@ -27,7 +27,7 @@ func init() {
 	sql.Register("zetasqlite", &ZetaSQLiteDriver{})
 	sql.Register("zetasqlite_sqlite3", &sqlite3.SQLiteDriver{
 		ConnectHook: func(conn *sqlite3.SQLiteConn) error {
-			if err := internal.RegisterBuiltinFunctions(conn); err != nil {
+			if err := internal.RegisterFunctions(conn); err != nil {
 				return err
 			}
 			return nil
