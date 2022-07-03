@@ -1,4 +1,4 @@
-package zetasqlite
+package internal
 
 import (
 	"encoding/json"
@@ -9,16 +9,16 @@ import (
 	ast "github.com/goccy/go-zetasql/resolved_ast"
 )
 
-type WindowFuncOptionType int
+type WindowFuncOptionType string
 
 const (
-	WindowFuncOptionUnknown   WindowFuncOptionType = 0
-	WindowFuncOptionFrameUnit WindowFuncOptionType = 1
-	WindowFuncOptionStart     WindowFuncOptionType = 2
-	WindowFuncOptionEnd       WindowFuncOptionType = 3
-	WindowFuncOptionPartition WindowFuncOptionType = 4
-	WindowFuncOptionRowID     WindowFuncOptionType = 5
-	WindowFuncOptionOrderBy   WindowFuncOptionType = 6
+	WindowFuncOptionUnknown   WindowFuncOptionType = "window_unknown"
+	WindowFuncOptionFrameUnit WindowFuncOptionType = "window_frame_unit"
+	WindowFuncOptionStart     WindowFuncOptionType = "window_boundary_start"
+	WindowFuncOptionEnd       WindowFuncOptionType = "window_boundary_end"
+	WindowFuncOptionPartition WindowFuncOptionType = "window_partition"
+	WindowFuncOptionRowID     WindowFuncOptionType = "window_rowid"
+	WindowFuncOptionOrderBy   WindowFuncOptionType = "window_order_by"
 )
 
 type WindowFuncOption struct {
@@ -101,7 +101,7 @@ func getWindowFrameUnitOptionFuncSQL(frameUnit ast.FrameUnit) string {
 	case ast.FrameUnitRange:
 		typ = WindowFrameUnitRange
 	}
-	return fmt.Sprintf("zetasqlite_window_frame_unit(%d)", typ)
+	return fmt.Sprintf("zetasqlite_window_frame_unit_string(%d)", typ)
 }
 
 func toWindowBoundaryType(boundaryType ast.BoundaryType) WindowBoundaryType {
@@ -125,7 +125,7 @@ func getWindowBoundaryStartOptionFuncSQL(boundaryType ast.BoundaryType, offset s
 	if offset == "" {
 		offset = "0"
 	}
-	return fmt.Sprintf("zetasqlite_window_boundary_start(%d, %s)", typ, offset)
+	return fmt.Sprintf("zetasqlite_window_boundary_start_string(%d, %s)", typ, offset)
 }
 
 func getWindowBoundaryEndOptionFuncSQL(boundaryType ast.BoundaryType, offset string) string {
@@ -133,30 +133,30 @@ func getWindowBoundaryEndOptionFuncSQL(boundaryType ast.BoundaryType, offset str
 	if offset == "" {
 		offset = "0"
 	}
-	return fmt.Sprintf("zetasqlite_window_boundary_end(%d, %s)", typ, offset)
+	return fmt.Sprintf("zetasqlite_window_boundary_end_string(%d, %s)", typ, offset)
 }
 
 func getWindowPartitionOptionFuncSQL(column string) string {
-	return fmt.Sprintf("zetasqlite_window_partition(%s)", column)
+	return fmt.Sprintf("zetasqlite_window_partition_string(%s)", column)
 }
 
 func getWindowRowIDOptionFuncSQL() string {
-	return "zetasqlite_window_rowid(`rowid`)"
+	return "zetasqlite_window_rowid_string(`rowid`)"
 }
 
 func getWindowOrderByOptionFuncSQL(column string) string {
-	return fmt.Sprintf("zetasqlite_window_order_by(%s)", column)
+	return fmt.Sprintf("zetasqlite_window_order_by_string(%s)", column)
 }
 
-func windowFrameUnitOptionFunc(frameUnit int64) string {
+func WINDOW_FRAME_UNIT(frameUnit int64) (Value, error) {
 	b, _ := json.Marshal(&WindowFuncOption{
 		Type:  WindowFuncOptionFrameUnit,
 		Value: frameUnit,
 	})
-	return string(b)
+	return StringValue(string(b)), nil
 }
 
-func windowBoundaryStartOptionFunc(boundaryType, offset int64) string {
+func WINDOW_BOUNDARY_START(boundaryType, offset int64) (Value, error) {
 	b, _ := json.Marshal(&WindowFuncOption{
 		Type: WindowFuncOptionStart,
 		Value: &WindowBoundary{
@@ -164,10 +164,10 @@ func windowBoundaryStartOptionFunc(boundaryType, offset int64) string {
 			Offset: offset,
 		},
 	})
-	return string(b)
+	return StringValue(string(b)), nil
 }
 
-func windowBoundaryEndOptionFunc(boundaryType, offset int64) string {
+func WINDOW_BOUNDARY_END(boundaryType, offset int64) (Value, error) {
 	b, _ := json.Marshal(&WindowFuncOption{
 		Type: WindowFuncOptionEnd,
 		Value: &WindowBoundary{
@@ -175,31 +175,64 @@ func windowBoundaryEndOptionFunc(boundaryType, offset int64) string {
 			Offset: offset,
 		},
 	})
-	return string(b)
+	return StringValue(string(b)), nil
 }
 
-func windowPartitionOptionFunc(partition interface{}) string {
+func WINDOW_PARTITION(partition Value) (Value, error) {
 	b, _ := json.Marshal(&WindowFuncOption{
 		Type:  WindowFuncOptionPartition,
 		Value: partition,
 	})
-	return string(b)
+	return StringValue(string(b)), nil
 }
 
-func windowRowIDOptionFunc(id int64) string {
+func WINDOW_ROWID(id int64) (Value, error) {
 	b, _ := json.Marshal(&WindowFuncOption{
 		Type:  WindowFuncOptionRowID,
 		Value: id,
 	})
-	return string(b)
+	return StringValue(string(b)), nil
 }
 
-func windowOrderByOptionFunc(value interface{}) string {
+func WINDOW_ORDER_BY(value Value) (Value, error) {
+	var v interface{}
+	switch vv := value.(type) {
+	case IntValue:
+		i64, err := vv.ToInt64()
+		if err != nil {
+			return nil, err
+		}
+		v = i64
+	case FloatValue:
+		f64, err := vv.ToFloat64()
+		if err != nil {
+			return nil, err
+		}
+		v = f64
+	case StringValue:
+		s, err := vv.ToString()
+		if err != nil {
+			return nil, err
+		}
+		v = s
+	case BoolValue:
+		b, err := vv.ToBool()
+		if err != nil {
+			return nil, err
+		}
+		v = b
+	case DateValue:
+		i64, err := vv.ToInt64()
+		if err != nil {
+			return nil, err
+		}
+		v = i64
+	}
 	b, _ := json.Marshal(&WindowFuncOption{
 		Type:  WindowFuncOptionOrderBy,
-		Value: value,
+		Value: v,
 	})
-	return string(b)
+	return StringValue(string(b)), nil
 }
 
 type WindowFuncStatus struct {
@@ -211,41 +244,51 @@ type WindowFuncStatus struct {
 	OrderBy   []Value
 }
 
-func parseWindowOptions(opts ...string) (*WindowFuncStatus, error) {
-	var status WindowFuncStatus
-	for _, opt := range opts {
+func parseWindowOptions(args ...interface{}) ([]interface{}, *WindowFuncStatus, error) {
+	var (
+		filteredArgs []interface{}
+		opt          *WindowFuncStatus = &WindowFuncStatus{}
+	)
+	for _, arg := range args {
+		text, ok := arg.(string)
+		if !ok {
+			filteredArgs = append(filteredArgs, arg)
+			continue
+		}
 		var v WindowFuncOption
-		if err := json.Unmarshal([]byte(opt), &v); err != nil {
+		if err := json.Unmarshal([]byte(text), &v); err != nil {
+			filteredArgs = append(filteredArgs, arg)
 			continue
 		}
 		switch v.Type {
 		case WindowFuncOptionFrameUnit:
-			status.FrameUnit = v.Value.(WindowFrameUnitType)
+			opt.FrameUnit = v.Value.(WindowFrameUnitType)
 		case WindowFuncOptionStart:
-			status.Start = v.Value.(*WindowBoundary)
+			opt.Start = v.Value.(*WindowBoundary)
 		case WindowFuncOptionEnd:
-			status.End = v.Value.(*WindowBoundary)
+			opt.End = v.Value.(*WindowBoundary)
 		case WindowFuncOptionPartition:
-			status.Partition = v.Value.(Value)
+			opt.Partition = v.Value.(Value)
 		case WindowFuncOptionRowID:
-			status.RowID = v.Value.(int64)
+			opt.RowID = v.Value.(int64)
 		case WindowFuncOptionOrderBy:
-			status.OrderBy = append(status.OrderBy, v.Value.(Value))
+			opt.OrderBy = append(opt.OrderBy, v.Value.(Value))
 		default:
-			return nil, fmt.Errorf("unknown window function type %d", v.Type)
+			filteredArgs = append(filteredArgs, arg)
+			continue
 		}
 	}
-	return &status, nil
+	return filteredArgs, opt, nil
 }
 
-type OrderedValue struct {
+type WindowOrderedValue struct {
 	OrderBy []Value
 	Value   Value
 }
 
 type PartitionedValue struct {
 	Partition string
-	Value     *OrderedValue
+	Value     *WindowOrderedValue
 }
 
 type WindowFuncAggregatedStatus struct {
@@ -254,15 +297,15 @@ type WindowFuncAggregatedStatus struct {
 	End                  *WindowBoundary
 	RowID                int64
 	once                 sync.Once
-	PartitionToValuesMap map[string][]*OrderedValue
+	PartitionToValuesMap map[string][]*WindowOrderedValue
 	PartitionedValues    []*PartitionedValue
-	Values               []*OrderedValue
-	SortedValues         []*OrderedValue
+	Values               []*WindowOrderedValue
+	SortedValues         []*WindowOrderedValue
 }
 
 func newWindowFuncAggregatedStatus() *WindowFuncAggregatedStatus {
 	return &WindowFuncAggregatedStatus{
-		PartitionToValuesMap: map[string][]*OrderedValue{},
+		PartitionToValuesMap: map[string][]*WindowOrderedValue{},
 	}
 }
 
@@ -289,7 +332,7 @@ func (s *WindowFuncAggregatedStatus) Step(value Value, status *WindowFuncStatus)
 	if s.RowID != status.RowID {
 		return fmt.Errorf("mismatch rowid %d != %d", s.RowID, status.RowID)
 	}
-	v := &OrderedValue{
+	v := &WindowOrderedValue{
 		OrderBy: status.OrderBy,
 		Value:   value,
 	}
@@ -313,7 +356,7 @@ func (s *WindowFuncAggregatedStatus) Done(cb func([]Value, int, int) error) erro
 		return fmt.Errorf("invalid rowid. rowid must be greater than zero")
 	}
 	values := s.FilteredValues()
-	sortedValues := make([]*OrderedValue, len(values))
+	sortedValues := make([]*WindowOrderedValue, len(values))
 	for i := 0; i < len(values); i++ {
 		sortedValues[i] = values[i]
 	}
@@ -341,7 +384,7 @@ func (s *WindowFuncAggregatedStatus) Done(cb func([]Value, int, int) error) erro
 	return cb(resultValues, start, end)
 }
 
-func (s *WindowFuncAggregatedStatus) FilteredValues() []*OrderedValue {
+func (s *WindowFuncAggregatedStatus) FilteredValues() []*WindowOrderedValue {
 	if len(s.PartitionedValues) != 0 {
 		return s.PartitionToValuesMap[s.Partition()]
 	}

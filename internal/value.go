@@ -1,4 +1,4 @@
-package zetasqlite
+package internal
 
 import (
 	"bytes"
@@ -33,6 +33,7 @@ type Value interface {
 	ToStruct() (*StructValue, error)
 	ToJSON() (string, error)
 	ToTime() (time.Time, error)
+	Marshal() (string, error)
 }
 
 type IntValue int64
@@ -151,6 +152,10 @@ func (iv IntValue) ToTime() (time.Time, error) {
 	return time.Time{}, fmt.Errorf("failed to convert %d to time.Time type", iv)
 }
 
+func (iv IntValue) Marshal() (string, error) {
+	return fmt.Sprint(iv), nil
+}
+
 type StringValue string
 
 func (sv StringValue) Add(v Value) (Value, error) {
@@ -257,7 +262,15 @@ func (sv StringValue) ToJSON() (string, error) {
 }
 
 func (sv StringValue) ToTime() (time.Time, error) {
+	switch {
+	case isDate(string(sv)):
+		return parseDate(string(sv))
+	}
 	return time.Time{}, fmt.Errorf("failed to convert %s to time.Time type", sv)
+}
+
+func (sv StringValue) Marshal() (string, error) {
+	return strconv.Quote(string(sv)), nil
 }
 
 type FloatValue float64
@@ -369,6 +382,10 @@ func (fv FloatValue) ToTime() (time.Time, error) {
 	return time.Time{}, fmt.Errorf("failed to convert time.Time from float64: %v", fv)
 }
 
+func (fv FloatValue) Marshal() (string, error) {
+	return fmt.Sprint(fv), nil
+}
+
 type BoolValue bool
 
 func (bv BoolValue) Add(v Value) (Value, error) {
@@ -447,6 +464,10 @@ func (bv BoolValue) ToJSON() (string, error) {
 
 func (bv BoolValue) ToTime() (time.Time, error) {
 	return time.Time{}, fmt.Errorf("failed to convert bool from time.Time: %v", bv)
+}
+
+func (bv BoolValue) Marshal() (string, error) {
+	return fmt.Sprint(bv), nil
 }
 
 type ArrayValue struct {
@@ -587,11 +608,7 @@ func (av *ArrayValue) ToInt64() (int64, error) {
 }
 
 func (av *ArrayValue) ToString() (string, error) {
-	json, err := av.ToJSON()
-	if err != nil {
-		return "", err
-	}
-	return toArrayValueFromJSONString(json), nil
+	return av.Marshal()
 }
 
 func (av *ArrayValue) ToFloat64() (float64, error) {
@@ -624,6 +641,22 @@ func (av *ArrayValue) ToJSON() (string, error) {
 
 func (av *ArrayValue) ToTime() (time.Time, error) {
 	return time.Time{}, fmt.Errorf("failed to convert time.Time from array %v", av)
+}
+
+func (av *ArrayValue) Marshal() (string, error) {
+	elems := []string{}
+	for _, v := range av.values {
+		if v == nil {
+			elems = append(elems, "null")
+			continue
+		}
+		elem, err := v.Marshal()
+		if err != nil {
+			return "", err
+		}
+		elems = append(elems, elem)
+	}
+	return toArrayValueFromJSONString(fmt.Sprintf("[%s]", strings.Join(elems, ","))), nil
 }
 
 type StructValue struct {
@@ -753,11 +786,7 @@ func (sv *StructValue) ToInt64() (int64, error) {
 }
 
 func (sv *StructValue) ToString() (string, error) {
-	json, err := sv.ToJSON()
-	if err != nil {
-		return "", err
-	}
-	return toStructValueFromJSONString(json), nil
+	return sv.Marshal()
 }
 
 func (sv *StructValue) ToFloat64() (float64, error) {
@@ -794,6 +823,32 @@ func (sv *StructValue) ToJSON() (string, error) {
 
 func (sv *StructValue) ToTime() (time.Time, error) {
 	return time.Time{}, fmt.Errorf("failed to convert time.Time from struct %v", sv)
+}
+
+func (sv *StructValue) Marshal() (string, error) {
+	fields := []string{}
+	for i := 0; i < len(sv.keys); i++ {
+		key := sv.keys[i]
+		value := sv.values[i]
+		if value == nil {
+			fields = append(
+				fields,
+				fmt.Sprintf("%s:null", strconv.Quote(key)),
+			)
+			continue
+		}
+		encodedValue, err := value.Marshal()
+		if err != nil {
+			return "", err
+		}
+		fields = append(
+			fields,
+			fmt.Sprintf("%s:%s", strconv.Quote(key), encodedValue),
+		)
+	}
+	return toStructValueFromJSONString(
+		fmt.Sprintf("{%s}", strings.Join(fields, ",")),
+	), nil
 }
 
 type DateValue time.Time
@@ -900,6 +955,14 @@ func (d DateValue) ToTime() (time.Time, error) {
 	return time.Time(d), nil
 }
 
+func (d DateValue) Marshal() (string, error) {
+	json, err := d.ToJSON()
+	if err != nil {
+		return "", err
+	}
+	return toDateValueFromString(json), nil
+}
+
 const (
 	ArrayValueHeader  = "zetasqlitearray:"
 	StructValueHeader = "zetasqlitestruct:"
@@ -907,6 +970,14 @@ const (
 )
 
 func ValueOf(v interface{}) (Value, error) {
+	if v == nil {
+		return nil, nil
+	}
+	if _, ok := v.([]byte); ok {
+		if reflect.ValueOf(v).IsNil() {
+			return nil, nil
+		}
+	}
 	switch vv := v.(type) {
 	case int:
 		return IntValue(int64(vv)), nil
@@ -1228,7 +1299,7 @@ func toTimeValue(s string) (time.Time, error) {
 	return time.Time{}, fmt.Errorf("unsupported time format %s", s)
 }
 
-func convertNamedValues(v []driver.NamedValue) ([]sql.NamedArg, error) {
+func ConvertNamedValues(v []driver.NamedValue) ([]sql.NamedArg, error) {
 	ret := make([]sql.NamedArg, 0, len(v))
 	for _, vv := range v {
 		converted, err := convertNamedValue(vv)

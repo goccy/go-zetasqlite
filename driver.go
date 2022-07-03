@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sync"
 
+	internal "github.com/goccy/go-zetasqlite/internal"
 	"github.com/mattn/go-sqlite3"
 )
 
@@ -17,7 +18,7 @@ var (
 )
 
 var (
-	nameToCatalogMap = map[string]*Catalog{}
+	nameToCatalogMap = map[string]*internal.Catalog{}
 	nameToDBMap      = map[string]*sql.DB{}
 	nameToValueMapMu sync.Mutex
 )
@@ -26,7 +27,7 @@ func init() {
 	sql.Register("zetasqlite", &ZetaSQLiteDriver{})
 	sql.Register("zetasqlite_sqlite3", &sqlite3.SQLiteDriver{
 		ConnectHook: func(conn *sqlite3.SQLiteConn) error {
-			if err := registerBuiltinFunctions(conn); err != nil {
+			if err := internal.RegisterFunctions(conn); err != nil {
 				return err
 			}
 			return nil
@@ -34,7 +35,7 @@ func init() {
 	})
 }
 
-func newDBAndCatalog(name string) (*sql.DB, *Catalog, error) {
+func newDBAndCatalog(name string) (*sql.DB, *internal.Catalog, error) {
 	nameToValueMapMu.Lock()
 	defer nameToValueMapMu.Unlock()
 	db, exists := nameToDBMap[name]
@@ -45,7 +46,7 @@ func newDBAndCatalog(name string) (*sql.DB, *Catalog, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to open database by %s: %w", name, err)
 	}
-	catalog := newCatalog(db)
+	catalog := internal.NewCatalog(db)
 	nameToDBMap[name] = db
 	nameToCatalogMap[name] = catalog
 	return db, catalog, nil
@@ -74,30 +75,30 @@ func (d *ZetaSQLiteDriver) Open(name string) (driver.Conn, error) {
 
 type ZetaSQLiteConn struct {
 	conn     *sql.Conn
-	analyzer *Analyzer
+	analyzer *internal.Analyzer
 }
 
-func newZetaSQLiteConn(db *sql.DB, catalog *Catalog) (*ZetaSQLiteConn, error) {
+func newZetaSQLiteConn(db *sql.DB, catalog *internal.Catalog) (*ZetaSQLiteConn, error) {
 	conn, err := db.Conn(context.Background())
 	if err != nil {
 		return nil, fmt.Errorf("failed to get sqlite3 connection: %w", err)
 	}
 	return &ZetaSQLiteConn{
 		conn:     conn,
-		analyzer: newAnalyzer(catalog),
+		analyzer: internal.NewAnalyzer(catalog),
 	}, nil
 }
 
 func (c *ZetaSQLiteConn) NamePath() []string {
-	return c.analyzer.namePath
+	return c.analyzer.NamePath()
 }
 
 func (c *ZetaSQLiteConn) SetNamePath(path []string) {
-	c.analyzer.namePath = path
+	c.analyzer.SetNamePath(path)
 }
 
 func (c *ZetaSQLiteConn) AddNamePath(path string) {
-	c.analyzer.namePath = append(c.analyzer.namePath, path)
+	c.analyzer.AddNamePath(path)
 }
 
 func (s *ZetaSQLiteConn) CheckNamedValue(value *driver.NamedValue) error {
@@ -109,7 +110,7 @@ func (c *ZetaSQLiteConn) Prepare(query string) (driver.Stmt, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to analyze query: %w", err)
 	}
-	return out.prepare(context.Background(), c.conn)
+	return out.Prepare(context.Background(), c.conn)
 }
 
 func (c *ZetaSQLiteConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
@@ -117,7 +118,7 @@ func (c *ZetaSQLiteConn) ExecContext(ctx context.Context, query string, args []d
 	if err != nil {
 		return nil, fmt.Errorf("failed to analyze query: %w", err)
 	}
-	newNamedValues, err := convertNamedValues(args)
+	newNamedValues, err := internal.ConvertNamedValues(args)
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +126,7 @@ func (c *ZetaSQLiteConn) ExecContext(ctx context.Context, query string, args []d
 	for _, newNamedValue := range newNamedValues {
 		newArgs = append(newArgs, newNamedValue)
 	}
-	return out.execContext(ctx, c.conn, newArgs...)
+	return out.ExecContext(ctx, c.conn, newArgs...)
 }
 
 func (c *ZetaSQLiteConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
@@ -133,7 +134,7 @@ func (c *ZetaSQLiteConn) QueryContext(ctx context.Context, query string, args []
 	if err != nil {
 		return nil, fmt.Errorf("failed to analyze query: %w", err)
 	}
-	newNamedValues, err := convertNamedValues(args)
+	newNamedValues, err := internal.ConvertNamedValues(args)
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +142,7 @@ func (c *ZetaSQLiteConn) QueryContext(ctx context.Context, query string, args []
 	for _, newNamedValue := range newNamedValues {
 		newArgs = append(newArgs, newNamedValue)
 	}
-	return out.queryContext(ctx, c.conn, newArgs...)
+	return out.QueryContext(ctx, c.conn, newArgs...)
 }
 
 func (c *ZetaSQLiteConn) Close() error {

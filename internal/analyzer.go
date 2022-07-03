@@ -1,4 +1,4 @@
-package zetasqlite
+package internal
 
 import (
 	"context"
@@ -26,12 +26,12 @@ type AnalyzerOutput struct {
 	isQuery        bool
 	tableSpec      *TableSpec
 	outputColumns  []*ColumnSpec
-	prepare        func(context.Context, *sql.Conn) (driver.Stmt, error)
-	execContext    func(context.Context, *sql.Conn, ...interface{}) (driver.Result, error)
-	queryContext   func(context.Context, *sql.Conn, ...interface{}) (driver.Rows, error)
+	Prepare        func(context.Context, *sql.Conn) (driver.Stmt, error)
+	ExecContext    func(context.Context, *sql.Conn, ...interface{}) (driver.Result, error)
+	QueryContext   func(context.Context, *sql.Conn, ...interface{}) (driver.Rows, error)
 }
 
-func newAnalyzer(catalog *Catalog) *Analyzer {
+func NewAnalyzer(catalog *Catalog) *Analyzer {
 	return &Analyzer{
 		catalog: catalog,
 		opt:     newAnalyzerOptions(),
@@ -79,6 +79,18 @@ func newAnalyzerOptions() *zetasql.AnalyzerOptions {
 	return opt
 }
 
+func (a *Analyzer) NamePath() []string {
+	return a.namePath
+}
+
+func (a *Analyzer) SetNamePath(path []string) {
+	a.namePath = path
+}
+
+func (a *Analyzer) AddNamePath(path string) {
+	a.namePath = append(a.namePath, path)
+}
+
 func (a *Analyzer) Analyze(ctx context.Context, query string) (*AnalyzerOutput, error) {
 	if err := a.catalog.Sync(ctx); err != nil {
 		return nil, fmt.Errorf("failed to sync catalog: %w", err)
@@ -121,7 +133,7 @@ func (a *Analyzer) analyzeCreateTableStmt(query string, node *ast.CreateTableStm
 		query:     query,
 		argsNum:   a.getParamNumFromNode(node),
 		tableSpec: spec,
-		prepare: func(ctx context.Context, conn *sql.Conn) (driver.Stmt, error) {
+		Prepare: func(ctx context.Context, conn *sql.Conn) (driver.Stmt, error) {
 			if spec.CreateMode == ast.CreateOrReplaceMode {
 				query := fmt.Sprintf("DROP TABLE IF EXISTS `%s`", spec.TableName())
 				if _, err := conn.ExecContext(ctx, query); err != nil {
@@ -134,7 +146,7 @@ func (a *Analyzer) analyzeCreateTableStmt(query string, node *ast.CreateTableStm
 			}
 			return newCreateTableStmt(s, a.catalog, spec), nil
 		},
-		execContext: func(ctx context.Context, conn *sql.Conn, args ...interface{}) (driver.Result, error) {
+		ExecContext: func(ctx context.Context, conn *sql.Conn, args ...interface{}) (driver.Result, error) {
 			if spec.CreateMode == ast.CreateOrReplaceMode {
 				dropTableQuery := fmt.Sprintf("DROP TABLE IF EXISTS `%s`", spec.TableName())
 				if _, err := conn.ExecContext(ctx, dropTableQuery); err != nil {
@@ -160,16 +172,16 @@ func (a *Analyzer) analyzeCreateFunctionStmt(ctx context.Context, query string, 
 	return &AnalyzerOutput{
 		query: query,
 		node:  node,
-		prepare: func(ctx context.Context, conn *sql.Conn) (driver.Stmt, error) {
+		Prepare: func(ctx context.Context, conn *sql.Conn) (driver.Stmt, error) {
 			return newCreateFunctionStmt(a.catalog, spec), nil
 		},
-		execContext: func(ctx context.Context, conn *sql.Conn, args ...interface{}) (driver.Result, error) {
+		ExecContext: func(ctx context.Context, conn *sql.Conn, args ...interface{}) (driver.Result, error) {
 			if err := a.catalog.AddNewFunctionSpec(ctx, spec); err != nil {
 				return nil, fmt.Errorf("failed to add new function spec: %w", err)
 			}
 			return nil, nil
 		},
-		queryContext: func(ctx context.Context, conn *sql.Conn, args ...interface{}) (driver.Rows, error) {
+		QueryContext: func(ctx context.Context, conn *sql.Conn, args ...interface{}) (driver.Rows, error) {
 			if err := a.catalog.AddNewFunctionSpec(ctx, spec); err != nil {
 				return nil, fmt.Errorf("failed to add new function spec: %w", err)
 			}
@@ -192,14 +204,14 @@ func (a *Analyzer) analyzeDMLStmt(ctx context.Context, query string, node ast.No
 		query:          query,
 		formattedQuery: formattedQuery,
 		argsNum:        argsNum,
-		prepare: func(ctx context.Context, conn *sql.Conn) (driver.Stmt, error) {
+		Prepare: func(ctx context.Context, conn *sql.Conn) (driver.Stmt, error) {
 			s, err := conn.PrepareContext(ctx, formattedQuery)
 			if err != nil {
 				return nil, fmt.Errorf("failed to prepare %s: %w", query, err)
 			}
 			return newDMLStmt(s, argsNum, formattedQuery), nil
 		},
-		execContext: func(ctx context.Context, conn *sql.Conn, args ...interface{}) (driver.Result, error) {
+		ExecContext: func(ctx context.Context, conn *sql.Conn, args ...interface{}) (driver.Result, error) {
 			if _, err := conn.ExecContext(ctx, formattedQuery, args...); err != nil {
 				return nil, fmt.Errorf("failed to exec %s: %w", formattedQuery, err)
 			}
@@ -230,14 +242,14 @@ func (a *Analyzer) analyzeQueryStmt(ctx context.Context, query string, node *ast
 		formattedQuery: formattedQuery,
 		argsNum:        argsNum,
 		isQuery:        true,
-		prepare: func(ctx context.Context, conn *sql.Conn) (driver.Stmt, error) {
+		Prepare: func(ctx context.Context, conn *sql.Conn) (driver.Stmt, error) {
 			s, err := conn.PrepareContext(ctx, formattedQuery)
 			if err != nil {
 				return nil, fmt.Errorf("failed to prepare %s: %w", query, err)
 			}
 			return newQueryStmt(s, argsNum, formattedQuery, outputColumns), nil
 		},
-		queryContext: func(ctx context.Context, conn *sql.Conn, args ...interface{}) (driver.Rows, error) {
+		QueryContext: func(ctx context.Context, conn *sql.Conn, args ...interface{}) (driver.Rows, error) {
 			rows, err := conn.QueryContext(ctx, formattedQuery, args...)
 			if err != nil {
 				return nil, fmt.Errorf("failed to query %s: %w", formattedQuery, err)

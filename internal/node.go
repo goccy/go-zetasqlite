@@ -1,20 +1,10 @@
-package zetasqlite
+package internal
 
 import (
-	"context"
-	"fmt"
-	"strconv"
-	"strings"
-
 	ast "github.com/goccy/go-zetasql/resolved_ast"
-	"github.com/goccy/go-zetasql/types"
 )
 
-type Node interface {
-	FormatSQL(context.Context) (string, error)
-}
-
-func newNode(node ast.Node) Node {
+func newNode(node ast.Node) Formatter {
 	if node == nil {
 		return nil
 	}
@@ -391,2068 +381,728 @@ type LiteralNode struct {
 	node *ast.LiteralNode
 }
 
-func (n *LiteralNode) toJSONValue(value types.Value) string {
-	jsonValue := n.toJSONValueRecursive(value)
-	switch value.Type().Kind() {
-	case types.DATE:
-		return toDateValueFromString(jsonValue)
-	case types.ARRAY:
-		return toArrayValueFromJSONString(jsonValue)
-	case types.STRUCT:
-		return toStructValueFromJSONString(jsonValue)
-	}
-	return jsonValue
-}
-
-func (n *LiteralNode) toJSONValueRecursive(value types.Value) string {
-	switch value.Type().Kind() {
-	case types.DATE:
-		return toDateValueFromInt64(value.ToInt64())
-	case types.ARRAY:
-		elems := []string{}
-		for i := 0; i < value.NumElements(); i++ {
-			elem := value.Element(i)
-			elems = append(elems, n.toJSONValue(elem))
-		}
-		return fmt.Sprintf("[%s]", strings.Join(elems, ","))
-	case types.STRUCT:
-		fields := []string{}
-		structType := value.Type().AsStruct()
-		for i := 0; i < value.NumFields(); i++ {
-			field := value.Field(i)
-			name := structType.Field(i).Name()
-			val := n.toJSONValue(field)
-			fields = append(
-				fields,
-				fmt.Sprintf("%s:%s", strconv.Quote(name), string(val)),
-			)
-		}
-		return fmt.Sprintf("{%s}", strings.Join(fields, ","))
-	default:
-		v := value.SQLLiteral(0)
-		if v == "NULL" {
-			return "null"
-		}
-		return v
-	}
-}
-
-func (n *LiteralNode) FormatSQL(ctx context.Context) (string, error) {
-	if n.node == nil {
-		return "", nil
-	}
-	return n.toJSONValue(n.node.Value()), nil
-}
-
 type ParameterNode struct {
 	node *ast.ParameterNode
-}
-
-func (n *ParameterNode) FormatSQL(ctx context.Context) (string, error) {
-	return fmt.Sprintf("@%s", n.node.Name()), nil
 }
 
 type ExpressionColumnNode struct {
 	node *ast.ExpressionColumnNode
 }
 
-func (n *ExpressionColumnNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type ColumnRefNode struct {
 	node *ast.ColumnRefNode
-}
-
-func (n *ColumnRefNode) FormatSQL(ctx context.Context) (string, error) {
-	if n.node == nil {
-		return "", nil
-	}
-	return fmt.Sprintf("`%s`", n.node.Column().Name()), nil
 }
 
 type ConstantNode struct {
 	node *ast.ConstantNode
 }
 
-func (n *ConstantNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type SystemVariableNode struct {
 	node *ast.SystemVariableNode
-}
-
-func (n *SystemVariableNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type InlineLambdaNode struct {
 	node *ast.InlineLambdaNode
 }
 
-func (n *InlineLambdaNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type FilterFieldArgNode struct {
 	node *ast.FilterFieldArgNode
-}
-
-func (n *FilterFieldArgNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type FilterFieldNode struct {
 	node *ast.FilterFieldNode
 }
 
-func (n *FilterFieldNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type FunctionCallNode struct {
 	node *ast.FunctionCallNode
-}
-
-func (n *FunctionCallNode) FormatSQL(ctx context.Context) (string, error) {
-	if n.node == nil {
-		return "", nil
-	}
-	args := []string{}
-	for _, a := range n.node.ArgumentList() {
-		arg, err := newNode(a).FormatSQL(ctx)
-		if err != nil {
-			return "", err
-		}
-		args = append(args, arg)
-	}
-	resultType := strings.ToLower(n.node.Signature().ResultType().Type().TypeName(0))
-	if strings.HasPrefix(resultType, "struct") {
-		resultType = "struct"
-	}
-	funcName := n.node.Function().FullName(false)
-	if strings.HasPrefix(funcName, "$") {
-		funcName = fmt.Sprintf("zetasqlite_%s_%s", funcName[1:], resultType)
-	} else if _, exists := builtinFuncMap[funcName]; exists {
-		funcName = fmt.Sprintf("zetasqlite_%s_%s", funcName, resultType)
-	} else {
-		fullpath := fullNamePathFromContext(ctx)
-		path := fullpath.paths[fullpath.idx]
-		funcName = formatName(
-			mergeNamePath(
-				namePathFromContext(ctx),
-				path,
-			),
-		)
-		fullpath.idx++
-		funcMap := funcMapFromContext(ctx)
-		if spec, exists := funcMap[funcName]; exists {
-			body := spec.Body
-			for _, arg := range args {
-				// TODO: Need to recognize the argument exactly.
-				body = strings.Replace(body, "?", arg, 1)
-			}
-			return fmt.Sprintf("( %s )", body), nil
-		}
-	}
-	return fmt.Sprintf(
-		"%s(%s)",
-		funcName,
-		strings.Join(args, ","),
-	), nil
 }
 
 type AggregateFunctionCallNode struct {
 	node *ast.AggregateFunctionCallNode
 }
 
-func (n *AggregateFunctionCallNode) FormatSQL(ctx context.Context) (string, error) {
-	if n.node == nil {
-		return "", nil
-	}
-	args := []string{}
-	for _, a := range n.node.ArgumentList() {
-		arg, err := newNode(a).FormatSQL(ctx)
-		if err != nil {
-			return "", err
-		}
-		args = append(args, arg)
-	}
-	resultType := strings.ToLower(n.node.Signature().ResultType().Type().TypeName(0))
-	if strings.HasPrefix(resultType, "struct") {
-		resultType = "struct"
-	}
-	funcName := n.node.Function().FullName(false)
-	if strings.HasPrefix(funcName, "$") {
-		funcName = fmt.Sprintf("zetasqlite_%s_%s", funcName[1:], resultType)
-	} else if _, exists := builtinAggregateFuncMap[funcName]; exists {
-		funcName = fmt.Sprintf("zetasqlite_%s_%s", funcName, resultType)
-	} else {
-		fullpath := fullNamePathFromContext(ctx)
-		path := fullpath.paths[fullpath.idx]
-		funcName = formatName(
-			mergeNamePath(
-				namePathFromContext(ctx),
-				path,
-			),
-		)
-		fullpath.idx++
-		funcMap := funcMapFromContext(ctx)
-		if spec, exists := funcMap[funcName]; exists {
-			body := spec.Body
-			for _, arg := range args {
-				// TODO: Need to recognize the argument exactly.
-				body = strings.Replace(body, "?", arg, 1)
-			}
-			return fmt.Sprintf("( %s )", body), nil
-		}
-	}
-	var opts []string
-	for _, item := range n.node.OrderByItemList() {
-		columnRef := item.ColumnRef()
-		columnName, err := newNode(columnRef).FormatSQL(ctx)
-		if err != nil {
-			return "", err
-		}
-		typeSuffix := strings.ToLower(columnRef.Column().Type().TypeName(0))
-		if item.IsDescending() {
-			opts = append(opts, fmt.Sprintf("zetasqlite_order_by_opt_%s(%s, false)", typeSuffix, columnName))
-		} else {
-			opts = append(opts, fmt.Sprintf("zetasqlite_order_by_opt_%s(%s, true)", typeSuffix, columnName))
-		}
-	}
-	if n.node.Distinct() {
-		opts = append(opts, "zetasqlite_distinct_opt()")
-	}
-	if n.node.Limit() != nil {
-		limitValue, err := newNode(n.node.Limit()).FormatSQL(ctx)
-		if err != nil {
-			return "", err
-		}
-		opts = append(opts, fmt.Sprintf("zetasqlite_limit_opt(%s)", limitValue))
-	}
-	args = append(args, opts...)
-	return fmt.Sprintf(
-		"%s(%s)",
-		funcName,
-		strings.Join(args, ","),
-	), nil
-}
-
 type AnalyticFunctionCallNode struct {
 	node *ast.AnalyticFunctionCallNode
-}
-
-func (n *AnalyticFunctionCallNode) FormatSQL(ctx context.Context) (string, error) {
-	if n.node == nil {
-		return "", nil
-	}
-	args := []string{}
-	orderColumnNames := analyticOrderColumnNamesFromContext(ctx)
-	orderColumns := orderColumnNames.values
-	for _, a := range n.node.ArgumentList() {
-		switch t := a.(type) {
-		case *ast.ColumnRefNode:
-			ctx = withAnalyticTableName(ctx, t.Column().TableName())
-		default:
-			return "", fmt.Errorf("unexpected argument node type %T for analytic function", a)
-		}
-		arg, err := newNode(a).FormatSQL(ctx)
-		if err != nil {
-			return "", err
-		}
-		orderColumnNames.values = append(orderColumnNames.values, arg)
-		args = append(args, arg)
-	}
-	tableName := analyticTableNameFromContext(ctx)
-	if tableName == "" {
-		return "", fmt.Errorf("failed to find table name from analytic query")
-	}
-	resultType := strings.ToLower(n.node.Signature().ResultType().Type().TypeName(0))
-	if strings.HasPrefix(resultType, "struct") {
-		resultType = "struct"
-	}
-	funcName := n.node.Function().FullName(false)
-	if strings.HasPrefix(funcName, "$") {
-		funcName = fmt.Sprintf("zetasqlite_analytic_%s_%s", funcName[1:], resultType)
-	} else if _, exists := builtinAggregateFuncMap[funcName]; exists {
-		funcName = fmt.Sprintf("zetasqlite_analytic_%s_%s", funcName, resultType)
-	} else {
-		fullpath := fullNamePathFromContext(ctx)
-		path := fullpath.paths[fullpath.idx]
-		funcName = formatName(
-			mergeNamePath(
-				namePathFromContext(ctx),
-				path,
-			),
-		)
-		fullpath.idx++
-		funcMap := funcMapFromContext(ctx)
-		if spec, exists := funcMap[funcName]; exists {
-			body := spec.Body
-			for _, arg := range args {
-				// TODO: Need to recognize the argument exactly.
-				body = strings.Replace(body, "?", arg, 1)
-			}
-			return fmt.Sprintf("( %s )", body), nil
-		}
-	}
-	var opts []string
-	if n.node.Distinct() {
-		opts = append(opts, "zetasqlite_distinct_opt()")
-	}
-	args = append(args, opts...)
-	for _, column := range analyticPartitionColumnNamesFromContext(ctx) {
-		args = append(args, getWindowPartitionOptionFuncSQL(column))
-	}
-	for _, column := range orderColumns {
-		args = append(args, getWindowOrderByOptionFuncSQL(column))
-	}
-	windowFrame := n.node.WindowFrame()
-	if windowFrame != nil {
-		args = append(args, getWindowFrameUnitOptionFuncSQL(windowFrame.FrameUnit()))
-		startSQL, err := n.getWindowBoundaryOptionFuncSQL(ctx, windowFrame.StartExpr(), true)
-		if err != nil {
-			return "", err
-		}
-		endSQL, err := n.getWindowBoundaryOptionFuncSQL(ctx, windowFrame.EndExpr(), false)
-		if err != nil {
-			return "", err
-		}
-		args = append(args, startSQL)
-		args = append(args, endSQL)
-	}
-	args = append(args, getWindowRowIDOptionFuncSQL())
-	return fmt.Sprintf(
-		"( SELECT %s(%s) FROM %s )",
-		funcName,
-		strings.Join(args, ","),
-		tableName,
-	), nil
-
-	return "", nil
-}
-
-func (n *AnalyticFunctionCallNode) getWindowBoundaryOptionFuncSQL(ctx context.Context, expr *ast.WindowFrameExprNode, isStart bool) (string, error) {
-	typ := expr.BoundaryType()
-	switch typ {
-	case ast.UnboundedPrecedingType, ast.CurrentRowType, ast.UnboundedFollowingType:
-		if isStart {
-			return getWindowBoundaryStartOptionFuncSQL(typ, ""), nil
-		}
-		return getWindowBoundaryEndOptionFuncSQL(typ, ""), nil
-	case ast.OffsetPrecedingType, ast.OffsetFollowingType:
-		literal, err := newNode(expr.Expression()).FormatSQL(ctx)
-		if err != nil {
-			return "", err
-		}
-		if isStart {
-			return getWindowBoundaryStartOptionFuncSQL(typ, literal), nil
-		}
-		return getWindowBoundaryEndOptionFuncSQL(typ, literal), nil
-	}
-	return "", fmt.Errorf("unexpected boundary type %d", typ)
 }
 
 type ExtendedCastElementNode struct {
 	node *ast.ExtendedCastElementNode
 }
 
-func (n *ExtendedCastElementNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type ExtendedCastNode struct {
 	node *ast.ExtendedCastNode
-}
-
-func (n *ExtendedCastNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type CastNode struct {
 	node *ast.CastNode
 }
 
-func (n *CastNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type MakeStructNode struct {
 	node *ast.MakeStructNode
-}
-
-func (n *MakeStructNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type MakeProtoNode struct {
 	node *ast.MakeProtoNode
 }
 
-func (n *MakeProtoNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type MakeProtoFieldNode struct {
 	node *ast.MakeProtoFieldNode
-}
-
-func (n *MakeProtoFieldNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type GetStructFieldNode struct {
 	node *ast.GetStructFieldNode
 }
 
-func (n *GetStructFieldNode) FormatSQL(ctx context.Context) (string, error) {
-	if n.node == nil {
-		return "", nil
-	}
-	expr, err := newNode(n.node.Expr()).FormatSQL(ctx)
-	if err != nil {
-		return "", err
-	}
-	typeSuffix := strings.ToLower(n.node.Type().TypeName(0))
-	if strings.HasPrefix(typeSuffix, "struct") {
-		typeSuffix = "struct"
-	}
-	idx := n.node.FieldIdx()
-	return fmt.Sprintf("zetasqlite_get_struct_field_%s(%s, %d)", typeSuffix, expr, idx), nil
-}
-
 type GetProtoFieldNode struct {
 	node *ast.GetProtoFieldNode
-}
-
-func (n *GetProtoFieldNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type GetJsonFieldNode struct {
 	node *ast.GetJsonFieldNode
 }
 
-func (n *GetJsonFieldNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type FlattenNode struct {
 	node *ast.FlattenNode
-}
-
-func (n *FlattenNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type FlattenedArgNode struct {
 	node *ast.FlattenedArgNode
 }
 
-func (n *FlattenedArgNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type ReplaceFieldItemNode struct {
 	node *ast.ReplaceFieldItemNode
-}
-
-func (n *ReplaceFieldItemNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type ReplaceFieldNode struct {
 	node *ast.ReplaceFieldNode
 }
 
-func (n *ReplaceFieldNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type SubqueryExprNode struct {
 	node *ast.SubqueryExprNode
-}
-
-func (n *SubqueryExprNode) FormatSQL(ctx context.Context) (string, error) {
-	if n.node == nil {
-		return "", nil
-	}
-	sql, err := newNode(n.node.Subquery()).FormatSQL(ctx)
-	if err != nil {
-		return "", err
-	}
-	switch n.node.SubqueryType() {
-	case ast.SubqueryTypeExists:
-		return fmt.Sprintf("EXISTS (%s)", sql), nil
-	}
-	return sql, nil
 }
 
 type LetExprNode struct {
 	node *ast.LetExprNode
 }
 
-func (n *LetExprNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type ModelNode struct {
 	node *ast.ModelNode
-}
-
-func (n *ModelNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type ConnectionNode struct {
 	node *ast.ConnectionNode
 }
 
-func (n *ConnectionNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type DescriptorNode struct {
 	node *ast.DescriptorNode
-}
-
-func (n *DescriptorNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type SingleRowScanNode struct {
 	node *ast.SingleRowScanNode
 }
 
-func (n *SingleRowScanNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type TableScanNode struct {
 	node *ast.TableScanNode
-}
-
-func (n *TableScanNode) FormatSQL(ctx context.Context) (string, error) {
-	if n.node == nil {
-		return "", nil
-	}
-	fullpath := fullNamePathFromContext(ctx)
-	path := fullpath.paths[fullpath.idx]
-	tableName := formatName(
-		mergeNamePath(
-			namePathFromContext(ctx),
-			path,
-		),
-	)
-	fullpath.idx++
-	return fmt.Sprintf("FROM `%s`", tableName), nil
 }
 
 type JoinScanNode struct {
 	node *ast.JoinScanNode
 }
 
-func (n *JoinScanNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type ArrayScanNode struct {
 	node *ast.ArrayScanNode
-}
-
-func (n *ArrayScanNode) FormatSQL(ctx context.Context) (string, error) {
-	if n.node == nil {
-		return "", nil
-	}
-	arrayExpr, err := newNode(n.node.ArrayExpr()).FormatSQL(ctx)
-	if err != nil {
-		return "", err
-	}
-	colName := n.node.ElementColumn().Name()
-	return fmt.Sprintf(
-		"FROM ( SELECT json_each.value AS `%s` FROM json_each(zetasqlite_decode_array(%s)) )",
-		colName,
-		arrayExpr,
-	), nil
 }
 
 type ColumnHolderNode struct {
 	node *ast.ColumnHolderNode
 }
 
-func (n *ColumnHolderNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type FilterScanNode struct {
 	node *ast.FilterScanNode
-}
-
-func (n *FilterScanNode) FormatSQL(ctx context.Context) (string, error) {
-	if n.node == nil {
-		return "", nil
-	}
-	input, err := newNode(n.node.InputScan()).FormatSQL(ctx)
-	if err != nil {
-		return "", err
-	}
-	filter, err := newNode(n.node.FilterExpr()).FormatSQL(ctx)
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("%s WHERE %s", input, filter), nil
 }
 
 type GroupingSetNode struct {
 	node *ast.GroupingSetNode
 }
 
-func (n *GroupingSetNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type AggregateScanNode struct {
 	node *ast.AggregateScanNode
-}
-
-func (n *AggregateScanNode) FormatSQL(ctx context.Context) (string, error) {
-	if n.node == nil {
-		return "", nil
-	}
-	for _, agg := range n.node.AggregateList() {
-		// assign sql to column ref map
-		if _, err := newNode(agg).FormatSQL(ctx); err != nil {
-			return "", err
-		}
-	}
-	input, err := newNode(n.node.InputScan()).FormatSQL(ctx)
-	if err != nil {
-		return "", err
-	}
-	if strings.HasPrefix(input, "SELECT") {
-		return fmt.Sprintf("FROM ( %s )", input), nil
-	}
-	return input, nil
 }
 
 type AnonymizedAggregateScanNode struct {
 	node *ast.AnonymizedAggregateScanNode
 }
 
-func (n *AnonymizedAggregateScanNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type SetOperationItemNode struct {
 	node *ast.SetOperationItemNode
-}
-
-func (n *SetOperationItemNode) FormatSQL(ctx context.Context) (string, error) {
-	if n.node == nil {
-		return "", nil
-	}
-	return newNode(n.node.Scan()).FormatSQL(ctx)
 }
 
 type SetOperationScanNode struct {
 	node *ast.SetOperationScanNode
 }
 
-func (n *SetOperationScanNode) FormatSQL(ctx context.Context) (string, error) {
-	if n.node == nil {
-		return "", nil
-	}
-	var opType string
-	switch n.node.OpType() {
-	case ast.SetOperationTypeUnionAll:
-		opType = "UNION ALL"
-	case ast.SetOperationTypeUnionDistinct:
-		opType = "UNION DISTINCT"
-	case ast.SetOperationTypeIntersectAll:
-		opType = "INTERSECT ALL"
-	case ast.SetOperationTypeIntersectDistinct:
-		opType = "INTERSECT DISTINCT"
-	case ast.SetOperationTypeExceptAll:
-		opType = "EXCEPT ALL"
-	case ast.SetOperationTypeExceptDistinct:
-		opType = "EXCEPT DISTINCT"
-	default:
-		opType = "UNKONWN"
-	}
-	var queries []string
-	for _, item := range n.node.InputItemList() {
-		query, err := newNode(item).FormatSQL(ctx)
-		if err != nil {
-			return "", err
-		}
-		queries = append(queries, query)
-	}
-	return strings.Join(queries, fmt.Sprintf(" %s ", opType)), nil
-}
-
 type OrderByScanNode struct {
 	node *ast.OrderByScanNode
-}
-
-func (n *OrderByScanNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type LimitOffsetScanNode struct {
 	node *ast.LimitOffsetScanNode
 }
 
-func (n *LimitOffsetScanNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type WithRefScanNode struct {
 	node *ast.WithRefScanNode
-}
-
-func (n *WithRefScanNode) FormatSQL(ctx context.Context) (string, error) {
-	if n.node == nil {
-		return "", nil
-	}
-	queryName := n.node.WithQueryName()
-	return fmt.Sprintf("FROM %s", queryName), nil
 }
 
 type AnalyticScanNode struct {
 	node *ast.AnalyticScanNode
 }
 
-func (n *AnalyticScanNode) FormatSQL(ctx context.Context) (string, error) {
-	if n.node == nil {
-		return "", nil
-	}
-	input, err := newNode(n.node.InputScan()).FormatSQL(ctx)
-	if err != nil {
-		return "", err
-	}
-	orderColumnNames := analyticOrderColumnNamesFromContext(ctx)
-	for _, group := range n.node.FunctionGroupList() {
-		if group.PartitionBy() != nil {
-			var partitionColumns []string
-			for _, columnRef := range group.PartitionBy().PartitionByList() {
-				ctx = withAnalyticTableName(ctx, columnRef.Column().TableName())
-				partitionColumns = append(
-					partitionColumns,
-					fmt.Sprintf("`%s`", columnRef.Column().Name()),
-				)
-			}
-			orderColumnNames.values = append(orderColumnNames.values, partitionColumns...)
-			ctx = withAnalyticPartitionColumnNames(ctx, partitionColumns)
-		}
-		if group.OrderBy() != nil {
-			var orderByColumns []string
-			for _, item := range group.OrderBy().OrderByItemList() {
-				ctx = withAnalyticTableName(ctx, item.ColumnRef().Column().TableName())
-				orderByColumns = append(
-					orderByColumns,
-					fmt.Sprintf("`%s`", item.ColumnRef().Column().Name()),
-				)
-			}
-			orderColumnNames.values = append(orderColumnNames.values, orderByColumns...)
-		}
-		if _, err := newNode(group).FormatSQL(ctx); err != nil {
-			return "", err
-		}
-	}
-	orderBy := fmt.Sprintf("ORDER BY %s", strings.Join(orderColumnNames.values, ","))
-	orderColumnNames.values = []string{}
-	return fmt.Sprintf("FROM ( SELECT *, ROW_NUMBER() OVER() AS `rowid` %s ) %s", input, orderBy), nil
-}
-
 type SampleScanNode struct {
 	node *ast.SampleScanNode
-}
-
-func (n *SampleScanNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type ComputedColumnNode struct {
 	node *ast.ComputedColumnNode
 }
 
-func (n *ComputedColumnNode) FormatSQL(ctx context.Context) (string, error) {
-	if n.node == nil {
-		return "", nil
-	}
-	expr, err := newNode(n.node.Expr()).FormatSQL(ctx)
-	if err != nil {
-		return "", err
-	}
-	name := n.node.Column().Name()
-	query := fmt.Sprintf("%s AS `%s`", expr, name)
-	columnMap := columnRefMap(ctx)
-	columnMap[name] = query
-	return query, nil
-}
-
 type OrderByItemNode struct {
 	node *ast.OrderByItemNode
-}
-
-func (n *OrderByItemNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type ColumnAnnotationsNode struct {
 	node *ast.ColumnAnnotationsNode
 }
 
-func (n *ColumnAnnotationsNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type GeneratedColumnInfoNode struct {
 	node *ast.GeneratedColumnInfoNode
-}
-
-func (n *GeneratedColumnInfoNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type ColumnDefaultValueNode struct {
 	node *ast.ColumnDefaultValueNode
 }
 
-func (n *ColumnDefaultValueNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type ColumnDefinitionNode struct {
 	node *ast.ColumnDefinitionNode
-}
-
-func (n *ColumnDefinitionNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type PrimaryKeyNode struct {
 	node *ast.PrimaryKeyNode
 }
 
-func (n *PrimaryKeyNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type ForeignKeyNode struct {
 	node *ast.ForeignKeyNode
-}
-
-func (n *ForeignKeyNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type CheckConstraintNode struct {
 	node *ast.CheckConstraintNode
 }
 
-func (n *CheckConstraintNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type OutputColumnNode struct {
 	node *ast.OutputColumnNode
-}
-
-func (n *OutputColumnNode) FormatSQL(ctx context.Context) (string, error) {
-	if n.node == nil {
-		return "", nil
-	}
-	columnMap := columnRefMap(ctx)
-	if ref, exists := columnMap[n.node.Name()]; exists {
-		return ref, nil
-	}
-	return fmt.Sprintf("`%s`", n.node.Name()), nil
 }
 
 type ProjectScanNode struct {
 	node *ast.ProjectScanNode
 }
 
-func (n *ProjectScanNode) FormatSQL(ctx context.Context) (string, error) {
-	if n.node == nil {
-		return "", nil
-	}
-	for _, col := range n.node.ExprList() {
-		// assign expr to columnRefMap
-		if _, err := newNode(col).FormatSQL(ctx); err != nil {
-			return "", err
-		}
-	}
-	input, err := newNode(n.node.InputScan()).FormatSQL(ctx)
-	if err != nil {
-		return "", err
-	}
-	columns := []string{}
-	columnMap := columnRefMap(ctx)
-	for _, col := range n.node.ColumnList() {
-		colName := col.Name()
-		if ref, exists := columnMap[colName]; exists {
-			columns = append(columns, ref)
-			delete(columnMap, colName)
-		} else {
-			columns = append(columns, fmt.Sprintf("`%s`", colName))
-		}
-	}
-	return fmt.Sprintf("SELECT %s %s", strings.Join(columns, ","), input), nil
-}
-
 type TVFScanNode struct {
 	node *ast.TVFScanNode
-}
-
-func (n *TVFScanNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type GroupRowsScanNode struct {
 	node *ast.GroupRowsScanNode
 }
 
-func (n *GroupRowsScanNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type FunctionArgumentNode struct {
 	node *ast.FunctionArgumentNode
-}
-
-func (n *FunctionArgumentNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type ExplainStmtNode struct {
 	node *ast.ExplainStmtNode
 }
 
-func (n *ExplainStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type QueryStmtNode struct {
 	node *ast.QueryStmtNode
-}
-
-func (n *QueryStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	if n.node == nil {
-		return "", nil
-	}
-	return newNode(n.node.Query()).FormatSQL(ctx)
 }
 
 type CreateDatabaseStmtNode struct {
 	node *ast.CreateDatabaseStmtNode
 }
 
-func (n *CreateDatabaseStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type IndexItemNode struct {
 	node *ast.IndexItemNode
-}
-
-func (n *IndexItemNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type UnnestItemNode struct {
 	node *ast.UnnestItemNode
 }
 
-func (n *UnnestItemNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type CreateIndexStmtNode struct {
 	node *ast.CreateIndexStmtNode
-}
-
-func (n *CreateIndexStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type CreateSchemaStmtNode struct {
 	node *ast.CreateSchemaStmtNode
 }
 
-func (n *CreateSchemaStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type CreateTableStmtNode struct {
 	node *ast.CreateTableStmtNode
-}
-
-func (n *CreateTableStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type CreateTableAsSelectStmtNode struct {
 	node *ast.CreateTableAsSelectStmtNode
 }
 
-func (n *CreateTableAsSelectStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type CreateModelStmtNode struct {
 	node *ast.CreateModelStmtNode
-}
-
-func (n *CreateModelStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type CreateViewStmtNode struct {
 	node *ast.CreateViewStmtNode
 }
 
-func (n *CreateViewStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type WithPartitionColumnsNode struct {
 	node *ast.WithPartitionColumnsNode
-}
-
-func (n *WithPartitionColumnsNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type CreateSnapshotTableStmtNode struct {
 	node *ast.CreateSnapshotTableStmtNode
 }
 
-func (n *CreateSnapshotTableStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type CreateExternalTableStmtNode struct {
 	node *ast.CreateExternalTableStmtNode
-}
-
-func (n *CreateExternalTableStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type ExportModelStmtNode struct {
 	node *ast.ExportModelStmtNode
 }
 
-func (n *ExportModelStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type ExportDataStmtNode struct {
 	node *ast.ExportDataStmtNode
-}
-
-func (n *ExportDataStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type DefineTableStmtNode struct {
 	node *ast.DefineTableStmtNode
 }
 
-func (n *DefineTableStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type DescribeStmtNode struct {
 	node *ast.DescribeStmtNode
-}
-
-func (n *DescribeStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type ShowStmtNode struct {
 	node *ast.ShowStmtNode
 }
 
-func (n *ShowStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type BeginStmtNode struct {
 	node *ast.BeginStmtNode
-}
-
-func (n *BeginStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type SetTransactionStmtNode struct {
 	node *ast.SetTransactionStmtNode
 }
 
-func (n *SetTransactionStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type CommitStmtNode struct {
 	node *ast.CommitStmtNode
-}
-
-func (n *CommitStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type RollbackStmtNode struct {
 	node *ast.RollbackStmtNode
 }
 
-func (n *RollbackStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type StartBatchStmtNode struct {
 	node *ast.StartBatchStmtNode
-}
-
-func (n *StartBatchStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type RunBatchStmtNode struct {
 	node *ast.RunBatchStmtNode
 }
 
-func (n *RunBatchStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type AbortBatchStmtNode struct {
 	node *ast.AbortBatchStmtNode
-}
-
-func (n *AbortBatchStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type DropStmtNode struct {
 	node *ast.DropStmtNode
 }
 
-func (n *DropStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type DropMaterializedViewStmtNode struct {
 	node *ast.DropMaterializedViewStmtNode
-}
-
-func (n *DropMaterializedViewStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type DropSnapshotTableStmtNode struct {
 	node *ast.DropSnapshotTableStmtNode
 }
 
-func (n *DropSnapshotTableStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type RecursiveRefScanNode struct {
 	node *ast.RecursiveRefScanNode
-}
-
-func (n *RecursiveRefScanNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type RecursiveScanNode struct {
 	node *ast.RecursiveScanNode
 }
 
-func (n *RecursiveScanNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type WithScanNode struct {
 	node *ast.WithScanNode
-}
-
-func (n *WithScanNode) FormatSQL(ctx context.Context) (string, error) {
-	if n.node == nil {
-		return "", nil
-	}
-	queries := []string{}
-	for _, entry := range n.node.WithEntryList() {
-		sql, err := newNode(entry).FormatSQL(ctx)
-		if err != nil {
-			return "", err
-		}
-		queries = append(queries, sql)
-	}
-	query, err := newNode(n.node.Query()).FormatSQL(ctx)
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf(
-		"WITH %s %s",
-		strings.Join(queries, ", "),
-		query,
-	), nil
 }
 
 type WithEntryNode struct {
 	node *ast.WithEntryNode
 }
 
-func (n *WithEntryNode) FormatSQL(ctx context.Context) (string, error) {
-	if n.node == nil {
-		return "", nil
-	}
-	queryName := n.node.WithQueryName()
-	subquery, err := newNode(n.node.WithSubquery()).FormatSQL(ctx)
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("%s AS ( %s )", queryName, subquery), nil
-}
-
 type OptionNode struct {
 	node *ast.OptionNode
-}
-
-func (n *OptionNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type WindowPartitioningNode struct {
 	node *ast.WindowPartitioningNode
 }
 
-func (n *WindowPartitioningNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type WindowOrderingNode struct {
 	node *ast.WindowOrderingNode
-}
-
-func (n *WindowOrderingNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type WindowFrameNode struct {
 	node *ast.WindowFrameNode
 }
 
-func (n *WindowFrameNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type AnalyticFunctionGroupNode struct {
 	node *ast.AnalyticFunctionGroupNode
-}
-
-func (n *AnalyticFunctionGroupNode) FormatSQL(ctx context.Context) (string, error) {
-	if n.node == nil {
-		return "", nil
-	}
-	orderColumnNames := analyticOrderColumnNamesFromContext(ctx)
-	var queries []string
-	for _, column := range n.node.AnalyticFunctionList() {
-		sql, err := newNode(column).FormatSQL(ctx)
-		if err != nil {
-			return "", err
-		}
-		queries = append(queries, sql)
-		orderColumnNames.values = append(
-			orderColumnNames.values,
-			fmt.Sprintf("`%s`", column.Column().Name()),
-		)
-	}
-	return strings.Join(queries, ","), nil
 }
 
 type WindowFrameExprNode struct {
 	node *ast.WindowFrameExprNode
 }
 
-func (n *WindowFrameExprNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type DMLValueNode struct {
 	node *ast.DMLValueNode
-}
-
-func (n *DMLValueNode) FormatSQL(ctx context.Context) (string, error) {
-	if n == nil {
-		return "", nil
-	}
-	return newNode(n.node.Value()).FormatSQL(ctx)
 }
 
 type DMLDefaultNode struct {
 	node *ast.DMLDefaultNode
 }
 
-func (n *DMLDefaultNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type AssertStmtNode struct {
 	node *ast.AssertStmtNode
-}
-
-func (n *AssertStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type AssertRowsModifiedNode struct {
 	node *ast.AssertRowsModifiedNode
 }
 
-func (n *AssertRowsModifiedNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type InsertRowNode struct {
 	node *ast.InsertRowNode
-}
-
-func (n *InsertRowNode) FormatSQL(ctx context.Context) (string, error) {
-	if n == nil {
-		return "", nil
-	}
-	values := []string{}
-	for _, value := range n.node.ValueList() {
-		sql, err := newNode(value).FormatSQL(ctx)
-		if err != nil {
-			return "", err
-		}
-		values = append(values, sql)
-	}
-	return fmt.Sprintf("(%s)", strings.Join(values, ",")), nil
 }
 
 type InsertStmtNode struct {
 	node *ast.InsertStmtNode
 }
 
-func (n *InsertStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	if n == nil {
-		return "", nil
-	}
-	fullpath := fullNamePathFromContext(ctx)
-	path := fullpath.paths[fullpath.idx]
-	formattedTableName := formatName(
-		mergeNamePath(
-			namePathFromContext(ctx),
-			path,
-		),
-	)
-	fullpath.idx++
-	columns := []string{}
-	for _, col := range n.node.InsertColumnList() {
-		columns = append(columns, fmt.Sprintf("`%s`", col.Name()))
-	}
-	rows := []string{}
-	for _, row := range n.node.RowList() {
-		sql, err := newNode(row).FormatSQL(ctx)
-		if err != nil {
-			return "", err
-		}
-		rows = append(rows, sql)
-	}
-	return fmt.Sprintf("INSERT INTO `%s` (%s) VALUES %s",
-		formattedTableName,
-		strings.Join(columns, ","),
-		strings.Join(rows, ","),
-	), nil
-}
-
 type DeleteStmtNode struct {
 	node *ast.DeleteStmtNode
-}
-
-func (n *DeleteStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	if n == nil {
-		return "", nil
-	}
-	fullpath := fullNamePathFromContext(ctx)
-	path := fullpath.paths[fullpath.idx]
-	formattedTableName := formatName(
-		mergeNamePath(
-			namePathFromContext(ctx),
-			path,
-		),
-	)
-	fullpath.idx++
-	where, err := newNode(n.node.WhereExpr()).FormatSQL(ctx)
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf(
-		"DELETE FROM `%s` WHERE %s",
-		formattedTableName,
-		where,
-	), nil
 }
 
 type UpdateItemNode struct {
 	node *ast.UpdateItemNode
 }
 
-func (n *UpdateItemNode) FormatSQL(ctx context.Context) (string, error) {
-	if n.node == nil {
-		return "", nil
-	}
-	target, err := newNode(n.node.Target()).FormatSQL(ctx)
-	if err != nil {
-		return "", err
-	}
-	setValue, err := newNode(n.node.SetValue()).FormatSQL(ctx)
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("%s=%s", target, setValue), nil
-}
-
 type UpdateArrayItemNode struct {
 	node *ast.UpdateArrayItemNode
-}
-
-func (n *UpdateArrayItemNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type UpdateStmtNode struct {
 	node *ast.UpdateStmtNode
 }
 
-func (n *UpdateStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	if n == nil {
-		return "", nil
-	}
-	fullpath := fullNamePathFromContext(ctx)
-	path := fullpath.paths[fullpath.idx]
-	formattedTableName := formatName(
-		mergeNamePath(
-			namePathFromContext(ctx),
-			path,
-		),
-	)
-	fullpath.idx++
-	updateItems := []string{}
-	for _, item := range n.node.UpdateItemList() {
-		sql, err := newNode(item).FormatSQL(ctx)
-		if err != nil {
-			return "", err
-		}
-		updateItems = append(updateItems, sql)
-	}
-	where, err := newNode(n.node.WhereExpr()).FormatSQL(ctx)
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf(
-		"UPDATE `%s` SET %s WHERE %s",
-		formattedTableName,
-		strings.Join(updateItems, ","),
-		where,
-	), nil
-}
-
 type MergeWhenNode struct {
 	node *ast.MergeWhenNode
-}
-
-func (n *MergeWhenNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type MergeStmtNode struct {
 	node *ast.MergeStmtNode
 }
 
-func (n *MergeStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type TruncateStmtNode struct {
 	node *ast.TruncateStmtNode
-}
-
-func (n *TruncateStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type ObjectUnitNode struct {
 	node *ast.ObjectUnitNode
 }
 
-func (n *ObjectUnitNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type PrivilegeNode struct {
 	node *ast.PrivilegeNode
-}
-
-func (n *PrivilegeNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type GrantStmtNode struct {
 	node *ast.GrantStmtNode
 }
 
-func (n *GrantStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type RevokeStmtNode struct {
 	node *ast.RevokeStmtNode
-}
-
-func (n *RevokeStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type AlterDatabaseStmtNode struct {
 	node *ast.AlterDatabaseStmtNode
 }
 
-func (n *AlterDatabaseStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type AlterMaterializedViewStmtNode struct {
 	node *ast.AlterMaterializedViewStmtNode
-}
-
-func (n *AlterMaterializedViewStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type AlterSchemaStmtNode struct {
 	node *ast.AlterSchemaStmtNode
 }
 
-func (n *AlterSchemaStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type AlterTableStmtNode struct {
 	node *ast.AlterTableStmtNode
-}
-
-func (n *AlterTableStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type AlterViewStmtNode struct {
 	node *ast.AlterViewStmtNode
 }
 
-func (n *AlterViewStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type SetOptionsActionNode struct {
 	node *ast.SetOptionsActionNode
-}
-
-func (n *SetOptionsActionNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type AddColumnActionNode struct {
 	node *ast.AddColumnActionNode
 }
 
-func (n *AddColumnActionNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type AddConstraintActionNode struct {
 	node *ast.AddConstraintActionNode
-}
-
-func (n *AddConstraintActionNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type DropConstraintActionNode struct {
 	node *ast.DropConstraintActionNode
 }
 
-func (n *DropConstraintActionNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type DropPrimaryKeyActionNode struct {
 	node *ast.DropPrimaryKeyActionNode
-}
-
-func (n *DropPrimaryKeyActionNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type AlterColumnOptionsActionNode struct {
 	node *ast.AlterColumnOptionsActionNode
 }
 
-func (n *AlterColumnOptionsActionNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type AlterColumnDropNotNullActionNode struct {
 	node *ast.AlterColumnDropNotNullActionNode
-}
-
-func (n *AlterColumnDropNotNullActionNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type AlterColumnSetDataTypeActionNode struct {
 	node *ast.AlterColumnSetDataTypeActionNode
 }
 
-func (n *AlterColumnSetDataTypeActionNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type AlterColumnSetDefaultActionNode struct {
 	node *ast.AlterColumnSetDefaultActionNode
-}
-
-func (n *AlterColumnSetDefaultActionNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type AlterColumnDropDefaultActionNode struct {
 	node *ast.AlterColumnDropDefaultActionNode
 }
 
-func (n *AlterColumnDropDefaultActionNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type DropColumnActionNode struct {
 	node *ast.DropColumnActionNode
-}
-
-func (n *DropColumnActionNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type RenameColumnActionNode struct {
 	node *ast.RenameColumnActionNode
 }
 
-func (n *RenameColumnActionNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type SetAsActionNode struct {
 	node *ast.SetAsActionNode
-}
-
-func (n *SetAsActionNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type SetCollateClauseNode struct {
 	node *ast.SetCollateClauseNode
 }
 
-func (n *SetCollateClauseNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type AlterTableSetOptionsStmtNode struct {
 	node *ast.AlterTableSetOptionsStmtNode
-}
-
-func (n *AlterTableSetOptionsStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type RenameStmtNode struct {
 	node *ast.RenameStmtNode
 }
 
-func (n *RenameStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type CreatePrivilegeRestrictionStmtNode struct {
 	node *ast.CreatePrivilegeRestrictionStmtNode
-}
-
-func (n *CreatePrivilegeRestrictionStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type CreateRowAccessPolicyStmtNode struct {
 	node *ast.CreateRowAccessPolicyStmtNode
 }
 
-func (n *CreateRowAccessPolicyStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type DropPrivilegeRestrictionStmtNode struct {
 	node *ast.DropPrivilegeRestrictionStmtNode
-}
-
-func (n *DropPrivilegeRestrictionStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type DropRowAccessPolicyStmtNode struct {
 	node *ast.DropRowAccessPolicyStmtNode
 }
 
-func (n *DropRowAccessPolicyStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type DropSearchIndexStmtNode struct {
 	node *ast.DropSearchIndexStmtNode
-}
-
-func (n *DropSearchIndexStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type GrantToActionNode struct {
 	node *ast.GrantToActionNode
 }
 
-func (n *GrantToActionNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type RestrictToActionNode struct {
 	node *ast.RestrictToActionNode
-}
-
-func (n *RestrictToActionNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type AddToRestricteeListActionNode struct {
 	node *ast.AddToRestricteeListActionNode
 }
 
-func (n *AddToRestricteeListActionNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type RemoveFromRestricteeListActionNode struct {
 	node *ast.RemoveFromRestricteeListActionNode
-}
-
-func (n *RemoveFromRestricteeListActionNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type FilterUsingActionNode struct {
 	node *ast.FilterUsingActionNode
 }
 
-func (n *FilterUsingActionNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type RevokeFromActionNode struct {
 	node *ast.RevokeFromActionNode
-}
-
-func (n *RevokeFromActionNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type RenameToActionNode struct {
 	node *ast.RenameToActionNode
 }
 
-func (n *RenameToActionNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type AlterPrivilegeRestrictionStmtNode struct {
 	node *ast.AlterPrivilegeRestrictionStmtNode
-}
-
-func (n *AlterPrivilegeRestrictionStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type AlterRowAccessPolicyStmtNode struct {
 	node *ast.AlterRowAccessPolicyStmtNode
 }
 
-func (n *AlterRowAccessPolicyStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type AlterAllRowAccessPoliciesStmtNode struct {
 	node *ast.AlterAllRowAccessPoliciesStmtNode
-}
-
-func (n *AlterAllRowAccessPoliciesStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type CreateConstantStmtNode struct {
 	node *ast.CreateConstantStmtNode
 }
 
-func (n *CreateConstantStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type CreateFunctionStmtNode struct {
 	node *ast.CreateFunctionStmtNode
-}
-
-func (n *CreateFunctionStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type ArgumentDefNode struct {
 	node *ast.ArgumentDefNode
 }
 
-func (n *ArgumentDefNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type ArgumentRefNode struct {
 	node *ast.ArgumentRefNode
-}
-
-func (n *ArgumentRefNode) FormatSQL(ctx context.Context) (string, error) {
-	if n.node == nil {
-		return "", nil
-	}
-	return "?", nil
 }
 
 type CreateTableFunctionStmtNode struct {
 	node *ast.CreateTableFunctionStmtNode
 }
 
-func (n *CreateTableFunctionStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type RelationArgumentScanNode struct {
 	node *ast.RelationArgumentScanNode
-}
-
-func (n *RelationArgumentScanNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type ArgumentListNode struct {
 	node *ast.ArgumentListNode
 }
 
-func (n *ArgumentListNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type FunctionSignatureHolderNode struct {
 	node *ast.FunctionSignatureHolderNode
-}
-
-func (n *FunctionSignatureHolderNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type DropFunctionStmtNode struct {
 	node *ast.DropFunctionStmtNode
 }
 
-func (n *DropFunctionStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type DropTableFunctionStmtNode struct {
 	node *ast.DropTableFunctionStmtNode
-}
-
-func (n *DropTableFunctionStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type CallStmtNode struct {
 	node *ast.CallStmtNode
 }
 
-func (n *CallStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type ImportStmtNode struct {
 	node *ast.ImportStmtNode
-}
-
-func (n *ImportStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type ModuleStmtNode struct {
 	node *ast.ModuleStmtNode
 }
 
-func (n *ModuleStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type AggregateHavingModifierNode struct {
 	node *ast.AggregateHavingModifierNode
-}
-
-func (n *AggregateHavingModifierNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type CreateMaterializedViewStmtNode struct {
 	node *ast.CreateMaterializedViewStmtNode
 }
 
-func (n *CreateMaterializedViewStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type CreateProcedureStmtNode struct {
 	node *ast.CreateProcedureStmtNode
-}
-
-func (n *CreateProcedureStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type ExecuteImmediateArgumentNode struct {
 	node *ast.ExecuteImmediateArgumentNode
 }
 
-func (n *ExecuteImmediateArgumentNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type ExecuteImmediateStmtNode struct {
 	node *ast.ExecuteImmediateStmtNode
-}
-
-func (n *ExecuteImmediateStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type AssignmentStmtNode struct {
 	node *ast.AssignmentStmtNode
 }
 
-func (n *AssignmentStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type CreateEntityStmtNode struct {
 	node *ast.CreateEntityStmtNode
-}
-
-func (n *CreateEntityStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type AlterEntityStmtNode struct {
 	node *ast.AlterEntityStmtNode
 }
 
-func (n *AlterEntityStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type PivotColumnNode struct {
 	node *ast.PivotColumnNode
-}
-
-func (n *PivotColumnNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type PivotScanNode struct {
 	node *ast.PivotScanNode
 }
 
-func (n *PivotScanNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type ReturningClauseNode struct {
 	node *ast.ReturningClauseNode
-}
-
-func (n *ReturningClauseNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type UnpivotArgNode struct {
 	node *ast.UnpivotArgNode
 }
 
-func (n *UnpivotArgNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type UnpivotScanNode struct {
 	node *ast.UnpivotScanNode
-}
-
-func (n *UnpivotScanNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type CloneDataStmtNode struct {
 	node *ast.CloneDataStmtNode
 }
 
-func (n *CloneDataStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type TableAndColumnInfoNode struct {
 	node *ast.TableAndColumnInfoNode
-}
-
-func (n *TableAndColumnInfoNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 type AnalyzeStmtNode struct {
 	node *ast.AnalyzeStmtNode
 }
 
-func (n *AnalyzeStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
-}
-
 type AuxLoadDataStmtNode struct {
 	node *ast.AuxLoadDataStmtNode
-}
-
-func (n *AuxLoadDataStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
 }
 
 func newLiteralNode(n *ast.LiteralNode) *LiteralNode {
