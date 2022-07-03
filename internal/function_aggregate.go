@@ -4,8 +4,6 @@ import (
 	"sort"
 	"strings"
 	"sync"
-
-	"github.com/k0kubun/pp"
 )
 
 type SUM struct {
@@ -277,7 +275,6 @@ func (f *STRING_AGG) Step(v Value, delim string, opt *AggregatorOption) error {
 }
 
 func (f *STRING_AGG) Done() (Value, error) {
-	pp.Println(f.opt, f.values)
 	if f.opt != nil && len(f.opt.OrderBy) != 0 {
 		for orderBy := 0; orderBy < len(f.opt.OrderBy); orderBy++ {
 			if f.opt.OrderBy[orderBy].IsAsc {
