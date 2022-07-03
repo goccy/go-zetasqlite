@@ -151,8 +151,8 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 ### Aggregate functions
 
 - [x] ANY_VALUE
-- [ ] ARRAY_AGG
-- [ ] ARRAY_CONCAT_AGG
+- [x] ARRAY_AGG
+- [x] ARRAY_CONCAT_AGG
 - [x] AVG
 - [x] BIT_AND
 - [x] BIT_OR
@@ -228,47 +228,47 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 
 ### Mathematical functions
 
-- [ ] ABS
-- [ ] SIGN
-- [ ] IS_INF
-- [ ] IS_NAN
-- [ ] IEEE_DIVIDE
-- [ ] RAND
-- [ ] SQRT
-- [ ] POW
-- [ ] POWER
-- [ ] EXP
-- [ ] LN
-- [ ] LOG
-- [ ] LOG10
-- [ ] GREATEST
-- [ ] LEAST
-- [ ] DIV
-- [ ] SAFE_DIVIDE
-- [ ] SAFE_MULTIPLY
-- [ ] SAFE_NEGATE
-- [ ] SAFE_ADD
-- [ ] SAFE_SUBTRACT
-- [ ] MOD
-- [ ] ROUND
-- [ ] TRUNC
-- [ ] CEIL
-- [ ] CEILING
-- [ ] FLOOR
-- [ ] COS
-- [ ] COSH
-- [ ] ACOS
-- [ ] ACOSH
-- [ ] SIN
-- [ ] SINH
-- [ ] ASIN
-- [ ] ASINH
-- [ ] TAN
-- [ ] TANH
-- [ ] ATAN
-- [ ] ATANH
-- [ ] ATAN2
-- [ ] RANGE_BUCKET
+- [x] ABS
+- [x] SIGN
+- [x] IS_INF
+- [x] IS_NAN
+- [x] IEEE_DIVIDE
+- [x] RAND
+- [x] SQRT
+- [x] POW
+- [x] POWER
+- [x] EXP
+- [x] LN
+- [x] LOG
+- [x] LOG10
+- [x] GREATEST
+- [x] LEAST
+- [x] DIV
+- [x] SAFE_DIVIDE
+- [x] SAFE_MULTIPLY
+- [x] SAFE_NEGATE
+- [x] SAFE_ADD
+- [x] SAFE_SUBTRACT
+- [x] MOD
+- [x] ROUND
+- [x] TRUNC
+- [x] CEIL
+- [x] CEILING
+- [x] FLOOR
+- [x] COS
+- [x] COSH
+- [x] ACOS
+- [x] ACOSH
+- [x] SIN
+- [x] SINH
+- [x] ASIN
+- [x] ASINH
+- [x] TAN
+- [x] TANH
+- [x] ATAN
+- [x] ATANH
+- [x] ATAN2
+- [x] RANGE_BUCKET
 
 ### Navigation functions
 

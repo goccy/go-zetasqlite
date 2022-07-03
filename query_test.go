@@ -882,6 +882,13 @@ FROM Numbers`,
 				{int64(10), int64(6)},
 			},
 		},
+		{
+			name:  "sign",
+			query: `SELECT SIGN(25) UNION ALL SELECT SIGN(0) UNION ALL SELECT SIGN(-25)`,
+			expectedRows: [][]interface{}{
+				{int64(1)}, {int64(0)}, {int64(-1)},
+			},
+		},
 	} {
 		test := test
 		t.Run(test.name, func(t *testing.T) {

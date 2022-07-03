@@ -421,11 +421,11 @@ func bindMul(args ...Value) (Value, error) {
 	return MUL(args[0], args[1])
 }
 
-func bindDiv(args ...Value) (Value, error) {
+func bindOpDiv(args ...Value) (Value, error) {
 	if len(args) != 2 {
-		return nil, fmt.Errorf("DIV: invalid argument num %d", len(args))
+		return nil, fmt.Errorf("OP_DIV: invalid argument num %d", len(args))
 	}
-	return DIV(args[0], args[1])
+	return OP_DIV(args[0], args[1])
 }
 
 func bindEqual(args ...Value) (Value, error) {
@@ -702,6 +702,273 @@ func bindAbs(args ...Value) (Value, error) {
 		return nil, fmt.Errorf("ABS: invalid argument num %d", len(args))
 	}
 	return ABS(args[0])
+}
+
+func bindSign(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("SIGN: invalid argument num %d", len(args))
+	}
+	return SIGN(args[0])
+}
+
+func bindIsInf(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("IS_INF: invalid argument num %d", len(args))
+	}
+	return IS_INF(args[0])
+}
+
+func bindIsNaN(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("IS_NAN: invalid argument num %d", len(args))
+	}
+	return IS_NAN(args[0])
+}
+
+func bindIEEEDivide(args ...Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("IEEE_DIVIDE: invalid argument num %d", len(args))
+	}
+	return IEEE_DIVIDE(args[0], args[1])
+}
+
+func bindRand(args ...Value) (Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("RAND: invalid argument num %d", len(args))
+	}
+	return RAND()
+}
+
+func bindSqrt(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("SQRT: invalid argument num %d", len(args))
+	}
+	return SQRT(args[0])
+}
+
+func bindPow(args ...Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("POW(ER): invalid argument num %d", len(args))
+	}
+	return POW(args[0], args[1])
+}
+
+func bindExp(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("EXP: invalid argument num %d", len(args))
+	}
+	return EXP(args[0])
+}
+
+func bindLn(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("LN: invalid argument num %d", len(args))
+	}
+	return LN(args[0])
+}
+
+func bindLog(args ...Value) (Value, error) {
+	if len(args) == 1 {
+		return LN(args[0])
+	}
+	if len(args) != 2 {
+		return nil, fmt.Errorf("LOG: invalid argument num %d", len(args))
+	}
+	return LOG(args[0], args[1])
+}
+
+func bindLog10(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("LOG10: invalid argument num %d", len(args))
+	}
+	return LOG10(args[0])
+}
+
+func bindGreatest(args ...Value) (Value, error) {
+	return GREATEST(args...)
+}
+
+func bindLeast(args ...Value) (Value, error) {
+	return LEAST(args...)
+}
+
+func bindDiv(args ...Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("DIV: invalid argument num %d", len(args))
+	}
+	return DIV(args[0], args[1])
+}
+
+func bindSafeDivide(args ...Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("SAFE_DIVIDE: invalid argument num %d", len(args))
+	}
+	return SAFE_DIVIDE(args[0], args[1])
+}
+
+func bindSafeMultiply(args ...Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("SAFE_MULTIPLY: invalid argument num %d", len(args))
+	}
+	return SAFE_MULTIPLY(args[0], args[1])
+}
+
+func bindSafeNegate(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("SAFE_NEGATE: invalid argument num %d", len(args))
+	}
+	return SAFE_NEGATE(args[0])
+}
+
+func bindSafeAdd(args ...Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("SAFE_ADD: invalid argument num %d", len(args))
+	}
+	return SAFE_ADD(args[0], args[1])
+}
+
+func bindSafeSubtract(args ...Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("SAFE_SUBTRACT: invalid argument num %d", len(args))
+	}
+	return SAFE_SUBTRACT(args[0], args[1])
+}
+
+func bindMod(args ...Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("MOD: invalid argument num %d", len(args))
+	}
+	return MOD(args[0], args[1])
+}
+
+func bindRound(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("ROUND: invalid argument num %d", len(args))
+	}
+	return ROUND(args[0])
+}
+
+func bindTrunc(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("TRUNC: invalid argument num %d", len(args))
+	}
+	return TRUNC(args[0])
+}
+
+func bindCeil(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("CEIL(ING): invalid argument num %d", len(args))
+	}
+	return CEIL(args[0])
+}
+
+func bindFloor(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("FLOOR: invalid argument num %d", len(args))
+	}
+	return FLOOR(args[0])
+}
+
+func bindCos(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("COS: invalid argument num %d", len(args))
+	}
+	return COS(args[0])
+}
+
+func bindCosh(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("COSH: invalid argument num %d", len(args))
+	}
+	return COSH(args[0])
+}
+
+func bindAcos(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("ACOS: invalid argument num %d", len(args))
+	}
+	return ACOS(args[0])
+}
+
+func bindAcosh(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("ACOSH: invalid argument num %d", len(args))
+	}
+	return ACOSH(args[0])
+}
+
+func bindSin(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("SIN: invalid argument num %d", len(args))
+	}
+	return SIN(args[0])
+}
+
+func bindSinh(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("SINH: invalid argument num %d", len(args))
+	}
+	return SINH(args[0])
+}
+
+func bindAsin(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("ASIN: invalid argument num %d", len(args))
+	}
+	return ASIN(args[0])
+}
+
+func bindAsinh(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("ASINH: invalid argument num %d", len(args))
+	}
+	return ASINH(args[0])
+}
+
+func bindTan(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("TAN: invalid argument num %d", len(args))
+	}
+	return TAN(args[0])
+}
+
+func bindTanh(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("TANH: invalid argument num %d", len(args))
+	}
+	return TANH(args[0])
+}
+
+func bindAtan(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("ATAN: invalid argument num %d", len(args))
+	}
+	return ATAN(args[0])
+}
+
+func bindAtanh(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("ATANH: invalid argument num %d", len(args))
+	}
+	return ATANH(args[0])
+}
+
+func bindAtan2(args ...Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("ATAN2: invalid argument num %d", len(args))
+	}
+	return ATAN2(args[0], args[1])
+}
+
+func bindRangeBucket(args ...Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("RANGE_BUCKET: invalid argument num %d", len(args))
+	}
+	array, err := args[1].ToArray()
+	if err != nil {
+		return nil, err
+	}
+	return RANGE_BUCKET(args[0], array)
 }
 
 func bindDate(args ...Value) (Value, error) {
