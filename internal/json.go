@@ -13,6 +13,8 @@ func JSONFromZetaSQLValue(v types.Value) string {
 	switch v.Type().Kind() {
 	case types.DATE:
 		return toDateValueFromString(value)
+	case types.DATETIME:
+		return toDatetimeValueFromString(value)
 	case types.ARRAY:
 		return toArrayValueFromJSONString(value)
 	case types.STRUCT:
@@ -25,6 +27,8 @@ func jsonFromZetaSQLValue(v types.Value) string {
 	switch v.Type().Kind() {
 	case types.DATE:
 		return toDateValueFromInt64(v.ToInt64())
+	case types.DATETIME:
+		return toDatetimeValueFromInt64(v.ToInt64())
 	case types.ARRAY:
 		elems := []string{}
 		if v.IsNull() {

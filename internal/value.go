@@ -963,10 +963,123 @@ func (d DateValue) Marshal() (string, error) {
 	return toDateValueFromString(json), nil
 }
 
+type DatetimeValue time.Time
+
+func (d DatetimeValue) Add(v Value) (Value, error) {
+	v2, err := v.ToInt64()
+	if err != nil {
+		return nil, err
+	}
+	duration := time.Duration(v2) * 24 * time.Hour
+	return DatetimeValue(time.Time(d).Add(duration)), nil
+}
+
+func (d DatetimeValue) Sub(v Value) (Value, error) {
+	v2, err := v.ToInt64()
+	if err != nil {
+		return nil, err
+	}
+	duration := -time.Duration(v2) * 24 * time.Hour
+	return DateValue(time.Time(d).Add(duration)), nil
+}
+
+func (d DatetimeValue) Mul(v Value) (Value, error) {
+	return nil, fmt.Errorf("mul operation is unsupported for datetime %v", d)
+}
+
+func (d DatetimeValue) Div(v Value) (Value, error) {
+	return nil, fmt.Errorf("div operation is unsupported for datetime %v", d)
+}
+
+func (d DatetimeValue) EQ(v Value) (bool, error) {
+	v2, err := v.ToTime()
+	if err != nil {
+		return false, fmt.Errorf("failed to convert %v to time.Time", v)
+	}
+	return time.Time(d).Equal(v2), nil
+}
+
+func (d DatetimeValue) GT(v Value) (bool, error) {
+	v2, err := v.ToTime()
+	if err != nil {
+		return false, fmt.Errorf("failed to convert %v to time.Time", v)
+	}
+	return time.Time(d).After(v2), nil
+}
+
+func (d DatetimeValue) GTE(v Value) (bool, error) {
+	v2, err := v.ToTime()
+	if err != nil {
+		return false, fmt.Errorf("failed to convert %v to time.Time", v)
+	}
+	return time.Time(d).Equal(v2) || time.Time(d).After(v2), nil
+}
+
+func (d DatetimeValue) LT(v Value) (bool, error) {
+	v2, err := v.ToTime()
+	if err != nil {
+		return false, fmt.Errorf("failed to convert %v to time.Time", v)
+	}
+	return time.Time(d).Before(v2), nil
+}
+
+func (d DatetimeValue) LTE(v Value) (bool, error) {
+	v2, err := v.ToTime()
+	if err != nil {
+		return false, fmt.Errorf("failed to convert %v to time.Time", v)
+	}
+	return time.Time(d).Equal(v2) || time.Time(d).Before(v2), nil
+}
+
+func (d DatetimeValue) ToInt64() (int64, error) {
+	return time.Time(d).Unix(), nil
+}
+
+func (d DatetimeValue) ToString() (string, error) {
+	json, err := d.ToJSON()
+	if err != nil {
+		return "", err
+	}
+	return toDatetimeValueFromString(json), nil
+}
+
+func (d DatetimeValue) ToFloat64() (float64, error) {
+	return float64(time.Time(d).Unix()), nil
+}
+
+func (d DatetimeValue) ToBool() (bool, error) {
+	return false, fmt.Errorf("failed to convert %v to bool type", d)
+}
+
+func (d DatetimeValue) ToArray() (*ArrayValue, error) {
+	return nil, fmt.Errorf("failed to convert %v to array type", d)
+}
+
+func (d DatetimeValue) ToStruct() (*StructValue, error) {
+	return nil, fmt.Errorf("failed to convert %v to struct type", d)
+}
+
+func (d DatetimeValue) ToJSON() (string, error) {
+	return time.Time(d).Format("2006-01-02T15:04:05"), nil
+}
+
+func (d DatetimeValue) ToTime() (time.Time, error) {
+	return time.Time(d), nil
+}
+
+func (d DatetimeValue) Marshal() (string, error) {
+	json, err := d.ToJSON()
+	if err != nil {
+		return "", err
+	}
+	return toDatetimeValueFromString(json), nil
+}
+
 const (
-	ArrayValueHeader  = "zetasqlitearray:"
-	StructValueHeader = "zetasqlitestruct:"
-	DateValueHeader   = "zetasqlitedate:"
+	ArrayValueHeader    = "zetasqlitearray:"
+	StructValueHeader   = "zetasqlitestruct:"
+	DateValueHeader     = "zetasqlitedate:"
+	DatetimeValueHeader = "zetasqlitedatetime:"
 )
 
 func ValueOf(v interface{}) (Value, error) {
@@ -1007,6 +1120,8 @@ func ValueOf(v interface{}) (Value, error) {
 			return StructValueOf(vv)
 		case isDateValue(vv):
 			return DateValueOf(vv)
+		case isDatetimeValue(vv):
+			return DatetimeValueOf(vv)
 		}
 		return StringValue(vv), nil
 	case []byte:
@@ -1051,12 +1166,30 @@ func isDateValue(v string) bool {
 	return strings.HasPrefix(v, DateValueHeader)
 }
 
+func isDatetimeValue(v string) bool {
+	if len(v) < len(DatetimeValueHeader) {
+		return false
+	}
+	if v[0] == '"' {
+		return strings.HasPrefix(v[1:], DatetimeValueHeader)
+	}
+	return strings.HasPrefix(v, DatetimeValueHeader)
+}
+
 func DateValueOf(v string) (Value, error) {
 	date, err := dateValueFromEncodedString(v)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get date value from encoded string: %w", err)
 	}
 	return DateValue(date), nil
+}
+
+func DatetimeValueOf(v string) (Value, error) {
+	date, err := datetimeValueFromEncodedString(v)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get datetime value from encoded string: %w", err)
+	}
+	return DatetimeValue(date), nil
 }
 
 func ArrayValueOf(v string) (Value, error) {
@@ -1204,6 +1337,21 @@ func dateValueFromEncodedString(v string) (time.Time, error) {
 	return parseDate(content)
 }
 
+func datetimeValueFromEncodedString(v string) (time.Time, error) {
+	if len(v) == 0 {
+		return time.Time{}, nil
+	}
+	if v[0] == '"' {
+		unquoted, err := strconv.Unquote(v)
+		if err != nil {
+			return time.Time{}, fmt.Errorf("failed to unquote value %q: %w", v, err)
+		}
+		v = unquoted
+	}
+	content := v[len(DatetimeValueHeader):]
+	return parseDatetime(content)
+}
+
 func arrayValueFromEncodedString(v string) ([]interface{}, error) {
 	if len(v) == 0 {
 		return nil, nil
@@ -1266,6 +1414,16 @@ func toDateValueFromString(s string) string {
 	)
 }
 
+func toDatetimeValueFromString(s string) string {
+	return strconv.Quote(
+		fmt.Sprintf(
+			"%s%s",
+			DatetimeValueHeader,
+			s,
+		),
+	)
+}
+
 func isNULLValue(v interface{}) bool {
 	vv, ok := v.([]byte)
 	if !ok {
@@ -1275,15 +1433,24 @@ func isNULLValue(v interface{}) bool {
 }
 
 var (
-	dateRe = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}$`)
+	dateRe     = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}$`)
+	datetimeRe = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}?T[0-9]{2}:[0-9]{2}:[0-9]{2}$`)
 )
 
 func isDate(date string) bool {
 	return dateRe.MatchString(date)
 }
 
+func isDatetime(date string) bool {
+	return datetimeRe.MatchString(date)
+}
+
 func parseDate(date string) (time.Time, error) {
 	return time.Parse("2006-01-02", date)
+}
+
+func parseDatetime(datetime string) (time.Time, error) {
+	return time.Parse("2006-01-02T15:04:05", datetime)
 }
 
 func toDateValueFromInt64(days int64) string {
@@ -1291,10 +1458,17 @@ func toDateValueFromInt64(days int64) string {
 	return t.Format("2006-01-02")
 }
 
+func toDatetimeValueFromInt64(days int64) string {
+	t := time.Unix(int64(time.Duration(days)*24*time.Hour/time.Second), 0)
+	return t.Format("2006-01-02T15:04:05")
+}
+
 func toTimeValue(s string) (time.Time, error) {
 	switch {
 	case isDate(s):
 		return parseDate(s)
+	case isDatetime(s):
+		return parseDatetime(s)
 	}
 	return time.Time{}, fmt.Errorf("unsupported time format %s", s)
 }

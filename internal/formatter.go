@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	ast "github.com/goccy/go-zetasql/resolved_ast"
+	"github.com/goccy/go-zetasql/types"
 )
 
 type Formatter interface {
@@ -33,6 +34,66 @@ func MergeNamePath(namePath []string, queryPath []string) []string {
 		merged = append(merged, path)
 	}
 	return append(merged, queryPath...)
+}
+
+func getFuncNameAndArgs(ctx context.Context, node *ast.BaseFunctionCallNode, isWindowFunc bool) (string, []string, error) {
+	args := []string{}
+	for _, a := range node.ArgumentList() {
+		arg, err := newNode(a).FormatSQL(ctx)
+		if err != nil {
+			return "", nil, err
+		}
+		args = append(args, arg)
+	}
+	returnType := node.Signature().ResultType().Type()
+	var suffixName string
+	switch returnType.Kind() {
+	case types.ARRAY:
+		suffixName = "array"
+	case types.STRUCT:
+		suffixName = "struct"
+	default:
+		suffixName = strings.ToLower(returnType.TypeName(0))
+	}
+	funcName := node.Function().FullName(false)
+
+	_, existsCurrentTimeFunc := currentTimeFuncMap[funcName]
+	_, existsNormalFunc := normalFuncMap[funcName]
+	_, existsAggregateFunc := aggregateFuncMap[funcName]
+	_, existsWindowFunc := windowFuncMap[funcName]
+	currentTime := CurrentTime(ctx)
+	if strings.HasPrefix(funcName, "$") {
+		if isWindowFunc {
+			funcName = fmt.Sprintf("zetasqlite_window_%s_%s", funcName[1:], suffixName)
+		} else {
+			funcName = fmt.Sprintf("zetasqlite_%s_%s", funcName[1:], suffixName)
+		}
+	} else if existsCurrentTimeFunc {
+		if currentTime != nil {
+			args = append(
+				args,
+				fmt.Sprint(currentTime.UnixNano()),
+			)
+		}
+		funcName = fmt.Sprintf("zetasqlite_%s_%s", funcName, suffixName)
+	} else if existsNormalFunc {
+		funcName = fmt.Sprintf("zetasqlite_%s_%s", funcName, suffixName)
+	} else if !isWindowFunc && existsAggregateFunc {
+		funcName = fmt.Sprintf("zetasqlite_%s_%s", funcName, suffixName)
+	} else if isWindowFunc && existsWindowFunc {
+		funcName = fmt.Sprintf("zetasqlite_window_%s_%s", funcName, suffixName)
+	} else {
+		fullpath := fullNamePathFromContext(ctx)
+		path := fullpath.paths[fullpath.idx]
+		funcName = FormatName(
+			MergeNamePath(
+				namePathFromContext(ctx),
+				path,
+			),
+		)
+		fullpath.idx++
+	}
+	return funcName, args, nil
 }
 
 func (n *LiteralNode) FormatSQL(ctx context.Context) (string, error) {
@@ -81,44 +142,18 @@ func (n *FunctionCallNode) FormatSQL(ctx context.Context) (string, error) {
 	if n.node == nil {
 		return "", nil
 	}
-	args := []string{}
-	for _, a := range n.node.ArgumentList() {
-		arg, err := newNode(a).FormatSQL(ctx)
-		if err != nil {
-			return "", err
-		}
-		args = append(args, arg)
+	funcName, args, err := getFuncNameAndArgs(ctx, n.node.BaseFunctionCallNode, false)
+	if err != nil {
+		return "", err
 	}
-	resultType := strings.ToLower(n.node.Signature().ResultType().Type().TypeName(0))
-	if strings.HasPrefix(resultType, "struct") {
-		resultType = "struct"
-	} else if strings.HasPrefix(resultType, "array") {
-		resultType = "array"
-	}
-	funcName := n.node.Function().FullName(false)
-	if strings.HasPrefix(funcName, "$") {
-		funcName = fmt.Sprintf("zetasqlite_%s_%s", funcName[1:], resultType)
-	} else if _, exists := normalFuncMap[funcName]; exists {
-		funcName = fmt.Sprintf("zetasqlite_%s_%s", funcName, resultType)
-	} else {
-		fullpath := fullNamePathFromContext(ctx)
-		path := fullpath.paths[fullpath.idx]
-		funcName = FormatName(
-			MergeNamePath(
-				namePathFromContext(ctx),
-				path,
-			),
-		)
-		fullpath.idx++
-		funcMap := funcMapFromContext(ctx)
-		if spec, exists := funcMap[funcName]; exists {
-			body := spec.Body
-			for _, arg := range args {
-				// TODO: Need to recognize the argument exactly.
-				body = strings.Replace(body, "?", arg, 1)
-			}
-			return fmt.Sprintf("( %s )", body), nil
+	funcMap := funcMapFromContext(ctx)
+	if spec, exists := funcMap[funcName]; exists {
+		body := spec.Body
+		for _, arg := range args {
+			// TODO: Need to recognize the argument exactly.
+			body = strings.Replace(body, "?", arg, 1)
 		}
+		return fmt.Sprintf("( %s )", body), nil
 	}
 	return fmt.Sprintf(
 		"%s(%s)",
@@ -131,44 +166,18 @@ func (n *AggregateFunctionCallNode) FormatSQL(ctx context.Context) (string, erro
 	if n.node == nil {
 		return "", nil
 	}
-	args := []string{}
-	for _, a := range n.node.ArgumentList() {
-		arg, err := newNode(a).FormatSQL(ctx)
-		if err != nil {
-			return "", err
-		}
-		args = append(args, arg)
+	funcName, args, err := getFuncNameAndArgs(ctx, n.node.BaseFunctionCallNode, false)
+	if err != nil {
+		return "", err
 	}
-	resultType := strings.ToLower(n.node.Signature().ResultType().Type().TypeName(0))
-	if strings.HasPrefix(resultType, "struct") {
-		resultType = "struct"
-	} else if strings.HasPrefix(resultType, "array") {
-		resultType = "array"
-	}
-	funcName := n.node.Function().FullName(false)
-	if strings.HasPrefix(funcName, "$") {
-		funcName = fmt.Sprintf("zetasqlite_%s_%s", funcName[1:], resultType)
-	} else if _, exists := aggregateFuncMap[funcName]; exists {
-		funcName = fmt.Sprintf("zetasqlite_%s_%s", funcName, resultType)
-	} else {
-		fullpath := fullNamePathFromContext(ctx)
-		path := fullpath.paths[fullpath.idx]
-		funcName = FormatName(
-			MergeNamePath(
-				namePathFromContext(ctx),
-				path,
-			),
-		)
-		fullpath.idx++
-		funcMap := funcMapFromContext(ctx)
-		if spec, exists := funcMap[funcName]; exists {
-			body := spec.Body
-			for _, arg := range args {
-				// TODO: Need to recognize the argument exactly.
-				body = strings.Replace(body, "?", arg, 1)
-			}
-			return fmt.Sprintf("( %s )", body), nil
+	funcMap := funcMapFromContext(ctx)
+	if spec, exists := funcMap[funcName]; exists {
+		body := spec.Body
+		for _, arg := range args {
+			// TODO: Need to recognize the argument exactly.
+			body = strings.Replace(body, "?", arg, 1)
 		}
+		return fmt.Sprintf("( %s )", body), nil
 	}
 	var opts []string
 	for _, item := range n.node.OrderByItemList() {
@@ -210,7 +219,6 @@ func (n *AnalyticFunctionCallNode) FormatSQL(ctx context.Context) (string, error
 	if n.node == nil {
 		return "", nil
 	}
-	args := []string{}
 	orderColumnNames := analyticOrderColumnNamesFromContext(ctx)
 	orderColumns := orderColumnNames.values
 	for _, a := range n.node.ArgumentList() {
@@ -225,42 +233,23 @@ func (n *AnalyticFunctionCallNode) FormatSQL(ctx context.Context) (string, error
 			return "", err
 		}
 		orderColumnNames.values = append(orderColumnNames.values, arg)
-		args = append(args, arg)
 	}
 	tableName := analyticTableNameFromContext(ctx)
 	if tableName == "" {
 		return "", fmt.Errorf("failed to find table name from analytic query")
 	}
-	resultType := strings.ToLower(n.node.Signature().ResultType().Type().TypeName(0))
-	if strings.HasPrefix(resultType, "struct") {
-		resultType = "struct"
-	} else if strings.HasPrefix(resultType, "array") {
-		resultType = "array"
+	funcName, args, err := getFuncNameAndArgs(ctx, n.node.BaseFunctionCallNode, true)
+	if err != nil {
+		return "", err
 	}
-	funcName := n.node.Function().FullName(false)
-	if strings.HasPrefix(funcName, "$") {
-		funcName = fmt.Sprintf("zetasqlite_window_%s_%s", funcName[1:], resultType)
-	} else if _, exists := windowFuncMap[funcName]; exists {
-		funcName = fmt.Sprintf("zetasqlite_window_%s_%s", funcName, resultType)
-	} else {
-		fullpath := fullNamePathFromContext(ctx)
-		path := fullpath.paths[fullpath.idx]
-		funcName = FormatName(
-			MergeNamePath(
-				namePathFromContext(ctx),
-				path,
-			),
-		)
-		fullpath.idx++
-		funcMap := funcMapFromContext(ctx)
-		if spec, exists := funcMap[funcName]; exists {
-			body := spec.Body
-			for _, arg := range args {
-				// TODO: Need to recognize the argument exactly.
-				body = strings.Replace(body, "?", arg, 1)
-			}
-			return fmt.Sprintf("( %s )", body), nil
+	funcMap := funcMapFromContext(ctx)
+	if spec, exists := funcMap[funcName]; exists {
+		body := spec.Body
+		for _, arg := range args {
+			// TODO: Need to recognize the argument exactly.
+			body = strings.Replace(body, "?", arg, 1)
 		}
+		return fmt.Sprintf("( %s )", body), nil
 	}
 	var opts []string
 	if n.node.Distinct() {

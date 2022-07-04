@@ -1,15 +1,20 @@
 package zetasqlite_test
 
 import (
+	"context"
 	"database/sql"
 	"reflect"
 	"testing"
+	"time"
 
-	_ "github.com/goccy/go-zetasqlite"
+	"github.com/goccy/go-zetasqlite"
 	"github.com/google/go-cmp/cmp"
 )
 
 func TestQuery(t *testing.T) {
+	now := time.Now()
+	ctx := context.Background()
+	ctx = zetasqlite.WithCurrentTime(ctx, now)
 	db, err := sql.Open("zetasqlite", ":memory:")
 	if err != nil {
 		t.Fatal(err)
@@ -889,10 +894,24 @@ FROM Numbers`,
 				{int64(1)}, {int64(0)}, {int64(-1)},
 			},
 		},
+		{
+			name:  "current_date",
+			query: `SELECT CURRENT_DATE()`,
+			expectedRows: [][]interface{}{
+				{now.Format("2006-01-02")},
+			},
+		},
+		{
+			name:  "current_datetime",
+			query: `SELECT CURRENT_DATETIME()`,
+			expectedRows: [][]interface{}{
+				{now.Format("2006-01-02T15:04:05")},
+			},
+		},
 	} {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			rows, err := db.Query(test.query, test.args...)
+			rows, err := db.QueryContext(ctx, test.query, test.args...)
 			if err != nil {
 				t.Fatal(err)
 			}
