@@ -1,6 +1,9 @@
 package internal
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 type (
 	namePathKey                     struct{}
@@ -10,6 +13,7 @@ type (
 	analyticOrderColumnNamesKey     struct{}
 	analyticPartitionColumnNamesKey struct{}
 	analyticTableNameKey            struct{}
+	currentTimeKey                  struct{}
 )
 
 func namePathFromContext(ctx context.Context) []string {
@@ -103,4 +107,16 @@ func analyticTableNameFromContext(ctx context.Context) string {
 		return ""
 	}
 	return value.(string)
+}
+
+func WithCurrentTime(ctx context.Context, now time.Time) context.Context {
+	return context.WithValue(ctx, currentTimeKey{}, &now)
+}
+
+func CurrentTime(ctx context.Context) *time.Time {
+	value := ctx.Value(currentTimeKey{})
+	if value == nil {
+		return nil
+	}
+	return value.(*time.Time)
 }

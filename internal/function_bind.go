@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/goccy/go-zetasql/types"
 )
@@ -126,6 +127,57 @@ func bindDateFunc(fn BindFunction) SQLiteFunction {
 	}
 }
 
+func bindDatetimeFunc(fn BindFunction) SQLiteFunction {
+	return func(args ...interface{}) (interface{}, error) {
+		values, err := convertArgs(args...)
+		if err != nil {
+			return nil, err
+		}
+		ret, err := fn(values...)
+		if err != nil {
+			return nil, err
+		}
+		if ret == nil {
+			return nil, nil
+		}
+		return ret.ToString()
+	}
+}
+
+func bindTimeFunc(fn BindFunction) SQLiteFunction {
+	return func(args ...interface{}) (interface{}, error) {
+		values, err := convertArgs(args...)
+		if err != nil {
+			return nil, err
+		}
+		ret, err := fn(values...)
+		if err != nil {
+			return nil, err
+		}
+		if ret == nil {
+			return nil, nil
+		}
+		return ret.ToString()
+	}
+}
+
+func bindTimestampFunc(fn BindFunction) SQLiteFunction {
+	return func(args ...interface{}) (interface{}, error) {
+		values, err := convertArgs(args...)
+		if err != nil {
+			return nil, err
+		}
+		ret, err := fn(values...)
+		if err != nil {
+			return nil, err
+		}
+		if ret == nil {
+			return nil, nil
+		}
+		return ret.ToString()
+	}
+}
+
 func bindArrayFunc(fn BindFunction) SQLiteFunction {
 	return func(args ...interface{}) (interface{}, error) {
 		values, err := convertArgs(args...)
@@ -193,6 +245,24 @@ var (
 		}
 		return v.ToString()
 	}
+	datetimeValueConverter = func(v Value) (interface{}, error) {
+		if v == nil {
+			return nil, nil
+		}
+		return v.ToString()
+	}
+	timeValueConverter = func(v Value) (interface{}, error) {
+		if v == nil {
+			return nil, nil
+		}
+		return v.ToString()
+	}
+	timestampValueConverter = func(v Value) (interface{}, error) {
+		if v == nil {
+			return nil, nil
+		}
+		return v.ToString()
+	}
 	arrayValueConverter = func(v Value) (interface{}, error) {
 		if v == nil {
 			return nil, nil
@@ -225,6 +295,18 @@ func bindAggregateBoolFunc(bindFunc func(ReturnValueConverter) func() *Aggregato
 
 func bindAggregateDateFunc(bindFunc func(ReturnValueConverter) func() *Aggregator) func() *Aggregator {
 	return bindFunc(dateValueConverter)
+}
+
+func bindAggregateDatetimeFunc(bindFunc func(ReturnValueConverter) func() *Aggregator) func() *Aggregator {
+	return bindFunc(datetimeValueConverter)
+}
+
+func bindAggregateTimeFunc(bindFunc func(ReturnValueConverter) func() *Aggregator) func() *Aggregator {
+	return bindFunc(timeValueConverter)
+}
+
+func bindAggregateTimestampFunc(bindFunc func(ReturnValueConverter) func() *Aggregator) func() *Aggregator {
+	return bindFunc(timestampValueConverter)
 }
 
 func bindAggregateArrayFunc(bindFunc func(ReturnValueConverter) func() *Aggregator) func() *Aggregator {
@@ -322,6 +404,18 @@ func bindWindowBoolFunc(bindFunc func(ReturnValueConverter) func() *WindowAggreg
 
 func bindWindowDateFunc(bindFunc func(ReturnValueConverter) func() *WindowAggregator) func() *WindowAggregator {
 	return bindFunc(dateValueConverter)
+}
+
+func bindWindowDatetimeFunc(bindFunc func(ReturnValueConverter) func() *WindowAggregator) func() *WindowAggregator {
+	return bindFunc(datetimeValueConverter)
+}
+
+func bindWindowTimeFunc(bindFunc func(ReturnValueConverter) func() *WindowAggregator) func() *WindowAggregator {
+	return bindFunc(timeValueConverter)
+}
+
+func bindWindowTimestampFunc(bindFunc func(ReturnValueConverter) func() *WindowAggregator) func() *WindowAggregator {
+	return bindFunc(timestampValueConverter)
 }
 
 func bindWindowArrayFunc(bindFunc func(ReturnValueConverter) func() *WindowAggregator) func() *WindowAggregator {
@@ -695,6 +789,57 @@ func bindLength(args ...Value) (Value, error) {
 		return nil, fmt.Errorf("LENGTH: invalid argument num %d", len(args))
 	}
 	return LENGTH(args[0])
+}
+
+func timeFromUnixNano(unixNano int64) time.Time {
+	return time.Unix(
+		unixNano/int64(time.Second),
+		unixNano%int64(time.Nanosecond),
+	)
+}
+
+func bindCurrentDate(args ...Value) (Value, error) {
+	if len(args) == 1 {
+		unixNano, err := args[0].ToInt64()
+		if err != nil {
+			return nil, err
+		}
+		return CURRENT_DATE_WITH_TIME(timeFromUnixNano(unixNano))
+	}
+	return CURRENT_DATE()
+}
+
+func bindCurrentDatetime(args ...Value) (Value, error) {
+	if len(args) == 1 {
+		unixNano, err := args[0].ToInt64()
+		if err != nil {
+			return nil, err
+		}
+		return CURRENT_DATETIME_WITH_TIME(timeFromUnixNano(unixNano))
+	}
+	return CURRENT_DATETIME()
+}
+
+func bindCurrentTime(args ...Value) (Value, error) {
+	if len(args) == 1 {
+		unixNano, err := args[0].ToInt64()
+		if err != nil {
+			return nil, err
+		}
+		return CURRENT_TIME_WITH_TIME(timeFromUnixNano(unixNano))
+	}
+	return CURRENT_TIME()
+}
+
+func bindCurrentTimestamp(args ...Value) (Value, error) {
+	if len(args) == 1 {
+		unixNano, err := args[0].ToInt64()
+		if err != nil {
+			return nil, err
+		}
+		return CURRENT_TIMESTAMP_WITH_TIME(timeFromUnixNano(unixNano))
+	}
+	return CURRENT_TIMESTAMP()
 }
 
 func bindAbs(args ...Value) (Value, error) {

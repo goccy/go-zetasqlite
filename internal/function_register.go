@@ -224,6 +224,28 @@ var normalFuncs = []*FuncInfo{
 		ReturnTypes: []types.TypeKind{types.INT64},
 	},
 
+	// currentime functions
+	{
+		Name:        "current_date",
+		BindFunc:    bindCurrentDate,
+		ReturnTypes: []types.TypeKind{types.DATE},
+	},
+	{
+		Name:        "current_datetime",
+		BindFunc:    bindCurrentDatetime,
+		ReturnTypes: []types.TypeKind{types.DATETIME},
+	},
+	{
+		Name:        "current_time",
+		BindFunc:    bindCurrentTime,
+		ReturnTypes: []types.TypeKind{types.TIME},
+	},
+	{
+		Name:        "current_timestamp",
+		BindFunc:    bindCurrentTimestamp,
+		ReturnTypes: []types.TypeKind{types.TIMESTAMP},
+	},
+
 	// math functions
 
 	{
@@ -591,9 +613,15 @@ var windowFuncs = []*WindowFuncInfo{
 }
 
 var (
-	normalFuncMap    = map[string]struct{}{}
-	aggregateFuncMap = map[string]struct{}{}
-	windowFuncMap    = map[string]struct{}{}
+	normalFuncMap      = map[string]struct{}{}
+	aggregateFuncMap   = map[string]struct{}{}
+	windowFuncMap      = map[string]struct{}{}
+	currentTimeFuncMap = map[string]struct{}{
+		"current_date":      struct{}{},
+		"current_datetime":  struct{}{},
+		"current_time":      struct{}{},
+		"current_timestamp": struct{}{},
+	}
 )
 
 func RegisterFunctions(conn *sqlite3.SQLiteConn) error {
@@ -637,6 +665,15 @@ func registerByFuncInfo(conn *sqlite3.SQLiteConn, info *FuncInfo) error {
 		case types.DATE:
 			name = fmt.Sprintf("zetasqlite_%s_date", info.Name)
 			fn = bindDateFunc(info.BindFunc)
+		case types.DATETIME:
+			name = fmt.Sprintf("zetasqlite_%s_datetime", info.Name)
+			fn = bindDatetimeFunc(info.BindFunc)
+		case types.TIME:
+			name = fmt.Sprintf("zetasqlite_%s_time", info.Name)
+			fn = bindTimeFunc(info.BindFunc)
+		case types.TIMESTAMP:
+			name = fmt.Sprintf("zetasqlite_%s_timestamp", info.Name)
+			fn = bindTimestampFunc(info.BindFunc)
 		case types.ARRAY:
 			name = fmt.Sprintf("zetasqlite_%s_array", info.Name)
 			fn = bindArrayFunc(info.BindFunc)
@@ -644,7 +681,7 @@ func registerByFuncInfo(conn *sqlite3.SQLiteConn, info *FuncInfo) error {
 			name = fmt.Sprintf("zetasqlite_%s_struct", info.Name)
 			fn = bindStructFunc(info.BindFunc)
 		default:
-			return fmt.Errorf("unsupported return type %s for function: %s", retType)
+			return fmt.Errorf("unsupported return type %s for function: %s", retType, info.Name)
 		}
 		normalFuncMap[info.Name] = struct{}{}
 		if err := conn.RegisterFunc(name, fn, true); err != nil {
@@ -676,6 +713,15 @@ func registerByAggregateFuncInfo(conn *sqlite3.SQLiteConn, info *AggregateFuncIn
 		case types.DATE:
 			name = fmt.Sprintf("zetasqlite_%s_date", info.Name)
 			aggregator = bindAggregateDateFunc(info.BindFunc)
+		case types.DATETIME:
+			name = fmt.Sprintf("zetasqlite_%s_datetime", info.Name)
+			aggregator = bindAggregateDatetimeFunc(info.BindFunc)
+		case types.TIME:
+			name = fmt.Sprintf("zetasqlite_%s_time", info.Name)
+			aggregator = bindAggregateTimeFunc(info.BindFunc)
+		case types.TIMESTAMP:
+			name = fmt.Sprintf("zetasqlite_%s_timestamp", info.Name)
+			aggregator = bindAggregateTimestampFunc(info.BindFunc)
 		case types.ARRAY:
 			name = fmt.Sprintf("zetasqlite_%s_array", info.Name)
 			aggregator = bindAggregateArrayFunc(info.BindFunc)
@@ -683,7 +729,7 @@ func registerByAggregateFuncInfo(conn *sqlite3.SQLiteConn, info *AggregateFuncIn
 			name = fmt.Sprintf("zetasqlite_%s_struct", info.Name)
 			aggregator = bindAggregateStructFunc(info.BindFunc)
 		default:
-			return fmt.Errorf("unsupported return type %s for aggregate function: %s", retType)
+			return fmt.Errorf("unsupported return type %s for aggregate function: %s", retType, info.Name)
 		}
 		aggregateFuncMap[info.Name] = struct{}{}
 		if err := conn.RegisterAggregator(name, aggregator, true); err != nil {
@@ -715,6 +761,15 @@ func registerByWindowFuncInfo(conn *sqlite3.SQLiteConn, info *WindowFuncInfo) er
 		case types.DATE:
 			name = fmt.Sprintf("zetasqlite_window_%s_date", info.Name)
 			aggregator = bindWindowDateFunc(info.BindFunc)
+		case types.DATETIME:
+			name = fmt.Sprintf("zetasqlite_window_%s_datetime", info.Name)
+			aggregator = bindWindowDatetimeFunc(info.BindFunc)
+		case types.TIME:
+			name = fmt.Sprintf("zetasqlite_window_%s_time", info.Name)
+			aggregator = bindWindowTimeFunc(info.BindFunc)
+		case types.TIMESTAMP:
+			name = fmt.Sprintf("zetasqlite_window_%s_timestamp", info.Name)
+			aggregator = bindWindowTimestampFunc(info.BindFunc)
 		case types.ARRAY:
 			name = fmt.Sprintf("zetasqlite_window_%s_array", info.Name)
 			aggregator = bindWindowArrayFunc(info.BindFunc)
@@ -722,7 +777,7 @@ func registerByWindowFuncInfo(conn *sqlite3.SQLiteConn, info *WindowFuncInfo) er
 			name = fmt.Sprintf("zetasqlite_window_%s_struct", info.Name)
 			aggregator = bindWindowStructFunc(info.BindFunc)
 		default:
-			return fmt.Errorf("unsupported return type %s for window function: %s", retType)
+			return fmt.Errorf("unsupported return type %s for window function: %s", retType, info.Name)
 		}
 		windowFuncMap[info.Name] = struct{}{}
 		if err := conn.RegisterAggregator(name, aggregator, true); err != nil {

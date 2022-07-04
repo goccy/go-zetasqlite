@@ -62,6 +62,9 @@ func newAnalyzerOptions() *zetasql.AnalyzerOptions {
 		zetasql.FeatureV13DateArithmetics,
 		zetasql.FeatureV11OrderByInAggregate,
 		zetasql.FeatureV11LimitInAggregate,
+		zetasql.FeatureV13DateTimeConstructors,
+		zetasql.FeatureV13ExtendedDateTimeSignatures,
+		zetasql.FeatureV12CivilTime,
 	})
 	langOpt.SetSupportedStatementKinds([]ast.Kind{
 		ast.QueryStmt,

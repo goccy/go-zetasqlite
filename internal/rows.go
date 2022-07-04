@@ -151,6 +151,24 @@ func (r *Rows) convertValue(value interface{}, typ *Type) (driver.Value, error) 
 			return nil, err
 		}
 		return val.ToJSON()
+	case types.DATETIME:
+		val, err := ValueOf(value)
+		if err != nil {
+			return nil, err
+		}
+		return val.ToJSON()
+	case types.TIME:
+		val, err := ValueOf(value)
+		if err != nil {
+			return nil, err
+		}
+		return val.ToJSON()
+	case types.TIMESTAMP:
+		val, err := ValueOf(value)
+		if err != nil {
+			return nil, err
+		}
+		return val.ToJSON()
 	}
 	return value, nil
 }
