@@ -87,9 +87,9 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 - [x] STRING
 - [ ] BYTES
 - [x] DATE
-- [ ] TIME
-- [ ] DATETIME
-- [ ] TIMESTAMP
+- [x] TIME
+- [x] DATETIME
+- [x] TIMESTAMP
 - [ ] INTERVAL
 - [x] ARRAY
 - [x] STRUCT
@@ -370,7 +370,7 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 
 ### Date functions
 
-- [ ] CURRENT_DATE
+- [x] CURRENT_DATE
 - [ ] EXTRACT
 - [x] DATE
 - [x] DATE_ADD
@@ -385,7 +385,7 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 
 ### Datetime functions
 
-- [ ] CURRENT_DATETIME
+- [x] CURRENT_DATETIME
 - [ ] DATETIME
 - [ ] EXTRACT
 - [ ] DATETIME_ADD
@@ -398,7 +398,7 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 
 ### Time functions
 
-- [ ] CURRENT_TIME
+- [x] CURRENT_TIME
 - [ ] TIME
 - [ ] EXTRACT
 - [ ] TIME_ADD
@@ -410,7 +410,7 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 
 ### Timestamp functions
 
-- [ ] CURRENT_TIMESTAMP
+- [x] CURRENT_TIMESTAMP
 - [ ] EXTRACT
 - [ ] STRING
 - [ ] TIMESTAMP
