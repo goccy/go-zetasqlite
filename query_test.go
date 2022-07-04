@@ -908,6 +908,20 @@ FROM Numbers`,
 				{now.Format("2006-01-02T15:04:05")},
 			},
 		},
+		{
+			name:  "current_time",
+			query: `SELECT CURRENT_TIME()`,
+			expectedRows: [][]interface{}{
+				{now.Format("15:04:05")},
+			},
+		},
+		{
+			name:  "current_timestamp",
+			query: `SELECT CURRENT_TIMESTAMP()`,
+			expectedRows: [][]interface{}{
+				{now.Format(time.RFC3339)},
+			},
+		},
 	} {
 		test := test
 		t.Run(test.name, func(t *testing.T) {

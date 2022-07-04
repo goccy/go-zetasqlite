@@ -238,12 +238,12 @@ var normalFuncs = []*FuncInfo{
 	{
 		Name:        "current_time",
 		BindFunc:    bindCurrentTime,
-		ReturnTypes: []types.TypeKind{types.STRING},
+		ReturnTypes: []types.TypeKind{types.TIME},
 	},
 	{
 		Name:        "current_timestamp",
 		BindFunc:    bindCurrentTimestamp,
-		ReturnTypes: []types.TypeKind{types.STRING},
+		ReturnTypes: []types.TypeKind{types.TIMESTAMP},
 	},
 
 	// math functions
@@ -668,6 +668,12 @@ func registerByFuncInfo(conn *sqlite3.SQLiteConn, info *FuncInfo) error {
 		case types.DATETIME:
 			name = fmt.Sprintf("zetasqlite_%s_datetime", info.Name)
 			fn = bindDatetimeFunc(info.BindFunc)
+		case types.TIME:
+			name = fmt.Sprintf("zetasqlite_%s_time", info.Name)
+			fn = bindTimeFunc(info.BindFunc)
+		case types.TIMESTAMP:
+			name = fmt.Sprintf("zetasqlite_%s_timestamp", info.Name)
+			fn = bindTimestampFunc(info.BindFunc)
 		case types.ARRAY:
 			name = fmt.Sprintf("zetasqlite_%s_array", info.Name)
 			fn = bindArrayFunc(info.BindFunc)
@@ -710,6 +716,12 @@ func registerByAggregateFuncInfo(conn *sqlite3.SQLiteConn, info *AggregateFuncIn
 		case types.DATETIME:
 			name = fmt.Sprintf("zetasqlite_%s_datetime", info.Name)
 			aggregator = bindAggregateDatetimeFunc(info.BindFunc)
+		case types.TIME:
+			name = fmt.Sprintf("zetasqlite_%s_time", info.Name)
+			aggregator = bindAggregateTimeFunc(info.BindFunc)
+		case types.TIMESTAMP:
+			name = fmt.Sprintf("zetasqlite_%s_timestamp", info.Name)
+			aggregator = bindAggregateTimestampFunc(info.BindFunc)
 		case types.ARRAY:
 			name = fmt.Sprintf("zetasqlite_%s_array", info.Name)
 			aggregator = bindAggregateArrayFunc(info.BindFunc)
@@ -752,6 +764,12 @@ func registerByWindowFuncInfo(conn *sqlite3.SQLiteConn, info *WindowFuncInfo) er
 		case types.DATETIME:
 			name = fmt.Sprintf("zetasqlite_window_%s_datetime", info.Name)
 			aggregator = bindWindowDatetimeFunc(info.BindFunc)
+		case types.TIME:
+			name = fmt.Sprintf("zetasqlite_window_%s_time", info.Name)
+			aggregator = bindWindowTimeFunc(info.BindFunc)
+		case types.TIMESTAMP:
+			name = fmt.Sprintf("zetasqlite_window_%s_timestamp", info.Name)
+			aggregator = bindWindowTimestampFunc(info.BindFunc)
 		case types.ARRAY:
 			name = fmt.Sprintf("zetasqlite_window_%s_array", info.Name)
 			aggregator = bindWindowArrayFunc(info.BindFunc)

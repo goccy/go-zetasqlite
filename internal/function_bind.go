@@ -144,6 +144,40 @@ func bindDatetimeFunc(fn BindFunction) SQLiteFunction {
 	}
 }
 
+func bindTimeFunc(fn BindFunction) SQLiteFunction {
+	return func(args ...interface{}) (interface{}, error) {
+		values, err := convertArgs(args...)
+		if err != nil {
+			return nil, err
+		}
+		ret, err := fn(values...)
+		if err != nil {
+			return nil, err
+		}
+		if ret == nil {
+			return nil, nil
+		}
+		return ret.ToString()
+	}
+}
+
+func bindTimestampFunc(fn BindFunction) SQLiteFunction {
+	return func(args ...interface{}) (interface{}, error) {
+		values, err := convertArgs(args...)
+		if err != nil {
+			return nil, err
+		}
+		ret, err := fn(values...)
+		if err != nil {
+			return nil, err
+		}
+		if ret == nil {
+			return nil, nil
+		}
+		return ret.ToString()
+	}
+}
+
 func bindArrayFunc(fn BindFunction) SQLiteFunction {
 	return func(args ...interface{}) (interface{}, error) {
 		values, err := convertArgs(args...)
@@ -217,6 +251,18 @@ var (
 		}
 		return v.ToString()
 	}
+	timeValueConverter = func(v Value) (interface{}, error) {
+		if v == nil {
+			return nil, nil
+		}
+		return v.ToString()
+	}
+	timestampValueConverter = func(v Value) (interface{}, error) {
+		if v == nil {
+			return nil, nil
+		}
+		return v.ToString()
+	}
 	arrayValueConverter = func(v Value) (interface{}, error) {
 		if v == nil {
 			return nil, nil
@@ -253,6 +299,14 @@ func bindAggregateDateFunc(bindFunc func(ReturnValueConverter) func() *Aggregato
 
 func bindAggregateDatetimeFunc(bindFunc func(ReturnValueConverter) func() *Aggregator) func() *Aggregator {
 	return bindFunc(datetimeValueConverter)
+}
+
+func bindAggregateTimeFunc(bindFunc func(ReturnValueConverter) func() *Aggregator) func() *Aggregator {
+	return bindFunc(timeValueConverter)
+}
+
+func bindAggregateTimestampFunc(bindFunc func(ReturnValueConverter) func() *Aggregator) func() *Aggregator {
+	return bindFunc(timestampValueConverter)
 }
 
 func bindAggregateArrayFunc(bindFunc func(ReturnValueConverter) func() *Aggregator) func() *Aggregator {
@@ -354,6 +408,14 @@ func bindWindowDateFunc(bindFunc func(ReturnValueConverter) func() *WindowAggreg
 
 func bindWindowDatetimeFunc(bindFunc func(ReturnValueConverter) func() *WindowAggregator) func() *WindowAggregator {
 	return bindFunc(datetimeValueConverter)
+}
+
+func bindWindowTimeFunc(bindFunc func(ReturnValueConverter) func() *WindowAggregator) func() *WindowAggregator {
+	return bindFunc(timeValueConverter)
+}
+
+func bindWindowTimestampFunc(bindFunc func(ReturnValueConverter) func() *WindowAggregator) func() *WindowAggregator {
+	return bindFunc(timestampValueConverter)
 }
 
 func bindWindowArrayFunc(bindFunc func(ReturnValueConverter) func() *WindowAggregator) func() *WindowAggregator {

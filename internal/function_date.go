@@ -26,7 +26,7 @@ func CURRENT_TIME() (Value, error) {
 }
 
 func CURRENT_TIME_WITH_TIME(v time.Time) (Value, error) {
-	return nil, nil
+	return TimeValue(v), nil
 }
 
 func CURRENT_TIMESTAMP() (Value, error) {
@@ -34,7 +34,7 @@ func CURRENT_TIMESTAMP() (Value, error) {
 }
 
 func CURRENT_TIMESTAMP_WITH_TIME(v time.Time) (Value, error) {
-	return nil, nil
+	return TimestampValue(v), nil
 }
 
 func DATE(args ...Value) (Value, error) {
