@@ -100,6 +100,40 @@ func (r *Rows) convertValue(value interface{}, typ *Type) (driver.Value, error) 
 			return nil, err
 		}
 		switch elementType.Kind() {
+		case types.INT64:
+			var v []int64
+			for _, value := range array.values {
+				if value == nil {
+					// TODO: must be add nil to result values
+					continue
+				}
+				iv, err := value.ToInt64()
+				if err != nil {
+					return nil, err
+				}
+				v = append(v, iv)
+			}
+			return v, nil
+		case types.DOUBLE:
+			var v []float64
+			for _, value := range array.values {
+				fv, err := value.ToFloat64()
+				if err != nil {
+					return nil, err
+				}
+				v = append(v, fv)
+			}
+			return v, nil
+		case types.BOOL:
+			var v []bool
+			for _, value := range array.values {
+				bv, err := value.ToBool()
+				if err != nil {
+					return nil, err
+				}
+				v = append(v, bv)
+			}
+			return v, nil
 		case types.STRING:
 			var v []string
 			for _, value := range array.values {

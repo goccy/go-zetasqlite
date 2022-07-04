@@ -27,6 +27,9 @@ func jsonFromZetaSQLValue(v types.Value) string {
 		return toDateValueFromInt64(v.ToInt64())
 	case types.ARRAY:
 		elems := []string{}
+		if v.IsNull() {
+			return "null"
+		}
 		for i := 0; i < v.NumElements(); i++ {
 			elem := v.Element(i)
 			elems = append(elems, JSONFromZetaSQLValue(elem))

@@ -18,7 +18,7 @@ func MUL(a, b Value) (Value, error) {
 	return a.Mul(b)
 }
 
-func DIV(a, b Value) (Value, error) {
+func OP_DIV(a, b Value) (Value, error) {
 	return a.Div(b)
 }
 

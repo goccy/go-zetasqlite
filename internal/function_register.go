@@ -25,7 +25,7 @@ var normalFuncs = []*FuncInfo{
 	},
 	{
 		Name:        "divide",
-		BindFunc:    bindDiv,
+		BindFunc:    bindOpDiv,
 		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
 	},
 	{
@@ -224,6 +224,214 @@ var normalFuncs = []*FuncInfo{
 		ReturnTypes: []types.TypeKind{types.INT64},
 	},
 
+	// math functions
+
+	{
+		Name:        "abs",
+		BindFunc:    bindAbs,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+	{
+		Name:        "sign",
+		BindFunc:    bindSign,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+	{
+		Name:        "is_inf",
+		BindFunc:    bindIsInf,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+	{
+		Name:        "is_nan",
+		BindFunc:    bindIsNaN,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+	{
+		Name:        "ieee_divide",
+		BindFunc:    bindIEEEDivide,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+	{
+		Name:        "rand",
+		BindFunc:    bindRand,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+	{
+		Name:        "sqrt",
+		BindFunc:    bindSqrt,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+	{
+		Name:        "pow",
+		BindFunc:    bindPow,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+	{
+		Name:        "power",
+		BindFunc:    bindPow,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+	{
+		Name:        "exp",
+		BindFunc:    bindExp,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+	{
+		Name:        "ln",
+		BindFunc:    bindLn,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+	{
+		Name:        "log",
+		BindFunc:    bindLog,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+	{
+		Name:        "log10",
+		BindFunc:    bindLog10,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+	{
+		Name:        "greatest",
+		BindFunc:    bindGreatest,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+	{
+		Name:        "least",
+		BindFunc:    bindLeast,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+	{
+		Name:        "div",
+		BindFunc:    bindDiv,
+		ReturnTypes: []types.TypeKind{types.INT64},
+	},
+	{
+		Name:        "safe_divide",
+		BindFunc:    bindSafeDivide,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+	{
+		Name:        "safe_multiply",
+		BindFunc:    bindSafeMultiply,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+	{
+		Name:        "safe_negate",
+		BindFunc:    bindSafeNegate,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+	{
+		Name:        "safe_add",
+		BindFunc:    bindSafeAdd,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+	{
+		Name:        "safe_subtract",
+		BindFunc:    bindSafeSubtract,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+	{
+		Name:        "mod",
+		BindFunc:    bindMod,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+	{
+		Name:        "round",
+		BindFunc:    bindRound,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+	{
+		Name:        "trunc",
+		BindFunc:    bindTrunc,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+	{
+		Name:        "ceil",
+		BindFunc:    bindCeil,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+	{
+		Name:        "ceiling",
+		BindFunc:    bindCeil,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+	{
+		Name:        "floor",
+		BindFunc:    bindFloor,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+	{
+		Name:        "cos",
+		BindFunc:    bindCos,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+	{
+		Name:        "cosh",
+		BindFunc:    bindCosh,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+	{
+		Name:        "acos",
+		BindFunc:    bindAcos,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+	{
+		Name:        "acosh",
+		BindFunc:    bindAcosh,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+	{
+		Name:        "sin",
+		BindFunc:    bindSin,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+	{
+		Name:        "sinh",
+		BindFunc:    bindSinh,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+	{
+		Name:        "asin",
+		BindFunc:    bindAsin,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+	{
+		Name:        "asinh",
+		BindFunc:    bindAsinh,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+	{
+		Name:        "tan",
+		BindFunc:    bindTan,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+	{
+		Name:        "tanh",
+		BindFunc:    bindTanh,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+	{
+		Name:        "atan",
+		BindFunc:    bindAtan,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+	{
+		Name:        "atanh",
+		BindFunc:    bindAtanh,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+	{
+		Name:        "atan2",
+		BindFunc:    bindAtan2,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+	{
+		Name:        "range_bucket",
+		BindFunc:    bindRangeBucket,
+		ReturnTypes: []types.TypeKind{types.INT64},
+	},
+
 	// encoded array to json array helper func
 	{
 		Name:        "decode_array",
@@ -245,6 +453,11 @@ var normalFuncs = []*FuncInfo{
 	{
 		Name:        "order_by",
 		BindFunc:    bindOrderBy,
+		ReturnTypes: []types.TypeKind{types.STRING},
+	},
+	{
+		Name:        "ignore_nulls",
+		BindFunc:    bindIgnoreNulls,
 		ReturnTypes: []types.TypeKind{types.STRING},
 	},
 
@@ -282,6 +495,16 @@ var normalFuncs = []*FuncInfo{
 }
 
 var aggregateFuncs = []*AggregateFuncInfo{
+	{
+		Name:        "array_agg",
+		BindFunc:    bindArrayAgg,
+		ReturnTypes: []types.TypeKind{types.ARRAY},
+	},
+	{
+		Name:        "array_concat_agg",
+		BindFunc:    bindArrayConcatAgg,
+		ReturnTypes: []types.TypeKind{types.ARRAY},
+	},
 	{
 		Name:        "sum",
 		BindFunc:    bindSum,
@@ -450,6 +673,15 @@ func registerByAggregateFuncInfo(conn *sqlite3.SQLiteConn, info *AggregateFuncIn
 		case types.BOOL:
 			name = fmt.Sprintf("zetasqlite_%s_bool", info.Name)
 			aggregator = bindAggregateBoolFunc(info.BindFunc)
+		case types.DATE:
+			name = fmt.Sprintf("zetasqlite_%s_date", info.Name)
+			aggregator = bindAggregateDateFunc(info.BindFunc)
+		case types.ARRAY:
+			name = fmt.Sprintf("zetasqlite_%s_array", info.Name)
+			aggregator = bindAggregateArrayFunc(info.BindFunc)
+		case types.STRUCT:
+			name = fmt.Sprintf("zetasqlite_%s_struct", info.Name)
+			aggregator = bindAggregateStructFunc(info.BindFunc)
 		default:
 			return fmt.Errorf("unsupported return type %s for aggregate function: %s", retType)
 		}
@@ -480,6 +712,15 @@ func registerByWindowFuncInfo(conn *sqlite3.SQLiteConn, info *WindowFuncInfo) er
 		case types.BOOL:
 			name = fmt.Sprintf("zetasqlite_window_%s_bool", info.Name)
 			aggregator = bindWindowBoolFunc(info.BindFunc)
+		case types.DATE:
+			name = fmt.Sprintf("zetasqlite_window_%s_date", info.Name)
+			aggregator = bindWindowDateFunc(info.BindFunc)
+		case types.ARRAY:
+			name = fmt.Sprintf("zetasqlite_window_%s_array", info.Name)
+			aggregator = bindWindowArrayFunc(info.BindFunc)
+		case types.STRUCT:
+			name = fmt.Sprintf("zetasqlite_window_%s_struct", info.Name)
+			aggregator = bindWindowStructFunc(info.BindFunc)
 		default:
 			return fmt.Errorf("unsupported return type %s for window function: %s", retType)
 		}
