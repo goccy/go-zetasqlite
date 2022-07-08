@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/goccy/go-zetasql/types"
 	"github.com/mattn/go-sqlite3"
@@ -667,10 +668,17 @@ var windowFuncs = []*WindowFuncInfo{
 	},
 }
 
+type NameAndFunc struct {
+	Name string
+	Func interface{}
+}
+
 var (
-	normalFuncMap      = map[string]struct{}{}
-	aggregateFuncMap   = map[string]struct{}{}
-	windowFuncMap      = map[string]struct{}{}
+	funcMapMu          sync.RWMutex
+	registerFuncOnce   sync.Once
+	normalFuncMap      = map[string][]*NameAndFunc{}
+	aggregateFuncMap   = map[string][]*NameAndFunc{}
+	windowFuncMap      = map[string][]*NameAndFunc{}
 	currentTimeFuncMap = map[string]struct{}{
 		"current_date":      struct{}{},
 		"current_datetime":  struct{}{},
@@ -680,25 +688,59 @@ var (
 )
 
 func RegisterFunctions(conn *sqlite3.SQLiteConn) error {
-	for _, info := range normalFuncs {
-		if err := registerByFuncInfo(conn, info); err != nil {
-			return err
+	funcMapMu.RLock()
+	defer funcMapMu.RUnlock()
+
+	var onceErr error
+	registerFuncOnce.Do(func() {
+		for _, info := range normalFuncs {
+			if err := setupNormalFuncMap(info); err != nil {
+				onceErr = err
+				return
+			}
+		}
+		for _, info := range aggregateFuncs {
+			if err := setupAggregateFuncMap(info); err != nil {
+				onceErr = err
+				return
+			}
+		}
+		for _, info := range windowFuncs {
+			if err := setupWindowFuncMap(info); err != nil {
+				onceErr = err
+				return
+			}
+		}
+	})
+	if onceErr != nil {
+		return onceErr
+	}
+
+	for _, values := range normalFuncMap {
+		for _, v := range values {
+			if err := conn.RegisterFunc(v.Name, v.Func, true); err != nil {
+				return fmt.Errorf("failed to register function %s: %w", v.Name, err)
+			}
 		}
 	}
-	for _, info := range aggregateFuncs {
-		if err := registerByAggregateFuncInfo(conn, info); err != nil {
-			return err
+	for _, values := range aggregateFuncMap {
+		for _, v := range values {
+			if err := conn.RegisterAggregator(v.Name, v.Func, true); err != nil {
+				return fmt.Errorf("failed to register aggregate function %s: %w", v.Name, err)
+			}
 		}
 	}
-	for _, info := range windowFuncs {
-		if err := registerByWindowFuncInfo(conn, info); err != nil {
-			return err
+	for _, values := range windowFuncMap {
+		for _, v := range values {
+			if err := conn.RegisterAggregator(v.Name, v.Func, true); err != nil {
+				return fmt.Errorf("failed to register window function %s: %w", v.Name, err)
+			}
 		}
 	}
 	return nil
 }
 
-func registerByFuncInfo(conn *sqlite3.SQLiteConn, info *FuncInfo) error {
+func setupNormalFuncMap(info *FuncInfo) error {
 	for _, retType := range info.ReturnTypes {
 		var (
 			name string
@@ -738,15 +780,15 @@ func registerByFuncInfo(conn *sqlite3.SQLiteConn, info *FuncInfo) error {
 		default:
 			return fmt.Errorf("unsupported return type %s for function: %s", retType, info.Name)
 		}
-		normalFuncMap[info.Name] = struct{}{}
-		if err := conn.RegisterFunc(name, fn, true); err != nil {
-			return fmt.Errorf("failed to register builtin function %s: %w", name, err)
-		}
+		normalFuncMap[info.Name] = append(normalFuncMap[info.Name], &NameAndFunc{
+			Name: name,
+			Func: fn,
+		})
 	}
 	return nil
 }
 
-func registerByAggregateFuncInfo(conn *sqlite3.SQLiteConn, info *AggregateFuncInfo) error {
+func setupAggregateFuncMap(info *AggregateFuncInfo) error {
 	for _, retType := range info.ReturnTypes {
 		var (
 			name       string
@@ -786,15 +828,15 @@ func registerByAggregateFuncInfo(conn *sqlite3.SQLiteConn, info *AggregateFuncIn
 		default:
 			return fmt.Errorf("unsupported return type %s for aggregate function: %s", retType, info.Name)
 		}
-		aggregateFuncMap[info.Name] = struct{}{}
-		if err := conn.RegisterAggregator(name, aggregator, true); err != nil {
-			return fmt.Errorf("failed to register aggregate function %s: %w", name, err)
-		}
+		aggregateFuncMap[info.Name] = append(aggregateFuncMap[info.Name], &NameAndFunc{
+			Name: name,
+			Func: aggregator,
+		})
 	}
 	return nil
 }
 
-func registerByWindowFuncInfo(conn *sqlite3.SQLiteConn, info *WindowFuncInfo) error {
+func setupWindowFuncMap(info *WindowFuncInfo) error {
 	for _, retType := range info.ReturnTypes {
 		var (
 			name       string
@@ -834,10 +876,10 @@ func registerByWindowFuncInfo(conn *sqlite3.SQLiteConn, info *WindowFuncInfo) er
 		default:
 			return fmt.Errorf("unsupported return type %s for window function: %s", retType, info.Name)
 		}
-		windowFuncMap[info.Name] = struct{}{}
-		if err := conn.RegisterAggregator(name, aggregator, true); err != nil {
-			return fmt.Errorf("failed to register window function %s: %w", name, err)
-		}
+		windowFuncMap[info.Name] = append(windowFuncMap[info.Name], &NameAndFunc{
+			Name: name,
+			Func: aggregator,
+		})
 	}
 	return nil
 }
