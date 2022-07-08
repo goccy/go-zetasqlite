@@ -34,6 +34,8 @@ type Value interface {
 	ToJSON() (string, error)
 	ToTime() (time.Time, error)
 	Marshal() (string, error)
+	Format(verb rune) string
+	Interface() interface{}
 }
 
 type IntValue int64
@@ -156,6 +158,14 @@ func (iv IntValue) Marshal() (string, error) {
 	return fmt.Sprint(iv), nil
 }
 
+func (iv IntValue) Format(verb rune) string {
+	return fmt.Sprint(iv)
+}
+
+func (iv IntValue) Interface() interface{} {
+	return int64(iv)
+}
+
 type StringValue string
 
 func (sv StringValue) Add(v Value) (Value, error) {
@@ -273,6 +283,20 @@ func (sv StringValue) Marshal() (string, error) {
 	return strconv.Quote(string(sv)), nil
 }
 
+func (sv StringValue) Format(verb rune) string {
+	switch verb {
+	case 't':
+		return string(sv)
+	case 'T':
+		return strconv.Quote(string(sv))
+	}
+	return string(sv)
+}
+
+func (sv StringValue) Interface() interface{} {
+	return string(sv)
+}
+
 type FloatValue float64
 
 func (fv FloatValue) Add(v Value) (Value, error) {
@@ -386,6 +410,14 @@ func (fv FloatValue) Marshal() (string, error) {
 	return fmt.Sprint(fv), nil
 }
 
+func (fv FloatValue) Format(verb rune) string {
+	return fmt.Sprint(fv)
+}
+
+func (fv FloatValue) Interface() interface{} {
+	return float64(fv)
+}
+
 type BoolValue bool
 
 func (bv BoolValue) Add(v Value) (Value, error) {
@@ -468,6 +500,14 @@ func (bv BoolValue) ToTime() (time.Time, error) {
 
 func (bv BoolValue) Marshal() (string, error) {
 	return fmt.Sprint(bv), nil
+}
+
+func (bv BoolValue) Format(verb rune) string {
+	return fmt.Sprint(bv)
+}
+
+func (bv BoolValue) Interface() interface{} {
+	return bool(bv)
 }
 
 type ArrayValue struct {
@@ -630,6 +670,10 @@ func (av *ArrayValue) ToStruct() (*StructValue, error) {
 func (av *ArrayValue) ToJSON() (string, error) {
 	elems := []string{}
 	for _, v := range av.values {
+		if v == nil {
+			elems = append(elems, "null")
+			continue
+		}
 		elem, err := v.ToJSON()
 		if err != nil {
 			return "", err
@@ -657,6 +701,30 @@ func (av *ArrayValue) Marshal() (string, error) {
 		elems = append(elems, elem)
 	}
 	return toArrayValueFromJSONString(fmt.Sprintf("[%s]", strings.Join(elems, ","))), nil
+}
+
+func (av *ArrayValue) Format(verb rune) string {
+	elems := []string{}
+	for _, v := range av.values {
+		if v == nil {
+			elems = append(elems, "NULL")
+			continue
+		}
+		elems = append(elems, v.Format(verb))
+	}
+	return fmt.Sprintf("[%s]", strings.Join(elems, ", "))
+}
+
+func (av *ArrayValue) Interface() interface{} {
+	var arr []interface{}
+	for _, v := range av.values {
+		if v == nil {
+			arr = append(arr, nil)
+		} else {
+			arr = append(arr, v.Interface())
+		}
+	}
+	return arr
 }
 
 type StructValue struct {
@@ -851,7 +919,40 @@ func (sv *StructValue) Marshal() (string, error) {
 	), nil
 }
 
+func (sv *StructValue) Format(verb rune) string {
+	elems := []string{}
+	for _, v := range sv.values {
+		if v == nil {
+			elems = append(elems, "NULL")
+			continue
+		}
+		elems = append(elems, v.Format(verb))
+	}
+	return fmt.Sprintf("(%s)", strings.Join(elems, ", "))
+}
+
+func (sv *StructValue) Interface() interface{} {
+	mapV := map[string]interface{}{}
+	for k, v := range sv.m {
+		mapV[k] = v.Interface()
+	}
+	return mapV
+}
+
 type DateValue time.Time
+
+func (d DateValue) AddDateWithInterval(v int, interval string) (Value, error) {
+	switch interval {
+	case "WEEK":
+		return DateValue(time.Time(d).AddDate(0, 0, v*7)), nil
+	case "MONTH":
+		return DateValue(time.Time(d).AddDate(0, v, 0)), nil
+	case "YEAR":
+		return DateValue(time.Time(d).AddDate(v, 0, 0)), nil
+	default:
+		return DateValue(time.Time(d).AddDate(0, 0, v)), nil
+	}
+}
 
 func (d DateValue) Add(v Value) (Value, error) {
 	v2, err := v.ToInt64()
@@ -961,6 +1062,21 @@ func (d DateValue) Marshal() (string, error) {
 		return "", err
 	}
 	return toDateValueFromString(json), nil
+}
+
+func (d DateValue) Format(verb rune) string {
+	formatted := time.Time(d).Format("2006-01-02")
+	switch verb {
+	case 't':
+		return formatted
+	case 'T':
+		return fmt.Sprintf(`DATE "%s"`, formatted)
+	}
+	return formatted
+}
+
+func (d DateValue) Interface() interface{} {
+	return time.Time(d).Format("2006-01-02")
 }
 
 type DatetimeValue time.Time
@@ -1075,6 +1191,21 @@ func (d DatetimeValue) Marshal() (string, error) {
 	return toDatetimeValueFromString(json), nil
 }
 
+func (d DatetimeValue) Format(verb rune) string {
+	formatted := time.Time(d).Format("2006-01-02T15:04:05")
+	switch verb {
+	case 't':
+		return formatted
+	case 'T':
+		return fmt.Sprintf(`DATETIME "%s"`, formatted)
+	}
+	return formatted
+}
+
+func (d DatetimeValue) Interface() interface{} {
+	return time.Time(d).Format("2006-01-02T15:04:05")
+}
+
 type TimeValue time.Time
 
 func (d TimeValue) Add(v Value) (Value, error) {
@@ -1187,7 +1318,41 @@ func (d TimeValue) Marshal() (string, error) {
 	return toTimeValueFromString(json), nil
 }
 
+func (d TimeValue) Format(verb rune) string {
+	formatted := time.Time(d).Format("15:04:05")
+	switch verb {
+	case 't':
+		return formatted
+	case 'T':
+		return fmt.Sprintf(`TIME "%s"`, formatted)
+	}
+	return formatted
+}
+
+func (d TimeValue) Interface() interface{} {
+	return time.Time(d).Format("15:04:05")
+}
+
 type TimestampValue time.Time
+
+func (d TimestampValue) AddValueWithPart(v time.Duration, part string) (Value, error) {
+	switch part {
+	case "MICROSECOND":
+		return TimestampValue(time.Time(d).Add(v * time.Microsecond)), nil
+	case "MILLISECOND":
+		return TimestampValue(time.Time(d).Add(v * time.Millisecond)), nil
+	case "SECOND":
+		return TimestampValue(time.Time(d).Add(v * time.Second)), nil
+	case "MINUTE":
+		return TimestampValue(time.Time(d).Add(v * time.Minute)), nil
+	case "HOUR":
+		return TimestampValue(time.Time(d).Add(v * time.Hour)), nil
+	case "DAY":
+		return TimestampValue(time.Time(d).Add(v * time.Hour * 24)), nil
+	default:
+		return nil, fmt.Errorf("unknown part value for timestamp: %s", part)
+	}
+}
 
 func (d TimestampValue) Add(v Value) (Value, error) {
 	v2, err := v.ToInt64()
@@ -1297,6 +1462,21 @@ func (d TimestampValue) Marshal() (string, error) {
 		return "", err
 	}
 	return toTimestampValueFromString(json), nil
+}
+
+func (d TimestampValue) Format(verb rune) string {
+	formatted := time.Time(d).Format(time.RFC3339)
+	switch verb {
+	case 't':
+		return formatted
+	case 'T':
+		return fmt.Sprintf(`TIMESTAMP "%s"`, formatted)
+	}
+	return formatted
+}
+
+func (d TimestampValue) Interface() interface{} {
+	return time.Time(d).Format(time.RFC3339)
 }
 
 const (
@@ -1802,8 +1982,7 @@ func toTimeValueFromInt64(days int64) string {
 	return t.Format("15:04:05")
 }
 
-func toTimestampValueFromInt64(days int64) string {
-	t := time.Unix(int64(time.Duration(days)*24*time.Hour/time.Second), 0)
+func toTimestampValueFromTime(t time.Time) string {
 	return t.Format(time.RFC3339)
 }
 

@@ -441,7 +441,18 @@ SELECT ARRAY_CONCAT_AGG(x) AS array_concat_agg FROM (
 				[]int64{int64(1), int64(2), int64(3), int64(4), int64(5), int64(6), int64(7), int64(8), int64(9)},
 			}},
 		},
-
+		{
+			name: "array_concat_agg with format",
+			query: `SELECT FORMAT("%T", ARRAY_CONCAT_AGG(x)) AS array_concat_agg FROM (
+  SELECT [NULL, 1, 2, 3, 4] AS x
+  UNION ALL SELECT NULL
+  UNION ALL SELECT [5, 6]
+  UNION ALL SELECT [7, 8, 9]
+)`,
+			expectedRows: [][]interface{}{
+				{"[NULL, 1, 2, 3, 4, 5, 6, 7, 8, 9]"},
+			},
+		},
 		{
 			name:         "avg",
 			query:        `SELECT AVG(x) as avg FROM UNNEST([0, 2, 4, 4, 5]) as x`,
@@ -922,6 +933,332 @@ FROM Numbers`,
 				{now.Format(time.RFC3339)},
 			},
 		},
+		// INVALID_ARGUMENT: No matching signature for operator - for argument types: TIMESTAMP, TIMESTAMP. Supported signatures: INT64 - INT64; NUMERIC - NUMERIC; FLOAT64 - FLOAT64; DATE - INT64 [at 1:8]
+		//{
+		//	name:  "interval",
+		//	query: `SELECT TIMESTAMP "2021-06-01 12:34:56.789" - TIMESTAMP "2021-05-31 00:00:00" AS time_diff`,
+		//	expectedRows: [][]interface{}{
+		//		{"0-0 396 0:0:0", "0-0 0 36:34:56.789"},
+		//	},
+		//},
+
+		// array functions
+		{
+			name:  "array function",
+			query: `SELECT ARRAY (SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3) AS new_array`,
+			expectedRows: [][]interface{}{
+				{[]int64{1, 2, 3}},
+			},
+		},
+		{
+			name:  "array function with struct",
+			query: `SELECT ARRAY (SELECT AS STRUCT 1, 2, 3 UNION ALL SELECT AS STRUCT 4, 5, 6) AS new_array`,
+			expectedRows: [][]interface{}{
+				{
+					[]interface{}{
+						map[string]interface{}{
+							"_field_1": float64(1),
+							"_field_2": float64(2),
+							"_field_3": float64(3),
+						},
+						map[string]interface{}{
+							"_field_1": float64(4),
+							"_field_2": float64(5),
+							"_field_3": float64(6),
+						},
+					},
+				},
+			},
+		},
+		{
+			name:  "array function with multiple array",
+			query: `SELECT ARRAY (SELECT AS STRUCT [1, 2, 3] UNION ALL SELECT AS STRUCT [4, 5, 6]) AS new_array`,
+			expectedRows: [][]interface{}{
+				{
+					[]interface{}{
+						map[string]interface{}{
+							"_field_1": []interface{}{
+								float64(1),
+								float64(2),
+								float64(3),
+							},
+						},
+						map[string]interface{}{
+							"_field_1": []interface{}{
+								float64(4),
+								float64(5),
+								float64(6),
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:  "array_concat function",
+			query: `SELECT ARRAY_CONCAT([1, 2], [3, 4], [5, 6]) as count_to_six`,
+			expectedRows: [][]interface{}{
+				{
+					[]int64{1, 2, 3, 4, 5, 6},
+				},
+			},
+		},
+		{
+			name:         "array_length function",
+			query:        `SELECT ARRAY_LENGTH([1, 2, 3, 4]) as length`,
+			expectedRows: [][]interface{}{{int64(4)}},
+		},
+		{
+			name: "array_to_string function",
+			query: `
+WITH items AS
+  (SELECT ['coffee', 'tea', 'milk' ] as list
+  UNION ALL
+  SELECT ['cake', 'pie', NULL] as list)
+SELECT ARRAY_TO_STRING(list, '--') AS text FROM items`,
+			expectedRows: [][]interface{}{
+				{"coffee--tea--milk"},
+				{"cake--pie"},
+			},
+		},
+		{
+			name: "array_to_string function with null text",
+			query: `
+WITH items AS
+  (SELECT ['coffee', 'tea', 'milk' ] as list
+  UNION ALL
+  SELECT ['cake', 'pie', NULL] as list)
+
+SELECT ARRAY_TO_STRING(list, '--', 'MISSING') AS text FROM items`,
+			expectedRows: [][]interface{}{
+				{"coffee--tea--milk"},
+				{"cake--pie--MISSING"},
+			},
+		},
+		{
+			name:         "generate_array function",
+			query:        `SELECT GENERATE_ARRAY(1, 5) AS example_array`,
+			expectedRows: [][]interface{}{{[]int64{1, 2, 3, 4, 5}}},
+		},
+		{
+			name:         "generate_array function with step",
+			query:        `SELECT GENERATE_ARRAY(0, 10, 3) AS example_array`,
+			expectedRows: [][]interface{}{{[]int64{0, 3, 6, 9}}},
+		},
+		{
+			name:         "generate_array function with negative step value",
+			query:        `SELECT GENERATE_ARRAY(10, 0, -3) AS example_array`,
+			expectedRows: [][]interface{}{{[]int64{10, 7, 4, 1}}},
+		},
+		{
+			name:         "generate_array function with large step value",
+			query:        `SELECT GENERATE_ARRAY(4, 4, 10) AS example_array`,
+			expectedRows: [][]interface{}{{[]int64{4}}},
+		},
+		{
+			name:         "generate_array function with over step value",
+			query:        `SELECT GENERATE_ARRAY(10, 0, 3) AS example_array`,
+			expectedRows: [][]interface{}{{[]int64{}}},
+		},
+		{
+			name:         "generate_array function with null",
+			query:        `SELECT GENERATE_ARRAY(5, NULL, 1) AS example_array`,
+			expectedRows: [][]interface{}{{nil}},
+		},
+		{
+			name:  "generate_array function for generate multiple array",
+			query: `SELECT GENERATE_ARRAY(start, 5) AS example_array FROM UNNEST([3, 4, 5]) AS start`,
+			expectedRows: [][]interface{}{
+				{[]int64{3, 4, 5}},
+				{[]int64{4, 5}},
+				{[]int64{5}},
+			},
+		},
+		{
+			name:  "generate_date_array function",
+			query: `SELECT GENERATE_DATE_ARRAY('2016-10-05', '2016-10-08') AS example`,
+			expectedRows: [][]interface{}{
+				{[]string{"2016-10-05", "2016-10-06", "2016-10-07", "2016-10-08"}},
+			},
+		},
+		{
+			name:  "generate_date_array function with step",
+			query: `SELECT GENERATE_DATE_ARRAY('2016-10-05', '2016-10-09', INTERVAL 2 DAY) AS example`,
+			expectedRows: [][]interface{}{
+				{[]string{"2016-10-05", "2016-10-07", "2016-10-09"}},
+			},
+		},
+		{
+			name:  "generate_date_array function with negative step",
+			query: `SELECT GENERATE_DATE_ARRAY('2016-10-05', '2016-10-01', INTERVAL -3 DAY) AS example`,
+			expectedRows: [][]interface{}{
+				{[]string{"2016-10-05", "2016-10-02"}},
+			},
+		},
+		{
+			name:  "generate_date_array function with same value",
+			query: `SELECT GENERATE_DATE_ARRAY('2016-10-05', '2016-10-05', INTERVAL 8 DAY) AS example`,
+			expectedRows: [][]interface{}{
+				{[]string{"2016-10-05"}},
+			},
+		},
+		{
+			name:  "generate_date_array function with over step",
+			query: `SELECT GENERATE_DATE_ARRAY('2016-10-05', '2016-10-01', INTERVAL 1 DAY) AS example`,
+			expectedRows: [][]interface{}{
+				{[]string{}},
+			},
+		},
+		{
+			name:  "generate_date_array function with null",
+			query: `SELECT GENERATE_DATE_ARRAY('2016-10-05', NULL) AS example`,
+			expectedRows: [][]interface{}{
+				{nil},
+			},
+		},
+		{
+			name:  "generate_date_array function with month",
+			query: `SELECT GENERATE_DATE_ARRAY('2016-01-01', '2016-12-31', INTERVAL 2 MONTH) AS example`,
+			expectedRows: [][]interface{}{
+				{[]string{"2016-01-01", "2016-03-01", "2016-05-01", "2016-07-01", "2016-09-01", "2016-11-01"}},
+			},
+		},
+		{
+			name: "generate_date_array function with variable",
+			query: `
+SELECT GENERATE_DATE_ARRAY(date_start, date_end, INTERVAL 1 WEEK) AS date_range
+FROM (
+  SELECT DATE '2016-01-01' AS date_start, DATE '2016-01-31' AS date_end
+  UNION ALL SELECT DATE "2016-04-01", DATE "2016-04-30"
+  UNION ALL SELECT DATE "2016-07-01", DATE "2016-07-31"
+  UNION ALL SELECT DATE "2016-10-01", DATE "2016-10-31"
+) AS items`,
+			expectedRows: [][]interface{}{
+				{[]string{"2016-01-01", "2016-01-08", "2016-01-15", "2016-01-22", "2016-01-29"}},
+				{[]string{"2016-04-01", "2016-04-08", "2016-04-15", "2016-04-22", "2016-04-29"}},
+				{[]string{"2016-07-01", "2016-07-08", "2016-07-15", "2016-07-22", "2016-07-29"}},
+				{[]string{"2016-10-01", "2016-10-08", "2016-10-15", "2016-10-22", "2016-10-29"}},
+			},
+		},
+		{
+			name:  "generate_timestamp_array function",
+			query: `SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-05 00:00:00', '2016-10-07 00:00:00', INTERVAL 1 DAY) AS timestamp_array`,
+			expectedRows: [][]interface{}{
+				{
+					[]time.Time{
+						createTimeFromString("2016-10-05 00:00:00+00"),
+						createTimeFromString("2016-10-06 00:00:00+00"),
+						createTimeFromString("2016-10-07 00:00:00+00"),
+					},
+				},
+			},
+		},
+		{
+			name:  "generate_timestamp_array function interval 1 second",
+			query: `SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-05 00:00:00', '2016-10-05 00:00:02', INTERVAL 1 SECOND) AS timestamp_array`,
+			expectedRows: [][]interface{}{
+				{
+					[]time.Time{
+						createTimeFromString("2016-10-05 00:00:00+00"),
+						createTimeFromString("2016-10-05 00:00:01+00"),
+						createTimeFromString("2016-10-05 00:00:02+00"),
+					},
+				},
+			},
+		},
+		{
+			name:  "generate_timestamp_array function negative interval",
+			query: `SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-06 00:00:00', '2016-10-01 00:00:00', INTERVAL -2 DAY) AS timestamp_array`,
+			expectedRows: [][]interface{}{
+				{
+					[]time.Time{
+						createTimeFromString("2016-10-06 00:00:00+00"),
+						createTimeFromString("2016-10-04 00:00:00+00"),
+						createTimeFromString("2016-10-02 00:00:00+00"),
+					},
+				},
+			},
+		},
+		{
+			name:  "generate_timestamp_array function same value",
+			query: `SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-05 00:00:00', '2016-10-05 00:00:00', INTERVAL 1 HOUR) AS timestamp_array`,
+			expectedRows: [][]interface{}{
+				{
+					[]time.Time{
+						createTimeFromString("2016-10-05 00:00:00+00"),
+					},
+				},
+			},
+		},
+		{
+			name:  "generate_timestamp_array function over step",
+			query: `SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-06 00:00:00', '2016-10-05 00:00:00', INTERVAL 1 HOUR) AS timestamp_array`,
+			expectedRows: [][]interface{}{
+				{[]time.Time{}},
+			},
+		},
+		{
+			name:  "generate_timestamp_array function with null",
+			query: `SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-05 00:00:00', NULL, INTERVAL 1 HOUR) AS timestamp_array`,
+			expectedRows: [][]interface{}{
+				{nil},
+			},
+		},
+		{
+			name: "generate_timestamp_array function with variable",
+			query: `
+SELECT GENERATE_TIMESTAMP_ARRAY(start_timestamp, end_timestamp, INTERVAL 1 HOUR)
+  AS timestamp_array
+FROM
+  (SELECT
+    TIMESTAMP '2016-10-05 00:00:00' AS start_timestamp,
+    TIMESTAMP '2016-10-05 02:00:00' AS end_timestamp
+   UNION ALL
+   SELECT
+    TIMESTAMP '2016-10-05 12:00:00' AS start_timestamp,
+    TIMESTAMP '2016-10-05 14:00:00' AS end_timestamp
+   UNION ALL
+   SELECT
+    TIMESTAMP '2016-10-05 23:59:00' AS start_timestamp,
+    TIMESTAMP '2016-10-06 01:59:00' AS end_timestamp)`,
+			expectedRows: [][]interface{}{
+				{
+					[]time.Time{
+						createTimeFromString("2016-10-05 00:00:00+00"),
+						createTimeFromString("2016-10-05 01:00:00+00"),
+						createTimeFromString("2016-10-05 02:00:00+00"),
+					},
+				},
+				{
+					[]time.Time{
+						createTimeFromString("2016-10-05 12:00:00+00"),
+						createTimeFromString("2016-10-05 13:00:00+00"),
+						createTimeFromString("2016-10-05 14:00:00+00"),
+					},
+				},
+				{
+					[]time.Time{
+						createTimeFromString("2016-10-05 23:59:00+00"),
+						createTimeFromString("2016-10-06 00:59:00+00"),
+						createTimeFromString("2016-10-06 01:59:00+00"),
+					},
+				},
+			},
+		},
+		{
+			name: "array_reverse function",
+			query: `
+WITH example AS (
+  SELECT [1, 2, 3] AS arr UNION ALL
+  SELECT [4, 5] AS arr UNION ALL
+  SELECT [] AS arr
+) SELECT ARRAY_REVERSE(arr) AS reverse_arr FROM example`,
+			expectedRows: [][]interface{}{
+				{[]int64{3, 2, 1}},
+				{[]int64{5, 4}},
+				{[]int64{}},
+			},
+		},
 	} {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
@@ -971,4 +1308,9 @@ FROM Numbers`,
 			}
 		})
 	}
+}
+
+func createTimeFromString(v string) time.Time {
+	t, _ := time.Parse("2006-01-02 15:04:05+00", v)
+	return t
 }

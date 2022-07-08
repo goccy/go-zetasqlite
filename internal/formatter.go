@@ -321,7 +321,18 @@ func (n *CastNode) FormatSQL(ctx context.Context) (string, error) {
 }
 
 func (n *MakeStructNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
+	if n.node == nil {
+		return "", nil
+	}
+	var fields []string
+	for _, field := range n.node.FieldList() {
+		col, err := newNode(field).FormatSQL(ctx)
+		if err != nil {
+			return "", err
+		}
+		fields = append(fields, col)
+	}
+	return fmt.Sprintf("zetasqlite_make_struct_struct(%s)", strings.Join(fields, ",")), nil
 }
 
 func (n *MakeProtoNode) FormatSQL(ctx context.Context) (string, error) {
@@ -378,13 +389,25 @@ func (n *SubqueryExprNode) FormatSQL(ctx context.Context) (string, error) {
 	if n.node == nil {
 		return "", nil
 	}
+	columnNames := &arraySubqueryColumnNames{}
+	ctx = withArraySubqueryColumnName(ctx, columnNames)
 	sql, err := newNode(n.node.Subquery()).FormatSQL(ctx)
 	if err != nil {
 		return "", err
 	}
 	switch n.node.SubqueryType() {
+	case ast.SubqueryTypeScalar:
+	case ast.SubqueryTypeArray:
+		if len(columnNames.names) == 0 {
+			return "", fmt.Errorf("failed to find computed column names for array subquery")
+		}
+		colName := columnNames.names[0]
+		return fmt.Sprintf("zetasqlite_array_array(%s) FROM (%s)", colName, sql), nil
 	case ast.SubqueryTypeExists:
 		return fmt.Sprintf("EXISTS (%s)", sql), nil
+	case ast.SubqueryTypeIn:
+	case ast.SubqueryTypeLikeAny:
+	case ast.SubqueryTypeLikeAll:
 	}
 	return sql, nil
 }
@@ -478,14 +501,25 @@ func (n *AggregateScanNode) FormatSQL(ctx context.Context) (string, error) {
 			return "", err
 		}
 	}
+	columns := []string{}
+	columnMap := columnRefMap(ctx)
+	for _, col := range n.node.ColumnList() {
+		colName := col.Name()
+		if ref, exists := columnMap[colName]; exists {
+			columns = append(columns, ref)
+			delete(columnMap, colName)
+		} else {
+			columns = append(columns, fmt.Sprintf("`%s`", colName))
+		}
+	}
 	input, err := newNode(n.node.InputScan()).FormatSQL(ctx)
 	if err != nil {
 		return "", err
 	}
 	if strings.HasPrefix(input, "SELECT") {
-		return fmt.Sprintf("FROM ( %s )", input), nil
+		return fmt.Sprintf("SELECT %s FROM ( %s )", strings.Join(columns, ","), input), nil
 	}
-	return input, nil
+	return fmt.Sprintf("SELECT %s %s", strings.Join(columns, ","), input), nil
 }
 
 func (n *AnonymizedAggregateScanNode) FormatSQL(ctx context.Context) (string, error) {
@@ -605,6 +639,10 @@ func (n *ComputedColumnNode) FormatSQL(ctx context.Context) (string, error) {
 	query := fmt.Sprintf("%s AS `%s`", expr, name)
 	columnMap := columnRefMap(ctx)
 	columnMap[name] = query
+	arraySubqueryColumnNames := arraySubqueryColumnNameFromContext(ctx)
+	if arraySubqueryColumnNames != nil {
+		arraySubqueryColumnNames.names = append(arraySubqueryColumnNames.names, fmt.Sprintf("`%s`", name))
+	}
 	return query, nil
 }
 
@@ -675,6 +713,9 @@ func (n *ProjectScanNode) FormatSQL(ctx context.Context) (string, error) {
 		} else {
 			columns = append(columns, fmt.Sprintf("`%s`", colName))
 		}
+	}
+	if strings.HasPrefix(input, "SELECT") {
+		return fmt.Sprintf("SELECT %s FROM ( %s )", strings.Join(columns, ","), input), nil
 	}
 	return fmt.Sprintf("SELECT %s %s", strings.Join(columns, ","), input), nil
 }

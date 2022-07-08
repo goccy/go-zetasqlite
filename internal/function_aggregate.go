@@ -12,6 +12,30 @@ type OrderedValue struct {
 	Value   Value
 }
 
+type ARRAY struct {
+	once   sync.Once
+	opt    *AggregatorOption
+	values []*OrderedValue
+}
+
+func (f *ARRAY) Step(v Value, opt *AggregatorOption) error {
+	f.once.Do(func() { f.opt = opt })
+	f.values = append(f.values, &OrderedValue{
+		Value: v,
+	})
+	return nil
+}
+
+func (f *ARRAY) Done() (Value, error) {
+	values := make([]Value, 0, len(f.values))
+	for _, v := range f.values {
+		values = append(values, v.Value)
+	}
+	return &ArrayValue{
+		values: values,
+	}, nil
+}
+
 type ARRAY_AGG struct {
 	once   sync.Once
 	opt    *AggregatorOption
