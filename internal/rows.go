@@ -5,6 +5,7 @@ import (
 	"database/sql/driver"
 	"io"
 	"reflect"
+	"time"
 
 	"github.com/goccy/go-zetasql/types"
 )
@@ -76,7 +77,7 @@ func (r *Rows) Next(dest []driver.Value) error {
 }
 
 func (r *Rows) convertValue(value interface{}, typ *Type) (driver.Value, error) {
-	if value == "NULL" {
+	if value == "NULL" || value == nil {
 		return nil, nil
 	}
 	switch types.TypeKind(typ.Kind) {
@@ -101,7 +102,7 @@ func (r *Rows) convertValue(value interface{}, typ *Type) (driver.Value, error) 
 		}
 		switch elementType.Kind() {
 		case types.INT64:
-			var v []int64
+			v := []int64{}
 			for _, value := range array.values {
 				if value == nil {
 					// TODO: must be add nil to result values
@@ -115,7 +116,7 @@ func (r *Rows) convertValue(value interface{}, typ *Type) (driver.Value, error) 
 			}
 			return v, nil
 		case types.DOUBLE:
-			var v []float64
+			v := []float64{}
 			for _, value := range array.values {
 				fv, err := value.ToFloat64()
 				if err != nil {
@@ -125,7 +126,7 @@ func (r *Rows) convertValue(value interface{}, typ *Type) (driver.Value, error) 
 			}
 			return v, nil
 		case types.BOOL:
-			var v []bool
+			v := []bool{}
 			for _, value := range array.values {
 				bv, err := value.ToBool()
 				if err != nil {
@@ -135,7 +136,7 @@ func (r *Rows) convertValue(value interface{}, typ *Type) (driver.Value, error) 
 			}
 			return v, nil
 		case types.STRING:
-			var v []string
+			v := []string{}
 			for _, value := range array.values {
 				sv, err := value.ToString()
 				if err != nil {
@@ -144,7 +145,39 @@ func (r *Rows) convertValue(value interface{}, typ *Type) (driver.Value, error) 
 				v = append(v, sv)
 			}
 			return v, nil
+		case types.DATE:
+			v := []string{}
+			for _, value := range array.values {
+				date, err := value.ToJSON()
+				if err != nil {
+					return nil, err
+				}
+				v = append(v, date)
+			}
+			return v, nil
+		case types.TIMESTAMP:
+			v := []time.Time{}
+			for _, value := range array.values {
+				t, err := value.ToTime()
+				if err != nil {
+					return nil, err
+				}
+				v = append(v, t)
+			}
+			return v, nil
+		case types.STRUCT:
+			return array.Interface(), nil
 		}
+	case types.STRUCT:
+		val, err := ValueOf(value)
+		if err != nil {
+			return nil, err
+		}
+		s, err := val.ToStruct()
+		if err != nil {
+			return nil, err
+		}
+		return s.m, nil
 	case types.DATE:
 		val, err := ValueOf(value)
 		if err != nil {

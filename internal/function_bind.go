@@ -842,6 +842,20 @@ func bindCurrentTimestamp(args ...Value) (Value, error) {
 	return CURRENT_TIMESTAMP()
 }
 
+func bindFormat(args ...Value) (Value, error) {
+	if len(args) == 0 {
+		return nil, fmt.Errorf("FORMAT: invalid argument num %d", len(args))
+	}
+	format, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	if len(args) > 1 {
+		return FORMAT(format, args[1:]...)
+	}
+	return FORMAT(format)
+}
+
 func bindAbs(args ...Value) (Value, error) {
 	if len(args) != 1 {
 		return nil, fmt.Errorf("ABS: invalid argument num %d", len(args))
@@ -1131,6 +1145,96 @@ func bindDecodeArray(args ...Value) (Value, error) {
 	return DECODE_ARRAY(s)
 }
 
+func bindArrayConcat(args ...Value) (Value, error) {
+	if len(args) == 0 {
+		return nil, fmt.Errorf("ARRAY_CONCAT: required arguments")
+	}
+	return ARRAY_CONCAT(args...)
+}
+
+func bindArrayLength(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("ARRAY_LENGTH: invalid argument num %d", len(args))
+	}
+	arr, err := args[0].ToArray()
+	if err != nil {
+		return nil, err
+	}
+	return ARRAY_LENGTH(arr)
+}
+
+func bindArrayToString(args ...Value) (Value, error) {
+	if len(args) < 2 {
+		return nil, fmt.Errorf("ARRAY_TO_STRING: invalid argument num %d", len(args))
+	}
+	arr, err := args[0].ToArray()
+	if err != nil {
+		return nil, err
+	}
+	delim, err := args[1].ToString()
+	if err != nil {
+		return nil, err
+	}
+	if len(args) == 3 {
+		nullText, err := args[2].ToString()
+		if err != nil {
+			return nil, err
+		}
+		return ARRAY_TO_STRING(arr, delim, nullText)
+	}
+	return ARRAY_TO_STRING(arr, delim)
+}
+
+func bindGenerateArray(args ...Value) (Value, error) {
+	if len(args) != 3 && len(args) != 2 {
+		return nil, fmt.Errorf("GENERATE_ARRAY: invalid argument num %d", len(args))
+	}
+	if len(args) == 3 {
+		return GENERATE_ARRAY(args[0], args[1], args[2])
+	}
+	return GENERATE_ARRAY(args[0], args[1])
+}
+
+func bindGenerateDateArray(args ...Value) (Value, error) {
+	if len(args) < 2 {
+		return nil, fmt.Errorf("GENERATE_DATE_ARRAY: invalid argument num %d", len(args))
+	}
+	if len(args) == 2 {
+		return GENERATE_DATE_ARRAY(args[0], args[1])
+	}
+	return GENERATE_DATE_ARRAY(args[0], args[1], args[2:]...)
+}
+
+func bindGenerateTimestampArray(args ...Value) (Value, error) {
+	if len(args) != 4 {
+		return nil, fmt.Errorf("GENERATE_TIMESTAMP_ARRAY: invalid argument num %d", len(args))
+	}
+	step, err := args[2].ToInt64()
+	if err != nil {
+		return nil, err
+	}
+	part, err := args[3].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return GENERATE_TIMESTAMP_ARRAY(args[0], args[1], step, part)
+}
+
+func bindArrayReverse(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("ARRAY_REVERSE: invalid argument num %d", len(args))
+	}
+	arr, err := args[0].ToArray()
+	if err != nil {
+		return nil, err
+	}
+	return ARRAY_REVERSE(arr)
+}
+
+func bindMakeStruct(args ...Value) (Value, error) {
+	return MAKE_STRUCT(args...)
+}
+
 func bindDistinct(args ...Value) (Value, error) {
 	if len(args) != 0 {
 		return nil, fmt.Errorf("DISTINCT: invalid argument num %d", len(args))
@@ -1258,6 +1362,9 @@ func bindArrayConcatAgg(converter ReturnValueConverter) func() *Aggregator {
 			func(args []Value, opt *AggregatorOption) error {
 				if len(args) != 1 {
 					return fmt.Errorf("ARRAY_CONCAT_AGG: invalid argument num %d", len(args))
+				}
+				if args[0] == nil {
+					return nil
 				}
 				array, err := args[0].ToArray()
 				if err != nil {
@@ -1469,6 +1576,24 @@ func bindStringAgg(converter ReturnValueConverter) func() *Aggregator {
 					return err
 				}
 				return fn.Step(args[0], delim, opt)
+			},
+			func() (Value, error) {
+				return fn.Done()
+			},
+			converter,
+		)
+	}
+}
+
+func bindArray(converter ReturnValueConverter) func() *Aggregator {
+	return func() *Aggregator {
+		fn := &ARRAY{}
+		return newAggregator(
+			func(args []Value, opt *AggregatorOption) error {
+				if len(args) != 1 {
+					return fmt.Errorf("ARRAY: invalid argument num %d", len(args))
+				}
+				return fn.Step(args[0], opt)
 			},
 			func() (Value, error) {
 				return fn.Done()

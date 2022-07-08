@@ -246,6 +246,13 @@ var normalFuncs = []*FuncInfo{
 		ReturnTypes: []types.TypeKind{types.TIMESTAMP},
 	},
 
+	// string functions
+	{
+		Name:        "format",
+		BindFunc:    bindFormat,
+		ReturnTypes: []types.TypeKind{types.STRING},
+	},
+
 	// math functions
 
 	{
@@ -461,6 +468,49 @@ var normalFuncs = []*FuncInfo{
 		ReturnTypes: []types.TypeKind{types.STRING},
 	},
 
+	// array functions
+	{
+		Name:        "array_concat",
+		BindFunc:    bindArrayConcat,
+		ReturnTypes: []types.TypeKind{types.ARRAY},
+	},
+	{
+		Name:        "array_length",
+		BindFunc:    bindArrayLength,
+		ReturnTypes: []types.TypeKind{types.INT64},
+	},
+	{
+		Name:        "array_to_string",
+		BindFunc:    bindArrayToString,
+		ReturnTypes: []types.TypeKind{types.STRING},
+	},
+	{
+		Name:        "generate_array",
+		BindFunc:    bindGenerateArray,
+		ReturnTypes: []types.TypeKind{types.ARRAY},
+	},
+	{
+		Name:        "generate_date_array",
+		BindFunc:    bindGenerateDateArray,
+		ReturnTypes: []types.TypeKind{types.ARRAY},
+	},
+	{
+		Name:        "generate_timestamp_array",
+		BindFunc:    bindGenerateTimestampArray,
+		ReturnTypes: []types.TypeKind{types.ARRAY},
+	},
+	{
+		Name:        "array_reverse",
+		BindFunc:    bindArrayReverse,
+		ReturnTypes: []types.TypeKind{types.ARRAY},
+	},
+
+	{
+		Name:        "make_struct",
+		BindFunc:    bindMakeStruct,
+		ReturnTypes: []types.TypeKind{types.STRUCT},
+	},
+
 	// aggregate option funcs
 	{
 		Name:        "distinct",
@@ -581,6 +631,11 @@ var aggregateFuncs = []*AggregateFuncInfo{
 		Name:        "string_agg",
 		BindFunc:    bindStringAgg,
 		ReturnTypes: []types.TypeKind{types.STRING},
+	},
+	{
+		Name:        "array",
+		BindFunc:    bindArray,
+		ReturnTypes: []types.TypeKind{types.ARRAY},
 	},
 }
 

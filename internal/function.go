@@ -402,3 +402,18 @@ func DECODE_ARRAY(v string) (Value, error) {
 	}
 	return StringValue(json), nil
 }
+
+func MAKE_STRUCT(args ...Value) (Value, error) {
+	keys := make([]string, len(args))
+	fieldMap := map[string]Value{}
+	for i := 0; i < len(args); i++ {
+		key := fmt.Sprintf("_field_%d", i+1)
+		keys[i] = key
+		fieldMap[key] = args[i]
+	}
+	return &StructValue{
+		keys:   keys,
+		values: args,
+		m:      fieldMap,
+	}, nil
+}

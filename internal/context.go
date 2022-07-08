@@ -13,6 +13,7 @@ type (
 	analyticOrderColumnNamesKey     struct{}
 	analyticPartitionColumnNamesKey struct{}
 	analyticTableNameKey            struct{}
+	arraySubqueryColumnNameKey      struct{}
 	currentTimeKey                  struct{}
 )
 
@@ -107,6 +108,22 @@ func analyticTableNameFromContext(ctx context.Context) string {
 		return ""
 	}
 	return value.(string)
+}
+
+type arraySubqueryColumnNames struct {
+	names []string
+}
+
+func withArraySubqueryColumnName(ctx context.Context, v *arraySubqueryColumnNames) context.Context {
+	return context.WithValue(ctx, arraySubqueryColumnNameKey{}, v)
+}
+
+func arraySubqueryColumnNameFromContext(ctx context.Context) *arraySubqueryColumnNames {
+	value := ctx.Value(arraySubqueryColumnNameKey{})
+	if value == nil {
+		return nil
+	}
+	return value.(*arraySubqueryColumnNames)
 }
 
 func WithCurrentTime(ctx context.Context, now time.Time) context.Context {

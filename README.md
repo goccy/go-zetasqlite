@@ -95,7 +95,7 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 - [x] STRUCT
 - [ ] GEOGRAPHY
 - [ ] JSON
-- [ ] RECORD
+- [x] RECORD
 
 ## Statements
 
@@ -301,7 +301,7 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 - [ ] CONCAT
 - [ ] CONTAINS_SUBSTR
 - [ ] ENDS_WITH
-- [ ] FORMAT
+- [x] FORMAT
 - [ ] FROM_BASE32
 - [ ] FROM_BASE64
 - [ ] FROM_HEX
@@ -359,14 +359,14 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 
 ### Array functions
 
-- [ ] ARRAY
-- [ ] ARRAY_CONCAT
-- [ ] ARRAY_LENGTH
-- [ ] ARRAY_TO_STRING
-- [ ] GENERATE_ARRAY
-- [ ] GENERATE_DATE_ARRAY
-- [ ] GENERATE_TIMESTAMP_ARRAY
-- [ ] ARRAY_REVERSE
+- [x] ARRAY
+- [x] ARRAY_CONCAT
+- [x] ARRAY_LENGTH
+- [x] ARRAY_TO_STRING
+- [x] GENERATE_ARRAY
+- [x] GENERATE_DATE_ARRAY
+- [x] GENERATE_TIMESTAMP_ARRAY
+- [x] ARRAY_REVERSE
 
 ### Date functions
 
