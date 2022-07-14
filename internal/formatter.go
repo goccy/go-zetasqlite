@@ -516,10 +516,67 @@ func (n *AggregateScanNode) FormatSQL(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if strings.HasPrefix(input, "SELECT") {
-		return fmt.Sprintf("SELECT %s FROM ( %s )", strings.Join(columns, ","), input), nil
+	groupByColumns := []string{}
+	groupByColumnMap := map[string]struct{}{}
+	for _, col := range n.node.GroupByList() {
+		colName := fmt.Sprintf("`%s`", col.Column().Name())
+		groupByColumns = append(groupByColumns, colName)
+		groupByColumnMap[colName] = struct{}{}
 	}
-	return fmt.Sprintf("SELECT %s %s", strings.Join(columns, ","), input), nil
+	if len(n.node.GroupingSetList()) != 0 {
+		columnPatterns := [][]string{}
+		groupByColumnPatterns := [][]string{}
+		for _, set := range n.node.GroupingSetList() {
+			groupBySetColumns := []string{}
+			groupBySetColumnMap := map[string]struct{}{}
+			for _, col := range set.GroupByColumnList() {
+				colName := fmt.Sprintf("`%s`", col.Column().Name())
+				groupBySetColumns = append(groupBySetColumns, colName)
+				groupBySetColumnMap[colName] = struct{}{}
+			}
+			nullColumnNameMap := map[string]struct{}{}
+			for _, col := range groupByColumns {
+				if _, exists := groupBySetColumnMap[col]; !exists {
+					nullColumnNameMap[col] = struct{}{}
+				}
+			}
+			groupBySetColumnPattern := []string{}
+			for _, col := range columns {
+				if _, exists := nullColumnNameMap[col]; exists {
+					groupBySetColumnPattern = append(groupBySetColumnPattern, "NULL")
+				} else {
+					groupBySetColumnPattern = append(groupBySetColumnPattern, col)
+				}
+			}
+			columnPatterns = append(columnPatterns, groupBySetColumnPattern)
+			groupByColumnPatterns = append(groupByColumnPatterns, groupBySetColumns)
+		}
+		stmts := []string{}
+		for i := 0; i < len(columnPatterns); i++ {
+			var groupBy string
+			if len(groupByColumnPatterns[i]) != 0 {
+				groupBy = fmt.Sprintf("GROUP BY %s", strings.Join(groupByColumnPatterns[i], ","))
+			}
+			if strings.HasPrefix(input, "SELECT") {
+				stmts = append(stmts, fmt.Sprintf("SELECT %s FROM ( %s %s )", strings.Join(columnPatterns[i], ","), input, groupBy))
+			} else {
+				stmts = append(stmts, fmt.Sprintf("SELECT %s %s %s", strings.Join(columnPatterns[i], ","), input, groupBy))
+			}
+		}
+		return fmt.Sprintf(
+			"%s ORDER BY %s",
+			strings.Join(stmts, " UNION ALL "),
+			strings.Join(groupByColumns, ","),
+		), nil
+	}
+	var groupBy string
+	if len(groupByColumns) > 0 {
+		groupBy = fmt.Sprintf("GROUP BY %s", strings.Join(groupByColumns, ","))
+	}
+	if strings.HasPrefix(input, "SELECT") {
+		return fmt.Sprintf("SELECT %s FROM ( %s %s )", strings.Join(columns, ","), input, groupBy), nil
+	}
+	return fmt.Sprintf("SELECT %s %s %s", strings.Join(columns, ","), input, groupBy), nil
 }
 
 func (n *AnonymizedAggregateScanNode) FormatSQL(ctx context.Context) (string, error) {
@@ -566,7 +623,43 @@ func (n *SetOperationScanNode) FormatSQL(ctx context.Context) (string, error) {
 }
 
 func (n *OrderByScanNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
+	if n.node == nil {
+		return "", nil
+	}
+	input, err := newNode(n.node.InputScan()).FormatSQL(ctx)
+	if err != nil {
+		return "", err
+	}
+	columns := []string{}
+	columnMap := columnRefMap(ctx)
+	for _, col := range n.node.ColumnList() {
+		colName := col.Name()
+		if ref, exists := columnMap[colName]; exists {
+			columns = append(columns, ref)
+			delete(columnMap, colName)
+		} else {
+			columns = append(columns, fmt.Sprintf("`%s`", colName))
+		}
+	}
+	orderByColumns := []string{}
+	for _, item := range n.node.OrderByItemList() {
+		colName := item.ColumnRef().Column().Name()
+		orderByColumns = append(orderByColumns, fmt.Sprintf("`%s`", colName))
+	}
+	if strings.HasPrefix(input, "SELECT") {
+		return fmt.Sprintf(
+			"SELECT %s FROM ( %s ) ORDER BY %s",
+			strings.Join(columns, ","),
+			input,
+			strings.Join(orderByColumns, ","),
+		), nil
+	}
+	return fmt.Sprintf(
+		"SELECT %s %s ORDER BY %s",
+		strings.Join(columns, ","),
+		input,
+		strings.Join(orderByColumns, ","),
+	), nil
 }
 
 func (n *LimitOffsetScanNode) FormatSQL(ctx context.Context) (string, error) {

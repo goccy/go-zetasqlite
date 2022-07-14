@@ -3,6 +3,7 @@ package zetasqlite_test
 import (
 	"context"
 	"database/sql"
+	"math"
 	"reflect"
 	"testing"
 	"time"
@@ -20,6 +21,11 @@ func TestQuery(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
+	floatCmpOpt := cmp.Comparer(func(x, y float64) bool {
+		delta := math.Abs(x - y)
+		mean := math.Abs(x+y) / 2.0
+		return delta/mean < 0.00001
+	})
 	for _, test := range []struct {
 		name         string
 		query        string
@@ -1259,6 +1265,84 @@ WITH example AS (
 				{[]int64{}},
 			},
 		},
+		{
+			name: "group by",
+			query: `
+WITH Sales AS (
+  SELECT 123 AS sku, 1 AS day, 9.99 AS price UNION ALL
+  SELECT 123, 1, 8.99 UNION ALL
+  SELECT 456, 1, 4.56 UNION ALL
+  SELECT 123, 2, 9.99 UNION ALL
+  SELECT 789, 3, 1.00 UNION ALL
+  SELECT 456, 3, 4.25 UNION ALL
+  SELECT 789, 3, 0.99
+)
+SELECT
+  day,
+  SUM(price) AS total
+FROM Sales
+GROUP BY day`,
+			expectedRows: [][]interface{}{
+				{int64(1), float64(23.54)},
+				{int64(2), float64(9.99)},
+				{int64(3), float64(6.24)},
+			},
+		},
+		{
+			name: "group by rollup with one column",
+			query: `
+WITH Sales AS (
+  SELECT 123 AS sku, 1 AS day, 9.99 AS price UNION ALL
+  SELECT 123, 1, 8.99 UNION ALL
+  SELECT 456, 1, 4.56 UNION ALL
+  SELECT 123, 2, 9.99 UNION ALL
+  SELECT 789, 3, 1.00 UNION ALL
+  SELECT 456, 3, 4.25 UNION ALL
+  SELECT 789, 3, 0.99
+)
+SELECT
+  day,
+  SUM(price) AS total
+FROM Sales
+GROUP BY ROLLUP(day)`,
+			expectedRows: [][]interface{}{
+				{nil, float64(39.77)},
+				{int64(1), float64(23.54)},
+				{int64(2), float64(9.99)},
+				{int64(3), float64(6.24)},
+			},
+		},
+		{
+			name: "group by rollup with two columns",
+			query: `
+WITH Sales AS (
+  SELECT 123 AS sku, 1 AS day, 9.99 AS price UNION ALL
+  SELECT 123, 1, 8.99 UNION ALL
+  SELECT 456, 1, 4.56 UNION ALL
+  SELECT 123, 2, 9.99 UNION ALL
+  SELECT 789, 3, 1.00 UNION ALL
+  SELECT 456, 3, 4.25 UNION ALL
+  SELECT 789, 3, 0.99
+)
+SELECT
+  sku,
+  day,
+  SUM(price) AS total
+FROM Sales
+GROUP BY ROLLUP(sku, day)
+ORDER BY sku, day`,
+			expectedRows: [][]interface{}{
+				{nil, nil, float64(39.77)},
+				{int64(123), nil, float64(28.97)},
+				{int64(123), int64(1), float64(18.98)},
+				{int64(123), int64(2), float64(9.99)},
+				{int64(456), nil, float64(8.81)},
+				{int64(456), int64(1), float64(4.56)},
+				{int64(456), int64(3), float64(4.25)},
+				{int64(789), nil, float64(1.99)},
+				{int64(789), int64(3), float64(1.99)},
+			},
+		},
 	} {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
@@ -1287,7 +1371,7 @@ WITH example AS (
 				}
 				for i := 0; i < len(args); i++ {
 					value := reflect.ValueOf(args[i]).Elem().Interface()
-					if diff := cmp.Diff(expectedRow[i], value); diff != "" {
+					if diff := cmp.Diff(expectedRow[i], value, floatCmpOpt); diff != "" {
 						t.Errorf("(-want +got):\n%s", diff)
 					}
 				}
