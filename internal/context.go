@@ -15,6 +15,7 @@ type (
 	analyticTableNameKey            struct{}
 	arraySubqueryColumnNameKey      struct{}
 	currentTimeKey                  struct{}
+	existsGroupByKey                struct{}
 )
 
 func namePathFromContext(ctx context.Context) []string {
@@ -124,6 +125,22 @@ func arraySubqueryColumnNameFromContext(ctx context.Context) *arraySubqueryColum
 		return nil
 	}
 	return value.(*arraySubqueryColumnNames)
+}
+
+type existsGroupBy struct {
+	exists bool
+}
+
+func withExistsGroupBy(ctx context.Context, v *existsGroupBy) context.Context {
+	return context.WithValue(ctx, existsGroupByKey{}, v)
+}
+
+func existsGroupByFromContext(ctx context.Context) *existsGroupBy {
+	value := ctx.Value(existsGroupByKey{})
+	if value == nil {
+		return nil
+	}
+	return value.(*existsGroupBy)
 }
 
 func WithCurrentTime(ctx context.Context, now time.Time) context.Context {

@@ -1343,6 +1343,28 @@ ORDER BY sku, day`,
 				{int64(789), int64(3), float64(1.99)},
 			},
 		},
+		{
+			name: "group by having",
+			query: `
+WITH Sales AS (
+  SELECT 123 AS sku, 1 AS day, 9.99 AS price UNION ALL
+  SELECT 123, 1, 8.99 UNION ALL
+  SELECT 456, 1, 4.56 UNION ALL
+  SELECT 123, 2, 9.99 UNION ALL
+  SELECT 789, 2, 1.00 UNION ALL
+  SELECT 456, 3, 4.25 UNION ALL
+  SELECT 789, 3, 0.99
+)
+SELECT
+  day,
+  SUM(price) AS total
+FROM Sales
+GROUP BY day HAVING SUM(price) > 10`,
+			expectedRows: [][]interface{}{
+				{int64(1), float64(23.54)},
+				{int64(2), float64(10.99)},
+			},
+		},
 	} {
 		test := test
 		t.Run(test.name, func(t *testing.T) {

@@ -476,13 +476,18 @@ func (n *FilterScanNode) FormatSQL(ctx context.Context) (string, error) {
 	if n.node == nil {
 		return "", nil
 	}
+	ctx = withExistsGroupBy(ctx, &existsGroupBy{})
 	input, err := newNode(n.node.InputScan()).FormatSQL(ctx)
 	if err != nil {
 		return "", err
 	}
+	usedGroupBy := existsGroupByFromContext(ctx).exists
 	filter, err := newNode(n.node.FilterExpr()).FormatSQL(ctx)
 	if err != nil {
 		return "", err
+	}
+	if usedGroupBy {
+		return fmt.Sprintf("%s HAVING %s", input, filter), nil
 	}
 	return fmt.Sprintf("%s WHERE %s", input, filter), nil
 }
@@ -522,6 +527,12 @@ func (n *AggregateScanNode) FormatSQL(ctx context.Context) (string, error) {
 		colName := fmt.Sprintf("`%s`", col.Column().Name())
 		groupByColumns = append(groupByColumns, colName)
 		groupByColumnMap[colName] = struct{}{}
+	}
+	if len(groupByColumns) != 0 {
+		existsGroupBy := existsGroupByFromContext(ctx)
+		if existsGroupBy != nil {
+			existsGroupBy.exists = true
+		}
 	}
 	if len(n.node.GroupingSetList()) != 0 {
 		columnPatterns := [][]string{}
