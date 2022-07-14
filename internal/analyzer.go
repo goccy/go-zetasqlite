@@ -68,6 +68,7 @@ func newAnalyzerOptions() *zetasql.AnalyzerOptions {
 		zetasql.FeatureV12CivilTime,
 		zetasql.FeatureIntervalType,
 		zetasql.FeatureGroupByRollup,
+		zetasql.FeatureV13NullsFirstLastInOrderBy,
 	})
 	langOpt.SetSupportedStatementKinds([]ast.Kind{
 		ast.QueryStmt,

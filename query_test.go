@@ -1365,6 +1365,42 @@ GROUP BY day HAVING SUM(price) > 10`,
 				{int64(2), float64(10.99)},
 			},
 		},
+		{
+			name:  "order by",
+			query: `SELECT x, y FROM (SELECT 1 AS x, true AS y UNION ALL SELECT 9, true UNION ALL SELECT NULL, false) ORDER BY x`,
+			expectedRows: [][]interface{}{
+				{nil, false},
+				{int64(1), true},
+				{int64(9), true},
+			},
+		},
+		{
+			name:  "order by with nulls last",
+			query: `SELECT x, y FROM (SELECT 1 AS x, true AS y UNION ALL SELECT 9, true UNION ALL SELECT NULL, false) ORDER BY x NULLS LAST`,
+			expectedRows: [][]interface{}{
+				{int64(1), true},
+				{int64(9), true},
+				{nil, false},
+			},
+		},
+		{
+			name:  "order by desc",
+			query: `SELECT x, y FROM (SELECT 1 AS x, true AS y UNION ALL SELECT 9, true UNION ALL SELECT NULL, false) ORDER BY x DESC`,
+			expectedRows: [][]interface{}{
+				{int64(9), true},
+				{int64(1), true},
+				{nil, false},
+			},
+		},
+		{
+			name:  "order by nulls first",
+			query: `SELECT x, y FROM (SELECT 1 AS x, true AS y UNION ALL SELECT 9, true UNION ALL SELECT NULL, false) ORDER BY x DESC NULLS FIRST`,
+			expectedRows: [][]interface{}{
+				{nil, false},
+				{int64(9), true},
+				{int64(1), true},
+			},
+		},
 	} {
 		test := test
 		t.Run(test.name, func(t *testing.T) {

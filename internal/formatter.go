@@ -655,7 +655,23 @@ func (n *OrderByScanNode) FormatSQL(ctx context.Context) (string, error) {
 	orderByColumns := []string{}
 	for _, item := range n.node.OrderByItemList() {
 		colName := item.ColumnRef().Column().Name()
-		orderByColumns = append(orderByColumns, fmt.Sprintf("`%s`", colName))
+		switch item.NullOrder() {
+		case ast.NullOrderModeNullsFirst:
+			orderByColumns = append(
+				orderByColumns,
+				fmt.Sprintf("(`%s` IS NOT NULL)", colName),
+			)
+		case ast.NullOrderModeNullsLast:
+			orderByColumns = append(
+				orderByColumns,
+				fmt.Sprintf("(`%s` IS NULL)", colName),
+			)
+		}
+		if item.IsDescending() {
+			orderByColumns = append(orderByColumns, fmt.Sprintf("`%s` DESC", colName))
+		} else {
+			orderByColumns = append(orderByColumns, fmt.Sprintf("`%s`", colName))
+		}
 	}
 	if strings.HasPrefix(input, "SELECT") {
 		return fmt.Sprintf(
