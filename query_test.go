@@ -1562,6 +1562,53 @@ GROUP BY day HAVING SUM(price) > 10`,
 				{int64(1), true},
 			},
 		},
+		{
+			name: "inner join with using",
+			query: `
+WITH Roster AS
+ (SELECT 'Adams' as LastName, 50 as SchoolID UNION ALL
+  SELECT 'Buchanan', 52 UNION ALL
+  SELECT 'Coolidge', 52 UNION ALL
+  SELECT 'Davis', 51 UNION ALL
+  SELECT 'Eisenhower', 77),
+ TeamMascot AS
+ (SELECT 50 as SchoolID, 'Jaguars' as Mascot UNION ALL
+  SELECT 51, 'Knights' UNION ALL
+  SELECT 52, 'Lakers' UNION ALL
+  SELECT 53, 'Mustangs')
+SELECT * FROM Roster INNER JOIN TeamMascot USING (SchoolID)
+`,
+			expectedRows: [][]interface{}{
+				{int64(50), "Adams", "Jaguars"},
+				{int64(52), "Buchanan", "Lakers"},
+				{int64(52), "Coolidge", "Lakers"},
+				{int64(51), "Davis", "Knights"},
+			},
+		},
+		{
+			name: "left join",
+			query: `
+WITH Roster AS
+ (SELECT 'Adams' as LastName, 50 as SchoolID UNION ALL
+  SELECT 'Buchanan', 52 UNION ALL
+  SELECT 'Coolidge', 52 UNION ALL
+  SELECT 'Davis', 51 UNION ALL
+  SELECT 'Eisenhower', 77),
+ TeamMascot AS
+ (SELECT 50 as SchoolID, 'Jaguars' as Mascot UNION ALL
+  SELECT 51, 'Knights' UNION ALL
+  SELECT 52, 'Lakers' UNION ALL
+  SELECT 53, 'Mustangs')
+SELECT Roster.LastName, TeamMascot.Mascot FROM Roster LEFT JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID
+`,
+			expectedRows: [][]interface{}{
+				{"Adams", "Jaguars"},
+				{"Buchanan", "Lakers"},
+				{"Coolidge", "Lakers"},
+				{"Davis", "Knights"},
+				{"Eisenhower", nil},
+			},
+		},
 		/*
 			{
 				name: "qualify",
