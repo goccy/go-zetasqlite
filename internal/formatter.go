@@ -530,6 +530,19 @@ func (n *ArrayScanNode) FormatSQL(ctx context.Context) (string, error) {
 		return "", err
 	}
 	colName := n.node.ElementColumn().Name()
+	if n.node.InputScan() != nil {
+		input, err := newNode(n.node.InputScan()).FormatSQL(ctx)
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf(
+			"%s, ( SELECT json_each.value AS `%s` %s, json_each(zetasqlite_decode_array_string(%s)) )",
+			input,
+			colName,
+			input,
+			arrayExpr,
+		), nil
+	}
 	return fmt.Sprintf(
 		"FROM ( SELECT json_each.value AS `%s` FROM json_each(zetasqlite_decode_array_string(%s)) )",
 		colName,
@@ -789,7 +802,7 @@ func (n *AnalyticScanNode) FormatSQL(ctx context.Context) (string, error) {
 		if group.PartitionBy() != nil {
 			var partitionColumns []string
 			for _, columnRef := range group.PartitionBy().PartitionByList() {
-				ctx = withAnalyticTableName(ctx, columnRef.Column().TableName())
+				ctx = withAnalyticTableName(ctx, FormatName([]string{columnRef.Column().TableName()}))
 				partitionColumns = append(
 					partitionColumns,
 					fmt.Sprintf("`%s`", columnRef.Column().Name()),
@@ -801,7 +814,7 @@ func (n *AnalyticScanNode) FormatSQL(ctx context.Context) (string, error) {
 		if group.OrderBy() != nil {
 			var orderByColumns []string
 			for _, item := range group.OrderBy().OrderByItemList() {
-				ctx = withAnalyticTableName(ctx, item.ColumnRef().Column().TableName())
+				ctx = withAnalyticTableName(ctx, FormatName([]string{item.ColumnRef().Column().TableName()}))
 				orderByColumns = append(
 					orderByColumns,
 					fmt.Sprintf("`%s`", item.ColumnRef().Column().Name()),
@@ -813,9 +826,28 @@ func (n *AnalyticScanNode) FormatSQL(ctx context.Context) (string, error) {
 			return "", err
 		}
 	}
+	columns := []string{}
+	columnMap := columnRefMap(ctx)
+	for _, col := range n.node.ColumnList() {
+		colName := col.Name()
+		if ref, exists := columnMap[colName]; exists {
+			columns = append(columns, ref)
+			delete(columnMap, colName)
+		} else {
+			columns = append(
+				columns,
+				fmt.Sprintf("`%s`", colName),
+			)
+		}
+	}
 	orderBy := fmt.Sprintf("ORDER BY %s", strings.Join(orderColumnNames.values, ","))
 	orderColumnNames.values = []string{}
-	return fmt.Sprintf("FROM ( SELECT *, ROW_NUMBER() OVER() AS `rowid` %s ) %s", input, orderBy), nil
+	return fmt.Sprintf(
+		"SELECT %s FROM ( SELECT *, ROW_NUMBER() OVER() AS `rowid` %s ) %s",
+		strings.Join(columns, ","),
+		input,
+		orderBy,
+	), nil
 }
 
 func (n *SampleScanNode) FormatSQL(ctx context.Context) (string, error) {
@@ -1119,6 +1151,7 @@ func (n *AnalyticFunctionGroupNode) FormatSQL(ctx context.Context) (string, erro
 	if n.node == nil {
 		return "", nil
 	}
+
 	orderColumnNames := analyticOrderColumnNamesFromContext(ctx)
 	var queries []string
 	for _, column := range n.node.AnalyticFunctionList() {
