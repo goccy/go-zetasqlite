@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -252,6 +253,14 @@ func (c *Catalog) addTableSpecRecursive(cat *types.SimpleCatalog, spec *TableSpe
 		if !c.existsCatalog(cat, subCatalogName) {
 			cat.AddCatalog(subCatalog)
 		}
+		fullTableName := strings.Join(spec.NamePath, ".")
+		if !c.existsTable(cat, fullTableName) {
+			table, err := c.createSimpleTable(fullTableName, spec)
+			if err != nil {
+				return err
+			}
+			cat.AddTable(table)
+		}
 		newNamePath := spec.NamePath[1:]
 		// add sub catalog to root catalog
 		if err := c.addTableSpecRecursive(cat, c.copyTableSpec(spec, newNamePath)); err != nil {
@@ -271,18 +280,26 @@ func (c *Catalog) addTableSpecRecursive(cat *types.SimpleCatalog, spec *TableSpe
 	if c.existsTable(cat, tableName) {
 		return nil
 	}
+	table, err := c.createSimpleTable(tableName, spec)
+	if err != nil {
+		return err
+	}
+	cat.AddTable(table)
+	return nil
+}
+
+func (c *Catalog) createSimpleTable(tableName string, spec *TableSpec) (*types.SimpleTable, error) {
 	columns := []types.Column{}
 	for _, column := range spec.Columns {
 		typ, err := column.Type.ToZetaSQLType()
 		if err != nil {
-			return err
+			return nil, err
 		}
 		columns = append(columns, types.NewSimpleColumn(
 			tableName, column.Name, typ,
 		))
 	}
-	cat.AddTable(types.NewSimpleTable(tableName, columns))
-	return nil
+	return types.NewSimpleTable(tableName, columns), nil
 }
 
 func (c *Catalog) addFunctionSpecRecursive(cat *types.SimpleCatalog, spec *FunctionSpec) error {

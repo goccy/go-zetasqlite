@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/goccy/go-zetasql/types"
 )
@@ -43,8 +42,7 @@ func jsonFromZetaSQLValue(v types.Value) string {
 	case types.TIME:
 		return toTimeValueFromInt64(v.ToInt64())
 	case types.TIMESTAMP:
-		// TODO: 7 hours added time will be returned
-		return toTimestampValueFromTime(v.ToTime().Add(-7 * time.Hour))
+		return toTimestampValueFromTime(v.ToTime())
 	case types.ARRAY:
 		elems := []string{}
 		for i := 0; i < v.NumElements(); i++ {

@@ -18,10 +18,22 @@ func New(node ast.Node) Formatter {
 }
 
 func FormatName(namePath []string) string {
+	namePath = FormatPath(namePath)
 	return strings.Join(namePath, "_")
 }
 
+func FormatPath(path []string) []string {
+	ret := []string{}
+	for _, p := range path {
+		splitted := strings.Split(p, ".")
+		ret = append(ret, splitted...)
+	}
+	return ret
+}
+
 func MergeNamePath(namePath []string, queryPath []string) []string {
+	namePath = FormatPath(namePath)
+	queryPath = FormatPath(queryPath)
 	if len(queryPath) == 0 {
 		return namePath
 	}
@@ -225,6 +237,8 @@ func (n *AnalyticFunctionCallNode) FormatSQL(ctx context.Context) (string, error
 		switch t := a.(type) {
 		case *ast.ColumnRefNode:
 			ctx = withAnalyticTableName(ctx, t.Column().TableName())
+		case *ast.LiteralNode:
+			continue
 		default:
 			return "", fmt.Errorf("unexpected argument node type %T for analytic function", a)
 		}
@@ -278,7 +292,7 @@ func (n *AnalyticFunctionCallNode) FormatSQL(ctx context.Context) (string, error
 	}
 	args = append(args, getWindowRowIDOptionFuncSQL())
 	return fmt.Sprintf(
-		"( SELECT %s(%s) FROM %s )",
+		"( SELECT %s(%s) FROM `%s` )",
 		funcName,
 		strings.Join(args, ","),
 		tableName,

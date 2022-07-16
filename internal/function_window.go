@@ -186,6 +186,43 @@ func (f *WINDOW_LAST_VALUE) Done(agg *WindowFuncAggregatedStatus) (Value, error)
 	return lastValue, nil
 }
 
+type WINDOW_LAG struct {
+	lagOnce      sync.Once
+	offset       int64
+	defaultValue Value
+}
+
+func (f *WINDOW_LAG) Step(v Value, offset int64, defaultValue Value, opt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+	if v == nil {
+		return nil
+	}
+	f.lagOnce.Do(func() {
+		f.offset = offset
+		f.defaultValue = defaultValue
+	})
+	return agg.Step(v, opt)
+}
+
+func (f *WINDOW_LAG) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
+	var lagValue Value
+	if err := agg.Done(func(values []Value, start, end int) error {
+		if len(values) == 0 {
+			return nil
+		}
+		if start-int(f.offset) < 0 {
+			return nil
+		}
+		lagValue = values[start-int(f.offset)]
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	if lagValue == nil {
+		return f.defaultValue, nil
+	}
+	return lagValue, nil
+}
+
 type WINDOW_RANK struct {
 }
 
@@ -226,6 +263,52 @@ func (f *WINDOW_RANK) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
 				sameRankNum = 1
 			} else {
 				sameRankNum++
+			}
+		}
+		rankValue = IntValue(rank)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return rankValue, nil
+}
+
+type WINDOW_DENSE_RANK struct {
+}
+
+func (f *WINDOW_DENSE_RANK) Step(opt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+	return agg.Step(IntValue(1), opt)
+}
+
+func (f *WINDOW_DENSE_RANK) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
+	var rankValue Value
+	if err := agg.Done(func(_ []Value, start, end int) error {
+		var orderByValues []Value
+		for _, value := range agg.SortedValues {
+			orderByValues = append(orderByValues, value.OrderBy[len(value.OrderBy)-1])
+		}
+		if start >= len(orderByValues) || end < 0 {
+			return nil
+		}
+		if len(orderByValues) == 0 {
+			return nil
+		}
+		if start != end {
+			return fmt.Errorf("Rank must be same value of start and end")
+		}
+		lastIdx := start
+		var (
+			rank     = 0
+			maxValue int64
+		)
+		for idx := 0; idx <= lastIdx; idx++ {
+			curValue, err := orderByValues[idx].ToInt64()
+			if err != nil {
+				return err
+			}
+			if maxValue < curValue {
+				maxValue = curValue
+				rank++
 			}
 		}
 		rankValue = IntValue(rank)

@@ -1449,7 +1449,7 @@ func (d TimestampValue) ToStruct() (*StructValue, error) {
 }
 
 func (d TimestampValue) ToJSON() (string, error) {
-	return time.Time(d).Format(time.RFC3339), nil
+	return time.Time(d).Format(time.RFC3339Nano), nil
 }
 
 func (d TimestampValue) ToTime() (time.Time, error) {

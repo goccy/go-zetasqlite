@@ -662,8 +662,21 @@ var windowFuncs = []*WindowFuncInfo{
 		ReturnTypes: []types.TypeKind{types.STRING},
 	},
 	{
+		Name:     "lag",
+		BindFunc: bindWindowLag,
+		ReturnTypes: []types.TypeKind{
+			types.INT64, types.DOUBLE, types.STRING, types.BOOL,
+			types.DATE, types.DATETIME, types.TIMESTAMP,
+		},
+	},
+	{
 		Name:        "rank",
 		BindFunc:    bindWindowRank,
+		ReturnTypes: []types.TypeKind{types.INT64},
+	},
+	{
+		Name:        "dense_rank",
+		BindFunc:    bindWindowDenseRank,
 		ReturnTypes: []types.TypeKind{types.INT64},
 	},
 }

@@ -905,6 +905,167 @@ FROM Numbers`,
 			},
 		},
 		{
+			name: "window dense_rank",
+			query: `
+WITH Numbers AS
+ (SELECT 1 as x
+  UNION ALL SELECT 2
+  UNION ALL SELECT 2
+  UNION ALL SELECT 5
+  UNION ALL SELECT 8
+  UNION ALL SELECT 10
+  UNION ALL SELECT 10
+)
+SELECT x,
+  DENSE_RANK() OVER (ORDER BY x ASC) AS dense_rank
+FROM Numbers`,
+			expectedRows: [][]interface{}{
+				{int64(1), int64(1)},
+				{int64(2), int64(2)},
+				{int64(2), int64(2)},
+				{int64(5), int64(3)},
+				{int64(8), int64(4)},
+				{int64(10), int64(5)},
+				{int64(10), int64(5)},
+			},
+		},
+		{
+			name: "window dense_rank with group",
+			query: `
+WITH finishers AS
+ (SELECT 'Sophia Liu' as name,
+  TIMESTAMP '2016-10-18 2:51:45' as finish_time,
+  'F30-34' as division
+  UNION ALL SELECT 'Lisa Stelzner', TIMESTAMP '2016-10-18 2:54:11', 'F35-39'
+  UNION ALL SELECT 'Nikki Leith', TIMESTAMP '2016-10-18 2:59:01', 'F30-34'
+  UNION ALL SELECT 'Lauren Matthews', TIMESTAMP '2016-10-18 3:01:17', 'F35-39'
+  UNION ALL SELECT 'Desiree Berry', TIMESTAMP '2016-10-18 3:05:42', 'F35-39'
+  UNION ALL SELECT 'Suzy Slane', TIMESTAMP '2016-10-18 3:06:24', 'F35-39'
+  UNION ALL SELECT 'Jen Edwards', TIMESTAMP '2016-10-18 3:06:36', 'F30-34'
+  UNION ALL SELECT 'Meghan Lederer', TIMESTAMP '2016-10-18 2:59:01', 'F30-34')
+SELECT name,
+  finish_time,
+  division,
+  DENSE_RANK() OVER (PARTITION BY division ORDER BY finish_time ASC) AS finish_rank
+FROM finishers
+`,
+			expectedRows: [][]interface{}{
+				{"Sophia Liu", createTimeFromString("2016-10-18 09:51:45+00"), "F30-34", int64(1)},
+				{"Nikki Leith", createTimeFromString("2016-10-18 09:59:01+00"), "F30-34", int64(2)},
+				{"Meghan Lederer", createTimeFromString("2016-10-18 09:59:01+00"), "F30-34", int64(2)},
+				{"Jen Edwards", createTimeFromString("2016-10-18 10:06:36+00"), "F30-34", int64(3)},
+				{"Lisa Stelzner", createTimeFromString("2016-10-18 09:54:11+00"), "F35-39", int64(1)},
+				{"Lauren Matthews", createTimeFromString("2016-10-18 10:01:17+00"), "F35-39", int64(2)},
+				{"Desiree Berry", createTimeFromString("2016-10-18 10:05:42+00"), "F35-39", int64(3)},
+				{"Suzy Slane", createTimeFromString("2016-10-18 10:06:24+00"), "F35-39", int64(4)},
+			},
+		},
+		{
+			name: "window lag",
+			query: `
+WITH finishers AS
+ (SELECT 'Sophia Liu' as name,
+  TIMESTAMP '2016-10-18 2:51:45+00' as finish_time,
+  'F30-34' as division
+  UNION ALL SELECT 'Lisa Stelzner', TIMESTAMP '2016-10-18 2:54:11+00', 'F35-39'
+  UNION ALL SELECT 'Nikki Leith', TIMESTAMP '2016-10-18 2:59:01+00', 'F30-34'
+  UNION ALL SELECT 'Lauren Matthews', TIMESTAMP '2016-10-18 3:01:17+00', 'F35-39'
+  UNION ALL SELECT 'Desiree Berry', TIMESTAMP '2016-10-18 3:05:42+00', 'F35-39'
+  UNION ALL SELECT 'Suzy Slane', TIMESTAMP '2016-10-18 3:06:24+00', 'F35-39'
+  UNION ALL SELECT 'Jen Edwards', TIMESTAMP '2016-10-18 3:06:36+00', 'F30-34'
+  UNION ALL SELECT 'Meghan Lederer', TIMESTAMP '2016-10-18 3:07:41+00', 'F30-34'
+  UNION ALL SELECT 'Carly Forte', TIMESTAMP '2016-10-18 3:08:58+00', 'F25-29'
+  UNION ALL SELECT 'Lauren Reasoner', TIMESTAMP '2016-10-18 3:10:14+00', 'F30-34')
+SELECT name,
+  finish_time,
+  division,
+  LAG(name)
+    OVER (PARTITION BY division ORDER BY finish_time ASC) AS preceding_runner
+FROM finishers`,
+			expectedRows: [][]interface{}{
+				{"Carly Forte", createTimeFromString("2016-10-18 03:08:58+00"), "F25-29", nil},
+				{"Sophia Liu", createTimeFromString("2016-10-18 02:51:45+00"), "F30-34", nil},
+				{"Nikki Leith", createTimeFromString("2016-10-18 02:59:01+00"), "F30-34", "Sophia Liu"},
+				{"Jen Edwards", createTimeFromString("2016-10-18 03:06:36+00"), "F30-34", "Nikki Leith"},
+				{"Meghan Lederer", createTimeFromString("2016-10-18 03:07:41+00"), "F30-34", "Jen Edwards"},
+				{"Lauren Reasoner", createTimeFromString("2016-10-18 03:10:14+00"), "F30-34", "Meghan Lederer"},
+				{"Lisa Stelzner", createTimeFromString("2016-10-18 02:54:11+00"), "F35-39", nil},
+				{"Lauren Matthews", createTimeFromString("2016-10-18 03:01:17+00"), "F35-39", "Lisa Stelzner"},
+				{"Desiree Berry", createTimeFromString("2016-10-18 03:05:42+00"), "F35-39", "Lauren Matthews"},
+				{"Suzy Slane", createTimeFromString("2016-10-18 03:06:24+00"), "F35-39", "Desiree Berry"},
+			},
+		},
+		{
+			name: "window lag with offset",
+			query: `
+WITH finishers AS
+ (SELECT 'Sophia Liu' as name,
+  TIMESTAMP '2016-10-18 2:51:45+00' as finish_time,
+  'F30-34' as division
+  UNION ALL SELECT 'Lisa Stelzner', TIMESTAMP '2016-10-18 2:54:11+00', 'F35-39'
+  UNION ALL SELECT 'Nikki Leith', TIMESTAMP '2016-10-18 2:59:01+00', 'F30-34'
+  UNION ALL SELECT 'Lauren Matthews', TIMESTAMP '2016-10-18 3:01:17+00', 'F35-39'
+  UNION ALL SELECT 'Desiree Berry', TIMESTAMP '2016-10-18 3:05:42+00', 'F35-39'
+  UNION ALL SELECT 'Suzy Slane', TIMESTAMP '2016-10-18 3:06:24+00', 'F35-39'
+  UNION ALL SELECT 'Jen Edwards', TIMESTAMP '2016-10-18 3:06:36+00', 'F30-34'
+  UNION ALL SELECT 'Meghan Lederer', TIMESTAMP '2016-10-18 3:07:41+00', 'F30-34'
+  UNION ALL SELECT 'Carly Forte', TIMESTAMP '2016-10-18 3:08:58+00', 'F25-29'
+  UNION ALL SELECT 'Lauren Reasoner', TIMESTAMP '2016-10-18 3:10:14+00', 'F30-34')
+SELECT name,
+  finish_time,
+  division,
+  LAG(name, 2)
+    OVER (PARTITION BY division ORDER BY finish_time ASC) AS two_runners_ahead
+FROM finishers`,
+			expectedRows: [][]interface{}{
+				{"Carly Forte", createTimeFromString("2016-10-18 03:08:58+00"), "F25-29", nil},
+				{"Sophia Liu", createTimeFromString("2016-10-18 02:51:45+00"), "F30-34", nil},
+				{"Nikki Leith", createTimeFromString("2016-10-18 02:59:01+00"), "F30-34", nil},
+				{"Jen Edwards", createTimeFromString("2016-10-18 03:06:36+00"), "F30-34", "Sophia Liu"},
+				{"Meghan Lederer", createTimeFromString("2016-10-18 03:07:41+00"), "F30-34", "Nikki Leith"},
+				{"Lauren Reasoner", createTimeFromString("2016-10-18 03:10:14+00"), "F30-34", "Jen Edwards"},
+				{"Lisa Stelzner", createTimeFromString("2016-10-18 02:54:11+00"), "F35-39", nil},
+				{"Lauren Matthews", createTimeFromString("2016-10-18 03:01:17+00"), "F35-39", nil},
+				{"Desiree Berry", createTimeFromString("2016-10-18 03:05:42+00"), "F35-39", "Lisa Stelzner"},
+				{"Suzy Slane", createTimeFromString("2016-10-18 03:06:24+00"), "F35-39", "Lauren Matthews"},
+			},
+		},
+		{
+			name: "window lag with offset and default value",
+			query: `
+WITH finishers AS
+ (SELECT 'Sophia Liu' as name,
+  TIMESTAMP '2016-10-18 2:51:45+00' as finish_time,
+  'F30-34' as division
+  UNION ALL SELECT 'Lisa Stelzner', TIMESTAMP '2016-10-18 2:54:11+00', 'F35-39'
+  UNION ALL SELECT 'Nikki Leith', TIMESTAMP '2016-10-18 2:59:01+00', 'F30-34'
+  UNION ALL SELECT 'Lauren Matthews', TIMESTAMP '2016-10-18 3:01:17+00', 'F35-39'
+  UNION ALL SELECT 'Desiree Berry', TIMESTAMP '2016-10-18 3:05:42+00', 'F35-39'
+  UNION ALL SELECT 'Suzy Slane', TIMESTAMP '2016-10-18 3:06:24+00', 'F35-39'
+  UNION ALL SELECT 'Jen Edwards', TIMESTAMP '2016-10-18 3:06:36+00', 'F30-34'
+  UNION ALL SELECT 'Meghan Lederer', TIMESTAMP '2016-10-18 3:07:41+00', 'F30-34'
+  UNION ALL SELECT 'Carly Forte', TIMESTAMP '2016-10-18 3:08:58+00', 'F25-29'
+  UNION ALL SELECT 'Lauren Reasoner', TIMESTAMP '2016-10-18 3:10:14+00', 'F30-34')
+SELECT name,
+  finish_time,
+  division,
+  LAG(name, 2, 'NoBody')
+    OVER (PARTITION BY division ORDER BY finish_time ASC) AS two_runners_ahead
+FROM finishers`,
+			expectedRows: [][]interface{}{
+				{"Carly Forte", createTimeFromString("2016-10-18 03:08:58+00"), "F25-29", "NoBody"},
+				{"Sophia Liu", createTimeFromString("2016-10-18 02:51:45+00"), "F30-34", "NoBody"},
+				{"Nikki Leith", createTimeFromString("2016-10-18 02:59:01+00"), "F30-34", "NoBody"},
+				{"Jen Edwards", createTimeFromString("2016-10-18 03:06:36+00"), "F30-34", "Sophia Liu"},
+				{"Meghan Lederer", createTimeFromString("2016-10-18 03:07:41+00"), "F30-34", "Nikki Leith"},
+				{"Lauren Reasoner", createTimeFromString("2016-10-18 03:10:14+00"), "F30-34", "Jen Edwards"},
+				{"Lisa Stelzner", createTimeFromString("2016-10-18 02:54:11+00"), "F35-39", "NoBody"},
+				{"Lauren Matthews", createTimeFromString("2016-10-18 03:01:17+00"), "F35-39", "NoBody"},
+				{"Desiree Berry", createTimeFromString("2016-10-18 03:05:42+00"), "F35-39", "Lisa Stelzner"},
+				{"Suzy Slane", createTimeFromString("2016-10-18 03:06:24+00"), "F35-39", "Lauren Matthews"},
+			},
+		},
+		{
 			name:  "sign",
 			query: `SELECT SIGN(25) UNION ALL SELECT SIGN(0) UNION ALL SELECT SIGN(-25)`,
 			expectedRows: [][]interface{}{
@@ -936,7 +1097,7 @@ FROM Numbers`,
 			name:  "current_timestamp",
 			query: `SELECT CURRENT_TIMESTAMP()`,
 			expectedRows: [][]interface{}{
-				{now.Format(time.RFC3339)},
+				{now.UTC()},
 			},
 		},
 		// INVALID_ARGUMENT: No matching signature for operator - for argument types: TIMESTAMP, TIMESTAMP. Supported signatures: INT64 - INT64; NUMERIC - NUMERIC; FLOAT64 - FLOAT64; DATE - INT64 [at 1:8]
@@ -1148,7 +1309,7 @@ FROM (
 		},
 		{
 			name:  "generate_timestamp_array function",
-			query: `SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-05 00:00:00', '2016-10-07 00:00:00', INTERVAL 1 DAY) AS timestamp_array`,
+			query: `SELECT GENERATE_TIMESTAMP_ARRAY(TIMESTAMP '2016-10-05 00:00:00+00', '2016-10-07 00:00:00+00', INTERVAL 1 DAY) AS timestamp_array`,
 			expectedRows: [][]interface{}{
 				{
 					[]time.Time{
@@ -1161,7 +1322,7 @@ FROM (
 		},
 		{
 			name:  "generate_timestamp_array function interval 1 second",
-			query: `SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-05 00:00:00', '2016-10-05 00:00:02', INTERVAL 1 SECOND) AS timestamp_array`,
+			query: `SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-05 00:00:00+00', '2016-10-05 00:00:02+00', INTERVAL 1 SECOND) AS timestamp_array`,
 			expectedRows: [][]interface{}{
 				{
 					[]time.Time{
@@ -1174,7 +1335,7 @@ FROM (
 		},
 		{
 			name:  "generate_timestamp_array function negative interval",
-			query: `SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-06 00:00:00', '2016-10-01 00:00:00', INTERVAL -2 DAY) AS timestamp_array`,
+			query: `SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-06 00:00:00+00', '2016-10-01 00:00:00+00', INTERVAL -2 DAY) AS timestamp_array`,
 			expectedRows: [][]interface{}{
 				{
 					[]time.Time{
@@ -1187,7 +1348,7 @@ FROM (
 		},
 		{
 			name:  "generate_timestamp_array function same value",
-			query: `SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-05 00:00:00', '2016-10-05 00:00:00', INTERVAL 1 HOUR) AS timestamp_array`,
+			query: `SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-05 00:00:00+00', '2016-10-05 00:00:00+00', INTERVAL 1 HOUR) AS timestamp_array`,
 			expectedRows: [][]interface{}{
 				{
 					[]time.Time{
@@ -1198,14 +1359,14 @@ FROM (
 		},
 		{
 			name:  "generate_timestamp_array function over step",
-			query: `SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-06 00:00:00', '2016-10-05 00:00:00', INTERVAL 1 HOUR) AS timestamp_array`,
+			query: `SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-06 00:00:00+00', '2016-10-05 00:00:00+00', INTERVAL 1 HOUR) AS timestamp_array`,
 			expectedRows: [][]interface{}{
 				{[]time.Time{}},
 			},
 		},
 		{
 			name:  "generate_timestamp_array function with null",
-			query: `SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-05 00:00:00', NULL, INTERVAL 1 HOUR) AS timestamp_array`,
+			query: `SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-05 00:00:00+00', NULL, INTERVAL 1 HOUR) AS timestamp_array`,
 			expectedRows: [][]interface{}{
 				{nil},
 			},
@@ -1217,16 +1378,16 @@ SELECT GENERATE_TIMESTAMP_ARRAY(start_timestamp, end_timestamp, INTERVAL 1 HOUR)
   AS timestamp_array
 FROM
   (SELECT
-    TIMESTAMP '2016-10-05 00:00:00' AS start_timestamp,
-    TIMESTAMP '2016-10-05 02:00:00' AS end_timestamp
+    TIMESTAMP '2016-10-05 00:00:00+00' AS start_timestamp,
+    TIMESTAMP '2016-10-05 02:00:00+00' AS end_timestamp
    UNION ALL
    SELECT
-    TIMESTAMP '2016-10-05 12:00:00' AS start_timestamp,
-    TIMESTAMP '2016-10-05 14:00:00' AS end_timestamp
+    TIMESTAMP '2016-10-05 12:00:00+00' AS start_timestamp,
+    TIMESTAMP '2016-10-05 14:00:00+00' AS end_timestamp
    UNION ALL
    SELECT
-    TIMESTAMP '2016-10-05 23:59:00' AS start_timestamp,
-    TIMESTAMP '2016-10-06 01:59:00' AS end_timestamp)`,
+    TIMESTAMP '2016-10-05 23:59:00+00' AS start_timestamp,
+    TIMESTAMP '2016-10-06 01:59:00+00' AS end_timestamp)`,
 			expectedRows: [][]interface{}{
 				{
 					[]time.Time{
@@ -1401,6 +1562,28 @@ GROUP BY day HAVING SUM(price) > 10`,
 				{int64(1), true},
 			},
 		},
+		/*
+			{
+				name: "qualify",
+				query: `
+			WITH Produce AS
+			 (SELECT 'kale' as item, 23 as purchases, 'vegetable' as category
+			  UNION ALL SELECT 'banana', 2, 'fruit'
+			  UNION ALL SELECT 'cabbage', 9, 'vegetable'
+			  UNION ALL SELECT 'apple', 8, 'fruit'
+			  UNION ALL SELECT 'leek', 2, 'vegetable'
+			  UNION ALL SELECT 'lettuce', 10, 'vegetable')
+			SELECT
+			  item,
+			  RANK() OVER (PARTITION BY category ORDER BY purchases DESC) as rank
+			FROM Produce WHERE Produce.category = 'vegetable' QUALIFY rank <= 3`,
+				expectedRows: [][]interface{}{
+					{"kale", int64(1)},
+					{"lettuce", int64(2)},
+					{"cabbage", int64(3)},
+				},
+			},
+		*/
 	} {
 		test := test
 		t.Run(test.name, func(t *testing.T) {

@@ -227,6 +227,14 @@ func WINDOW_ORDER_BY(value Value) (Value, error) {
 			return nil, err
 		}
 		v = i64
+	case TimestampValue:
+		i64, err := vv.ToInt64()
+		if err != nil {
+			return nil, err
+		}
+		v = i64
+	default:
+		return nil, fmt.Errorf("unsupported %T type for order by value", vv)
 	}
 	b, _ := json.Marshal(&WindowFuncOption{
 		Type:  WindowFuncOptionOrderBy,

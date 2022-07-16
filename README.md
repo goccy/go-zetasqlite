@@ -195,7 +195,7 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 ### Numbering functions
 
 - [x] RANK
-- [ ] DENSE_RANK
+- [x] DENSE_RANK
 - [ ] PERCENT_RANK
 - [ ] CUME_DIST
 - [ ] NTILE
@@ -276,7 +276,7 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 - [x] LAST_VALUE
 - [ ] NTH_VALUE
 - [ ] LEAD
-- [ ] LAG
+- [x] LAG
 - [ ] PERCENTILE_CONT
 - [ ] PERCENTILE_DISC
 
