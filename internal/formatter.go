@@ -252,7 +252,10 @@ func (n *AnalyticFunctionCallNode) FormatSQL(ctx context.Context) (string, error
 		if err != nil {
 			return "", err
 		}
-		orderColumnNames.values = append(orderColumnNames.values, arg)
+		orderColumnNames.values = append(orderColumnNames.values, &analyticOrderBy{
+			column: arg,
+			isAsc:  true,
+		})
 	}
 	tableName := analyticTableNameFromContext(ctx)
 	if tableName == "" {
@@ -279,8 +282,8 @@ func (n *AnalyticFunctionCallNode) FormatSQL(ctx context.Context) (string, error
 	for _, column := range analyticPartitionColumnNamesFromContext(ctx) {
 		args = append(args, getWindowPartitionOptionFuncSQL(column))
 	}
-	for _, column := range orderColumns {
-		args = append(args, getWindowOrderByOptionFuncSQL(column))
+	for _, col := range orderColumns {
+		args = append(args, getWindowOrderByOptionFuncSQL(col.column, col.isAsc))
 	}
 	windowFrame := n.node.WindowFrame()
 	if windowFrame != nil {
@@ -803,24 +806,32 @@ func (n *AnalyticScanNode) FormatSQL(ctx context.Context) (string, error) {
 			var partitionColumns []string
 			for _, columnRef := range group.PartitionBy().PartitionByList() {
 				ctx = withAnalyticTableName(ctx, FormatName([]string{columnRef.Column().TableName()}))
+				colName := fmt.Sprintf("`%s`", columnRef.Column().Name())
 				partitionColumns = append(
 					partitionColumns,
-					fmt.Sprintf("`%s`", columnRef.Column().Name()),
+					colName,
 				)
+				orderColumnNames.values = append(orderColumnNames.values, &analyticOrderBy{
+					column: colName,
+					isAsc:  true,
+				})
 			}
-			orderColumnNames.values = append(orderColumnNames.values, partitionColumns...)
 			ctx = withAnalyticPartitionColumnNames(ctx, partitionColumns)
 		}
 		if group.OrderBy() != nil {
 			var orderByColumns []string
 			for _, item := range group.OrderBy().OrderByItemList() {
 				ctx = withAnalyticTableName(ctx, FormatName([]string{item.ColumnRef().Column().TableName()}))
+				colName := fmt.Sprintf("`%s`", item.ColumnRef().Column().Name())
 				orderByColumns = append(
 					orderByColumns,
-					fmt.Sprintf("`%s`", item.ColumnRef().Column().Name()),
+					colName,
 				)
+				orderColumnNames.values = append(orderColumnNames.values, &analyticOrderBy{
+					column: colName,
+					isAsc:  !item.IsDescending(),
+				})
 			}
-			orderColumnNames.values = append(orderColumnNames.values, orderByColumns...)
 		}
 		if _, err := newNode(group).FormatSQL(ctx); err != nil {
 			return "", err
@@ -840,8 +851,22 @@ func (n *AnalyticScanNode) FormatSQL(ctx context.Context) (string, error) {
 			)
 		}
 	}
-	orderBy := fmt.Sprintf("ORDER BY %s", strings.Join(orderColumnNames.values, ","))
-	orderColumnNames.values = []string{}
+	var orderColumnFormattedNames []string
+	for _, col := range orderColumnNames.values {
+		if col.isAsc {
+			orderColumnFormattedNames = append(
+				orderColumnFormattedNames,
+				col.column,
+			)
+		} else {
+			orderColumnFormattedNames = append(
+				orderColumnFormattedNames,
+				fmt.Sprintf("%s DESC", col.column),
+			)
+		}
+	}
+	orderBy := fmt.Sprintf("ORDER BY %s", strings.Join(orderColumnFormattedNames, ","))
+	orderColumnNames.values = []*analyticOrderBy{}
 	return fmt.Sprintf(
 		"SELECT %s FROM ( SELECT *, ROW_NUMBER() OVER() AS `rowid` %s ) %s",
 		strings.Join(columns, ","),

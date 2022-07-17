@@ -71,8 +71,13 @@ func funcMapFromContext(ctx context.Context) map[string]*FunctionSpec {
 	return value.(map[string]*FunctionSpec)
 }
 
+type analyticOrderBy struct {
+	column string
+	isAsc  bool
+}
+
 type analyticOrderColumnNames struct {
-	values []string
+	values []*analyticOrderBy
 }
 
 func withAnalyticOrderColumnNames(ctx context.Context, v *analyticOrderColumnNames) context.Context {

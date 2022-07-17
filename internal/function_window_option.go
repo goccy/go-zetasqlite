@@ -59,12 +59,20 @@ func (o *WindowFuncOption) UnmarshalJSON(b []byte) error {
 			return err
 		}
 		o.Value = value.Value
-	case WindowFuncOptionPartition, WindowFuncOptionOrderBy:
+	case WindowFuncOptionPartition:
 		value, err := ValueOf(v.Value)
 		if err != nil {
 			return fmt.Errorf("failed to convert %v to Value: %w", v.Value, err)
 		}
 		o.Value = value
+	case WindowFuncOptionOrderBy:
+		var value struct {
+			Value *WindowOrderBy `json:"value"`
+		}
+		if err := json.Unmarshal(b, &value); err != nil {
+			return err
+		}
+		o.Value = value.Value
 	}
 	return nil
 }
@@ -144,8 +152,8 @@ func getWindowRowIDOptionFuncSQL() string {
 	return "zetasqlite_window_rowid_string(`rowid`)"
 }
 
-func getWindowOrderByOptionFuncSQL(column string) string {
-	return fmt.Sprintf("zetasqlite_window_order_by_string(%s)", column)
+func getWindowOrderByOptionFuncSQL(column string, isAsc bool) string {
+	return fmt.Sprintf("zetasqlite_window_order_by_string(%s, %t)", column, isAsc)
 }
 
 func WINDOW_FRAME_UNIT(frameUnit int64) (Value, error) {
@@ -179,9 +187,62 @@ func WINDOW_BOUNDARY_END(boundaryType, offset int64) (Value, error) {
 }
 
 func WINDOW_PARTITION(partition Value) (Value, error) {
+	var v interface{}
+	switch vv := partition.(type) {
+	case IntValue:
+		i64, err := vv.ToInt64()
+		if err != nil {
+			return nil, err
+		}
+		v = i64
+	case FloatValue:
+		f64, err := vv.ToFloat64()
+		if err != nil {
+			return nil, err
+		}
+		v = f64
+	case StringValue:
+		s, err := vv.ToString()
+		if err != nil {
+			return nil, err
+		}
+		v = s
+	case BoolValue:
+		b, err := vv.ToBool()
+		if err != nil {
+			return nil, err
+		}
+		v = b
+	case DateValue:
+		i64, err := vv.ToInt64()
+		if err != nil {
+			return nil, err
+		}
+		v = i64
+	case DatetimeValue:
+		i64, err := vv.ToInt64()
+		if err != nil {
+			return nil, err
+		}
+		v = i64
+	case TimeValue:
+		i64, err := vv.ToInt64()
+		if err != nil {
+			return nil, err
+		}
+		v = i64
+	case TimestampValue:
+		i64, err := vv.ToInt64()
+		if err != nil {
+			return nil, err
+		}
+		v = i64
+	default:
+		return nil, fmt.Errorf("unsupported %T type for order by value", vv)
+	}
 	b, _ := json.Marshal(&WindowFuncOption{
 		Type:  WindowFuncOptionPartition,
-		Value: partition,
+		Value: v,
 	})
 	return StringValue(string(b)), nil
 }
@@ -194,7 +255,29 @@ func WINDOW_ROWID(id int64) (Value, error) {
 	return StringValue(string(b)), nil
 }
 
-func WINDOW_ORDER_BY(value Value) (Value, error) {
+type WindowOrderBy struct {
+	Value Value `json:"value"`
+	IsAsc bool  `json:"isAsc"`
+}
+
+func (w *WindowOrderBy) UnmarshalJSON(b []byte) error {
+	var v struct {
+		Value interface{} `json:"value"`
+		IsAsc bool        `json:"isAsc"`
+	}
+	if err := json.Unmarshal(b, &v); err != nil {
+		return err
+	}
+	value, err := ValueOf(v.Value)
+	if err != nil {
+		return err
+	}
+	w.Value = value
+	w.IsAsc = v.IsAsc
+	return nil
+}
+
+func WINDOW_ORDER_BY(value Value, isAsc bool) (Value, error) {
 	var v interface{}
 	switch vv := value.(type) {
 	case IntValue:
@@ -227,6 +310,18 @@ func WINDOW_ORDER_BY(value Value) (Value, error) {
 			return nil, err
 		}
 		v = i64
+	case DatetimeValue:
+		i64, err := vv.ToInt64()
+		if err != nil {
+			return nil, err
+		}
+		v = i64
+	case TimeValue:
+		i64, err := vv.ToInt64()
+		if err != nil {
+			return nil, err
+		}
+		v = i64
 	case TimestampValue:
 		i64, err := vv.ToInt64()
 		if err != nil {
@@ -237,8 +332,14 @@ func WINDOW_ORDER_BY(value Value) (Value, error) {
 		return nil, fmt.Errorf("unsupported %T type for order by value", vv)
 	}
 	b, _ := json.Marshal(&WindowFuncOption{
-		Type:  WindowFuncOptionOrderBy,
-		Value: v,
+		Type: WindowFuncOptionOrderBy,
+		Value: struct {
+			Value interface{} `json:"value"`
+			IsAsc bool        `json:"isAsc"`
+		}{
+			Value: v,
+			IsAsc: isAsc,
+		},
 	})
 	return StringValue(string(b)), nil
 }
@@ -249,7 +350,7 @@ type WindowFuncStatus struct {
 	End       *WindowBoundary
 	Partition Value
 	RowID     int64
-	OrderBy   []Value
+	OrderBy   []*WindowOrderBy
 }
 
 func parseWindowOptions(args ...interface{}) ([]interface{}, *WindowFuncStatus, error) {
@@ -280,7 +381,7 @@ func parseWindowOptions(args ...interface{}) ([]interface{}, *WindowFuncStatus, 
 		case WindowFuncOptionRowID:
 			opt.RowID = v.Value.(int64)
 		case WindowFuncOptionOrderBy:
-			opt.OrderBy = append(opt.OrderBy, v.Value.(Value))
+			opt.OrderBy = append(opt.OrderBy, v.Value.(*WindowOrderBy))
 		default:
 			filteredArgs = append(filteredArgs, arg)
 			continue
@@ -290,7 +391,7 @@ func parseWindowOptions(args ...interface{}) ([]interface{}, *WindowFuncStatus, 
 }
 
 type WindowOrderedValue struct {
-	OrderBy []Value
+	OrderBy []*WindowOrderBy
 	Value   Value
 }
 
@@ -370,10 +471,18 @@ func (s *WindowFuncAggregatedStatus) Done(cb func([]Value, int, int) error) erro
 	}
 	if len(sortedValues) != 0 {
 		for orderBy := 0; orderBy < len(sortedValues[0].OrderBy); orderBy++ {
-			sort.Slice(sortedValues, func(i, j int) bool {
-				cond, _ := sortedValues[i].OrderBy[orderBy].LT(sortedValues[j].OrderBy[orderBy])
-				return cond
-			})
+			isAsc := sortedValues[0].OrderBy[0].IsAsc
+			if isAsc {
+				sort.Slice(sortedValues, func(i, j int) bool {
+					cond, _ := sortedValues[i].OrderBy[orderBy].Value.LT(sortedValues[j].OrderBy[orderBy].Value)
+					return cond
+				})
+			} else {
+				sort.Slice(sortedValues, func(i, j int) bool {
+					cond, _ := sortedValues[i].OrderBy[orderBy].Value.GT(sortedValues[j].OrderBy[orderBy].Value)
+					return cond
+				})
+			}
 		}
 	}
 	s.SortedValues = sortedValues
@@ -500,7 +609,7 @@ func (s *WindowFuncAggregatedStatus) currentRangeValue() (int64, error) {
 	if len(curValue.OrderBy) == 0 {
 		return 0, fmt.Errorf("required order by column for analytic range scanning")
 	}
-	return curValue.OrderBy[len(curValue.OrderBy)-1].ToInt64()
+	return curValue.OrderBy[len(curValue.OrderBy)-1].Value.ToInt64()
 }
 
 func (s *WindowFuncAggregatedStatus) partitionedCurrentRangeValue() (int64, error) {
@@ -509,7 +618,7 @@ func (s *WindowFuncAggregatedStatus) partitionedCurrentRangeValue() (int64, erro
 	if len(curValue.Value.OrderBy) == 0 {
 		return 0, fmt.Errorf("required order by column for analytic range scanning")
 	}
-	return curValue.Value.OrderBy[len(curValue.Value.OrderBy)-1].ToInt64()
+	return curValue.Value.OrderBy[len(curValue.Value.OrderBy)-1].Value.ToInt64()
 }
 
 func (s *WindowFuncAggregatedStatus) lookupMinIndexFromRangeValue(rangeValue int64) (int, error) {
@@ -519,7 +628,7 @@ func (s *WindowFuncAggregatedStatus) lookupMinIndexFromRangeValue(rangeValue int
 		if len(value.OrderBy) != 1 {
 			continue
 		}
-		target, err := value.OrderBy[len(value.OrderBy)-1].ToInt64()
+		target, err := value.OrderBy[len(value.OrderBy)-1].Value.ToInt64()
 		if err != nil {
 			return 0, err
 		}
@@ -537,7 +646,7 @@ func (s *WindowFuncAggregatedStatus) lookupMaxIndexFromRangeValue(rangeValue int
 		if len(value.OrderBy) != 1 {
 			continue
 		}
-		target, err := value.OrderBy[len(value.OrderBy)-1].ToInt64()
+		target, err := value.OrderBy[len(value.OrderBy)-1].Value.ToInt64()
 		if err != nil {
 			return 0, err
 		}

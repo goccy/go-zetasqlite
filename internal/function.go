@@ -7,18 +7,30 @@ import (
 )
 
 func ADD(a, b Value) (Value, error) {
+	if a == nil || b == nil {
+		return nil, nil
+	}
 	return a.Add(b)
 }
 
 func SUB(a, b Value) (Value, error) {
+	if a == nil || b == nil {
+		return nil, nil
+	}
 	return a.Sub(b)
 }
 
 func MUL(a, b Value) (Value, error) {
+	if a == nil || b == nil {
+		return nil, nil
+	}
 	return a.Mul(b)
 }
 
 func OP_DIV(a, b Value) (Value, error) {
+	if a == nil || b == nil {
+		return nil, nil
+	}
 	return a.Div(b)
 }
 

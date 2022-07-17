@@ -1328,10 +1328,14 @@ func bindWindowRowID(args ...Value) (Value, error) {
 }
 
 func bindWindowOrderBy(args ...Value) (Value, error) {
-	if len(args) != 1 {
+	if len(args) != 2 {
 		return nil, fmt.Errorf("WINDOW_ORDER_BY: invalid argument num %d", len(args))
 	}
-	return WINDOW_ORDER_BY(args[0])
+	isAsc, err := args[1].ToBool()
+	if err != nil {
+		return nil, err
+	}
+	return WINDOW_ORDER_BY(args[0], isAsc)
 }
 
 func bindArrayAgg(converter ReturnValueConverter) func() *Aggregator {

@@ -301,7 +301,7 @@ FROM UNNEST([1, 2, 3, 4]) AS val`,
 		{
 			name:         "nullif true",
 			query:        `SELECT NULLIF(0, 0)`,
-			expectedRows: [][]interface{}{},
+			expectedRows: [][]interface{}{{nil}},
 		},
 		{
 			name:         "nullif false",
@@ -572,12 +572,12 @@ SELECT ARRAY_CONCAT_AGG(x) AS array_concat_agg FROM (
 		{
 			name:         "sum null",
 			query:        `SELECT SUM(x) AS sum FROM UNNEST([]) AS x`,
-			expectedRows: [][]interface{}{},
+			expectedRows: [][]interface{}{{nil}},
 		},
 		{
 			name:         "null",
 			query:        `SELECT NULL`,
-			expectedRows: [][]interface{}{},
+			expectedRows: [][]interface{}{{nil}},
 		},
 
 		// window function
@@ -1639,10 +1639,11 @@ SELECT Roster.LastName, TeamMascot.Mascot FROM Roster LEFT JOIN TeamMascot ON Ro
 				t.Fatal(err)
 			}
 			defer rows.Close()
-			if len(test.expectedRows) == 0 {
-				return
+			columns, err := rows.Columns()
+			if err != nil {
+				t.Fatal(err)
 			}
-			columnNum := len(test.expectedRows[0])
+			columnNum := len(columns)
 			args := []interface{}{}
 			for i := 0; i < columnNum; i++ {
 				var v interface{}
@@ -1653,13 +1654,20 @@ SELECT Roster.LastName, TeamMascot.Mascot FROM Roster LEFT JOIN TeamMascot ON Ro
 				if err := rows.Scan(args...); err != nil {
 					t.Fatal(err)
 				}
-				expectedRow := test.expectedRows[rowNum]
-				if len(args) != len(expectedRow) {
-					t.Fatalf("failed to get columns. expected %d but got %d", len(expectedRow), len(args))
-				}
+				derefArgs := []interface{}{}
 				for i := 0; i < len(args); i++ {
 					value := reflect.ValueOf(args[i]).Elem().Interface()
-					if diff := cmp.Diff(expectedRow[i], value, floatCmpOpt); diff != "" {
+					derefArgs = append(derefArgs, value)
+				}
+				if len(test.expectedRows) <= rowNum {
+					t.Fatalf("unexpected row %v", derefArgs)
+				}
+				expectedRow := test.expectedRows[rowNum]
+				if len(derefArgs) != len(expectedRow) {
+					t.Fatalf("failed to get columns. expected %d but got %d", len(expectedRow), len(derefArgs))
+				}
+				for i := 0; i < len(derefArgs); i++ {
+					if diff := cmp.Diff(expectedRow[i], derefArgs[i], floatCmpOpt); diff != "" {
 						t.Errorf("(-want +got):\n%s", diff)
 					}
 				}

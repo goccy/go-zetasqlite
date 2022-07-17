@@ -235,7 +235,7 @@ func (f *WINDOW_RANK) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
 	if err := agg.Done(func(_ []Value, start, end int) error {
 		var orderByValues []Value
 		for _, value := range agg.SortedValues {
-			orderByValues = append(orderByValues, value.OrderBy[len(value.OrderBy)-1])
+			orderByValues = append(orderByValues, value.OrderBy[len(value.OrderBy)-1].Value)
 		}
 		if start >= len(orderByValues) || end < 0 {
 			return nil
@@ -285,7 +285,7 @@ func (f *WINDOW_DENSE_RANK) Done(agg *WindowFuncAggregatedStatus) (Value, error)
 	if err := agg.Done(func(_ []Value, start, end int) error {
 		var orderByValues []Value
 		for _, value := range agg.SortedValues {
-			orderByValues = append(orderByValues, value.OrderBy[len(value.OrderBy)-1])
+			orderByValues = append(orderByValues, value.OrderBy[len(value.OrderBy)-1].Value)
 		}
 		if start >= len(orderByValues) || end < 0 {
 			return nil
