@@ -207,7 +207,7 @@ var normalFuncs = []*FuncInfo{
 	{
 		Name:        "if",
 		BindFunc:    bindIf,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE, types.STRING},
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE, types.STRING, types.BOOL},
 	},
 	{
 		Name:        "ifnull",

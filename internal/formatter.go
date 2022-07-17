@@ -1152,7 +1152,6 @@ func (n *AnalyticFunctionGroupNode) FormatSQL(ctx context.Context) (string, erro
 		return "", nil
 	}
 
-	orderColumnNames := analyticOrderColumnNamesFromContext(ctx)
 	var queries []string
 	for _, column := range n.node.AnalyticFunctionList() {
 		sql, err := newNode(column).FormatSQL(ctx)
@@ -1160,10 +1159,6 @@ func (n *AnalyticFunctionGroupNode) FormatSQL(ctx context.Context) (string, erro
 			return "", err
 		}
 		queries = append(queries, sql)
-		orderColumnNames.values = append(
-			orderColumnNames.values,
-			fmt.Sprintf("`%s`", column.Column().Name()),
-		)
 	}
 	return strings.Join(queries, ","), nil
 }
