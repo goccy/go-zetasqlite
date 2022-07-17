@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+	"math"
 	"sync"
 )
 
@@ -233,9 +234,16 @@ func (f *WINDOW_RANK) Step(opt *WindowFuncStatus, agg *WindowFuncAggregatedStatu
 func (f *WINDOW_RANK) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
 	var rankValue Value
 	if err := agg.Done(func(_ []Value, start, end int) error {
-		var orderByValues []Value
+		var (
+			orderByValues []Value
+			isAsc         bool = true
+			isAscOnce     sync.Once
+		)
 		for _, value := range agg.SortedValues {
 			orderByValues = append(orderByValues, value.OrderBy[len(value.OrderBy)-1].Value)
+			isAscOnce.Do(func() {
+				isAsc = value.OrderBy[len(value.OrderBy)-1].IsAsc
+			})
 		}
 		if start >= len(orderByValues) || end < 0 {
 			return nil
@@ -252,17 +260,34 @@ func (f *WINDOW_RANK) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
 			sameRankNum = 1
 			maxValue    int64
 		)
-		for idx := 0; idx <= lastIdx; idx++ {
-			curValue, err := orderByValues[idx].ToInt64()
-			if err != nil {
-				return err
+		if isAsc {
+			for idx := 0; idx <= lastIdx; idx++ {
+				curValue, err := orderByValues[idx].ToInt64()
+				if err != nil {
+					return err
+				}
+				if maxValue < curValue {
+					maxValue = curValue
+					rank += sameRankNum
+					sameRankNum = 1
+				} else {
+					sameRankNum++
+				}
 			}
-			if maxValue < curValue {
-				maxValue = curValue
-				rank += sameRankNum
-				sameRankNum = 1
-			} else {
-				sameRankNum++
+		} else {
+			maxValue = math.MaxInt64
+			for idx := 0; idx <= lastIdx; idx++ {
+				curValue, err := orderByValues[idx].ToInt64()
+				if err != nil {
+					return err
+				}
+				if maxValue > curValue {
+					maxValue = curValue
+					rank += sameRankNum
+					sameRankNum = 1
+				} else {
+					sameRankNum++
+				}
 			}
 		}
 		rankValue = IntValue(rank)
@@ -283,9 +308,16 @@ func (f *WINDOW_DENSE_RANK) Step(opt *WindowFuncStatus, agg *WindowFuncAggregate
 func (f *WINDOW_DENSE_RANK) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
 	var rankValue Value
 	if err := agg.Done(func(_ []Value, start, end int) error {
-		var orderByValues []Value
+		var (
+			orderByValues []Value
+			isAscOnce     sync.Once
+			isAsc         bool = true
+		)
 		for _, value := range agg.SortedValues {
 			orderByValues = append(orderByValues, value.OrderBy[len(value.OrderBy)-1].Value)
+			isAscOnce.Do(func() {
+				isAsc = value.OrderBy[len(value.OrderBy)-1].IsAsc
+			})
 		}
 		if start >= len(orderByValues) || end < 0 {
 			return nil
@@ -301,14 +333,28 @@ func (f *WINDOW_DENSE_RANK) Done(agg *WindowFuncAggregatedStatus) (Value, error)
 			rank     = 0
 			maxValue int64
 		)
-		for idx := 0; idx <= lastIdx; idx++ {
-			curValue, err := orderByValues[idx].ToInt64()
-			if err != nil {
-				return err
+		if isAsc {
+			for idx := 0; idx <= lastIdx; idx++ {
+				curValue, err := orderByValues[idx].ToInt64()
+				if err != nil {
+					return err
+				}
+				if maxValue < curValue {
+					maxValue = curValue
+					rank++
+				}
 			}
-			if maxValue < curValue {
-				maxValue = curValue
-				rank++
+		} else {
+			maxValue = math.MaxInt64
+			for idx := 0; idx <= lastIdx; idx++ {
+				curValue, err := orderByValues[idx].ToInt64()
+				if err != nil {
+					return err
+				}
+				if maxValue > curValue {
+					maxValue = curValue
+					rank++
+				}
 			}
 		}
 		rankValue = IntValue(rank)

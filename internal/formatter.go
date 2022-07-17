@@ -257,10 +257,6 @@ func (n *AnalyticFunctionCallNode) FormatSQL(ctx context.Context) (string, error
 			isAsc:  true,
 		})
 	}
-	tableName := analyticTableNameFromContext(ctx)
-	if tableName == "" {
-		return "", fmt.Errorf("failed to find table name from analytic query")
-	}
 	funcName, args, err := getFuncNameAndArgs(ctx, n.node.BaseFunctionCallNode, true)
 	if err != nil {
 		return "", err
@@ -300,11 +296,12 @@ func (n *AnalyticFunctionCallNode) FormatSQL(ctx context.Context) (string, error
 		args = append(args, endSQL)
 	}
 	args = append(args, getWindowRowIDOptionFuncSQL())
+	input := analyticInputScanFromContext(ctx)
 	return fmt.Sprintf(
-		"( SELECT %s(%s) FROM `%s` )",
+		"( SELECT %s(%s) %s )",
 		funcName,
 		strings.Join(args, ","),
-		tableName,
+		input,
 	), nil
 
 	return "", nil
@@ -539,8 +536,7 @@ func (n *ArrayScanNode) FormatSQL(ctx context.Context) (string, error) {
 			return "", err
 		}
 		return fmt.Sprintf(
-			"%s, ( SELECT json_each.value AS `%s` %s, json_each(zetasqlite_decode_array_string(%s)) )",
-			input,
+			"SELECT *, json_each.value AS `%s` %s, json_each(zetasqlite_decode_array_string(%s))",
 			colName,
 			input,
 			arrayExpr,
@@ -800,6 +796,7 @@ func (n *AnalyticScanNode) FormatSQL(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	ctx = withAnalyticInputScan(ctx, input)
 	orderColumnNames := analyticOrderColumnNamesFromContext(ctx)
 	for _, group := range n.node.FunctionGroupList() {
 		if group.PartitionBy() != nil {

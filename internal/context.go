@@ -13,6 +13,7 @@ type (
 	analyticOrderColumnNamesKey     struct{}
 	analyticPartitionColumnNamesKey struct{}
 	analyticTableNameKey            struct{}
+	analyticInputScanKey            struct{}
 	arraySubqueryColumnNameKey      struct{}
 	currentTimeKey                  struct{}
 	existsGroupByKey                struct{}
@@ -110,6 +111,18 @@ func withAnalyticTableName(ctx context.Context, name string) context.Context {
 
 func analyticTableNameFromContext(ctx context.Context) string {
 	value := ctx.Value(analyticTableNameKey{})
+	if value == nil {
+		return ""
+	}
+	return value.(string)
+}
+
+func withAnalyticInputScan(ctx context.Context, input string) context.Context {
+	return context.WithValue(ctx, analyticInputScanKey{}, input)
+}
+
+func analyticInputScanFromContext(ctx context.Context) string {
+	value := ctx.Value(analyticInputScanKey{})
 	if value == nil {
 		return ""
 	}
