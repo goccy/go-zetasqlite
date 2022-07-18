@@ -22,13 +22,17 @@ type AnalyzerOutput struct {
 	node           ast.Node
 	query          string
 	formattedQuery string
-	argsNum        int
+	params         []*ast.ParameterNode
 	isQuery        bool
 	tableSpec      *TableSpec
 	outputColumns  []*ColumnSpec
 	Prepare        func(context.Context, *sql.Conn) (driver.Stmt, error)
 	ExecContext    func(context.Context, *sql.Conn, ...interface{}) (driver.Result, error)
 	QueryContext   func(context.Context, *sql.Conn, ...interface{}) (driver.Rows, error)
+}
+
+func (o *AnalyzerOutput) Params() []*ast.ParameterNode {
+	return o.params
 }
 
 func NewAnalyzer(catalog *Catalog) *Analyzer {
@@ -138,7 +142,7 @@ func (a *Analyzer) analyzeCreateTableStmt(query string, node *ast.CreateTableStm
 	return &AnalyzerOutput{
 		node:      node,
 		query:     query,
-		argsNum:   a.getParamNumFromNode(node),
+		params:    a.getParamsFromNode(node),
 		tableSpec: spec,
 		Prepare: func(ctx context.Context, conn *sql.Conn) (driver.Stmt, error) {
 			if spec.CreateMode == ast.CreateOrReplaceMode {
@@ -205,18 +209,18 @@ func (a *Analyzer) analyzeDMLStmt(ctx context.Context, query string, node ast.No
 	if formattedQuery == "" {
 		return nil, fmt.Errorf("failed to format query %s", query)
 	}
-	argsNum := a.getParamNumFromNode(node)
+	params := a.getParamsFromNode(node)
 	return &AnalyzerOutput{
 		node:           node,
 		query:          query,
 		formattedQuery: formattedQuery,
-		argsNum:        argsNum,
+		params:         params,
 		Prepare: func(ctx context.Context, conn *sql.Conn) (driver.Stmt, error) {
 			s, err := conn.PrepareContext(ctx, formattedQuery)
 			if err != nil {
 				return nil, fmt.Errorf("failed to prepare %s: %w", query, err)
 			}
-			return newDMLStmt(s, argsNum, formattedQuery), nil
+			return newDMLStmt(s, params, formattedQuery), nil
 		},
 		ExecContext: func(ctx context.Context, conn *sql.Conn, args ...interface{}) (driver.Result, error) {
 			if _, err := conn.ExecContext(ctx, formattedQuery, args...); err != nil {
@@ -242,19 +246,19 @@ func (a *Analyzer) analyzeQueryStmt(ctx context.Context, query string, node *ast
 	if formattedQuery == "" {
 		return nil, fmt.Errorf("failed to format query %s", query)
 	}
-	argsNum := a.getParamNumFromNode(node)
+	params := a.getParamsFromNode(node)
 	return &AnalyzerOutput{
 		node:           node,
 		query:          query,
 		formattedQuery: formattedQuery,
-		argsNum:        argsNum,
+		params:         params,
 		isQuery:        true,
 		Prepare: func(ctx context.Context, conn *sql.Conn) (driver.Stmt, error) {
 			s, err := conn.PrepareContext(ctx, formattedQuery)
 			if err != nil {
 				return nil, fmt.Errorf("failed to prepare %s: %w", query, err)
 			}
-			return newQueryStmt(s, argsNum, formattedQuery, outputColumns), nil
+			return newQueryStmt(s, params, formattedQuery, outputColumns), nil
 		},
 		QueryContext: func(ctx context.Context, conn *sql.Conn, args ...interface{}) (driver.Rows, error) {
 			rows, err := conn.QueryContext(ctx, formattedQuery, args...)
@@ -313,14 +317,14 @@ func (a *Analyzer) getFullNamePath(query string) (*fullNamePath, error) {
 	return fullpath, nil
 }
 
-func (a *Analyzer) getParamNumFromNode(node ast.Node) int {
-	var numInput int
+func (a *Analyzer) getParamsFromNode(node ast.Node) []*ast.ParameterNode {
+	var params []*ast.ParameterNode
 	ast.Walk(node, func(n ast.Node) error {
-		_, ok := n.(*ast.ParameterNode)
+		param, ok := n.(*ast.ParameterNode)
 		if ok {
-			numInput++
+			params = append(params, param)
 		}
 		return nil
 	})
-	return numInput
+	return params
 }

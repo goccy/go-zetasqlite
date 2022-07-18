@@ -149,7 +149,7 @@ func getWindowPartitionOptionFuncSQL(column string) string {
 }
 
 func getWindowRowIDOptionFuncSQL() string {
-	return "zetasqlite_window_rowid_string(`rowid`)"
+	return "zetasqlite_window_rowid_string(`row_id`)"
 }
 
 func getWindowOrderByOptionFuncSQL(column string, isAsc bool) string {

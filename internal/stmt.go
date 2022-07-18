@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
+
+	ast "github.com/goccy/go-zetasql/resolved_ast"
 )
 
 var (
@@ -83,14 +85,14 @@ func newCreateFunctionStmt(catalog *Catalog, spec *FunctionSpec) *CreateFunction
 
 type DMLStmt struct {
 	stmt           *sql.Stmt
-	argsNum        int
+	args           []*ast.ParameterNode
 	formattedQuery string
 }
 
-func newDMLStmt(stmt *sql.Stmt, argsNum int, formattedQuery string) *DMLStmt {
+func newDMLStmt(stmt *sql.Stmt, args []*ast.ParameterNode, formattedQuery string) *DMLStmt {
 	return &DMLStmt{
 		stmt:           stmt,
-		argsNum:        argsNum,
+		args:           args,
 		formattedQuery: formattedQuery,
 	}
 }
@@ -104,7 +106,7 @@ func (s *DMLStmt) Close() error {
 }
 
 func (s *DMLStmt) NumInput() int {
-	return s.argsNum
+	return len(s.args)
 }
 
 func (s *DMLStmt) Exec(args []driver.Value) (driver.Result, error) {
@@ -112,7 +114,7 @@ func (s *DMLStmt) Exec(args []driver.Value) (driver.Result, error) {
 	for _, arg := range args {
 		values = append(values, arg)
 	}
-	newArgs, err := convertValues(values)
+	newArgs, err := encodeValues(values, s.args)
 	if err != nil {
 		return nil, err
 	}
@@ -142,15 +144,15 @@ func (s *DMLStmt) QueryContext(ctx context.Context, query string, args []driver.
 
 type QueryStmt struct {
 	stmt           *sql.Stmt
-	argsNum        int
+	args           []*ast.ParameterNode
 	formattedQuery string
 	outputColumns  []*ColumnSpec
 }
 
-func newQueryStmt(stmt *sql.Stmt, argsNum int, formattedQuery string, outputColumns []*ColumnSpec) *QueryStmt {
+func newQueryStmt(stmt *sql.Stmt, args []*ast.ParameterNode, formattedQuery string, outputColumns []*ColumnSpec) *QueryStmt {
 	return &QueryStmt{
 		stmt:           stmt,
-		argsNum:        argsNum,
+		args:           args,
 		formattedQuery: formattedQuery,
 		outputColumns:  outputColumns,
 	}
@@ -165,7 +167,7 @@ func (s *QueryStmt) Close() error {
 }
 
 func (s *QueryStmt) NumInput() int {
-	return s.argsNum
+	return len(s.args)
 }
 
 func (s *QueryStmt) OutputColumns() []*ColumnSpec {
@@ -185,7 +187,7 @@ func (s *QueryStmt) Query(args []driver.Value) (driver.Rows, error) {
 	for _, arg := range args {
 		values = append(values, arg)
 	}
-	newArgs, err := convertValues(values)
+	newArgs, err := encodeValues(values, s.args)
 	if err != nil {
 		return nil, err
 	}

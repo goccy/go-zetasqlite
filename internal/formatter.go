@@ -865,7 +865,7 @@ func (n *AnalyticScanNode) FormatSQL(ctx context.Context) (string, error) {
 	orderBy := fmt.Sprintf("ORDER BY %s", strings.Join(orderColumnFormattedNames, ","))
 	orderColumnNames.values = []*analyticOrderBy{}
 	return fmt.Sprintf(
-		"SELECT %s FROM ( SELECT *, ROW_NUMBER() OVER() AS `rowid` %s ) %s",
+		"SELECT %s FROM ( SELECT *, ROW_NUMBER() OVER() AS `row_id` %s ) %s",
 		strings.Join(columns, ","),
 		input,
 		orderBy,
