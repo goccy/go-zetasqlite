@@ -1610,27 +1610,68 @@ SELECT Roster.LastName, TeamMascot.Mascot FROM Roster LEFT JOIN TeamMascot ON Ro
 			},
 		},
 		/*
-			{
-				name: "qualify",
-				query: `
-			WITH Produce AS
-			 (SELECT 'kale' as item, 23 as purchases, 'vegetable' as category
-			  UNION ALL SELECT 'banana', 2, 'fruit'
-			  UNION ALL SELECT 'cabbage', 9, 'vegetable'
-			  UNION ALL SELECT 'apple', 8, 'fruit'
-			  UNION ALL SELECT 'leek', 2, 'vegetable'
-			  UNION ALL SELECT 'lettuce', 10, 'vegetable')
-			SELECT
-			  item,
-			  RANK() OVER (PARTITION BY category ORDER BY purchases DESC) as rank
-			FROM Produce WHERE Produce.category = 'vegetable' QUALIFY rank <= 3`,
-				expectedRows: [][]interface{}{
-					{"kale", int64(1)},
-					{"lettuce", int64(2)},
-					{"cabbage", int64(3)},
-				},
-			},
+					{
+						name: "right join",
+						query: `
+			WITH Roster AS
+			 (SELECT 'Adams' as LastName, 50 as SchoolID UNION ALL
+			  SELECT 'Buchanan', 52 UNION ALL
+			  SELECT 'Coolidge', 52 UNION ALL
+			  SELECT 'Davis', 51 UNION ALL
+			  SELECT 'Eisenhower', 77),
+			 TeamMascot AS
+			 (SELECT 50 as SchoolID, 'Jaguars' as Mascot UNION ALL
+			  SELECT 51, 'Knights' UNION ALL
+			  SELECT 52, 'Lakers' UNION ALL
+			  SELECT 53, 'Mustangs')
+			SELECT Roster.LastName, TeamMascot.Mascot FROM Roster RIGHT JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID
+			`,
+						expectedRows: [][]interface{}{
+							{"Adams", "Jaguars"},
+							{"Buchanan", "Lakers"},
+							{"Coolidge", "Lakers"},
+							{"Davis", "Knights"},
+							{nil, "Mustangs"},
+						},
+					},
 		*/
+		{
+			name: "qualify",
+			query: `
+WITH Produce AS
+ (SELECT 'kale' as item, 23 as purchases, 'vegetable' as category
+  UNION ALL SELECT 'banana', 2, 'fruit'
+  UNION ALL SELECT 'cabbage', 9, 'vegetable'
+  UNION ALL SELECT 'apple', 8, 'fruit'
+  UNION ALL SELECT 'leek', 2, 'vegetable'
+  UNION ALL SELECT 'lettuce', 10, 'vegetable')
+SELECT
+  item,
+  RANK() OVER (PARTITION BY category ORDER BY purchases DESC) as rank
+FROM Produce WHERE Produce.category = 'vegetable' QUALIFY rank <= 3`,
+			expectedRows: [][]interface{}{
+				{"kale", int64(1)},
+				{"lettuce", int64(2)},
+				{"cabbage", int64(3)},
+			},
+		},
+		{
+			name: "qualify direct",
+			query: `
+WITH Produce AS
+ (SELECT 'kale' as item, 23 as purchases, 'vegetable' as category
+  UNION ALL SELECT 'banana', 2, 'fruit'
+  UNION ALL SELECT 'cabbage', 9, 'vegetable'
+  UNION ALL SELECT 'apple', 8, 'fruit'
+  UNION ALL SELECT 'leek', 2, 'vegetable'
+  UNION ALL SELECT 'lettuce', 10, 'vegetable')
+SELECT item FROM Produce WHERE Produce.category = 'vegetable' QUALIFY RANK() OVER (PARTITION BY category ORDER BY purchases DESC) <= 3`,
+			expectedRows: [][]interface{}{
+				{"kale"},
+				{"lettuce"},
+				{"cabbage"},
+			},
+		},
 	} {
 		test := test
 		t.Run(test.name, func(t *testing.T) {

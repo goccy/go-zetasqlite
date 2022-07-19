@@ -570,6 +570,10 @@ func (n *FilterScanNode) FormatSQL(ctx context.Context) (string, error) {
 	if usedGroupBy {
 		return fmt.Sprintf("%s HAVING %s", input, filter), nil
 	}
+	if strings.Contains(input, "WHERE") && input[len(input)-1] != ')' {
+		// expected to qualify clause
+		return fmt.Sprintf("FROM ( %s ) WHERE %s", input, filter), nil
+	}
 	return fmt.Sprintf("%s WHERE %s", input, filter), nil
 }
 

@@ -73,6 +73,7 @@ func newAnalyzerOptions() *zetasql.AnalyzerOptions {
 		zetasql.FeatureIntervalType,
 		zetasql.FeatureGroupByRollup,
 		zetasql.FeatureV13NullsFirstLastInOrderBy,
+		zetasql.FeatureV13Qualify,
 	})
 	langOpt.SetSupportedStatementKinds([]ast.Kind{
 		ast.QueryStmt,
@@ -272,7 +273,7 @@ func (a *Analyzer) analyzeQueryStmt(ctx context.Context, query string, node *ast
 
 func (a *Analyzer) getFullNamePath(query string) (*fullNamePath, error) {
 	fullpath := &fullNamePath{}
-	parsedAST, err := zetasql.ParseStatement(query)
+	parsedAST, err := zetasql.ParseStatement(query, a.opt.ParserOptions())
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse statement: %w", err)
 	}
