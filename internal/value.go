@@ -13,6 +13,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	ast "github.com/goccy/go-zetasql/resolved_ast"
+	"github.com/goccy/go-zetasql/types"
 )
 
 type Value interface {
@@ -1449,7 +1452,7 @@ func (d TimestampValue) ToStruct() (*StructValue, error) {
 }
 
 func (d TimestampValue) ToJSON() (string, error) {
-	return time.Time(d).Format(time.RFC3339), nil
+	return time.Time(d).Format(time.RFC3339Nano), nil
 }
 
 func (d TimestampValue) ToTime() (time.Time, error) {
@@ -1710,54 +1713,6 @@ func StructValueOf(v string) (Value, error) {
 	return &StructValue{keys: keys, values: values, m: valMap}, nil
 }
 
-func SQLiteValue(v interface{}) (interface{}, error) {
-	rv := reflect.TypeOf(v)
-	switch rv.Kind() {
-	case reflect.Int:
-		return int64(v.(int)), nil
-	case reflect.Int8:
-		return int64(v.(int8)), nil
-	case reflect.Int16:
-		return int64(v.(int16)), nil
-	case reflect.Int32:
-		return int64(v.(int32)), nil
-	case reflect.Uint:
-		return int64(v.(uint)), nil
-	case reflect.Uint8:
-		return int64(v.(uint8)), nil
-	case reflect.Uint16:
-		return int64(v.(uint16)), nil
-	case reflect.Uint32:
-		return int64(v.(uint32)), nil
-	case reflect.Uint64:
-		return int64(v.(uint64)), nil
-	case reflect.Float32:
-		return float64(v.(float32)), nil
-	case reflect.Slice:
-		if rv.Elem().Kind() == reflect.Uint8 {
-			return string(v.([]byte)), nil
-		}
-		b, err := json.Marshal(v)
-		if err != nil {
-			return nil, fmt.Errorf("failed to encode value %v: %w", v, err)
-		}
-		return toArrayValueFromJSONString(string(b)), nil
-	case reflect.Array:
-		b, err := json.Marshal(v)
-		if err != nil {
-			return nil, fmt.Errorf("failed to encode value %v: %w", v, err)
-		}
-		return toArrayValueFromJSONString(string(b)), nil
-	case reflect.Struct:
-		b, err := json.Marshal(v)
-		if err != nil {
-			return nil, fmt.Errorf("failed to encode value %v: %w", v, err)
-		}
-		return toStructValueFromJSONString(string(b)), nil
-	}
-	return v, nil
-}
-
 func toArrayValueFromJSONString(json string) string {
 	return strconv.Quote(
 		fmt.Sprintf(
@@ -2000,10 +1955,16 @@ func toTimeValue(s string) (time.Time, error) {
 	return time.Time{}, fmt.Errorf("unsupported time format %s", s)
 }
 
-func ConvertNamedValues(v []driver.NamedValue) ([]sql.NamedArg, error) {
+func EncodeNamedValues(v []driver.NamedValue, params []*ast.ParameterNode) ([]sql.NamedArg, error) {
+	if len(v) != len(params) {
+		return nil, fmt.Errorf(
+			"failed to match named values num (%d) and params num (%d)",
+			len(v), len(params),
+		)
+	}
 	ret := make([]sql.NamedArg, 0, len(v))
-	for _, vv := range v {
-		converted, err := convertNamedValue(vv)
+	for idx, vv := range v {
+		converted, err := encodeNamedValue(vv, params[idx])
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert value from %+v: %w", vv, err)
 		}
@@ -2012,8 +1973,8 @@ func ConvertNamedValues(v []driver.NamedValue) ([]sql.NamedArg, error) {
 	return ret, nil
 }
 
-func convertNamedValue(v driver.NamedValue) (sql.NamedArg, error) {
-	value, err := SQLiteValue(v.Value)
+func encodeNamedValue(v driver.NamedValue, param *ast.ParameterNode) (sql.NamedArg, error) {
+	value, err := encodeValueWithType(v.Value, param.Type())
 	if err != nil {
 		return sql.NamedArg{}, err
 	}
@@ -2023,14 +1984,101 @@ func convertNamedValue(v driver.NamedValue) (sql.NamedArg, error) {
 	}, nil
 }
 
-func convertValues(v []interface{}) ([]interface{}, error) {
+func encodeValues(v []interface{}, params []*ast.ParameterNode) ([]interface{}, error) {
+	if len(v) != len(params) {
+		return nil, fmt.Errorf(
+			"failed to match args values num (%d) and params num (%d)",
+			len(v), len(params),
+		)
+	}
 	ret := make([]interface{}, 0, len(v))
-	for _, vv := range v {
-		value, err := SQLiteValue(vv)
+	for idx, vv := range v {
+		value, err := encodeValueWithType(vv, params[idx].Type())
 		if err != nil {
 			return nil, err
 		}
 		ret = append(ret, value)
 	}
 	return ret, nil
+}
+
+func encodeValueWithType(v interface{}, t types.Type) (interface{}, error) {
+	switch t.Kind() {
+	case types.INT32, types.INT64, types.UINT32, types.UINT64, types.ENUM:
+		vv, err := ValueOf(v)
+		if err != nil {
+			return nil, err
+		}
+		return vv.ToInt64()
+	case types.BOOL:
+		vv, err := ValueOf(v)
+		if err != nil {
+			return nil, err
+		}
+		return vv.ToBool()
+	case types.FLOAT, types.DOUBLE:
+		vv, err := ValueOf(v)
+		if err != nil {
+			return nil, err
+		}
+		return vv.ToFloat64()
+	case types.STRING:
+		vv, err := ValueOf(v)
+		if err != nil {
+			return nil, err
+		}
+		return vv.ToString()
+	case types.BYTES:
+		vv, err := ValueOf(v)
+		if err != nil {
+			return nil, err
+		}
+		s, err := vv.ToString()
+		if err != nil {
+			return nil, err
+		}
+		return []byte(s), nil
+	case types.DATE:
+		text, ok := v.(string)
+		if !ok {
+			return nil, fmt.Errorf("failed to convert DATE from %T", v)
+		}
+		return toDateValueFromString(text), nil
+	case types.TIMESTAMP:
+		text, ok := v.(string)
+		if !ok {
+			return nil, fmt.Errorf("failed to convert TIMESTAMP from %T", v)
+		}
+		return toTimestampValueFromString(text), nil
+	case types.ARRAY:
+		b, err := json.Marshal(v)
+		if err != nil {
+			return nil, fmt.Errorf("failed to encode array value %v: %w", v, err)
+		}
+		return toArrayValueFromJSONString(string(b)), nil
+	case types.STRUCT:
+		b, err := json.Marshal(v)
+		if err != nil {
+			return nil, fmt.Errorf("failed to encode struct value %v: %w", v, err)
+		}
+		return toStructValueFromJSONString(string(b)), nil
+	case types.TIME:
+	case types.DATETIME:
+	case types.PROTO:
+		return nil, fmt.Errorf("failed to convert PROTO type from %T", v)
+	case types.GEOGRAPHY:
+		return nil, fmt.Errorf("failed to convert GEOGRAPHY type from %T", v)
+	case types.NUMERIC:
+		return nil, fmt.Errorf("failed to convert NUMERIC type from %T", v)
+	case types.BIG_NUMERIC:
+		return nil, fmt.Errorf("failed to convert BIGNUMERIC type from %T", v)
+	case types.EXTENDED:
+		return nil, fmt.Errorf("failed to convert EXTENDED type from %T", v)
+	case types.JSON:
+		return nil, fmt.Errorf("failed to convert JSON type from %T", v)
+	case types.INTERVAL:
+		return nil, fmt.Errorf("failed to convert INTERVAL type from %T", v)
+	default:
+	}
+	return nil, fmt.Errorf("unexpected type %s to convert from %T", t.Kind(), v)
 }

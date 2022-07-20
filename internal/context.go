@@ -13,8 +13,10 @@ type (
 	analyticOrderColumnNamesKey     struct{}
 	analyticPartitionColumnNamesKey struct{}
 	analyticTableNameKey            struct{}
+	analyticInputScanKey            struct{}
 	arraySubqueryColumnNameKey      struct{}
 	currentTimeKey                  struct{}
+	existsGroupByKey                struct{}
 )
 
 func namePathFromContext(ctx context.Context) []string {
@@ -70,8 +72,13 @@ func funcMapFromContext(ctx context.Context) map[string]*FunctionSpec {
 	return value.(map[string]*FunctionSpec)
 }
 
+type analyticOrderBy struct {
+	column string
+	isAsc  bool
+}
+
 type analyticOrderColumnNames struct {
-	values []string
+	values []*analyticOrderBy
 }
 
 func withAnalyticOrderColumnNames(ctx context.Context, v *analyticOrderColumnNames) context.Context {
@@ -110,6 +117,18 @@ func analyticTableNameFromContext(ctx context.Context) string {
 	return value.(string)
 }
 
+func withAnalyticInputScan(ctx context.Context, input string) context.Context {
+	return context.WithValue(ctx, analyticInputScanKey{}, input)
+}
+
+func analyticInputScanFromContext(ctx context.Context) string {
+	value := ctx.Value(analyticInputScanKey{})
+	if value == nil {
+		return ""
+	}
+	return value.(string)
+}
+
 type arraySubqueryColumnNames struct {
 	names []string
 }
@@ -124,6 +143,22 @@ func arraySubqueryColumnNameFromContext(ctx context.Context) *arraySubqueryColum
 		return nil
 	}
 	return value.(*arraySubqueryColumnNames)
+}
+
+type existsGroupBy struct {
+	exists bool
+}
+
+func withExistsGroupBy(ctx context.Context, v *existsGroupBy) context.Context {
+	return context.WithValue(ctx, existsGroupByKey{}, v)
+}
+
+func existsGroupByFromContext(ctx context.Context) *existsGroupBy {
+	value := ctx.Value(existsGroupByKey{})
+	if value == nil {
+		return nil
+	}
+	return value.(*existsGroupBy)
 }
 
 func WithCurrentTime(ctx context.Context, now time.Time) context.Context {

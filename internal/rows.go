@@ -162,7 +162,7 @@ func (r *Rows) convertValue(value interface{}, typ *Type) (driver.Value, error) 
 				if err != nil {
 					return nil, err
 				}
-				v = append(v, t)
+				v = append(v, t.UTC())
 			}
 			return v, nil
 		case types.STRUCT:
@@ -201,7 +201,11 @@ func (r *Rows) convertValue(value interface{}, typ *Type) (driver.Value, error) 
 		if err != nil {
 			return nil, err
 		}
-		return val.ToJSON()
+		t, err := val.ToTime()
+		if err != nil {
+			return nil, err
+		}
+		return t.UTC(), nil
 	}
 	return value, nil
 }

@@ -18,10 +18,22 @@ func New(node ast.Node) Formatter {
 }
 
 func FormatName(namePath []string) string {
+	namePath = FormatPath(namePath)
 	return strings.Join(namePath, "_")
 }
 
+func FormatPath(path []string) []string {
+	ret := []string{}
+	for _, p := range path {
+		splitted := strings.Split(p, ".")
+		ret = append(ret, splitted...)
+	}
+	return ret
+}
+
 func MergeNamePath(namePath []string, queryPath []string) []string {
+	namePath = FormatPath(namePath)
+	queryPath = FormatPath(queryPath)
 	if len(queryPath) == 0 {
 		return namePath
 	}
@@ -62,6 +74,7 @@ func getFuncNameAndArgs(ctx context.Context, node *ast.BaseFunctionCallNode, isW
 	_, existsAggregateFunc := aggregateFuncMap[funcName]
 	_, existsWindowFunc := windowFuncMap[funcName]
 	currentTime := CurrentTime(ctx)
+	fullpath := fullNamePathFromContext(ctx)
 	if strings.HasPrefix(funcName, "$") {
 		if isWindowFunc {
 			funcName = fmt.Sprintf("zetasqlite_window_%s_%s", funcName[1:], suffixName)
@@ -83,7 +96,6 @@ func getFuncNameAndArgs(ctx context.Context, node *ast.BaseFunctionCallNode, isW
 	} else if isWindowFunc && existsWindowFunc {
 		funcName = fmt.Sprintf("zetasqlite_window_%s_%s", funcName, suffixName)
 	} else {
-		fullpath := fullNamePathFromContext(ctx)
 		path := fullpath.paths[fullpath.idx]
 		funcName = FormatName(
 			MergeNamePath(
@@ -91,8 +103,8 @@ func getFuncNameAndArgs(ctx context.Context, node *ast.BaseFunctionCallNode, isW
 				path,
 			),
 		)
-		fullpath.idx++
 	}
+	fullpath.idx++
 	return funcName, args, nil
 }
 
@@ -115,7 +127,13 @@ func (n *ColumnRefNode) FormatSQL(ctx context.Context) (string, error) {
 	if n.node == nil {
 		return "", nil
 	}
-	return fmt.Sprintf("`%s`", n.node.Column().Name()), nil
+	columnMap := columnRefMap(ctx)
+	colName := n.node.Column().Name()
+	if ref, exists := columnMap[colName]; exists {
+		delete(columnMap, colName)
+		return ref, nil
+	}
+	return fmt.Sprintf("`%s`", colName), nil
 }
 
 func (n *ConstantNode) FormatSQL(ctx context.Context) (string, error) {
@@ -224,7 +242,9 @@ func (n *AnalyticFunctionCallNode) FormatSQL(ctx context.Context) (string, error
 	for _, a := range n.node.ArgumentList() {
 		switch t := a.(type) {
 		case *ast.ColumnRefNode:
-			ctx = withAnalyticTableName(ctx, t.Column().TableName())
+			ctx = withAnalyticTableName(ctx, FormatName([]string{t.Column().TableName()}))
+		case *ast.LiteralNode:
+			continue
 		default:
 			return "", fmt.Errorf("unexpected argument node type %T for analytic function", a)
 		}
@@ -232,11 +252,10 @@ func (n *AnalyticFunctionCallNode) FormatSQL(ctx context.Context) (string, error
 		if err != nil {
 			return "", err
 		}
-		orderColumnNames.values = append(orderColumnNames.values, arg)
-	}
-	tableName := analyticTableNameFromContext(ctx)
-	if tableName == "" {
-		return "", fmt.Errorf("failed to find table name from analytic query")
+		orderColumnNames.values = append(orderColumnNames.values, &analyticOrderBy{
+			column: arg,
+			isAsc:  true,
+		})
 	}
 	funcName, args, err := getFuncNameAndArgs(ctx, n.node.BaseFunctionCallNode, true)
 	if err != nil {
@@ -259,8 +278,8 @@ func (n *AnalyticFunctionCallNode) FormatSQL(ctx context.Context) (string, error
 	for _, column := range analyticPartitionColumnNamesFromContext(ctx) {
 		args = append(args, getWindowPartitionOptionFuncSQL(column))
 	}
-	for _, column := range orderColumns {
-		args = append(args, getWindowOrderByOptionFuncSQL(column))
+	for _, col := range orderColumns {
+		args = append(args, getWindowOrderByOptionFuncSQL(col.column, col.isAsc))
 	}
 	windowFrame := n.node.WindowFrame()
 	if windowFrame != nil {
@@ -277,11 +296,12 @@ func (n *AnalyticFunctionCallNode) FormatSQL(ctx context.Context) (string, error
 		args = append(args, endSQL)
 	}
 	args = append(args, getWindowRowIDOptionFuncSQL())
+	input := analyticInputScanFromContext(ctx)
 	return fmt.Sprintf(
-		"( SELECT %s(%s) FROM %s )",
+		"( SELECT %s(%s) %s )",
 		funcName,
 		strings.Join(args, ","),
-		tableName,
+		input,
 	), nil
 
 	return "", nil
@@ -449,7 +469,56 @@ func (n *TableScanNode) FormatSQL(ctx context.Context) (string, error) {
 }
 
 func (n *JoinScanNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
+	if n.node == nil {
+		return "", nil
+	}
+	leftRef, ok := n.node.LeftScan().(*ast.WithRefScanNode)
+	if !ok {
+		return "", fmt.Errorf("unexpected leftscan node %T", n.node.LeftScan())
+	}
+	rightRef, ok := n.node.RightScan().(*ast.WithRefScanNode)
+	if !ok {
+		return "", fmt.Errorf("unexpected rightscan node %T", n.node.RightScan())
+	}
+	equalFunc, ok := n.node.JoinExpr().(*ast.FunctionCallNode)
+	if !ok {
+		return "", fmt.Errorf("unexpected joinexpr node %T", n.node.JoinExpr())
+	}
+	args := equalFunc.ArgumentList()
+	if len(args) != 2 {
+		return "", fmt.Errorf("join argument must be two arguments but got %d", len(args))
+	}
+	leftColumn, err := newNode(args[0]).FormatSQL(ctx)
+	if err != nil {
+		return "", err
+	}
+	rightColumn, err := newNode(args[1]).FormatSQL(ctx)
+	if err != nil {
+		return "", err
+	}
+	leftTableName := leftRef.WithQueryName()
+	rightTableName := rightRef.WithQueryName()
+	var joinType string
+	switch n.node.JoinType() {
+	case ast.JoinTypeInner:
+		joinType = "JOIN"
+	case ast.JoinTypeLeft:
+		joinType = "LEFT JOIN"
+	case ast.JoinTypeRight:
+		joinType = "RIGHT JOIN"
+	case ast.JoinTypeFull:
+		joinType = "FULL JOIN"
+	}
+	return fmt.Sprintf(
+		"FROM `%s` %s `%s` ON `%s`.%s = `%s`.%s",
+		leftTableName,
+		joinType,
+		rightTableName,
+		leftTableName,
+		leftColumn,
+		rightTableName,
+		rightColumn,
+	), nil
 }
 
 func (n *ArrayScanNode) FormatSQL(ctx context.Context) (string, error) {
@@ -461,6 +530,18 @@ func (n *ArrayScanNode) FormatSQL(ctx context.Context) (string, error) {
 		return "", err
 	}
 	colName := n.node.ElementColumn().Name()
+	if n.node.InputScan() != nil {
+		input, err := newNode(n.node.InputScan()).FormatSQL(ctx)
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf(
+			"SELECT *, json_each.value AS `%s` %s, json_each(zetasqlite_decode_array_string(%s))",
+			colName,
+			input,
+			arrayExpr,
+		), nil
+	}
 	return fmt.Sprintf(
 		"FROM ( SELECT json_each.value AS `%s` FROM json_each(zetasqlite_decode_array_string(%s)) )",
 		colName,
@@ -476,13 +557,22 @@ func (n *FilterScanNode) FormatSQL(ctx context.Context) (string, error) {
 	if n.node == nil {
 		return "", nil
 	}
+	ctx = withExistsGroupBy(ctx, &existsGroupBy{})
 	input, err := newNode(n.node.InputScan()).FormatSQL(ctx)
 	if err != nil {
 		return "", err
 	}
+	usedGroupBy := existsGroupByFromContext(ctx).exists
 	filter, err := newNode(n.node.FilterExpr()).FormatSQL(ctx)
 	if err != nil {
 		return "", err
+	}
+	if usedGroupBy {
+		return fmt.Sprintf("%s HAVING %s", input, filter), nil
+	}
+	if strings.Contains(input, "WHERE") && input[len(input)-1] != ')' {
+		// expected to qualify clause
+		return fmt.Sprintf("FROM ( %s ) WHERE %s", input, filter), nil
 	}
 	return fmt.Sprintf("%s WHERE %s", input, filter), nil
 }
@@ -509,17 +599,83 @@ func (n *AggregateScanNode) FormatSQL(ctx context.Context) (string, error) {
 			columns = append(columns, ref)
 			delete(columnMap, colName)
 		} else {
-			columns = append(columns, fmt.Sprintf("`%s`", colName))
+			columns = append(
+				columns,
+				fmt.Sprintf("`%s`", colName),
+			)
 		}
 	}
 	input, err := newNode(n.node.InputScan()).FormatSQL(ctx)
 	if err != nil {
 		return "", err
 	}
-	if strings.HasPrefix(input, "SELECT") {
-		return fmt.Sprintf("SELECT %s FROM ( %s )", strings.Join(columns, ","), input), nil
+	groupByColumns := []string{}
+	groupByColumnMap := map[string]struct{}{}
+	for _, col := range n.node.GroupByList() {
+		colName := fmt.Sprintf("`%s`", col.Column().Name())
+		groupByColumns = append(groupByColumns, colName)
+		groupByColumnMap[colName] = struct{}{}
 	}
-	return fmt.Sprintf("SELECT %s %s", strings.Join(columns, ","), input), nil
+	if len(groupByColumns) != 0 {
+		existsGroupBy := existsGroupByFromContext(ctx)
+		if existsGroupBy != nil {
+			existsGroupBy.exists = true
+		}
+	}
+	if len(n.node.GroupingSetList()) != 0 {
+		columnPatterns := [][]string{}
+		groupByColumnPatterns := [][]string{}
+		for _, set := range n.node.GroupingSetList() {
+			groupBySetColumns := []string{}
+			groupBySetColumnMap := map[string]struct{}{}
+			for _, col := range set.GroupByColumnList() {
+				colName := fmt.Sprintf("`%s`", col.Column().Name())
+				groupBySetColumns = append(groupBySetColumns, colName)
+				groupBySetColumnMap[colName] = struct{}{}
+			}
+			nullColumnNameMap := map[string]struct{}{}
+			for _, col := range groupByColumns {
+				if _, exists := groupBySetColumnMap[col]; !exists {
+					nullColumnNameMap[col] = struct{}{}
+				}
+			}
+			groupBySetColumnPattern := []string{}
+			for _, col := range columns {
+				if _, exists := nullColumnNameMap[col]; exists {
+					groupBySetColumnPattern = append(groupBySetColumnPattern, "NULL")
+				} else {
+					groupBySetColumnPattern = append(groupBySetColumnPattern, col)
+				}
+			}
+			columnPatterns = append(columnPatterns, groupBySetColumnPattern)
+			groupByColumnPatterns = append(groupByColumnPatterns, groupBySetColumns)
+		}
+		stmts := []string{}
+		for i := 0; i < len(columnPatterns); i++ {
+			var groupBy string
+			if len(groupByColumnPatterns[i]) != 0 {
+				groupBy = fmt.Sprintf("GROUP BY %s", strings.Join(groupByColumnPatterns[i], ","))
+			}
+			if strings.HasPrefix(input, "SELECT") {
+				stmts = append(stmts, fmt.Sprintf("SELECT %s FROM ( %s %s )", strings.Join(columnPatterns[i], ","), input, groupBy))
+			} else {
+				stmts = append(stmts, fmt.Sprintf("SELECT %s %s %s", strings.Join(columnPatterns[i], ","), input, groupBy))
+			}
+		}
+		return fmt.Sprintf(
+			"%s ORDER BY %s",
+			strings.Join(stmts, " UNION ALL "),
+			strings.Join(groupByColumns, ","),
+		), nil
+	}
+	var groupBy string
+	if len(groupByColumns) > 0 {
+		groupBy = fmt.Sprintf("GROUP BY %s", strings.Join(groupByColumns, ","))
+	}
+	if strings.HasPrefix(input, "SELECT") {
+		return fmt.Sprintf("SELECT %s FROM ( %s %s )", strings.Join(columns, ","), input, groupBy), nil
+	}
+	return fmt.Sprintf("SELECT %s %s %s", strings.Join(columns, ","), input, groupBy), nil
 }
 
 func (n *AnonymizedAggregateScanNode) FormatSQL(ctx context.Context) (string, error) {
@@ -566,7 +722,62 @@ func (n *SetOperationScanNode) FormatSQL(ctx context.Context) (string, error) {
 }
 
 func (n *OrderByScanNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
+	if n.node == nil {
+		return "", nil
+	}
+	input, err := newNode(n.node.InputScan()).FormatSQL(ctx)
+	if err != nil {
+		return "", err
+	}
+	columns := []string{}
+	columnMap := columnRefMap(ctx)
+	for _, col := range n.node.ColumnList() {
+		colName := col.Name()
+		if ref, exists := columnMap[colName]; exists {
+			columns = append(columns, ref)
+			delete(columnMap, colName)
+		} else {
+			columns = append(
+				columns,
+				fmt.Sprintf("`%s`", colName),
+			)
+		}
+	}
+	orderByColumns := []string{}
+	for _, item := range n.node.OrderByItemList() {
+		colName := item.ColumnRef().Column().Name()
+		switch item.NullOrder() {
+		case ast.NullOrderModeNullsFirst:
+			orderByColumns = append(
+				orderByColumns,
+				fmt.Sprintf("(`%s` IS NOT NULL)", colName),
+			)
+		case ast.NullOrderModeNullsLast:
+			orderByColumns = append(
+				orderByColumns,
+				fmt.Sprintf("(`%s` IS NULL)", colName),
+			)
+		}
+		if item.IsDescending() {
+			orderByColumns = append(orderByColumns, fmt.Sprintf("`%s` DESC", colName))
+		} else {
+			orderByColumns = append(orderByColumns, fmt.Sprintf("`%s`", colName))
+		}
+	}
+	if strings.HasPrefix(input, "SELECT") {
+		return fmt.Sprintf(
+			"SELECT %s FROM ( %s ) ORDER BY %s",
+			strings.Join(columns, ","),
+			input,
+			strings.Join(orderByColumns, ","),
+		), nil
+	}
+	return fmt.Sprintf(
+		"SELECT %s %s ORDER BY %s",
+		strings.Join(columns, ","),
+		input,
+		strings.Join(orderByColumns, ","),
+	), nil
 }
 
 func (n *LimitOffsetScanNode) FormatSQL(ctx context.Context) (string, error) {
@@ -589,38 +800,80 @@ func (n *AnalyticScanNode) FormatSQL(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	ctx = withAnalyticInputScan(ctx, input)
 	orderColumnNames := analyticOrderColumnNamesFromContext(ctx)
 	for _, group := range n.node.FunctionGroupList() {
 		if group.PartitionBy() != nil {
 			var partitionColumns []string
 			for _, columnRef := range group.PartitionBy().PartitionByList() {
-				ctx = withAnalyticTableName(ctx, columnRef.Column().TableName())
+				ctx = withAnalyticTableName(ctx, FormatName([]string{columnRef.Column().TableName()}))
+				colName := fmt.Sprintf("`%s`", columnRef.Column().Name())
 				partitionColumns = append(
 					partitionColumns,
-					fmt.Sprintf("`%s`", columnRef.Column().Name()),
+					colName,
 				)
+				orderColumnNames.values = append(orderColumnNames.values, &analyticOrderBy{
+					column: colName,
+					isAsc:  true,
+				})
 			}
-			orderColumnNames.values = append(orderColumnNames.values, partitionColumns...)
 			ctx = withAnalyticPartitionColumnNames(ctx, partitionColumns)
 		}
 		if group.OrderBy() != nil {
 			var orderByColumns []string
 			for _, item := range group.OrderBy().OrderByItemList() {
-				ctx = withAnalyticTableName(ctx, item.ColumnRef().Column().TableName())
+				ctx = withAnalyticTableName(ctx, FormatName([]string{item.ColumnRef().Column().TableName()}))
+				colName := fmt.Sprintf("`%s`", item.ColumnRef().Column().Name())
 				orderByColumns = append(
 					orderByColumns,
-					fmt.Sprintf("`%s`", item.ColumnRef().Column().Name()),
+					colName,
 				)
+				orderColumnNames.values = append(orderColumnNames.values, &analyticOrderBy{
+					column: colName,
+					isAsc:  !item.IsDescending(),
+				})
 			}
-			orderColumnNames.values = append(orderColumnNames.values, orderByColumns...)
 		}
 		if _, err := newNode(group).FormatSQL(ctx); err != nil {
 			return "", err
 		}
 	}
-	orderBy := fmt.Sprintf("ORDER BY %s", strings.Join(orderColumnNames.values, ","))
-	orderColumnNames.values = []string{}
-	return fmt.Sprintf("FROM ( SELECT *, ROW_NUMBER() OVER() AS `rowid` %s ) %s", input, orderBy), nil
+	columns := []string{}
+	columnMap := columnRefMap(ctx)
+	for _, col := range n.node.ColumnList() {
+		colName := col.Name()
+		if ref, exists := columnMap[colName]; exists {
+			columns = append(columns, ref)
+			delete(columnMap, colName)
+		} else {
+			columns = append(
+				columns,
+				fmt.Sprintf("`%s`", colName),
+			)
+		}
+	}
+	var orderColumnFormattedNames []string
+	for _, col := range orderColumnNames.values {
+		if col.isAsc {
+			orderColumnFormattedNames = append(
+				orderColumnFormattedNames,
+				col.column,
+			)
+		} else {
+			orderColumnFormattedNames = append(
+				orderColumnFormattedNames,
+				fmt.Sprintf("%s DESC", col.column),
+			)
+		}
+	}
+	orderBy := fmt.Sprintf("ORDER BY %s", strings.Join(orderColumnFormattedNames, ","))
+	orderColumnNames.values = []*analyticOrderBy{}
+	return fmt.Sprintf(
+		"SELECT %s FROM ( SELECT *, ROW_NUMBER() OVER() AS `row_id` %s ) %s",
+		strings.Join(columns, ","),
+		input,
+		orderBy,
+	), nil
 }
 
 func (n *SampleScanNode) FormatSQL(ctx context.Context) (string, error) {
@@ -703,15 +956,25 @@ func (n *ProjectScanNode) FormatSQL(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	_, isJoinScan := n.node.InputScan().(*ast.JoinScanNode)
 	columns := []string{}
 	columnMap := columnRefMap(ctx)
 	for _, col := range n.node.ColumnList() {
+		tableName := FormatName([]string{col.TableName()})
 		colName := col.Name()
 		if ref, exists := columnMap[colName]; exists {
 			columns = append(columns, ref)
 			delete(columnMap, colName)
+		} else if isJoinScan {
+			columns = append(
+				columns,
+				fmt.Sprintf("`%s`.`%s`", tableName, colName),
+			)
 		} else {
-			columns = append(columns, fmt.Sprintf("`%s`", colName))
+			columns = append(
+				columns,
+				fmt.Sprintf("`%s`", colName),
+			)
 		}
 	}
 	if strings.HasPrefix(input, "SELECT") {
@@ -914,7 +1177,7 @@ func (n *AnalyticFunctionGroupNode) FormatSQL(ctx context.Context) (string, erro
 	if n.node == nil {
 		return "", nil
 	}
-	orderColumnNames := analyticOrderColumnNamesFromContext(ctx)
+
 	var queries []string
 	for _, column := range n.node.AnalyticFunctionList() {
 		sql, err := newNode(column).FormatSQL(ctx)
@@ -922,10 +1185,6 @@ func (n *AnalyticFunctionGroupNode) FormatSQL(ctx context.Context) (string, erro
 			return "", err
 		}
 		queries = append(queries, sql)
-		orderColumnNames.values = append(
-			orderColumnNames.values,
-			fmt.Sprintf("`%s`", column.Column().Name()),
-		)
 	}
 	return strings.Join(queries, ","), nil
 }

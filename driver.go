@@ -118,7 +118,7 @@ func (c *ZetaSQLiteConn) ExecContext(ctx context.Context, query string, args []d
 	if err != nil {
 		return nil, fmt.Errorf("failed to analyze query: %w", err)
 	}
-	newNamedValues, err := internal.ConvertNamedValues(args)
+	newNamedValues, err := internal.EncodeNamedValues(args, out.Params())
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +134,7 @@ func (c *ZetaSQLiteConn) QueryContext(ctx context.Context, query string, args []
 	if err != nil {
 		return nil, fmt.Errorf("failed to analyze query: %w", err)
 	}
-	newNamedValues, err := internal.ConvertNamedValues(args)
+	newNamedValues, err := internal.EncodeNamedValues(args, out.Params())
 	if err != nil {
 		return nil, err
 	}

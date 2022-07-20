@@ -127,42 +127,42 @@ func (s *ColumnSpec) SQLiteSchema() string {
 	switch types.TypeKind(s.Type.Kind) {
 	case types.INT32, types.INT64, types.UINT32, types.UINT64:
 		typ = "INT"
+	case types.ENUM:
+		typ = "INT"
 	case types.BOOL:
 		typ = "BOOLEAN"
 	case types.FLOAT:
 		typ = "FLOAT"
-	case types.DOUBLE:
-		typ = "DOUBLE"
-	case types.STRING:
-		typ = "TEXT"
 	case types.BYTES:
 		typ = "BLOB"
+	case types.DOUBLE:
+		typ = "DOUBLE"
+	case types.JSON:
+		typ = "JSON"
+	case types.STRING:
+		typ = "TEXT"
 	case types.DATE:
-		typ = "DATE"
+		typ = "TEXT"
 	case types.TIMESTAMP:
-		typ = "DATETIME"
-	case types.ENUM:
-		typ = "INT"
+		typ = "TEXT"
 	case types.ARRAY:
-		typ = "JSON"
+		typ = "TEXT"
 	case types.STRUCT:
-		typ = "JSON"
+		typ = "TEXT"
 	case types.PROTO:
-		typ = "JSON"
+		typ = "TEXT"
 	case types.TIME:
-		typ = "DATETIME"
+		typ = "TEXT"
 	case types.DATETIME:
-		typ = "DATETIME"
+		typ = "TEXT"
 	case types.GEOGRAPHY:
-		typ = "JSON"
+		typ = "TEXT"
 	case types.NUMERIC:
-		typ = "NUMERIC"
+		typ = "TEXT"
 	case types.BIG_NUMERIC:
 		typ = "TEXT"
 	case types.EXTENDED:
 		typ = "TEXT"
-	case types.JSON:
-		typ = "JSON"
 	case types.INTERVAL:
 		typ = "TEXT"
 	case types.UNKNOWN:

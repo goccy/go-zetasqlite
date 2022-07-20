@@ -792,10 +792,7 @@ func bindLength(args ...Value) (Value, error) {
 }
 
 func timeFromUnixNano(unixNano int64) time.Time {
-	return time.Unix(
-		unixNano/int64(time.Second),
-		unixNano%int64(time.Nanosecond),
-	)
+	return time.Unix(0, unixNano)
 }
 
 func bindCurrentDate(args ...Value) (Value, error) {
@@ -1331,10 +1328,14 @@ func bindWindowRowID(args ...Value) (Value, error) {
 }
 
 func bindWindowOrderBy(args ...Value) (Value, error) {
-	if len(args) != 1 {
+	if len(args) != 2 {
 		return nil, fmt.Errorf("WINDOW_ORDER_BY: invalid argument num %d", len(args))
 	}
-	return WINDOW_ORDER_BY(args[0])
+	isAsc, err := args[1].ToBool()
+	if err != nil {
+		return nil, err
+	}
+	return WINDOW_ORDER_BY(args[0], isAsc)
 }
 
 func bindArrayAgg(converter ReturnValueConverter) func() *Aggregator {
@@ -1675,6 +1676,39 @@ func bindWindowLastValue(converter ReturnValueConverter) func() *WindowAggregato
 	}
 }
 
+func bindWindowLag(converter ReturnValueConverter) func() *WindowAggregator {
+	return func() *WindowAggregator {
+		fn := &WINDOW_LAG{}
+		return newWindowAggregator(
+			func(args []Value, opt *AggregatorOption, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+				if len(args) != 1 && len(args) != 2 && len(args) != 3 {
+					return fmt.Errorf("WINDOW_LAG: invalid argument num %d", len(args))
+				}
+				var offset int64 = 1
+				if len(args) >= 2 {
+					v, err := args[1].ToInt64()
+					if err != nil {
+						return err
+					}
+					offset = v
+				}
+				if offset < 0 {
+					return fmt.Errorf("WINDOW_LAG: offset is must be positive value %d", offset)
+				}
+				var defaultValue Value
+				if len(args) == 3 {
+					defaultValue = args[2]
+				}
+				return fn.Step(args[0], offset, defaultValue, windowOpt, agg)
+			},
+			func(agg *WindowFuncAggregatedStatus) (Value, error) {
+				return fn.Done(agg)
+			},
+			converter,
+		)
+	}
+}
+
 func bindWindowRank(converter ReturnValueConverter) func() *WindowAggregator {
 	return func() *WindowAggregator {
 		fn := &WINDOW_RANK{}
@@ -1682,6 +1716,24 @@ func bindWindowRank(converter ReturnValueConverter) func() *WindowAggregator {
 			func(args []Value, opt *AggregatorOption, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
 				if len(args) != 0 {
 					return fmt.Errorf("WINDOW_RANK: invalid argument num %d", len(args))
+				}
+				return fn.Step(windowOpt, agg)
+			},
+			func(agg *WindowFuncAggregatedStatus) (Value, error) {
+				return fn.Done(agg)
+			},
+			converter,
+		)
+	}
+}
+
+func bindWindowDenseRank(converter ReturnValueConverter) func() *WindowAggregator {
+	return func() *WindowAggregator {
+		fn := &WINDOW_DENSE_RANK{}
+		return newWindowAggregator(
+			func(args []Value, opt *AggregatorOption, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+				if len(args) != 0 {
+					return fmt.Errorf("WINDOW_DENSE_RANK: invalid argument num %d", len(args))
 				}
 				return fn.Step(windowOpt, agg)
 			},
