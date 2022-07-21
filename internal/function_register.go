@@ -140,6 +140,11 @@ var normalFuncs = []*FuncInfo{
 		ReturnTypes: []types.TypeKind{types.DATE},
 	},
 	{
+		Name:        "date_diff",
+		BindFunc:    bindDateDiff,
+		ReturnTypes: []types.TypeKind{types.INT64},
+	},
+	{
 		Name:        "concat",
 		BindFunc:    bindConcat,
 		ReturnTypes: []types.TypeKind{types.STRING},
@@ -223,6 +228,14 @@ var normalFuncs = []*FuncInfo{
 		Name:        "length",
 		BindFunc:    bindLength,
 		ReturnTypes: []types.TypeKind{types.INT64},
+	},
+	{
+		Name:     "cast",
+		BindFunc: bindCast,
+		ReturnTypes: []types.TypeKind{
+			types.INT64, types.DOUBLE, types.STRING, types.DATE,
+			types.DATETIME, types.TIME, types.TIMESTAMP,
+		},
 	},
 
 	// currentime functions
@@ -627,6 +640,22 @@ var aggregateFuncs = []*AggregateFuncInfo{
 		Name:        "logical_or",
 		BindFunc:    bindLogicalOr,
 		ReturnTypes: []types.TypeKind{types.BOOL},
+	},
+	{
+		Name:     "max",
+		BindFunc: bindMax,
+		ReturnTypes: []types.TypeKind{
+			types.INT64, types.DOUBLE, types.BOOL,
+			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
+		},
+	},
+	{
+		Name:     "min",
+		BindFunc: bindMin,
+		ReturnTypes: []types.TypeKind{
+			types.INT64, types.DOUBLE, types.BOOL,
+			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
+		},
 	},
 	{
 		Name:        "string_agg",

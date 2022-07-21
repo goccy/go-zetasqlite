@@ -45,7 +45,7 @@ func NewAnalyzer(catalog *Catalog) *Analyzer {
 func newAnalyzerOptions() *zetasql.AnalyzerOptions {
 	langOpt := zetasql.NewLanguageOptions()
 	langOpt.SetNameResolutionMode(zetasql.NameResolutionDefault)
-	langOpt.SetProductMode(types.ProductExternal)
+	langOpt.SetProductMode(types.ProductInternal)
 	langOpt.SetEnabledLanguageFeatures([]zetasql.LanguageFeature{
 		zetasql.FeatureAnalyticFunctions,
 		zetasql.FeatureNamedArguments,
@@ -111,9 +111,9 @@ func (a *Analyzer) Analyze(ctx context.Context, query string) (*AnalyzerOutput, 
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", query, err)
 	}
-	fullpath, err := a.getFullNamePath(query)
+	fullNamePathMap, err := a.getFullNamePathMap(query)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get full name path %s: %w", query, err)
+		return nil, fmt.Errorf("failed to get full name path map %s: %w", query, err)
 	}
 	funcMap := map[string]*FunctionSpec{}
 	for _, spec := range a.catalog.functions {
@@ -121,7 +121,7 @@ func (a *Analyzer) Analyze(ctx context.Context, query string) (*AnalyzerOutput, 
 	}
 	ctx = withNamePath(ctx, a.namePath)
 	ctx = withColumnRefMap(ctx, map[string]string{})
-	ctx = withFullNamePath(ctx, fullpath)
+	ctx = withFullNamePathMap(ctx, fullNamePathMap)
 	ctx = withFuncMap(ctx, funcMap)
 	ctx = withAnalyticOrderColumnNames(ctx, &analyticOrderColumnNames{})
 	stmtNode := out.Statement()
@@ -271,8 +271,8 @@ func (a *Analyzer) analyzeQueryStmt(ctx context.Context, query string, node *ast
 	}, nil
 }
 
-func (a *Analyzer) getFullNamePath(query string) (*fullNamePath, error) {
-	fullpath := &fullNamePath{}
+func (a *Analyzer) getFullNamePathMap(query string) (map[string][]string, error) {
+	fullNamePathMap := map[string][]string{}
 	parsedAST, err := zetasql.ParseStatement(query, a.opt.ParserOptions())
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse statement: %w", err)
@@ -284,38 +284,58 @@ func (a *Analyzer) getFullNamePath(query string) (*fullNamePath, error) {
 			for _, name := range n.Function().Names() {
 				path = append(path, name.Name())
 			}
-			fullpath.paths = append(fullpath.paths, path)
+			if len(path) == 0 {
+				return fmt.Errorf("failed to find name path from function call node")
+			}
+			base := path[len(path)-1]
+			fullNamePathMap[base] = path
 		case *parsed_ast.TablePathExpressionNode:
-			path := []string{}
 			switch {
 			case n.PathExpr() != nil:
+				path := []string{}
 				for _, name := range n.PathExpr().Names() {
 					path = append(path, name.Name())
 				}
-				fullpath.paths = append(fullpath.paths, path)
+				if len(path) == 0 {
+					return fmt.Errorf("failed to find name path from table path expression node")
+				}
+				base := path[len(path)-1]
+				fullNamePathMap[base] = path
 			}
 		case *parsed_ast.InsertStatementNode:
 			path := []string{}
 			for _, name := range n.TargetPath().(*parsed_ast.PathExpressionNode).Names() {
 				path = append(path, name.Name())
 			}
-			fullpath.paths = append(fullpath.paths, path)
+			if len(path) == 0 {
+				return fmt.Errorf("failed to find name path from insert statement node")
+			}
+			base := path[len(path)-1]
+			fullNamePathMap[base] = path
 		case *parsed_ast.UpdateStatementNode:
 			path := []string{}
 			for _, name := range n.TargetPath().(*parsed_ast.PathExpressionNode).Names() {
 				path = append(path, name.Name())
 			}
-			fullpath.paths = append(fullpath.paths, path)
+			if len(path) == 0 {
+				return fmt.Errorf("failed to find name path from update statement node")
+			}
+			base := path[len(path)-1]
+			fullNamePathMap[base] = path
 		case *parsed_ast.DeleteStatementNode:
 			path := []string{}
 			for _, name := range n.TargetPath().(*parsed_ast.PathExpressionNode).Names() {
 				path = append(path, name.Name())
 			}
-			fullpath.paths = append(fullpath.paths, path)
+			if len(path) == 0 {
+				return fmt.Errorf("failed to find name path from delete statement node")
+			}
+			base := path[len(path)-1]
+			fullNamePathMap[base] = path
 		}
 		return nil
 	})
-	return fullpath, nil
+	return fullNamePathMap, nil
 }
 
 func (a *Analyzer) getParamsFromNode(node ast.Node) []*ast.ParameterNode {

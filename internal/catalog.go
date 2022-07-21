@@ -3,13 +3,13 @@ package internal
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/goccy/go-json"
 	"github.com/goccy/go-zetasql/types"
 )
 

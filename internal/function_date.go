@@ -56,6 +56,26 @@ func DATE(args ...Value) (Value, error) {
 	return nil, fmt.Errorf("DATE: unsupported arguments type %v", args)
 }
 
+func DATE_DIFF(a, b Value, part string) (Value, error) {
+	va, err := a.ToTime()
+	if err != nil {
+		return nil, err
+	}
+	vb, err := b.ToTime()
+	if err != nil {
+		return nil, err
+	}
+	switch part {
+	case "DAY":
+		return IntValue(va.Day() - vb.Day()), nil
+	case "MONTH":
+		return IntValue(va.Month() - vb.Month()), nil
+	case "YEAR":
+		return IntValue(va.Year() - vb.Year()), nil
+	}
+	return nil, fmt.Errorf("unexpected part value %s", part)
+}
+
 func DATE_ADD(a, b Value) (Value, error) {
 	return a.Add(b)
 }

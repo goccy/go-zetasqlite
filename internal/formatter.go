@@ -74,7 +74,7 @@ func getFuncNameAndArgs(ctx context.Context, node *ast.BaseFunctionCallNode, isW
 	_, existsAggregateFunc := aggregateFuncMap[funcName]
 	_, existsWindowFunc := windowFuncMap[funcName]
 	currentTime := CurrentTime(ctx)
-	fullpath := fullNamePathFromContext(ctx)
+	fullNamePathMap := fullNamePathMapFromContext(ctx)
 	if strings.HasPrefix(funcName, "$") {
 		if isWindowFunc {
 			funcName = fmt.Sprintf("zetasqlite_window_%s_%s", funcName[1:], suffixName)
@@ -96,7 +96,7 @@ func getFuncNameAndArgs(ctx context.Context, node *ast.BaseFunctionCallNode, isW
 	} else if isWindowFunc && existsWindowFunc {
 		funcName = fmt.Sprintf("zetasqlite_window_%s_%s", funcName, suffixName)
 	} else {
-		path := fullpath.paths[fullpath.idx]
+		path := fullNamePathMap[funcName]
 		funcName = FormatName(
 			MergeNamePath(
 				namePathFromContext(ctx),
@@ -104,7 +104,6 @@ func getFuncNameAndArgs(ctx context.Context, node *ast.BaseFunctionCallNode, isW
 			),
 		)
 	}
-	fullpath.idx++
 	return funcName, args, nil
 }
 
@@ -132,6 +131,10 @@ func (n *ColumnRefNode) FormatSQL(ctx context.Context) (string, error) {
 	if ref, exists := columnMap[colName]; exists {
 		delete(columnMap, colName)
 		return ref, nil
+	}
+	if needsTableNameForColumn(ctx) {
+		tableName := n.node.Column().TableName()
+		return fmt.Sprintf("`%s`.`%s`", FormatName([]string{tableName}), colName), nil
 	}
 	return fmt.Sprintf("`%s`", colName), nil
 }
@@ -337,7 +340,15 @@ func (n *ExtendedCastNode) FormatSQL(ctx context.Context) (string, error) {
 }
 
 func (n *CastNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
+	if n.node == nil {
+		return "", nil
+	}
+	typeSuffix := strings.ToLower(n.node.Type().TypeName(0))
+	expr, err := newNode(n.node.Expr()).FormatSQL(ctx)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("zetasqlite_cast_%s(%s)", typeSuffix, expr), nil
 }
 
 func (n *MakeStructNode) FormatSQL(ctx context.Context) (string, error) {
@@ -456,34 +467,40 @@ func (n *TableScanNode) FormatSQL(ctx context.Context) (string, error) {
 	if n.node == nil {
 		return "", nil
 	}
-	fullpath := fullNamePathFromContext(ctx)
-	path := fullpath.paths[fullpath.idx]
+	fullNamePathMap := fullNamePathMapFromContext(ctx)
+	path := fullNamePathMap[n.node.Table().Name()]
 	tableName := FormatName(
 		MergeNamePath(
 			namePathFromContext(ctx),
 			path,
 		),
 	)
-	fullpath.idx++
-	return fmt.Sprintf("FROM `%s`", tableName), nil
+	return tableName, nil
 }
 
 func (n *JoinScanNode) FormatSQL(ctx context.Context) (string, error) {
 	if n.node == nil {
 		return "", nil
 	}
-	leftRef, ok := n.node.LeftScan().(*ast.WithRefScanNode)
-	if !ok {
-		return "", fmt.Errorf("unexpected leftscan node %T", n.node.LeftScan())
+	left, err := newNode(n.node.LeftScan()).FormatSQL(ctx)
+	if err != nil {
+		return "", err
 	}
-	rightRef, ok := n.node.RightScan().(*ast.WithRefScanNode)
-	if !ok {
-		return "", fmt.Errorf("unexpected rightscan node %T", n.node.RightScan())
+	right, err := newNode(n.node.RightScan()).FormatSQL(ctx)
+	if err != nil {
+		return "", err
+	}
+	if strings.HasPrefix(left, "FROM ") {
+		left = left[len("FROM "):]
+	}
+	if strings.HasPrefix(right, "FROM ") {
+		right = right[len("FROM "):]
 	}
 	equalFunc, ok := n.node.JoinExpr().(*ast.FunctionCallNode)
 	if !ok {
 		return "", fmt.Errorf("unexpected joinexpr node %T", n.node.JoinExpr())
 	}
+	ctx = withNeedsTableNameForColumn(ctx)
 	args := equalFunc.ArgumentList()
 	if len(args) != 2 {
 		return "", fmt.Errorf("join argument must be two arguments but got %d", len(args))
@@ -496,8 +513,6 @@ func (n *JoinScanNode) FormatSQL(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	leftTableName := leftRef.WithQueryName()
-	rightTableName := rightRef.WithQueryName()
 	var joinType string
 	switch n.node.JoinType() {
 	case ast.JoinTypeInner:
@@ -510,13 +525,11 @@ func (n *JoinScanNode) FormatSQL(ctx context.Context) (string, error) {
 		joinType = "FULL JOIN"
 	}
 	return fmt.Sprintf(
-		"FROM `%s` %s `%s` ON `%s`.%s = `%s`.%s",
-		leftTableName,
+		"FROM %s %s %s ON %s = %s",
+		left,
 		joinType,
-		rightTableName,
-		leftTableName,
+		right,
 		leftColumn,
-		rightTableName,
 		rightColumn,
 	), nil
 }
@@ -674,6 +687,8 @@ func (n *AggregateScanNode) FormatSQL(ctx context.Context) (string, error) {
 	}
 	if strings.HasPrefix(input, "SELECT") {
 		return fmt.Sprintf("SELECT %s FROM ( %s %s )", strings.Join(columns, ","), input, groupBy), nil
+	} else if !strings.HasPrefix(input, "FROM") && len(strings.TrimSpace(input)) > 0 {
+		return fmt.Sprintf("SELECT %s FROM %s %s", strings.Join(columns, ","), input, groupBy), nil
 	}
 	return fmt.Sprintf("SELECT %s %s %s", strings.Join(columns, ","), input, groupBy), nil
 }
@@ -979,6 +994,8 @@ func (n *ProjectScanNode) FormatSQL(ctx context.Context) (string, error) {
 	}
 	if strings.HasPrefix(input, "SELECT") {
 		return fmt.Sprintf("SELECT %s FROM ( %s )", strings.Join(columns, ","), input), nil
+	} else if !strings.HasPrefix(input, "FROM") && len(strings.TrimSpace(input)) > 0 {
+		return fmt.Sprintf("SELECT %s FROM %s", strings.Join(columns, ","), input), nil
 	}
 	return fmt.Sprintf("SELECT %s %s", strings.Join(columns, ","), input), nil
 }
@@ -1231,15 +1248,10 @@ func (n *InsertStmtNode) FormatSQL(ctx context.Context) (string, error) {
 	if n == nil {
 		return "", nil
 	}
-	fullpath := fullNamePathFromContext(ctx)
-	path := fullpath.paths[fullpath.idx]
-	formattedTableName := FormatName(
-		MergeNamePath(
-			namePathFromContext(ctx),
-			path,
-		),
-	)
-	fullpath.idx++
+	table, err := newNode(n.node.TableScan()).FormatSQL(ctx)
+	if err != nil {
+		return "", err
+	}
 	columns := []string{}
 	for _, col := range n.node.InsertColumnList() {
 		columns = append(columns, fmt.Sprintf("`%s`", col.Name()))
@@ -1253,7 +1265,7 @@ func (n *InsertStmtNode) FormatSQL(ctx context.Context) (string, error) {
 		rows = append(rows, sql)
 	}
 	return fmt.Sprintf("INSERT INTO `%s` (%s) VALUES %s",
-		formattedTableName,
+		table,
 		strings.Join(columns, ","),
 		strings.Join(rows, ","),
 	), nil
@@ -1263,22 +1275,17 @@ func (n *DeleteStmtNode) FormatSQL(ctx context.Context) (string, error) {
 	if n == nil {
 		return "", nil
 	}
-	fullpath := fullNamePathFromContext(ctx)
-	path := fullpath.paths[fullpath.idx]
-	formattedTableName := FormatName(
-		MergeNamePath(
-			namePathFromContext(ctx),
-			path,
-		),
-	)
-	fullpath.idx++
+	table, err := newNode(n.node.TableScan()).FormatSQL(ctx)
+	if err != nil {
+		return "", err
+	}
 	where, err := newNode(n.node.WhereExpr()).FormatSQL(ctx)
 	if err != nil {
 		return "", err
 	}
 	return fmt.Sprintf(
 		"DELETE FROM `%s` WHERE %s",
-		formattedTableName,
+		table,
 		where,
 	), nil
 }
@@ -1306,15 +1313,10 @@ func (n *UpdateStmtNode) FormatSQL(ctx context.Context) (string, error) {
 	if n == nil {
 		return "", nil
 	}
-	fullpath := fullNamePathFromContext(ctx)
-	path := fullpath.paths[fullpath.idx]
-	formattedTableName := FormatName(
-		MergeNamePath(
-			namePathFromContext(ctx),
-			path,
-		),
-	)
-	fullpath.idx++
+	table, err := newNode(n.node.TableScan()).FormatSQL(ctx)
+	if err != nil {
+		return "", err
+	}
 	updateItems := []string{}
 	for _, item := range n.node.UpdateItemList() {
 		sql, err := newNode(item).FormatSQL(ctx)
@@ -1329,7 +1331,7 @@ func (n *UpdateStmtNode) FormatSQL(ctx context.Context) (string, error) {
 	}
 	return fmt.Sprintf(
 		"UPDATE `%s` SET %s WHERE %s",
-		formattedTableName,
+		table,
 		strings.Join(updateItems, ","),
 		where,
 	), nil

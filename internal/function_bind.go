@@ -791,6 +791,13 @@ func bindLength(args ...Value) (Value, error) {
 	return LENGTH(args[0])
 }
 
+func bindCast(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("CAST: invalid argument num %d", len(args))
+	}
+	return args[0], nil
+}
+
 func timeFromUnixNano(unixNano int64) time.Time {
 	return time.Unix(0, unixNano)
 }
@@ -1129,6 +1136,17 @@ func bindRangeBucket(args ...Value) (Value, error) {
 
 func bindDate(args ...Value) (Value, error) {
 	return DATE(args...)
+}
+
+func bindDateDiff(args ...Value) (Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("DATE_DIFF: invalid argument num %d", len(args))
+	}
+	part, err := args[2].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return DATE_DIFF(args[0], args[1], part)
 }
 
 func bindDecodeArray(args ...Value) (Value, error) {
@@ -1550,6 +1568,42 @@ func bindLogicalOr(converter ReturnValueConverter) func() *Aggregator {
 			func(args []Value, opt *AggregatorOption) error {
 				if len(args) != 1 {
 					return fmt.Errorf("LOGICAL_OR: invalid argument num %d", len(args))
+				}
+				return fn.Step(args[0], opt)
+			},
+			func() (Value, error) {
+				return fn.Done()
+			},
+			converter,
+		)
+	}
+}
+
+func bindMax(converter ReturnValueConverter) func() *Aggregator {
+	return func() *Aggregator {
+		fn := &MAX{}
+		return newAggregator(
+			func(args []Value, opt *AggregatorOption) error {
+				if len(args) != 1 {
+					return fmt.Errorf("MAX: invalid argument num %d", len(args))
+				}
+				return fn.Step(args[0], opt)
+			},
+			func() (Value, error) {
+				return fn.Done()
+			},
+			converter,
+		)
+	}
+}
+
+func bindMin(converter ReturnValueConverter) func() *Aggregator {
+	return func() *Aggregator {
+		fn := &MIN{}
+		return newAggregator(
+			func(args []Value, opt *AggregatorOption) error {
+				if len(args) != 1 {
+					return fmt.Errorf("MIN: invalid argument num %d", len(args))
 				}
 				return fn.Step(args[0], opt)
 			},

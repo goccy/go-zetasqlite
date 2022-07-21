@@ -8,3 +8,5 @@ require (
 )
 
 require github.com/google/go-cmp v0.5.8
+
+require github.com/goccy/go-json v0.9.10 // indirect
