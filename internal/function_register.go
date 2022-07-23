@@ -145,6 +145,11 @@ var normalFuncs = []*FuncInfo{
 		ReturnTypes: []types.TypeKind{types.INT64},
 	},
 	{
+		Name:        "date_trunc",
+		BindFunc:    bindDateTrunc,
+		ReturnTypes: []types.TypeKind{types.DATE},
+	},
+	{
 		Name:        "concat",
 		BindFunc:    bindConcat,
 		ReturnTypes: []types.TypeKind{types.STRING},
@@ -195,14 +200,20 @@ var normalFuncs = []*FuncInfo{
 		ReturnTypes: []types.TypeKind{types.BOOL},
 	},
 	{
-		Name:        "case_with_value",
-		BindFunc:    bindCaseWithValue,
-		ReturnTypes: []types.TypeKind{types.STRING},
+		Name:     "case_with_value",
+		BindFunc: bindCaseWithValue,
+		ReturnTypes: []types.TypeKind{
+			types.INT64, types.DOUBLE, types.STRING, types.BOOL,
+			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
+		},
 	},
 	{
-		Name:        "case_no_value",
-		BindFunc:    bindCaseNoValue,
-		ReturnTypes: []types.TypeKind{types.STRING},
+		Name:     "case_no_value",
+		BindFunc: bindCaseNoValue,
+		ReturnTypes: []types.TypeKind{
+			types.INT64, types.DOUBLE, types.STRING, types.BOOL,
+			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
+		},
 	},
 	{
 		Name:        "coalesce",

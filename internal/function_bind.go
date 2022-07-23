@@ -1149,6 +1149,17 @@ func bindDateDiff(args ...Value) (Value, error) {
 	return DATE_DIFF(args[0], args[1], part)
 }
 
+func bindDateTrunc(args ...Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("DATE_TRUNC: invalid argument num %d", len(args))
+	}
+	part, err := args[1].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return DATE_TRUNC(args[0], part)
+}
+
 func bindDecodeArray(args ...Value) (Value, error) {
 	if len(args) != 1 {
 		return nil, fmt.Errorf("DECODE_ARRAY: invalid argument num %d", len(args))

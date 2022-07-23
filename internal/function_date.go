@@ -56,6 +56,24 @@ func DATE(args ...Value) (Value, error) {
 	return nil, fmt.Errorf("DATE: unsupported arguments type %v", args)
 }
 
+func DATE_TRUNC(a Value, part string) (Value, error) {
+	t, err := a.ToTime()
+	if err != nil {
+		return nil, err
+	}
+	switch part {
+	case "DAY":
+		return nil, fmt.Errorf("currently unsupported DATE_TRUN with DAY")
+	case "WEEK":
+		return nil, fmt.Errorf("currently unsupported DATE_TRUN with WEEK")
+	case "MONTH":
+		return DateValue(t.AddDate(0, 0, t.Day()-1)), nil
+	case "YEAR":
+		return nil, fmt.Errorf("currently unsupported DATE_TRUN with YEAR")
+	}
+	return nil, fmt.Errorf("unexpected part value %s", part)
+}
+
 func DATE_DIFF(a, b Value, part string) (Value, error) {
 	va, err := a.ToTime()
 	if err != nil {
