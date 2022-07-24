@@ -148,12 +148,12 @@ func TestQuery(t *testing.T) {
 		},
 		{
 			name:         "between operator",
-			query:        `SELECT "2022-09-10" BETWEEN "2022-09-01" and "2022-10-01"`,
+			query:        `SELECT DATE "2022-09-10" BETWEEN "2022-09-01" and "2022-10-01"`,
 			expectedRows: [][]interface{}{{true}},
 		},
 		{
 			name:         "not between operator",
-			query:        `SELECT "2020-09-10" NOT BETWEEN "2022-09-01" and "2022-10-01"`,
+			query:        `SELECT DATE "2020-09-10" NOT BETWEEN "2022-09-01" and "2022-10-01"`,
 			expectedRows: [][]interface{}{{true}},
 		},
 		{

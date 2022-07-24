@@ -52,6 +52,18 @@ func DATE(args ...Value) (Value, error) {
 			return nil, err
 		}
 		return DateValue(time.Time{}.AddDate(int(year)-1, int(month)-1, int(day)-1)), nil
+	} else if len(args) == 2 {
+		t, err := args[0].ToTime()
+		if err != nil {
+			return nil, err
+		}
+		return DateValue(t), nil
+	} else {
+		t, err := args[0].ToTime()
+		if err != nil {
+			return nil, err
+		}
+		return DateValue(t), nil
 	}
 	return nil, fmt.Errorf("DATE: unsupported arguments type %v", args)
 }

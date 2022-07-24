@@ -725,17 +725,17 @@ func bindNot(args ...Value) (Value, error) {
 }
 
 func bindAnd(args ...Value) (Value, error) {
-	if len(args) != 2 {
+	if len(args) < 2 {
 		return nil, fmt.Errorf("AND: invalid argument num %d", len(args))
 	}
-	return AND(args[0], args[1])
+	return AND(args...)
 }
 
 func bindOr(args ...Value) (Value, error) {
-	if len(args) != 2 {
+	if len(args) < 2 {
 		return nil, fmt.Errorf("OR: invalid argument num %d", len(args))
 	}
-	return OR(args[0], args[1])
+	return OR(args...)
 }
 
 func bindCaseWithValue(args ...Value) (Value, error) {
