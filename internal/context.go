@@ -3,6 +3,8 @@ package internal
 import (
 	"context"
 	"time"
+
+	ast "github.com/goccy/go-zetasql/resolved_ast"
 )
 
 type (
@@ -18,6 +20,7 @@ type (
 	currentTimeKey                  struct{}
 	existsGroupByKey                struct{}
 	needsTableNameForColumnKey      struct{}
+	tableNameToColumnListMapKey     struct{}
 )
 
 func namePathFromContext(ctx context.Context) []string {
@@ -167,6 +170,18 @@ func needsTableNameForColumn(ctx context.Context) bool {
 		return false
 	}
 	return value.(bool)
+}
+
+func withTableNameToColumnListMap(ctx context.Context, v map[string][]*ast.Column) context.Context {
+	return context.WithValue(ctx, tableNameToColumnListMapKey{}, v)
+}
+
+func tableNameToColumnListMap(ctx context.Context) map[string][]*ast.Column {
+	value := ctx.Value(tableNameToColumnListMapKey{})
+	if value == nil {
+		return nil
+	}
+	return value.(map[string][]*ast.Column)
 }
 
 func WithCurrentTime(ctx context.Context, now time.Time) context.Context {

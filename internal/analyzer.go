@@ -121,6 +121,7 @@ func (a *Analyzer) Analyze(ctx context.Context, query string) (*AnalyzerOutput, 
 	}
 	ctx = withNamePath(ctx, a.namePath)
 	ctx = withColumnRefMap(ctx, map[string]string{})
+	ctx = withTableNameToColumnListMap(ctx, map[string][]*ast.Column{})
 	ctx = withFullNamePathMap(ctx, fullNamePathMap)
 	ctx = withFuncMap(ctx, funcMap)
 	ctx = withAnalyticOrderColumnNames(ctx, &analyticOrderColumnNames{})

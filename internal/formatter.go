@@ -31,6 +31,25 @@ func FormatPath(path []string) []string {
 	return ret
 }
 
+func uniqueColumnName(col *ast.Column) []byte {
+	colName := string([]byte(col.Name()))
+	colID := col.ColumnID()
+	copied := make([]byte, 0, len(colName)+len(fmt.Sprint(colID))+1)
+	copied = append(copied, fmt.Sprintf("%s#%d", colName, colID)...)
+	return copied
+}
+
+func existsJoinExpr(node ast.Node) bool {
+	var exists bool
+	ast.Walk(node, func(n ast.Node) error {
+		if _, ok := n.(*ast.JoinScanNode); ok {
+			exists = true
+		}
+		return nil
+	})
+	return exists
+}
+
 type InputPattern int
 
 const (
@@ -42,6 +61,9 @@ const (
 func getInputPattern(input string) InputPattern {
 	trimmed := strings.TrimSpace(input)
 	if len(trimmed) == 0 {
+		return InputKeep
+	}
+	if strings.HasPrefix(trimmed, "FROM") {
 		return InputKeep
 	}
 	if strings.HasPrefix(trimmed, "SELECT") {
@@ -158,14 +180,11 @@ func (n *ColumnRefNode) FormatSQL(ctx context.Context) (string, error) {
 		return "", nil
 	}
 	columnMap := columnRefMap(ctx)
-	colName := n.node.Column().Name()
+	col := n.node.Column()
+	colName := string(uniqueColumnName(col))
 	if ref, exists := columnMap[colName]; exists {
 		delete(columnMap, colName)
 		return ref, nil
-	}
-	if needsTableNameForColumn(ctx) {
-		tableName := n.node.Column().TableName()
-		return fmt.Sprintf("`%s`.`%s`", FormatName([]string{tableName}), colName), nil
 	}
 	return fmt.Sprintf("`%s`", colName), nil
 }
@@ -234,14 +253,11 @@ func (n *AggregateFunctionCallNode) FormatSQL(ctx context.Context) (string, erro
 	var opts []string
 	for _, item := range n.node.OrderByItemList() {
 		columnRef := item.ColumnRef()
-		columnName, err := newNode(columnRef).FormatSQL(ctx)
-		if err != nil {
-			return "", err
-		}
+		colName := []byte(uniqueColumnName(columnRef.Column()))
 		if item.IsDescending() {
-			opts = append(opts, fmt.Sprintf("zetasqlite_order_by_string(%s, false)", columnName))
+			opts = append(opts, fmt.Sprintf("zetasqlite_order_by_string(`%s`, false)", string(colName)))
 		} else {
-			opts = append(opts, fmt.Sprintf("zetasqlite_order_by_string(%s, true)", columnName))
+			opts = append(opts, fmt.Sprintf("zetasqlite_order_by_string(`%s`, true)", string(colName)))
 		}
 	}
 	if n.node.Distinct() {
@@ -274,14 +290,6 @@ func (n *AnalyticFunctionCallNode) FormatSQL(ctx context.Context) (string, error
 	orderColumnNames := analyticOrderColumnNamesFromContext(ctx)
 	orderColumns := orderColumnNames.values
 	for _, a := range n.node.ArgumentList() {
-		switch t := a.(type) {
-		case *ast.ColumnRefNode:
-			ctx = withAnalyticTableName(ctx, FormatName([]string{t.Column().TableName()}))
-		case *ast.LiteralNode:
-			continue
-		default:
-			return "", fmt.Errorf("unexpected argument node type %T for analytic function", a)
-		}
 		arg, err := newNode(a).FormatSQL(ctx)
 		if err != nil {
 			return "", err
@@ -460,11 +468,11 @@ func (n *SubqueryExprNode) FormatSQL(ctx context.Context) (string, error) {
 	switch n.node.SubqueryType() {
 	case ast.SubqueryTypeScalar:
 	case ast.SubqueryTypeArray:
-		if len(columnNames.names) == 0 {
+		if len(n.node.Subquery().ColumnList()) == 0 {
 			return "", fmt.Errorf("failed to find computed column names for array subquery")
 		}
-		colName := columnNames.names[0]
-		return fmt.Sprintf("zetasqlite_array_array(%s) FROM (%s)", colName, sql), nil
+		colName := string(uniqueColumnName(n.node.Subquery().ColumnList()[0]))
+		return fmt.Sprintf("zetasqlite_array_array(`%s`) FROM (%s)", colName, sql), nil
 	case ast.SubqueryTypeExists:
 		return fmt.Sprintf("EXISTS (%s)", sql), nil
 	case ast.SubqueryTypeIn:
@@ -521,20 +529,16 @@ func (n *JoinScanNode) FormatSQL(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	equalFunc, ok := n.node.JoinExpr().(*ast.FunctionCallNode)
-	if !ok {
-		return "", fmt.Errorf("unexpected joinexpr node %T", n.node.JoinExpr())
+	if getInputPattern(left) == InputNeedsWrap {
+		left = fmt.Sprintf("(%s)", left)
 	}
-	ctx = withNeedsTableNameForColumn(ctx)
-	args := equalFunc.ArgumentList()
-	if len(args) != 2 {
-		return "", fmt.Errorf("join argument must be two arguments but got %d", len(args))
+	if getInputPattern(right) == InputNeedsWrap {
+		right = fmt.Sprintf("(%s)", right)
 	}
-	leftColumn, err := newNode(args[0]).FormatSQL(ctx)
-	if err != nil {
-		return "", err
+	if n.node.JoinExpr() == nil {
+		return fmt.Sprintf("%s CROSS JOIN %s", left, right), nil
 	}
-	rightColumn, err := newNode(args[1]).FormatSQL(ctx)
+	joinExpr, err := newNode(n.node.JoinExpr()).FormatSQL(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -549,14 +553,7 @@ func (n *JoinScanNode) FormatSQL(ctx context.Context) (string, error) {
 	case ast.JoinTypeFull:
 		joinType = "FULL JOIN"
 	}
-	return fmt.Sprintf(
-		"%s %s %s ON %s = %s",
-		left,
-		joinType,
-		right,
-		leftColumn,
-		rightColumn,
-	), nil
+	return fmt.Sprintf("%s %s %s ON %s", left, joinType, right, joinExpr), nil
 }
 
 func (n *ArrayScanNode) FormatSQL(ctx context.Context) (string, error) {
@@ -567,7 +564,7 @@ func (n *ArrayScanNode) FormatSQL(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	colName := n.node.ElementColumn().Name()
+	colName := string(uniqueColumnName(n.node.ElementColumn()))
 	if n.node.InputScan() != nil {
 		input, err := newNode(n.node.InputScan()).FormatSQL(ctx)
 		if err != nil {
@@ -633,22 +630,6 @@ func (n *AggregateScanNode) FormatSQL(ctx context.Context) (string, error) {
 			return "", err
 		}
 	}
-	columns := []string{}
-	columnMap := columnRefMap(ctx)
-	if len(n.node.GroupingSetList()) != 0 {
-		for _, col := range n.node.ColumnList() {
-			colName := col.Name()
-			if ref, exists := columnMap[colName]; exists {
-				columns = append(columns, ref)
-				delete(columnMap, colName)
-			} else {
-				columns = append(
-					columns,
-					fmt.Sprintf("`%s`", colName),
-				)
-			}
-		}
-	}
 	input, err := newNode(n.node.InputScan()).FormatSQL(ctx)
 	if err != nil {
 		return "", err
@@ -659,14 +640,27 @@ func (n *AggregateScanNode) FormatSQL(ctx context.Context) (string, error) {
 		if _, err := newNode(col).FormatSQL(ctx); err != nil {
 			return "", err
 		}
-		colName := fmt.Sprintf("`%s`", col.Column().Name())
-		groupByColumns = append(groupByColumns, colName)
+		colName := string(uniqueColumnName(col.Column()))
+		groupByColumns = append(groupByColumns, fmt.Sprintf("`%s`", colName))
 		groupByColumnMap[colName] = struct{}{}
 	}
 	if len(groupByColumns) != 0 {
 		existsGroupBy := existsGroupByFromContext(ctx)
 		if existsGroupBy != nil {
 			existsGroupBy.exists = true
+		}
+	}
+	columns := []string{}
+	columnMap := columnRefMap(ctx)
+	columnNames := []string{}
+	for _, col := range n.node.ColumnList() {
+		colName := string(uniqueColumnName(col))
+		columnNames = append(columnNames, colName)
+		if ref, exists := columnMap[colName]; exists {
+			columns = append(columns, ref)
+			delete(columnMap, colName)
+		} else {
+			columns = append(columns, fmt.Sprintf("`%s`", colName))
 		}
 	}
 	if len(n.node.GroupingSetList()) != 0 {
@@ -676,22 +670,22 @@ func (n *AggregateScanNode) FormatSQL(ctx context.Context) (string, error) {
 			groupBySetColumns := []string{}
 			groupBySetColumnMap := map[string]struct{}{}
 			for _, col := range set.GroupByColumnList() {
-				colName := fmt.Sprintf("`%s`", col.Column().Name())
-				groupBySetColumns = append(groupBySetColumns, colName)
+				colName := string(uniqueColumnName(col.Column()))
+				groupBySetColumns = append(groupBySetColumns, fmt.Sprintf("`%s`", colName))
 				groupBySetColumnMap[colName] = struct{}{}
 			}
 			nullColumnNameMap := map[string]struct{}{}
-			for _, col := range groupByColumns {
-				if _, exists := groupBySetColumnMap[col]; !exists {
-					nullColumnNameMap[col] = struct{}{}
+			for colName := range groupByColumnMap {
+				if _, exists := groupBySetColumnMap[colName]; !exists {
+					nullColumnNameMap[colName] = struct{}{}
 				}
 			}
 			groupBySetColumnPattern := []string{}
-			for _, col := range columns {
+			for idx, col := range columnNames {
 				if _, exists := nullColumnNameMap[col]; exists {
-					groupBySetColumnPattern = append(groupBySetColumnPattern, "NULL")
+					groupBySetColumnPattern = append(groupBySetColumnPattern, fmt.Sprintf("NULL AS `%s`", col))
 				} else {
-					groupBySetColumnPattern = append(groupBySetColumnPattern, col)
+					groupBySetColumnPattern = append(groupBySetColumnPattern, columns[idx])
 				}
 			}
 			columnPatterns = append(columnPatterns, groupBySetColumnPattern)
@@ -719,19 +713,6 @@ func (n *AggregateScanNode) FormatSQL(ctx context.Context) (string, error) {
 			strings.Join(groupByColumns, ","),
 		), nil
 	}
-	for _, col := range n.node.ColumnList() {
-		colName := col.Name()
-		if ref, exists := columnMap[colName]; exists {
-			columns = append(columns, ref)
-			delete(columnMap, colName)
-		} else {
-			columns = append(
-				columns,
-				fmt.Sprintf("`%s`", colName),
-			)
-		}
-	}
-	columns = append(columns, "*")
 	var groupBy string
 	if len(groupByColumns) > 0 {
 		groupBy = fmt.Sprintf("GROUP BY %s", strings.Join(groupByColumns, ","))
@@ -788,7 +769,24 @@ func (n *SetOperationScanNode) FormatSQL(ctx context.Context) (string, error) {
 		}
 		queries = append(queries, query)
 	}
-	return strings.Join(queries, fmt.Sprintf(" %s ", opType)), nil
+	columnMaps := []string{}
+	if len(n.node.InputItemList()) != 0 {
+		for idx, col := range n.node.InputItemList()[0].OutputColumnList() {
+			columnMaps = append(
+				columnMaps,
+				fmt.Sprintf(
+					"`%s` AS `%s`",
+					uniqueColumnName(col),
+					uniqueColumnName(n.node.ColumnList()[idx]),
+				),
+			)
+		}
+	}
+	return fmt.Sprintf(
+		"SELECT %s FROM (%s)",
+		strings.Join(columnMaps, ","),
+		strings.Join(queries, fmt.Sprintf(" %s ", opType)),
+	), nil
 }
 
 func (n *OrderByScanNode) FormatSQL(ctx context.Context) (string, error) {
@@ -802,7 +800,7 @@ func (n *OrderByScanNode) FormatSQL(ctx context.Context) (string, error) {
 	columns := []string{}
 	columnMap := columnRefMap(ctx)
 	for _, col := range n.node.ColumnList() {
-		colName := col.Name()
+		colName := string(uniqueColumnName(col))
 		if ref, exists := columnMap[colName]; exists {
 			columns = append(columns, ref)
 			delete(columnMap, colName)
@@ -815,7 +813,7 @@ func (n *OrderByScanNode) FormatSQL(ctx context.Context) (string, error) {
 	}
 	orderByColumns := []string{}
 	for _, item := range n.node.OrderByItemList() {
-		colName := item.ColumnRef().Column().Name()
+		colName := uniqueColumnName(item.ColumnRef().Column())
 		switch item.NullOrder() {
 		case ast.NullOrderModeNullsFirst:
 			orderByColumns = append(
@@ -854,7 +852,24 @@ func (n *WithRefScanNode) FormatSQL(ctx context.Context) (string, error) {
 	if n.node == nil {
 		return "", nil
 	}
-	return n.node.WithQueryName(), nil
+	tableName := n.node.WithQueryName()
+	tableToColumnListMap := tableNameToColumnListMap(ctx)
+	columnDefs := tableToColumnListMap[tableName]
+	columns := n.node.ColumnList()
+	if len(columnDefs) != len(columns) {
+		return "", fmt.Errorf(
+			"column num mismatch. defined column num is %d but used %d column",
+			len(columnDefs), len(columns),
+		)
+	}
+	formattedColumns := []string{}
+	for i := 0; i < len(columnDefs); i++ {
+		formattedColumns = append(
+			formattedColumns,
+			fmt.Sprintf("`%s` AS `%s`", uniqueColumnName(columnDefs[i]), uniqueColumnName(columns[i])),
+		)
+	}
+	return fmt.Sprintf("(SELECT %s FROM %s)", strings.Join(formattedColumns, ","), tableName), nil
 }
 
 func (n *AnalyticScanNode) FormatSQL(ctx context.Context) (string, error) {
@@ -875,8 +890,7 @@ func (n *AnalyticScanNode) FormatSQL(ctx context.Context) (string, error) {
 		if group.PartitionBy() != nil {
 			var partitionColumns []string
 			for _, columnRef := range group.PartitionBy().PartitionByList() {
-				ctx = withAnalyticTableName(ctx, FormatName([]string{columnRef.Column().TableName()}))
-				colName := fmt.Sprintf("`%s`", columnRef.Column().Name())
+				colName := fmt.Sprintf("`%s`", uniqueColumnName(columnRef.Column()))
 				partitionColumns = append(
 					partitionColumns,
 					colName,
@@ -891,14 +905,14 @@ func (n *AnalyticScanNode) FormatSQL(ctx context.Context) (string, error) {
 		if group.OrderBy() != nil {
 			var orderByColumns []string
 			for _, item := range group.OrderBy().OrderByItemList() {
-				ctx = withAnalyticTableName(ctx, FormatName([]string{item.ColumnRef().Column().TableName()}))
-				colName := fmt.Sprintf("`%s`", item.ColumnRef().Column().Name())
+				colName := uniqueColumnName(item.ColumnRef().Column())
+				formattedColName := fmt.Sprintf("`%s`", colName)
 				orderByColumns = append(
 					orderByColumns,
-					colName,
+					string(formattedColName),
 				)
 				orderColumnNames.values = append(orderColumnNames.values, &analyticOrderBy{
-					column: colName,
+					column: string(formattedColName),
 					isAsc:  !item.IsDescending(),
 				})
 			}
@@ -910,7 +924,7 @@ func (n *AnalyticScanNode) FormatSQL(ctx context.Context) (string, error) {
 	columns := []string{}
 	columnMap := columnRefMap(ctx)
 	for _, col := range n.node.ColumnList() {
-		colName := col.Name()
+		colName := string(uniqueColumnName(col))
 		if ref, exists := columnMap[colName]; exists {
 			columns = append(columns, ref)
 			delete(columnMap, colName)
@@ -938,7 +952,7 @@ func (n *AnalyticScanNode) FormatSQL(ctx context.Context) (string, error) {
 	orderBy := fmt.Sprintf("ORDER BY %s", strings.Join(orderColumnFormattedNames, ","))
 	orderColumnNames.values = []*analyticOrderBy{}
 	return fmt.Sprintf(
-		"SELECT %s FROM ( SELECT *, ROW_NUMBER() OVER() AS `row_id` %s ) %s",
+		"SELECT %s FROM (SELECT *, ROW_NUMBER() OVER() AS `row_id` %s) %s",
 		strings.Join(columns, ","),
 		formattedInput,
 		orderBy,
@@ -957,13 +971,14 @@ func (n *ComputedColumnNode) FormatSQL(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	name := n.node.Column().Name()
-	query := fmt.Sprintf("%s AS `%s`", expr, name)
+	col := n.node.Column()
+	uniqueName := string(uniqueColumnName(col))
+	query := fmt.Sprintf("%s AS `%s`", expr, uniqueColumnName(col))
 	columnMap := columnRefMap(ctx)
-	columnMap[name] = query
+	columnMap[uniqueName] = query
 	arraySubqueryColumnNames := arraySubqueryColumnNameFromContext(ctx)
 	if arraySubqueryColumnNames != nil {
-		arraySubqueryColumnNames.names = append(arraySubqueryColumnNames.names, fmt.Sprintf("`%s`", name))
+		arraySubqueryColumnNames.names = append(arraySubqueryColumnNames.names, fmt.Sprintf("`%s`", col.Name()))
 	}
 	return query, nil
 }
@@ -1005,10 +1020,12 @@ func (n *OutputColumnNode) FormatSQL(ctx context.Context) (string, error) {
 		return "", nil
 	}
 	columnMap := columnRefMap(ctx)
-	if ref, exists := columnMap[n.node.Name()]; exists {
+	col := n.node.Column()
+	uniqueName := string(uniqueColumnName(col))
+	if ref, exists := columnMap[uniqueName]; exists {
 		return ref, nil
 	}
-	return fmt.Sprintf("`%s`", n.node.Name()), nil
+	return fmt.Sprintf("`%s`", col.Name()), nil
 }
 
 func (n *ProjectScanNode) FormatSQL(ctx context.Context) (string, error) {
@@ -1025,20 +1042,13 @@ func (n *ProjectScanNode) FormatSQL(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	_, isJoinScan := n.node.InputScan().(*ast.JoinScanNode)
 	columns := []string{}
 	columnMap := columnRefMap(ctx)
 	for _, col := range n.node.ColumnList() {
-		tableName := FormatName([]string{col.TableName()})
-		colName := col.Name()
+		colName := string(uniqueColumnName(col))
 		if ref, exists := columnMap[colName]; exists {
 			columns = append(columns, ref)
 			delete(columnMap, colName)
-		} else if isJoinScan {
-			columns = append(
-				columns,
-				fmt.Sprintf("`%s`.`%s`", tableName, colName),
-			)
 		} else {
 			columns = append(
 				columns,
@@ -1225,6 +1235,8 @@ func (n *WithEntryNode) FormatSQL(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	tableToColumnList := tableNameToColumnListMap(ctx)
+	tableToColumnList[queryName] = n.node.WithSubquery().ColumnList()
 	return fmt.Sprintf("%s AS ( %s )", queryName, subquery), nil
 }
 
