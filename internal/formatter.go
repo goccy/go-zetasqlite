@@ -31,6 +31,17 @@ func FormatPath(path []string) []string {
 	return ret
 }
 
+func getTableName(ctx context.Context, t types.Table) string {
+	fullNamePathMap := fullNamePathMapFromContext(ctx)
+	path := fullNamePathMap[t.Name()]
+	return FormatName(
+		MergeNamePath(
+			namePathFromContext(ctx),
+			path,
+		),
+	)
+}
+
 func uniqueColumnName(col *ast.Column) []byte {
 	colName := string([]byte(col.Name()))
 	colID := col.ColumnID()
@@ -506,15 +517,15 @@ func (n *TableScanNode) FormatSQL(ctx context.Context) (string, error) {
 	if n.node == nil {
 		return "", nil
 	}
-	fullNamePathMap := fullNamePathMapFromContext(ctx)
-	path := fullNamePathMap[n.node.Table().Name()]
-	tableName := FormatName(
-		MergeNamePath(
-			namePathFromContext(ctx),
-			path,
-		),
-	)
-	return tableName, nil
+	tableName := getTableName(ctx, n.node.Table())
+	var columns []string
+	for _, col := range n.node.ColumnList() {
+		columns = append(
+			columns,
+			fmt.Sprintf("`%s` AS `%s`", col.Name(), uniqueColumnName(col)),
+		)
+	}
+	return fmt.Sprintf("(SELECT %s FROM %s)", strings.Join(columns, ","), tableName), nil
 }
 
 func (n *JoinScanNode) FormatSQL(ctx context.Context) (string, error) {
@@ -1314,10 +1325,7 @@ func (n *InsertStmtNode) FormatSQL(ctx context.Context) (string, error) {
 	if n == nil {
 		return "", nil
 	}
-	table, err := newNode(n.node.TableScan()).FormatSQL(ctx)
-	if err != nil {
-		return "", err
-	}
+	table := getTableName(ctx, n.node.TableScan().Table())
 	columns := []string{}
 	for _, col := range n.node.InsertColumnList() {
 		columns = append(columns, fmt.Sprintf("`%s`", col.Name()))
@@ -1341,10 +1349,7 @@ func (n *DeleteStmtNode) FormatSQL(ctx context.Context) (string, error) {
 	if n == nil {
 		return "", nil
 	}
-	table, err := newNode(n.node.TableScan()).FormatSQL(ctx)
-	if err != nil {
-		return "", err
-	}
+	table := getTableName(ctx, n.node.TableScan().Table())
 	where, err := newNode(n.node.WhereExpr()).FormatSQL(ctx)
 	if err != nil {
 		return "", err
@@ -1379,10 +1384,7 @@ func (n *UpdateStmtNode) FormatSQL(ctx context.Context) (string, error) {
 	if n == nil {
 		return "", nil
 	}
-	table, err := newNode(n.node.TableScan()).FormatSQL(ctx)
-	if err != nil {
-		return "", err
-	}
+	table := getTableName(ctx, n.node.TableScan().Table())
 	updateItems := []string{}
 	for _, item := range n.node.UpdateItemList() {
 		sql, err := newNode(item).FormatSQL(ctx)
