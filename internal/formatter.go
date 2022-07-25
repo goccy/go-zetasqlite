@@ -42,8 +42,13 @@ func getTableName(ctx context.Context, t types.Table) string {
 	)
 }
 
-func uniqueColumnName(col *ast.Column) []byte {
+func uniqueColumnName(ctx context.Context, col *ast.Column) []byte {
 	colName := string([]byte(col.Name()))
+	if !useColumnID(ctx) {
+		copied := make([]byte, 0, len(colName))
+		copied = append(copied, colName...)
+		return copied
+	}
 	colID := col.ColumnID()
 	copied := make([]byte, 0, len(colName)+len(fmt.Sprint(colID))+1)
 	copied = append(copied, fmt.Sprintf("%s#%d", colName, colID)...)
@@ -192,7 +197,7 @@ func (n *ColumnRefNode) FormatSQL(ctx context.Context) (string, error) {
 	}
 	columnMap := columnRefMap(ctx)
 	col := n.node.Column()
-	colName := string(uniqueColumnName(col))
+	colName := string(uniqueColumnName(ctx, col))
 	if ref, exists := columnMap[colName]; exists {
 		delete(columnMap, colName)
 		return ref, nil
@@ -264,7 +269,7 @@ func (n *AggregateFunctionCallNode) FormatSQL(ctx context.Context) (string, erro
 	var opts []string
 	for _, item := range n.node.OrderByItemList() {
 		columnRef := item.ColumnRef()
-		colName := []byte(uniqueColumnName(columnRef.Column()))
+		colName := []byte(uniqueColumnName(ctx, columnRef.Column()))
 		if item.IsDescending() {
 			opts = append(opts, fmt.Sprintf("zetasqlite_order_by_string(`%s`, false)", string(colName)))
 		} else {
@@ -482,7 +487,7 @@ func (n *SubqueryExprNode) FormatSQL(ctx context.Context) (string, error) {
 		if len(n.node.Subquery().ColumnList()) == 0 {
 			return "", fmt.Errorf("failed to find computed column names for array subquery")
 		}
-		colName := string(uniqueColumnName(n.node.Subquery().ColumnList()[0]))
+		colName := string(uniqueColumnName(ctx, n.node.Subquery().ColumnList()[0]))
 		return fmt.Sprintf("zetasqlite_array_array(`%s`) FROM (%s)", colName, sql), nil
 	case ast.SubqueryTypeExists:
 		return fmt.Sprintf("EXISTS (%s)", sql), nil
@@ -522,7 +527,7 @@ func (n *TableScanNode) FormatSQL(ctx context.Context) (string, error) {
 	for _, col := range n.node.ColumnList() {
 		columns = append(
 			columns,
-			fmt.Sprintf("`%s` AS `%s`", col.Name(), uniqueColumnName(col)),
+			fmt.Sprintf("`%s` AS `%s`", col.Name(), uniqueColumnName(ctx, col)),
 		)
 	}
 	return fmt.Sprintf("(SELECT %s FROM %s)", strings.Join(columns, ","), tableName), nil
@@ -575,7 +580,7 @@ func (n *ArrayScanNode) FormatSQL(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	colName := string(uniqueColumnName(n.node.ElementColumn()))
+	colName := string(uniqueColumnName(ctx, n.node.ElementColumn()))
 	if n.node.InputScan() != nil {
 		input, err := newNode(n.node.InputScan()).FormatSQL(ctx)
 		if err != nil {
@@ -651,7 +656,7 @@ func (n *AggregateScanNode) FormatSQL(ctx context.Context) (string, error) {
 		if _, err := newNode(col).FormatSQL(ctx); err != nil {
 			return "", err
 		}
-		colName := string(uniqueColumnName(col.Column()))
+		colName := string(uniqueColumnName(ctx, col.Column()))
 		groupByColumns = append(groupByColumns, fmt.Sprintf("`%s`", colName))
 		groupByColumnMap[colName] = struct{}{}
 	}
@@ -665,7 +670,7 @@ func (n *AggregateScanNode) FormatSQL(ctx context.Context) (string, error) {
 	columnMap := columnRefMap(ctx)
 	columnNames := []string{}
 	for _, col := range n.node.ColumnList() {
-		colName := string(uniqueColumnName(col))
+		colName := string(uniqueColumnName(ctx, col))
 		columnNames = append(columnNames, colName)
 		if ref, exists := columnMap[colName]; exists {
 			columns = append(columns, ref)
@@ -681,7 +686,7 @@ func (n *AggregateScanNode) FormatSQL(ctx context.Context) (string, error) {
 			groupBySetColumns := []string{}
 			groupBySetColumnMap := map[string]struct{}{}
 			for _, col := range set.GroupByColumnList() {
-				colName := string(uniqueColumnName(col.Column()))
+				colName := string(uniqueColumnName(ctx, col.Column()))
 				groupBySetColumns = append(groupBySetColumns, fmt.Sprintf("`%s`", colName))
 				groupBySetColumnMap[colName] = struct{}{}
 			}
@@ -787,8 +792,8 @@ func (n *SetOperationScanNode) FormatSQL(ctx context.Context) (string, error) {
 				columnMaps,
 				fmt.Sprintf(
 					"`%s` AS `%s`",
-					uniqueColumnName(col),
-					uniqueColumnName(n.node.ColumnList()[idx]),
+					uniqueColumnName(ctx, col),
+					uniqueColumnName(ctx, n.node.ColumnList()[idx]),
 				),
 			)
 		}
@@ -811,7 +816,7 @@ func (n *OrderByScanNode) FormatSQL(ctx context.Context) (string, error) {
 	columns := []string{}
 	columnMap := columnRefMap(ctx)
 	for _, col := range n.node.ColumnList() {
-		colName := string(uniqueColumnName(col))
+		colName := string(uniqueColumnName(ctx, col))
 		if ref, exists := columnMap[colName]; exists {
 			columns = append(columns, ref)
 			delete(columnMap, colName)
@@ -824,7 +829,7 @@ func (n *OrderByScanNode) FormatSQL(ctx context.Context) (string, error) {
 	}
 	orderByColumns := []string{}
 	for _, item := range n.node.OrderByItemList() {
-		colName := uniqueColumnName(item.ColumnRef().Column())
+		colName := uniqueColumnName(ctx, item.ColumnRef().Column())
 		switch item.NullOrder() {
 		case ast.NullOrderModeNullsFirst:
 			orderByColumns = append(
@@ -877,7 +882,7 @@ func (n *WithRefScanNode) FormatSQL(ctx context.Context) (string, error) {
 	for i := 0; i < len(columnDefs); i++ {
 		formattedColumns = append(
 			formattedColumns,
-			fmt.Sprintf("`%s` AS `%s`", uniqueColumnName(columnDefs[i]), uniqueColumnName(columns[i])),
+			fmt.Sprintf("`%s` AS `%s`", uniqueColumnName(ctx, columnDefs[i]), uniqueColumnName(ctx, columns[i])),
 		)
 	}
 	return fmt.Sprintf("(SELECT %s FROM %s)", strings.Join(formattedColumns, ","), tableName), nil
@@ -901,7 +906,7 @@ func (n *AnalyticScanNode) FormatSQL(ctx context.Context) (string, error) {
 		if group.PartitionBy() != nil {
 			var partitionColumns []string
 			for _, columnRef := range group.PartitionBy().PartitionByList() {
-				colName := fmt.Sprintf("`%s`", uniqueColumnName(columnRef.Column()))
+				colName := fmt.Sprintf("`%s`", uniqueColumnName(ctx, columnRef.Column()))
 				partitionColumns = append(
 					partitionColumns,
 					colName,
@@ -916,7 +921,7 @@ func (n *AnalyticScanNode) FormatSQL(ctx context.Context) (string, error) {
 		if group.OrderBy() != nil {
 			var orderByColumns []string
 			for _, item := range group.OrderBy().OrderByItemList() {
-				colName := uniqueColumnName(item.ColumnRef().Column())
+				colName := uniqueColumnName(ctx, item.ColumnRef().Column())
 				formattedColName := fmt.Sprintf("`%s`", colName)
 				orderByColumns = append(
 					orderByColumns,
@@ -935,7 +940,7 @@ func (n *AnalyticScanNode) FormatSQL(ctx context.Context) (string, error) {
 	columns := []string{}
 	columnMap := columnRefMap(ctx)
 	for _, col := range n.node.ColumnList() {
-		colName := string(uniqueColumnName(col))
+		colName := string(uniqueColumnName(ctx, col))
 		if ref, exists := columnMap[colName]; exists {
 			columns = append(columns, ref)
 			delete(columnMap, colName)
@@ -983,8 +988,8 @@ func (n *ComputedColumnNode) FormatSQL(ctx context.Context) (string, error) {
 		return "", err
 	}
 	col := n.node.Column()
-	uniqueName := string(uniqueColumnName(col))
-	query := fmt.Sprintf("%s AS `%s`", expr, uniqueColumnName(col))
+	uniqueName := string(uniqueColumnName(ctx, col))
+	query := fmt.Sprintf("%s AS `%s`", expr, uniqueColumnName(ctx, col))
 	columnMap := columnRefMap(ctx)
 	columnMap[uniqueName] = query
 	arraySubqueryColumnNames := arraySubqueryColumnNameFromContext(ctx)
@@ -1032,7 +1037,7 @@ func (n *OutputColumnNode) FormatSQL(ctx context.Context) (string, error) {
 	}
 	columnMap := columnRefMap(ctx)
 	col := n.node.Column()
-	uniqueName := string(uniqueColumnName(col))
+	uniqueName := string(uniqueColumnName(ctx, col))
 	if ref, exists := columnMap[uniqueName]; exists {
 		return ref, nil
 	}
@@ -1056,7 +1061,7 @@ func (n *ProjectScanNode) FormatSQL(ctx context.Context) (string, error) {
 	columns := []string{}
 	columnMap := columnRefMap(ctx)
 	for _, col := range n.node.ColumnList() {
-		colName := string(uniqueColumnName(col))
+		colName := string(uniqueColumnName(ctx, col))
 		if ref, exists := columnMap[colName]; exists {
 			columns = append(columns, ref)
 			delete(columnMap, colName)

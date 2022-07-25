@@ -21,6 +21,7 @@ type (
 	existsGroupByKey                struct{}
 	needsTableNameForColumnKey      struct{}
 	tableNameToColumnListMapKey     struct{}
+	useColumnIDKey                  struct{}
 )
 
 func namePathFromContext(ctx context.Context) []string {
@@ -166,6 +167,18 @@ func withNeedsTableNameForColumn(ctx context.Context) context.Context {
 
 func needsTableNameForColumn(ctx context.Context) bool {
 	value := ctx.Value(needsTableNameForColumnKey{})
+	if value == nil {
+		return false
+	}
+	return value.(bool)
+}
+
+func withUseColumnID(ctx context.Context) context.Context {
+	return context.WithValue(ctx, useColumnIDKey{}, true)
+}
+
+func useColumnID(ctx context.Context) bool {
+	value := ctx.Value(useColumnIDKey{})
 	if value == nil {
 		return false
 	}

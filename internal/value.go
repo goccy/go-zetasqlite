@@ -2003,6 +2003,9 @@ func encodeValues(v []interface{}, params []*ast.ParameterNode) ([]interface{}, 
 }
 
 func encodeValueWithType(v interface{}, t types.Type) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
 	switch t.Kind() {
 	case types.INT32, types.INT64, types.UINT32, types.UINT64, types.ENUM:
 		vv, err := ValueOf(v)

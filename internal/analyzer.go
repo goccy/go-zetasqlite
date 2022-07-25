@@ -134,6 +134,7 @@ func (a *Analyzer) Analyze(ctx context.Context, query string) (*AnalyzerOutput, 
 	case ast.InsertStmt, ast.UpdateStmt, ast.DeleteStmt:
 		return a.analyzeDMLStmt(ctx, query, stmtNode)
 	case ast.QueryStmt:
+		ctx = withUseColumnID(ctx)
 		return a.analyzeQueryStmt(ctx, query, stmtNode.(*ast.QueryStmtNode))
 	}
 	return nil, fmt.Errorf("unsupported stmt %s", stmtNode.DebugString())
