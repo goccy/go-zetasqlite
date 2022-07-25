@@ -110,6 +110,16 @@ func DATE_ADD(a, b Value) (Value, error) {
 	return a.Add(b)
 }
 
-func DATE_SUB(a, b Value) (Value, error) {
-	return a.Sub(b)
+func DATE_SUB(t time.Time, v int64, part string) (Value, error) {
+	switch part {
+	case "DAY":
+		return DateValue(t.AddDate(0, 0, int(-v))), nil
+	case "WEEK":
+		return DateValue(t.AddDate(0, 0, int(-v*7))), nil
+	case "MONTH":
+		return DateValue(t.AddDate(0, int(-v), 0)), nil
+	case "YEAR":
+		return DateValue(t.AddDate(int(-v), 0, 0)), nil
+	}
+	return nil, fmt.Errorf("unexpected part value %s", part)
 }

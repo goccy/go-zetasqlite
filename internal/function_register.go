@@ -140,6 +140,11 @@ var normalFuncs = []*FuncInfo{
 		ReturnTypes: []types.TypeKind{types.DATE},
 	},
 	{
+		Name:        "date_sub",
+		BindFunc:    bindDateSub,
+		ReturnTypes: []types.TypeKind{types.DATE},
+	},
+	{
 		Name:        "date_diff",
 		BindFunc:    bindDateDiff,
 		ReturnTypes: []types.TypeKind{types.INT64},
