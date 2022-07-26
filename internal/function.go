@@ -430,8 +430,15 @@ func COALESCE(args ...Value) (Value, error) {
 	return nil, fmt.Errorf("COALESCE requried arguments")
 }
 
-func IF(cond bool, trueV, falseV Value) (Value, error) {
-	if cond {
+func IF(cond, trueV, falseV Value) (Value, error) {
+	if cond == nil {
+		return falseV, nil
+	}
+	b, err := cond.ToBool()
+	if err != nil {
+		return nil, err
+	}
+	if b {
 		return trueV, nil
 	}
 	return falseV, nil

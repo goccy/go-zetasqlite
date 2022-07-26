@@ -763,11 +763,7 @@ func bindIf(args ...Value) (Value, error) {
 	if len(args) != 3 {
 		return nil, fmt.Errorf("IF: invalid argument num %d", len(args))
 	}
-	cond, err := args[0].ToBool()
-	if err != nil {
-		return nil, err
-	}
-	return IF(cond, args[1], args[2])
+	return IF(args[0], args[1], args[2])
 }
 
 func bindIfNull(args ...Value) (Value, error) {

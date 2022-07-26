@@ -102,6 +102,10 @@ func (a *Analyzer) AddNamePath(path string) {
 	a.namePath = append(a.namePath, path)
 }
 
+func (a *Analyzer) SetParameterMode(mode zetasql.ParameterMode) {
+	a.opt.SetParameterMode(mode)
+}
+
 func (a *Analyzer) Analyze(ctx context.Context, conn *Conn, query string) (*AnalyzerOutput, error) {
 	if err := a.catalog.Sync(ctx, conn); err != nil {
 		return nil, fmt.Errorf("failed to sync catalog: %w", err)

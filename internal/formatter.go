@@ -184,6 +184,9 @@ func (n *LiteralNode) FormatSQL(ctx context.Context) (string, error) {
 }
 
 func (n *ParameterNode) FormatSQL(ctx context.Context) (string, error) {
+	if n.node.Name() == "" {
+		return "?", nil
+	}
 	return fmt.Sprintf("@%s", n.node.Name()), nil
 }
 
