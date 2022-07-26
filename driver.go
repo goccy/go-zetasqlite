@@ -75,6 +75,7 @@ func (d *ZetaSQLiteDriver) Open(name string) (driver.Conn, error) {
 
 type ZetaSQLiteConn struct {
 	conn     *sql.Conn
+	tx       *sql.Tx
 	analyzer *internal.Analyzer
 }
 
@@ -106,15 +107,17 @@ func (s *ZetaSQLiteConn) CheckNamedValue(value *driver.NamedValue) error {
 }
 
 func (c *ZetaSQLiteConn) Prepare(query string) (driver.Stmt, error) {
-	out, err := c.analyzer.Analyze(context.Background(), query)
+	conn := internal.NewConn(c.conn, c.tx)
+	out, err := c.analyzer.Analyze(context.Background(), conn, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to analyze query: %w", err)
 	}
-	return out.Prepare(context.Background(), c.conn)
+	return out.Prepare(context.Background(), conn)
 }
 
 func (c *ZetaSQLiteConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
-	out, err := c.analyzer.Analyze(ctx, query)
+	conn := internal.NewConn(c.conn, c.tx)
+	out, err := c.analyzer.Analyze(ctx, conn, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to analyze query: %w", err)
 	}
@@ -126,11 +129,12 @@ func (c *ZetaSQLiteConn) ExecContext(ctx context.Context, query string, args []d
 	for _, newNamedValue := range newNamedValues {
 		newArgs = append(newArgs, newNamedValue)
 	}
-	return out.ExecContext(ctx, c.conn, newArgs...)
+	return out.ExecContext(ctx, conn, newArgs...)
 }
 
 func (c *ZetaSQLiteConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
-	out, err := c.analyzer.Analyze(ctx, query)
+	conn := internal.NewConn(c.conn, c.tx)
+	out, err := c.analyzer.Analyze(ctx, conn, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to analyze query: %w", err)
 	}
@@ -142,11 +146,26 @@ func (c *ZetaSQLiteConn) QueryContext(ctx context.Context, query string, args []
 	for _, newNamedValue := range newNamedValues {
 		newArgs = append(newArgs, newNamedValue)
 	}
-	return out.QueryContext(ctx, c.conn, newArgs...)
+	return out.QueryContext(ctx, conn, newArgs...)
 }
 
 func (c *ZetaSQLiteConn) Close() error {
 	return c.conn.Close()
+}
+
+func (c *ZetaSQLiteConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
+	tx, err := c.conn.BeginTx(ctx, &sql.TxOptions{
+		Isolation: sql.IsolationLevel(opts.Isolation),
+		ReadOnly:  opts.ReadOnly,
+	})
+	if err != nil {
+		return nil, err
+	}
+	c.tx = tx
+	return &ZetaSQLiteTx{
+		tx:   tx,
+		conn: c,
+	}, nil
 }
 
 func (c *ZetaSQLiteConn) Begin() (driver.Tx, error) {
@@ -154,6 +173,7 @@ func (c *ZetaSQLiteConn) Begin() (driver.Tx, error) {
 	if err != nil {
 		return nil, err
 	}
+	c.tx = tx
 	return &ZetaSQLiteTx{
 		tx:   tx,
 		conn: c,
@@ -166,9 +186,15 @@ type ZetaSQLiteTx struct {
 }
 
 func (tx *ZetaSQLiteTx) Commit() error {
+	defer func() {
+		tx.conn.tx = nil
+	}()
 	return tx.tx.Commit()
 }
 
 func (tx *ZetaSQLiteTx) Rollback() error {
+	defer func() {
+		tx.conn.tx = nil
+	}()
 	return tx.tx.Rollback()
 }
