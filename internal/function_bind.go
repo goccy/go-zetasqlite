@@ -1134,6 +1134,25 @@ func bindDate(args ...Value) (Value, error) {
 	return DATE(args...)
 }
 
+func bindDateAdd(args ...Value) (Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("DATE_ADD: invalid argument num %d", len(args))
+	}
+	t, err := args[0].ToTime()
+	if err != nil {
+		return nil, err
+	}
+	num, err := args[1].ToInt64()
+	if err != nil {
+		return nil, err
+	}
+	part, err := args[2].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return DATE_ADD(t, num, part)
+}
+
 func bindDateSub(args ...Value) (Value, error) {
 	if len(args) != 3 {
 		return nil, fmt.Errorf("DATE_SUB: invalid argument num %d", len(args))
