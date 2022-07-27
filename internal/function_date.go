@@ -75,13 +75,19 @@ func DATE_TRUNC(a Value, part string) (Value, error) {
 	}
 	switch part {
 	case "DAY":
-		return nil, fmt.Errorf("currently unsupported DATE_TRUN with DAY")
+		return nil, fmt.Errorf("currently unsupported DATE_TRUNC with DAY")
+	case "ISO_WEEK":
+		return nil, fmt.Errorf("currently unsupported DATE_TRUNC with ISO_WEEK")
 	case "WEEK":
-		return nil, fmt.Errorf("currently unsupported DATE_TRUN with WEEK")
+		return DateValue(t.AddDate(0, 0, -int(t.Weekday()))), nil
 	case "MONTH":
-		return DateValue(t.AddDate(0, 0, t.Day()-1)), nil
+		return DateValue(time.Time{}.AddDate(t.Year()-1, int(t.Month())-1, 0)), nil
+	case "QUARTER":
+		return nil, fmt.Errorf("currently unsupported DATE_TRUNC with QUARTER")
 	case "YEAR":
-		return nil, fmt.Errorf("currently unsupported DATE_TRUN with YEAR")
+		return DateValue(time.Time{}.AddDate(t.Year()-1, 0, 0)), nil
+	case "ISO_YEAR":
+		return nil, fmt.Errorf("currently unsupported DATE_TRUNC with ISO_YAER")
 	}
 	return nil, fmt.Errorf("unexpected part value %s", part)
 }

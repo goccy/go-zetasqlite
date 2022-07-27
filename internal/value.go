@@ -1432,7 +1432,7 @@ func (d TimestampValue) ToString() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return toTimestampValueFromString(json), nil
+	return toTimestampValueFromString(json)
 }
 
 func (d TimestampValue) ToFloat64() (float64, error) {
@@ -1464,7 +1464,7 @@ func (d TimestampValue) Marshal() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return toTimestampValueFromString(json), nil
+	return toTimestampValueFromString(json)
 }
 
 func (d TimestampValue) Format(verb rune) string {
@@ -1865,14 +1865,28 @@ func toTimeValueFromString(s string) string {
 	)
 }
 
-func toTimestampValueFromString(s string) string {
+func toTimestampValueFromString(s string) (string, error) {
+	formatted, err := formatTimestamp(s)
+	if err != nil {
+		return "", err
+	}
 	return strconv.Quote(
 		fmt.Sprintf(
 			"%s%s",
 			TimestampValueHeader,
-			s,
+			formatted,
 		),
-	)
+	), nil
+}
+
+func formatTimestamp(s string) (string, error) {
+	if timestampTZRe.MatchString(s) || timestampRe.MatchString(s) {
+		return s, nil
+	}
+	if timestampNoTZRe.MatchString(s) || datetimeRe.MatchString(s) {
+		return s + "+00", nil
+	}
+	return "", fmt.Errorf("unexpected timestamp format %s", s)
 }
 
 func isNULLValue(v interface{}) bool {
@@ -1884,10 +1898,12 @@ func isNULLValue(v interface{}) bool {
 }
 
 var (
-	dateRe      = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}$`)
-	datetimeRe  = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}?T[0-9]{2}:[0-9]{2}:[0-9]{2}$`)
-	timeRe      = regexp.MustCompile(`^[0-9]{2}:[0-9]{2}:[0-9]{2}$`)
-	timestampRe = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}?T[0-9]{2}:[0-9]{2}:[0-9]{2}Z[0-9]{2}:[0-9]{2}$`)
+	dateRe          = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}$`)
+	datetimeRe      = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}[T\s][0-9]{2}:[0-9]{2}:[0-9]{2}$`)
+	timeRe          = regexp.MustCompile(`^[0-9]{2}:[0-9]{2}:[0-9]{2}$`)
+	timestampTZRe   = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}[T\s][0-9]{2}:[0-9]{2}:[0-9]{2}Z[0-9]{2}:[0-9]{2}[+][0-9]{1,2}$`)
+	timestampNoTZRe = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}[T\s][0-9]{2}:[0-9]{2}:[0-9]{2}Z[0-9]{2}:[0-9]{2}$`)
+	timestampRe     = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}[T\s][0-9]{2}:[0-9]{2}:[0-9]{2}[+][0-9]{1,2}$`)
 )
 
 func isDate(date string) bool {
@@ -1903,7 +1919,9 @@ func isTime(time string) bool {
 }
 
 func isTimestamp(timestamp string) bool {
-	return timestampRe.MatchString(timestamp)
+	return timestampTZRe.MatchString(timestamp) ||
+		timestampNoTZRe.MatchString(timestamp) ||
+		timestampRe.MatchString(timestamp)
 }
 
 func parseDate(date string) (time.Time, error) {
@@ -1919,7 +1937,19 @@ func parseTime(t string) (time.Time, error) {
 }
 
 func parseTimestamp(timestamp string) (time.Time, error) {
-	return time.Parse(time.RFC3339, timestamp)
+	if t, err := time.Parse("2006-01-02T15:04:05Z07:00", timestamp); err == nil {
+		return t, nil
+	}
+	if t, err := time.Parse("2006-01-02T15:04:05+00", timestamp); err == nil {
+		return t, nil
+	}
+	if t, err := time.Parse("2006-01-02 15:04:05Z07:00", timestamp); err == nil {
+		return t, nil
+	}
+	if t, err := time.Parse("2006-01-02 15:04:05+00", timestamp); err == nil {
+		return t, nil
+	}
+	return time.Time{}, fmt.Errorf("failed to parse timestamp. unexpected format %s", timestamp)
 }
 
 func toDateValueFromInt64(days int64) string {
@@ -2052,7 +2082,7 @@ func encodeValueWithType(v interface{}, t types.Type) (interface{}, error) {
 		if !ok {
 			return nil, fmt.Errorf("failed to convert TIMESTAMP from %T", v)
 		}
-		return toTimestampValueFromString(text), nil
+		return toTimestampValueFromString(text)
 	case types.ARRAY:
 		b, err := json.Marshal(v)
 		if err != nil {

@@ -21,7 +21,8 @@ func JSONFromZetaSQLValue(v types.Value) string {
 	case types.TIME:
 		return toTimeValueFromString(value)
 	case types.TIMESTAMP:
-		return toTimestampValueFromString(value)
+		text, _ := toTimestampValueFromString(value)
+		return text
 	case types.ARRAY:
 		return toArrayValueFromJSONString(value)
 	case types.STRUCT:

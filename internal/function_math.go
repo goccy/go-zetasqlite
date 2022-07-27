@@ -144,6 +144,9 @@ func LOG10(x Value) (Value, error) {
 func GREATEST(args ...Value) (Value, error) {
 	var max float64 = math.Inf(-1)
 	for _, arg := range args {
+		if arg == nil {
+			return nil, nil
+		}
 		f, err := arg.ToFloat64()
 		if err != nil {
 			return nil, err
@@ -156,6 +159,9 @@ func GREATEST(args ...Value) (Value, error) {
 func LEAST(args ...Value) (Value, error) {
 	var min float64 = math.Inf(1)
 	for _, arg := range args {
+		if arg == nil {
+			return nil, nil
+		}
 		f, err := arg.ToFloat64()
 		if err != nil {
 			return nil, err

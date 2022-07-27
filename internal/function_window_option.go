@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 
 	ast "github.com/goccy/go-zetasql/resolved_ast"
@@ -345,12 +346,24 @@ func WINDOW_ORDER_BY(value Value, isAsc bool) (Value, error) {
 }
 
 type WindowFuncStatus struct {
-	FrameUnit WindowFrameUnitType
-	Start     *WindowBoundary
-	End       *WindowBoundary
-	Partition Value
-	RowID     int64
-	OrderBy   []*WindowOrderBy
+	FrameUnit  WindowFrameUnitType
+	Start      *WindowBoundary
+	End        *WindowBoundary
+	Partitions []Value
+	RowID      int64
+	OrderBy    []*WindowOrderBy
+}
+
+func (s *WindowFuncStatus) Partition() (string, error) {
+	partitions := make([]string, 0, len(s.Partitions))
+	for _, p := range s.Partitions {
+		text, err := p.ToString()
+		if err != nil {
+			return "", err
+		}
+		partitions = append(partitions, text)
+	}
+	return strings.Join(partitions, "_"), nil
 }
 
 func parseWindowOptions(args ...interface{}) ([]interface{}, *WindowFuncStatus, error) {
@@ -377,7 +390,7 @@ func parseWindowOptions(args ...interface{}) ([]interface{}, *WindowFuncStatus, 
 		case WindowFuncOptionEnd:
 			opt.End = v.Value.(*WindowBoundary)
 		case WindowFuncOptionPartition:
-			opt.Partition = v.Value.(Value)
+			opt.Partitions = append(opt.Partitions, v.Value.(Value))
 		case WindowFuncOptionRowID:
 			opt.RowID = v.Value.(int64)
 		case WindowFuncOptionOrderBy:
@@ -445,10 +458,10 @@ func (s *WindowFuncAggregatedStatus) Step(value Value, status *WindowFuncStatus)
 		OrderBy: status.OrderBy,
 		Value:   value,
 	}
-	if status.Partition != nil {
-		partition, err := status.Partition.ToString()
+	if len(status.Partitions) != 0 {
+		partition, err := status.Partition()
 		if err != nil {
-			return fmt.Errorf("failed to convert partition: %w", err)
+			return fmt.Errorf("failed to get partition: %w", err)
 		}
 		s.PartitionToValuesMap[partition] = append(s.PartitionToValuesMap[partition], v)
 		s.PartitionedValues = append(s.PartitionedValues, &PartitionedValue{
