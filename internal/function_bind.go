@@ -794,6 +794,13 @@ func bindCast(args ...Value) (Value, error) {
 	return args[0], nil
 }
 
+func bindSafeCast(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("SAFE_CAST: invalid argument num %d", len(args))
+	}
+	return &SafeValue{value: args[0]}, nil
+}
+
 func timeFromUnixNano(unixNano int64) time.Time {
 	return time.Unix(0, unixNano)
 }
