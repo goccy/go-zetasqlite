@@ -1880,13 +1880,11 @@ func toTimestampValueFromString(s string) (string, error) {
 }
 
 func formatTimestamp(s string) (string, error) {
-	if timestampTZRe.MatchString(s) || timestampRe.MatchString(s) {
-		return s, nil
+	t, err := parseTimestamp(s)
+	if err != nil {
+		return "", err
 	}
-	if timestampNoTZRe.MatchString(s) || datetimeRe.MatchString(s) {
-		return s + "+00", nil
-	}
-	return "", fmt.Errorf("unexpected timestamp format %s", s)
+	return t.Format(time.RFC3339Nano), nil
 }
 
 func isNULLValue(v interface{}) bool {
@@ -1898,12 +1896,9 @@ func isNULLValue(v interface{}) bool {
 }
 
 var (
-	dateRe          = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}$`)
-	datetimeRe      = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}[T\s][0-9]{2}:[0-9]{2}:[0-9]{2}$`)
-	timeRe          = regexp.MustCompile(`^[0-9]{2}:[0-9]{2}:[0-9]{2}$`)
-	timestampTZRe   = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}[T\s][0-9]{2}:[0-9]{2}:[0-9]{2}Z[0-9]{2}:[0-9]{2}[+][0-9]{1,2}$`)
-	timestampNoTZRe = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}[T\s][0-9]{2}:[0-9]{2}:[0-9]{2}Z[0-9]{2}:[0-9]{2}$`)
-	timestampRe     = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}[T\s][0-9]{2}:[0-9]{2}:[0-9]{2}[+][0-9]{1,2}$`)
+	dateRe     = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}$`)
+	datetimeRe = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}[T\s][0-9]{2}:[0-9]{2}:[0-9]{2}$`)
+	timeRe     = regexp.MustCompile(`^[0-9]{2}:[0-9]{2}:[0-9]{2}$`)
 )
 
 func isDate(date string) bool {
@@ -1919,9 +1914,8 @@ func isTime(time string) bool {
 }
 
 func isTimestamp(timestamp string) bool {
-	return timestampTZRe.MatchString(timestamp) ||
-		timestampNoTZRe.MatchString(timestamp) ||
-		timestampRe.MatchString(timestamp)
+	_, err := parseTimestamp(timestamp)
+	return err == nil
 }
 
 func parseDate(date string) (time.Time, error) {
@@ -1937,16 +1931,49 @@ func parseTime(t string) (time.Time, error) {
 }
 
 func parseTimestamp(timestamp string) (time.Time, error) {
+	if t, err := time.Parse("2006-01-02T15:04:05.999999999Z07:00", timestamp); err == nil {
+		return t, nil
+	}
+	if t, err := time.Parse("2006-01-02T15:04:05.999999999+07:00", timestamp); err == nil {
+		return t, nil
+	}
+	if t, err := time.Parse("2006-01-02T15:04:05.999999999+00", timestamp); err == nil {
+		return t, nil
+	}
 	if t, err := time.Parse("2006-01-02T15:04:05Z07:00", timestamp); err == nil {
+		return t, nil
+	}
+	if t, err := time.Parse("2006-01-02T15:04:05+07:00", timestamp); err == nil {
 		return t, nil
 	}
 	if t, err := time.Parse("2006-01-02T15:04:05+00", timestamp); err == nil {
 		return t, nil
 	}
+	if t, err := time.Parse("2006-01-02T15:04:05", timestamp); err == nil {
+		return t, nil
+	}
+	if t, err := time.Parse("2006-01-02 15:04:05.999999999Z07:00", timestamp); err == nil {
+		return t, nil
+	}
+	if t, err := time.Parse("2006-01-02 15:04:05.999999999+07:00", timestamp); err == nil {
+		return t, nil
+	}
+	if t, err := time.Parse("2006-01-02 15:04:05.999999999+00", timestamp); err == nil {
+		return t, nil
+	}
 	if t, err := time.Parse("2006-01-02 15:04:05Z07:00", timestamp); err == nil {
 		return t, nil
 	}
+	if t, err := time.Parse("2006-01-02 15:04:05+07:00", timestamp); err == nil {
+		return t, nil
+	}
 	if t, err := time.Parse("2006-01-02 15:04:05+00", timestamp); err == nil {
+		return t, nil
+	}
+	if t, err := time.Parse("2006-01-02 15:04:05", timestamp); err == nil {
+		return t, nil
+	}
+	if t, err := time.Parse("2006-01-02", timestamp); err == nil {
 		return t, nil
 	}
 	return time.Time{}, fmt.Errorf("failed to parse timestamp. unexpected format %s", timestamp)
