@@ -212,23 +212,23 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 
 ### Conversion functions
 
-- [ ] CAST AS ARRAY
+- [x] CAST AS ARRAY
 - [ ] CAST AS BIGNUMERIC
-- [ ] CAST AS BOOL
+- [x] CAST AS BOOL
 - [ ] CAST AS BYTES
-- [ ] CAST AS DATE
-- [ ] CAST AS DATETIME
-- [ ] CAST AS FLOAT64
-- [ ] CAST AS INT64
+- [x] CAST AS DATE
+- [x] CAST AS DATETIME
+- [x] CAST AS FLOAT64
+- [x] CAST AS INT64
 - [ ] CAST AS INTERVAL
 - [ ] CAST AS NUMERIC
-- [ ] CAST AS STRING
-- [ ] CAST AS STRUCT
-- [ ] CAST AS TIME
-- [ ] CAST AS TIMESTAMP
+- [x] CAST AS STRING
+- [x] CAST AS STRUCT
+- [x] CAST AS TIME
+- [x] CAST AS TIMESTAMP
 - [ ] PARSE_BIGNUMERIC
 - [ ] PARSE_NUMERIC
-- [ ] SAFE_CAST
+- [x] SAFE_CAST
 - [ ] Format clause for CAST
 
 ### Mathematical functions

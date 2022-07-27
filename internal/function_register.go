@@ -254,8 +254,18 @@ var normalFuncs = []*FuncInfo{
 		Name:     "cast",
 		BindFunc: bindCast,
 		ReturnTypes: []types.TypeKind{
-			types.INT64, types.DOUBLE, types.STRING, types.DATE,
-			types.DATETIME, types.TIME, types.TIMESTAMP,
+			types.INT64, types.DOUBLE, types.BOOL, types.STRING,
+			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
+			types.ARRAY, types.STRUCT,
+		},
+	},
+	{
+		Name:     "safe_cast",
+		BindFunc: bindCast,
+		ReturnTypes: []types.TypeKind{
+			types.INT64, types.DOUBLE, types.BOOL, types.STRING,
+			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
+			types.ARRAY, types.STRUCT,
 		},
 	},
 

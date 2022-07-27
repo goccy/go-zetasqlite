@@ -1672,12 +1672,26 @@ SELECT item FROM Produce WHERE Produce.category = 'vegetable' QUALIFY RANK() OVE
 				{"cabbage"},
 			},
 		},
+		{
+			name:        "invalid cast",
+			query:       `SELECT CAST("apple" AS INT64) AS not_a_number`,
+			expectedErr: true,
+		},
+		{
+			name:         "safe cast for invalid cast",
+			query:        `SELECT SAFE_CAST("apple" AS INT64) AS not_a_number`,
+			expectedRows: [][]interface{}{{nil}},
+		},
 	} {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			rows, err := db.QueryContext(ctx, test.query, test.args...)
 			if err != nil {
-				t.Fatal(err)
+				if !test.expectedErr {
+					t.Fatal(err)
+				} else {
+					return
+				}
 			}
 			defer rows.Close()
 			columns, err := rows.Columns()

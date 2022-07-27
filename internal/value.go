@@ -1482,6 +1482,162 @@ func (d TimestampValue) Interface() interface{} {
 	return time.Time(d).Format(time.RFC3339)
 }
 
+type SafeValue struct {
+	value Value
+}
+
+func (v *SafeValue) Add(arg Value) (Value, error) {
+	ret, err := v.value.Add(arg)
+	if err != nil {
+		return nil, nil
+	}
+	return ret, nil
+}
+
+func (v *SafeValue) Sub(arg Value) (Value, error) {
+	ret, err := v.value.Sub(arg)
+	if err != nil {
+		return nil, nil
+	}
+	return ret, nil
+}
+
+func (v *SafeValue) Mul(arg Value) (Value, error) {
+	ret, err := v.value.Mul(arg)
+	if err != nil {
+		return nil, nil
+	}
+	return ret, nil
+}
+
+func (v *SafeValue) Div(arg Value) (Value, error) {
+	ret, err := v.value.Div(arg)
+	if err != nil {
+		return nil, nil
+	}
+	return ret, nil
+}
+
+func (v *SafeValue) EQ(arg Value) (bool, error) {
+	ret, err := v.value.EQ(arg)
+	if err != nil {
+		return false, nil
+	}
+	return ret, nil
+}
+
+func (v *SafeValue) GT(arg Value) (bool, error) {
+	ret, err := v.value.GT(arg)
+	if err != nil {
+		return false, nil
+	}
+	return ret, nil
+}
+
+func (v *SafeValue) GTE(arg Value) (bool, error) {
+	ret, err := v.value.GTE(arg)
+	if err != nil {
+		return false, nil
+	}
+	return ret, nil
+}
+
+func (v *SafeValue) LT(arg Value) (bool, error) {
+	ret, err := v.value.LT(arg)
+	if err != nil {
+		return false, nil
+	}
+	return ret, nil
+}
+
+func (v *SafeValue) LTE(arg Value) (bool, error) {
+	ret, err := v.value.LTE(arg)
+	if err != nil {
+		return false, nil
+	}
+	return ret, nil
+}
+
+func (v *SafeValue) ToInt64() (int64, error) {
+	ret, err := v.value.ToInt64()
+	if err != nil {
+		return 0, nil
+	}
+	return ret, nil
+}
+
+func (v *SafeValue) ToString() (string, error) {
+	ret, err := v.value.ToString()
+	if err != nil {
+		return "", nil
+	}
+	return ret, nil
+}
+
+func (v *SafeValue) ToFloat64() (float64, error) {
+	ret, err := v.value.ToFloat64()
+	if err != nil {
+		return 0, nil
+	}
+	return ret, nil
+}
+
+func (v *SafeValue) ToBool() (bool, error) {
+	ret, err := v.value.ToBool()
+	if err != nil {
+		return false, nil
+	}
+	return ret, nil
+}
+
+func (v *SafeValue) ToArray() (*ArrayValue, error) {
+	ret, err := v.value.ToArray()
+	if err != nil {
+		return &ArrayValue{}, nil
+	}
+	return ret, nil
+}
+
+func (v *SafeValue) ToStruct() (*StructValue, error) {
+	ret, err := v.value.ToStruct()
+	if err != nil {
+		return &StructValue{}, nil
+	}
+	return ret, nil
+}
+
+func (v *SafeValue) ToJSON() (string, error) {
+	ret, err := v.value.ToJSON()
+	if err != nil {
+		return "", nil
+	}
+	return ret, nil
+}
+
+func (v *SafeValue) ToTime() (time.Time, error) {
+	ret, err := v.value.ToTime()
+	if err != nil {
+		return time.Time{}, nil
+	}
+	return ret, nil
+}
+
+func (v *SafeValue) Marshal() (string, error) {
+	ret, err := v.value.Marshal()
+	if err != nil {
+		return "", nil
+	}
+	return ret, nil
+}
+
+func (v *SafeValue) Format(verb rune) string {
+	return v.value.Format(verb)
+}
+
+func (v *SafeValue) Interface() interface{} {
+	return v.value.Interface()
+}
+
 const (
 	ArrayValueHeader     = "zetasqlitearray:"
 	StructValueHeader    = "zetasqlitestruct:"
