@@ -77,7 +77,7 @@ func (r *Rows) Next(dest []driver.Value) error {
 }
 
 func (r *Rows) convertValue(value interface{}, typ *Type) (driver.Value, error) {
-	if value == "NULL" || value == nil {
+	if value == nil {
 		return nil, nil
 	}
 	switch types.TypeKind(typ.Kind) {

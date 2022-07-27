@@ -343,6 +343,62 @@ func (f *LOGICAL_OR) Done() (Value, error) {
 	return BoolValue(f.v), nil
 }
 
+type MAX struct {
+	initialized bool
+	max         Value
+}
+
+func (f *MAX) Step(v Value, opt *AggregatorOption) error {
+	if v == nil {
+		return nil
+	}
+	if f.initialized {
+		cond, err := v.GT(f.max)
+		if err != nil {
+			return err
+		}
+		if cond {
+			f.max = v
+		}
+	} else {
+		f.max = v
+		f.initialized = true
+	}
+	return nil
+}
+
+func (f *MAX) Done() (Value, error) {
+	return f.max, nil
+}
+
+type MIN struct {
+	initialized bool
+	min         Value
+}
+
+func (f *MIN) Step(v Value, opt *AggregatorOption) error {
+	if v == nil {
+		return nil
+	}
+	if f.initialized {
+		cond, err := v.LT(f.min)
+		if err != nil {
+			return err
+		}
+		if cond {
+			f.min = v
+		}
+	} else {
+		f.min = v
+		f.initialized = true
+	}
+	return nil
+}
+
+func (f *MIN) Done() (Value, error) {
+	return f.min, nil
+}
+
 type AVG struct {
 	sum Value
 	num int64

@@ -3,13 +3,13 @@ package internal
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/goccy/go-json"
 	"github.com/goccy/go-zetasql/types"
 )
 
@@ -71,20 +71,15 @@ func NewCatalog(db *sql.DB) *Catalog {
 	}
 }
 
-func (c *Catalog) Sync(ctx context.Context) error {
+func (c *Catalog) Sync(ctx context.Context, conn *Conn) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	tx, err := c.db.Begin()
-	if err != nil {
-		return fmt.Errorf("failed to start transaction for zetasqlite_catalog: %w", err)
-	}
-	defer tx.Commit()
-	if err := c.createCatalogTablesIfNotExists(ctx, tx); err != nil {
+	if err := c.createCatalogTablesIfNotExists(ctx, conn); err != nil {
 		return fmt.Errorf("failed to create catalog tables: %w", err)
 	}
 	now := time.Now()
-	rows, err := tx.QueryContext(
+	rows, err := conn.QueryContext(
 		ctx,
 		`SELECT name, kind, spec FROM zetasqlite_catalog WHERE updatedAt >= @lastUpdatedAt`,
 		c.lastSyncedAt,
@@ -119,49 +114,39 @@ func (c *Catalog) Sync(ctx context.Context) error {
 	return nil
 }
 
-func (c *Catalog) AddNewTableSpec(ctx context.Context, spec *TableSpec) error {
+func (c *Catalog) AddNewTableSpec(ctx context.Context, conn *Conn, spec *TableSpec) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	if err := c.addTableSpec(spec); err != nil {
 		return err
 	}
-	tx, err := c.db.Begin()
-	if err != nil {
-		return err
-	}
-	defer tx.Commit()
-	if err := c.saveTableSpec(ctx, tx, spec); err != nil {
+	if err := c.saveTableSpec(ctx, conn, spec); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (c *Catalog) AddNewFunctionSpec(ctx context.Context, spec *FunctionSpec) error {
+func (c *Catalog) AddNewFunctionSpec(ctx context.Context, conn *Conn, spec *FunctionSpec) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	if err := c.addFunctionSpec(spec); err != nil {
 		return err
 	}
-	tx, err := c.db.Begin()
-	if err != nil {
-		return err
-	}
-	defer tx.Commit()
-	if err := c.saveFunctionSpec(ctx, tx, spec); err != nil {
+	if err := c.saveFunctionSpec(ctx, conn, spec); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (c *Catalog) saveTableSpec(ctx context.Context, tx *sql.Tx, spec *TableSpec) error {
+func (c *Catalog) saveTableSpec(ctx context.Context, conn *Conn, spec *TableSpec) error {
 	encoded, err := json.Marshal(spec)
 	if err != nil {
 		return fmt.Errorf("failed to encode table spec: %w", err)
 	}
 	now := time.Now()
-	if _, err := tx.ExecContext(
+	if _, err := conn.ExecContext(
 		ctx,
 		upsertCatalogQuery,
 		sql.Named("name", spec.TableName()),
@@ -175,13 +160,13 @@ func (c *Catalog) saveTableSpec(ctx context.Context, tx *sql.Tx, spec *TableSpec
 	return nil
 }
 
-func (c *Catalog) saveFunctionSpec(ctx context.Context, tx *sql.Tx, spec *FunctionSpec) error {
+func (c *Catalog) saveFunctionSpec(ctx context.Context, conn *Conn, spec *FunctionSpec) error {
 	encoded, err := json.Marshal(spec)
 	if err != nil {
 		return fmt.Errorf("failed to encode function spec: %w", err)
 	}
 	now := time.Now()
-	if _, err := tx.ExecContext(
+	if _, err := conn.ExecContext(
 		ctx,
 		upsertCatalogQuery,
 		sql.Named("name", spec.FuncName()),
@@ -195,8 +180,8 @@ func (c *Catalog) saveFunctionSpec(ctx context.Context, tx *sql.Tx, spec *Functi
 	return nil
 }
 
-func (c *Catalog) createCatalogTablesIfNotExists(ctx context.Context, tx *sql.Tx) error {
-	if _, err := tx.ExecContext(ctx, createCatalogTableQuery); err != nil {
+func (c *Catalog) createCatalogTablesIfNotExists(ctx context.Context, conn *Conn) error {
+	if _, err := conn.ExecContext(ctx, createCatalogTableQuery); err != nil {
 		return fmt.Errorf("failed to create catalog table: %w", err)
 	}
 	return nil

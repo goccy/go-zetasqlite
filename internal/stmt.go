@@ -18,6 +18,7 @@ var (
 
 type CreateTableStmt struct {
 	stmt    *sql.Stmt
+	conn    *Conn
 	catalog *Catalog
 	spec    *TableSpec
 }
@@ -34,7 +35,7 @@ func (s *CreateTableStmt) Exec(args []driver.Value) (driver.Result, error) {
 	if _, err := s.stmt.Exec(args); err != nil {
 		return nil, err
 	}
-	if err := s.catalog.AddNewTableSpec(context.Background(), s.spec); err != nil {
+	if err := s.catalog.AddNewTableSpec(context.Background(), s.conn, s.spec); err != nil {
 		return nil, fmt.Errorf("failed to add new table spec: %w", err)
 	}
 	return nil, nil
@@ -44,15 +45,17 @@ func (s *CreateTableStmt) Query(args []driver.Value) (driver.Rows, error) {
 	return nil, fmt.Errorf("failed to query for CreateTableStmt")
 }
 
-func newCreateTableStmt(stmt *sql.Stmt, catalog *Catalog, spec *TableSpec) *CreateTableStmt {
+func newCreateTableStmt(stmt *sql.Stmt, conn *Conn, catalog *Catalog, spec *TableSpec) *CreateTableStmt {
 	return &CreateTableStmt{
 		stmt:    stmt,
+		conn:    conn,
 		catalog: catalog,
 		spec:    spec,
 	}
 }
 
 type CreateFunctionStmt struct {
+	conn    *Conn
 	catalog *Catalog
 	spec    *FunctionSpec
 }
@@ -66,7 +69,7 @@ func (s *CreateFunctionStmt) NumInput() int {
 }
 
 func (s *CreateFunctionStmt) Exec(args []driver.Value) (driver.Result, error) {
-	if err := s.catalog.AddNewFunctionSpec(context.Background(), s.spec); err != nil {
+	if err := s.catalog.AddNewFunctionSpec(context.Background(), s.conn, s.spec); err != nil {
 		return nil, fmt.Errorf("failed to add new function spec: %w", err)
 	}
 	return nil, nil
@@ -76,8 +79,9 @@ func (s *CreateFunctionStmt) Query(args []driver.Value) (driver.Rows, error) {
 	return nil, fmt.Errorf("failed to query for CreateFunctionStmt")
 }
 
-func newCreateFunctionStmt(catalog *Catalog, spec *FunctionSpec) *CreateFunctionStmt {
+func newCreateFunctionStmt(conn *Conn, catalog *Catalog, spec *FunctionSpec) *CreateFunctionStmt {
 	return &CreateFunctionStmt{
+		conn:    conn,
 		catalog: catalog,
 		spec:    spec,
 	}

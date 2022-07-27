@@ -140,6 +140,26 @@ var normalFuncs = []*FuncInfo{
 		ReturnTypes: []types.TypeKind{types.DATE},
 	},
 	{
+		Name:        "date_add",
+		BindFunc:    bindDateAdd,
+		ReturnTypes: []types.TypeKind{types.DATE},
+	},
+	{
+		Name:        "date_sub",
+		BindFunc:    bindDateSub,
+		ReturnTypes: []types.TypeKind{types.DATE},
+	},
+	{
+		Name:        "date_diff",
+		BindFunc:    bindDateDiff,
+		ReturnTypes: []types.TypeKind{types.INT64},
+	},
+	{
+		Name:        "date_trunc",
+		BindFunc:    bindDateTrunc,
+		ReturnTypes: []types.TypeKind{types.DATE},
+	},
+	{
 		Name:        "concat",
 		BindFunc:    bindConcat,
 		ReturnTypes: []types.TypeKind{types.STRING},
@@ -190,14 +210,20 @@ var normalFuncs = []*FuncInfo{
 		ReturnTypes: []types.TypeKind{types.BOOL},
 	},
 	{
-		Name:        "case_with_value",
-		BindFunc:    bindCaseWithValue,
-		ReturnTypes: []types.TypeKind{types.STRING},
+		Name:     "case_with_value",
+		BindFunc: bindCaseWithValue,
+		ReturnTypes: []types.TypeKind{
+			types.INT64, types.DOUBLE, types.STRING, types.BOOL,
+			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
+		},
 	},
 	{
-		Name:        "case_no_value",
-		BindFunc:    bindCaseNoValue,
-		ReturnTypes: []types.TypeKind{types.STRING},
+		Name:     "case_no_value",
+		BindFunc: bindCaseNoValue,
+		ReturnTypes: []types.TypeKind{
+			types.INT64, types.DOUBLE, types.STRING, types.BOOL,
+			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
+		},
 	},
 	{
 		Name:        "coalesce",
@@ -223,6 +249,14 @@ var normalFuncs = []*FuncInfo{
 		Name:        "length",
 		BindFunc:    bindLength,
 		ReturnTypes: []types.TypeKind{types.INT64},
+	},
+	{
+		Name:     "cast",
+		BindFunc: bindCast,
+		ReturnTypes: []types.TypeKind{
+			types.INT64, types.DOUBLE, types.STRING, types.DATE,
+			types.DATETIME, types.TIME, types.TIMESTAMP,
+		},
 	},
 
 	// currentime functions
@@ -627,6 +661,22 @@ var aggregateFuncs = []*AggregateFuncInfo{
 		Name:        "logical_or",
 		BindFunc:    bindLogicalOr,
 		ReturnTypes: []types.TypeKind{types.BOOL},
+	},
+	{
+		Name:     "max",
+		BindFunc: bindMax,
+		ReturnTypes: []types.TypeKind{
+			types.INT64, types.DOUBLE, types.BOOL,
+			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
+		},
+	},
+	{
+		Name:     "min",
+		BindFunc: bindMin,
+		ReturnTypes: []types.TypeKind{
+			types.INT64, types.DOUBLE, types.BOOL,
+			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
+		},
 	},
 	{
 		Name:        "string_agg",

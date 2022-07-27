@@ -3,11 +3,13 @@ package internal
 import (
 	"context"
 	"time"
+
+	ast "github.com/goccy/go-zetasql/resolved_ast"
 )
 
 type (
 	namePathKey                     struct{}
-	fullNamePathKey                 struct{}
+	fullNamePathMapKey              struct{}
 	columnRefMapKey                 struct{}
 	funcMapKey                      struct{}
 	analyticOrderColumnNamesKey     struct{}
@@ -17,6 +19,9 @@ type (
 	arraySubqueryColumnNameKey      struct{}
 	currentTimeKey                  struct{}
 	existsGroupByKey                struct{}
+	needsTableNameForColumnKey      struct{}
+	tableNameToColumnListMapKey     struct{}
+	useColumnIDKey                  struct{}
 )
 
 func namePathFromContext(ctx context.Context) []string {
@@ -31,21 +36,16 @@ func withNamePath(ctx context.Context, namePath []string) context.Context {
 	return context.WithValue(ctx, namePathKey{}, namePath)
 }
 
-type fullNamePath struct {
-	paths [][]string
-	idx   int
+func withFullNamePathMap(ctx context.Context, v map[string][]string) context.Context {
+	return context.WithValue(ctx, fullNamePathMapKey{}, v)
 }
 
-func withFullNamePath(ctx context.Context, fullpath *fullNamePath) context.Context {
-	return context.WithValue(ctx, fullNamePathKey{}, fullpath)
-}
-
-func fullNamePathFromContext(ctx context.Context) *fullNamePath {
-	value := ctx.Value(fullNamePathKey{})
+func fullNamePathMapFromContext(ctx context.Context) map[string][]string {
+	value := ctx.Value(fullNamePathMapKey{})
 	if value == nil {
 		return nil
 	}
-	return value.(*fullNamePath)
+	return value.(map[string][]string)
 }
 
 func withColumnRefMap(ctx context.Context, m map[string]string) context.Context {
@@ -159,6 +159,42 @@ func existsGroupByFromContext(ctx context.Context) *existsGroupBy {
 		return nil
 	}
 	return value.(*existsGroupBy)
+}
+
+func withNeedsTableNameForColumn(ctx context.Context) context.Context {
+	return context.WithValue(ctx, needsTableNameForColumnKey{}, true)
+}
+
+func needsTableNameForColumn(ctx context.Context) bool {
+	value := ctx.Value(needsTableNameForColumnKey{})
+	if value == nil {
+		return false
+	}
+	return value.(bool)
+}
+
+func withUseColumnID(ctx context.Context) context.Context {
+	return context.WithValue(ctx, useColumnIDKey{}, true)
+}
+
+func useColumnID(ctx context.Context) bool {
+	value := ctx.Value(useColumnIDKey{})
+	if value == nil {
+		return false
+	}
+	return value.(bool)
+}
+
+func withTableNameToColumnListMap(ctx context.Context, v map[string][]*ast.Column) context.Context {
+	return context.WithValue(ctx, tableNameToColumnListMapKey{}, v)
+}
+
+func tableNameToColumnListMap(ctx context.Context) map[string][]*ast.Column {
+	value := ctx.Value(tableNameToColumnListMapKey{})
+	if value == nil {
+		return nil
+	}
+	return value.(map[string][]*ast.Column)
 }
 
 func WithCurrentTime(ctx context.Context, now time.Time) context.Context {

@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 
@@ -21,7 +22,11 @@ func JSONFromZetaSQLValue(v types.Value) string {
 	case types.TIME:
 		return toTimeValueFromString(value)
 	case types.TIMESTAMP:
-		return toTimestampValueFromString(value)
+		text, err := toTimestampValueFromString(value)
+		if err != nil {
+			log.Printf("%v", err)
+		}
+		return text
 	case types.ARRAY:
 		return toArrayValueFromJSONString(value)
 	case types.STRUCT:

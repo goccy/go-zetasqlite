@@ -244,7 +244,7 @@ func newType(t types.Type) *Type {
 		}
 	}
 	return &Type{
-		Name:        t.TypeName(types.ProductExternal),
+		Name:        t.TypeName(types.ProductInternal),
 		Kind:        int(kind),
 		ElementType: elem,
 		FieldTypes:  fieldTypes,

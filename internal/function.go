@@ -35,6 +35,9 @@ func OP_DIV(a, b Value) (Value, error) {
 }
 
 func EQ(a, b Value) (Value, error) {
+	if a == nil || b == nil {
+		return nil, nil
+	}
 	cond, err := a.EQ(b)
 	if err != nil {
 		return nil, err
@@ -43,6 +46,9 @@ func EQ(a, b Value) (Value, error) {
 }
 
 func NOT_EQ(a, b Value) (Value, error) {
+	if a == nil || b == nil {
+		return nil, nil
+	}
 	cond, err := a.EQ(b)
 	if err != nil {
 		return nil, err
@@ -51,6 +57,9 @@ func NOT_EQ(a, b Value) (Value, error) {
 }
 
 func GT(a, b Value) (Value, error) {
+	if a == nil || b == nil {
+		return nil, nil
+	}
 	cond, err := a.GT(b)
 	if err != nil {
 		return nil, err
@@ -59,6 +68,9 @@ func GT(a, b Value) (Value, error) {
 }
 
 func GTE(a, b Value) (Value, error) {
+	if a == nil || b == nil {
+		return nil, nil
+	}
 	cond, err := a.GTE(b)
 	if err != nil {
 		return nil, err
@@ -67,6 +79,9 @@ func GTE(a, b Value) (Value, error) {
 }
 
 func LT(a, b Value) (Value, error) {
+	if a == nil || b == nil {
+		return nil, nil
+	}
 	cond, err := a.LT(b)
 	if err != nil {
 		return nil, err
@@ -75,6 +90,9 @@ func LT(a, b Value) (Value, error) {
 }
 
 func LTE(a, b Value) (Value, error) {
+	if a == nil || b == nil {
+		return nil, nil
+	}
 	cond, err := a.LTE(b)
 	if err != nil {
 		return nil, err
@@ -83,6 +101,9 @@ func LTE(a, b Value) (Value, error) {
 }
 
 func BIT_NOT(a Value) (Value, error) {
+	if a == nil {
+		return nil, nil
+	}
 	v, err := a.ToInt64()
 	if err != nil {
 		return nil, err
@@ -91,6 +112,9 @@ func BIT_NOT(a Value) (Value, error) {
 }
 
 func BIT_LEFT_SHIFT(a, b Value) (Value, error) {
+	if a == nil || b == nil {
+		return nil, nil
+	}
 	va, err := a.ToInt64()
 	if err != nil {
 		return nil, err
@@ -103,6 +127,9 @@ func BIT_LEFT_SHIFT(a, b Value) (Value, error) {
 }
 
 func BIT_RIGHT_SHIFT(a, b Value) (Value, error) {
+	if a == nil || b == nil {
+		return nil, nil
+	}
 	va, err := a.ToInt64()
 	if err != nil {
 		return nil, err
@@ -115,6 +142,9 @@ func BIT_RIGHT_SHIFT(a, b Value) (Value, error) {
 }
 
 func BIT_AND(a, b Value) (Value, error) {
+	if a == nil || b == nil {
+		return nil, nil
+	}
 	va, err := a.ToInt64()
 	if err != nil {
 		return nil, err
@@ -127,6 +157,9 @@ func BIT_AND(a, b Value) (Value, error) {
 }
 
 func BIT_OR(a, b Value) (Value, error) {
+	if a == nil || b == nil {
+		return nil, nil
+	}
 	va, err := a.ToInt64()
 	if err != nil {
 		return nil, err
@@ -139,6 +172,9 @@ func BIT_OR(a, b Value) (Value, error) {
 }
 
 func BIT_XOR(a, b Value) (Value, error) {
+	if a == nil || b == nil {
+		return nil, nil
+	}
 	va, err := a.ToInt64()
 	if err != nil {
 		return nil, err
@@ -235,19 +271,22 @@ func LIKE(a, b Value) (Value, error) {
 }
 
 func BETWEEN(target, start, end Value) (Value, error) {
-	targetTime, err := target.ToTime()
+	t, err := target.ToInt64()
 	if err != nil {
 		return nil, err
 	}
-	startTime, err := start.ToTime()
+	s, err := start.ToInt64()
 	if err != nil {
 		return nil, err
 	}
-	endTime, err := end.ToTime()
+	e, err := end.ToInt64()
 	if err != nil {
 		return nil, err
 	}
-	return ValueOf(targetTime.After(startTime) && targetTime.Before(endTime))
+	if s <= t && t <= e {
+		return BoolValue(true), nil
+	}
+	return BoolValue(false), nil
 }
 
 func IN(a Value, values ...Value) (Value, error) {
@@ -268,6 +307,9 @@ func IS_NULL(a Value) (Value, error) {
 }
 
 func IS_TRUE(a Value) (Value, error) {
+	if a == nil {
+		return nil, nil
+	}
 	b, err := a.ToBool()
 	if err != nil {
 		return nil, err
@@ -276,6 +318,9 @@ func IS_TRUE(a Value) (Value, error) {
 }
 
 func IS_FALSE(a Value) (Value, error) {
+	if a == nil {
+		return nil, nil
+	}
 	b, err := a.ToBool()
 	if err != nil {
 		return nil, err
@@ -284,6 +329,9 @@ func IS_FALSE(a Value) (Value, error) {
 }
 
 func NOT(a Value) (Value, error) {
+	if a == nil {
+		return nil, nil
+	}
 	v, err := a.ToInt64()
 	if err != nil {
 		return nil, err
@@ -291,28 +339,36 @@ func NOT(a Value) (Value, error) {
 	return BoolValue(v == 0), nil
 }
 
-func AND(a, b Value) (Value, error) {
-	va, err := a.ToBool()
-	if err != nil {
-		return nil, err
+func AND(args ...Value) (Value, error) {
+	for _, v := range args {
+		if v == nil {
+			return nil, nil
+		}
+		cond, err := v.ToBool()
+		if err != nil {
+			return nil, err
+		}
+		if !cond {
+			return BoolValue(false), nil
+		}
 	}
-	vb, err := b.ToBool()
-	if err != nil {
-		return nil, err
-	}
-	return ValueOf(va && vb)
+	return BoolValue(true), nil
 }
 
-func OR(a, b Value) (Value, error) {
-	va, err := a.ToBool()
-	if err != nil {
-		return nil, err
+func OR(args ...Value) (Value, error) {
+	for _, v := range args {
+		if v == nil {
+			return nil, nil
+		}
+		cond, err := v.ToBool()
+		if err != nil {
+			return nil, err
+		}
+		if cond {
+			return BoolValue(true), nil
+		}
 	}
-	vb, err := b.ToBool()
-	if err != nil {
-		return nil, err
-	}
-	return ValueOf(va || vb)
+	return BoolValue(false), nil
 }
 
 func CASE_WITH_VALUE(caseV Value, args ...Value) (Value, error) {
@@ -345,6 +401,9 @@ func CASE_NO_VALUE(args ...Value) (Value, error) {
 	for i := 0; i < len(args)-1; i += 2 {
 		when := args[i]
 		then := args[i+1]
+		if when == nil {
+			continue
+		}
 		cond, err := when.ToBool()
 		if err != nil {
 			return nil, err
@@ -371,8 +430,15 @@ func COALESCE(args ...Value) (Value, error) {
 	return nil, fmt.Errorf("COALESCE requried arguments")
 }
 
-func IF(cond bool, trueV, falseV Value) (Value, error) {
-	if cond {
+func IF(cond, trueV, falseV Value) (Value, error) {
+	if cond == nil {
+		return falseV, nil
+	}
+	b, err := cond.ToBool()
+	if err != nil {
+		return nil, err
+	}
+	if b {
 		return trueV, nil
 	}
 	return falseV, nil
