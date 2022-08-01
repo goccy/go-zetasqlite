@@ -150,7 +150,7 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 - [X] HAVING
 - [x] ORDER BY
 - [X] GROUP BY - ROLLUP
-- [X] INNER/LEFT JOIN
+- [X] INNER/LEFT/RIGHT/FULL/CROSS JOIN
 - [x] QUALIFY
 
 ### Aggregate functions
@@ -380,8 +380,8 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 - [x] DATE
 - [x] DATE_ADD
 - [x] DATE_SUB
-- [ ] DATE_DIFF
-- [ ] DATE_TRUNC
+- [x] DATE_DIFF
+- [x] DATE_TRUNC
 - [ ] DATE_FROM_UNIX_DATE
 - [ ] FORMAT_DATE
 - [ ] LAST_DAY
