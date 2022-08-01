@@ -22,6 +22,7 @@ type (
 	needsTableNameForColumnKey      struct{}
 	tableNameToColumnListMapKey     struct{}
 	useColumnIDKey                  struct{}
+	rowIDColumnKey                  struct{}
 )
 
 func namePathFromContext(ctx context.Context) []string {
@@ -195,6 +196,18 @@ func tableNameToColumnListMap(ctx context.Context) map[string][]*ast.Column {
 		return nil
 	}
 	return value.(map[string][]*ast.Column)
+}
+
+func withRowIDColumn(ctx context.Context) context.Context {
+	return context.WithValue(ctx, rowIDColumnKey{}, true)
+}
+
+func needsRowIDColumn(ctx context.Context) bool {
+	value := ctx.Value(rowIDColumnKey{})
+	if value == nil {
+		return false
+	}
+	return value.(bool)
 }
 
 func WithCurrentTime(ctx context.Context, now time.Time) context.Context {

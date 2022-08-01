@@ -1609,32 +1609,55 @@ SELECT Roster.LastName, TeamMascot.Mascot FROM Roster LEFT JOIN TeamMascot ON Ro
 				{"Eisenhower", nil},
 			},
 		},
-		/*
-					{
-						name: "right join",
-						query: `
-			WITH Roster AS
-			 (SELECT 'Adams' as LastName, 50 as SchoolID UNION ALL
-			  SELECT 'Buchanan', 52 UNION ALL
-			  SELECT 'Coolidge', 52 UNION ALL
-			  SELECT 'Davis', 51 UNION ALL
-			  SELECT 'Eisenhower', 77),
-			 TeamMascot AS
-			 (SELECT 50 as SchoolID, 'Jaguars' as Mascot UNION ALL
-			  SELECT 51, 'Knights' UNION ALL
-			  SELECT 52, 'Lakers' UNION ALL
-			  SELECT 53, 'Mustangs')
-			SELECT Roster.LastName, TeamMascot.Mascot FROM Roster RIGHT JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID
-			`,
-						expectedRows: [][]interface{}{
-							{"Adams", "Jaguars"},
-							{"Buchanan", "Lakers"},
-							{"Coolidge", "Lakers"},
-							{"Davis", "Knights"},
-							{nil, "Mustangs"},
-						},
-					},
-		*/
+		{
+			name: "right join",
+			query: `
+WITH Roster AS
+ (SELECT 'Adams' as LastName, 50 as SchoolID UNION ALL
+  SELECT 'Buchanan', 52 UNION ALL
+  SELECT 'Coolidge', 52 UNION ALL
+  SELECT 'Davis', 51 UNION ALL
+  SELECT 'Eisenhower', 77),
+ TeamMascot AS
+ (SELECT 50 as SchoolID, 'Jaguars' as Mascot UNION ALL
+  SELECT 51, 'Knights' UNION ALL
+  SELECT 52, 'Lakers' UNION ALL
+  SELECT 53, 'Mustangs')
+SELECT Roster.LastName, TeamMascot.Mascot FROM Roster RIGHT JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID
+`,
+			expectedRows: [][]interface{}{
+				{"Adams", "Jaguars"},
+				{"Buchanan", "Lakers"},
+				{"Coolidge", "Lakers"},
+				{"Davis", "Knights"},
+				{nil, "Mustangs"},
+			},
+		},
+		{
+			name: "full join",
+			query: `
+WITH Roster AS
+ (SELECT 'Adams' as LastName, 50 as SchoolID UNION ALL
+  SELECT 'Buchanan', 52 UNION ALL
+  SELECT 'Coolidge', 52 UNION ALL
+  SELECT 'Davis', 51 UNION ALL
+  SELECT 'Eisenhower', 77),
+ TeamMascot AS
+ (SELECT 50 as SchoolID, 'Jaguars' as Mascot UNION ALL
+  SELECT 51, 'Knights' UNION ALL
+  SELECT 52, 'Lakers' UNION ALL
+  SELECT 53, 'Mustangs')
+SELECT Roster.LastName, TeamMascot.Mascot FROM Roster FULL JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID
+`,
+			expectedRows: [][]interface{}{
+				{"Adams", "Jaguars"},
+				{"Buchanan", "Lakers"},
+				{"Coolidge", "Lakers"},
+				{"Davis", "Knights"},
+				{"Eisenhower", nil},
+				{nil, "Mustangs"},
+			},
+		},
 		{
 			name: "qualify",
 			query: `

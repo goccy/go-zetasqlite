@@ -150,7 +150,7 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 - [X] HAVING
 - [x] ORDER BY
 - [X] GROUP BY - ROLLUP
-- [X] INNER/LEFT JOIN
+- [X] INNER/LEFT/RIGHT/FULL JOIN
 - [x] QUALIFY
 
 ### Aggregate functions
