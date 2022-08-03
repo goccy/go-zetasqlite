@@ -1706,6 +1706,13 @@ SELECT item FROM Produce WHERE Produce.category = 'vegetable' QUALIFY RANK() OVE
 			expectedRows: [][]interface{}{{nil}},
 		},
 		{
+			name: "extract date",
+			query: `
+SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH FROM date),
+       EXTRACT(ISOWEEK FROM date), EXTRACT(WEEK FROM date), EXTRACT(DAY FROM date) FROM UNNEST([DATE '2015-12-23']) AS date`,
+			expectedRows: [][]interface{}{{"2015-12-23", int64(2015), int64(2015), int64(12), int64(52), int64(51), int64(23)}},
+		},
+		{
 			name:         "parse date with %A %b %e %Y",
 			query:        `SELECT PARSE_DATE("%A %b %e %Y", "Thursday Dec 25 2008")`,
 			expectedRows: [][]interface{}{{"2008-12-25"}},

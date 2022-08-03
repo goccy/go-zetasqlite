@@ -668,6 +668,21 @@ func bindSafeArrayAtOrdinal(args ...Value) (Value, error) {
 	return ARRAY_SAFE_ORDINAL(args[0], int(i64))
 }
 
+func bindExtract(args ...Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("EXTRACT: invalid argument num %d", len(args))
+	}
+	t, err := args[0].ToTime()
+	if err != nil {
+		return nil, err
+	}
+	part, err := args[1].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return EXTRACT(t, part)
+}
+
 func bindConcat(args ...Value) (Value, error) {
 	if len(args) != 2 {
 		return nil, fmt.Errorf("CONCAT: invalid argument num %d", len(args))

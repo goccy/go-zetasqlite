@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 )
 
 func ADD(a, b Value) (Value, error) {
@@ -494,4 +495,57 @@ func MAKE_STRUCT(args ...Value) (Value, error) {
 		values: args,
 		m:      fieldMap,
 	}, nil
+}
+
+func EXTRACT(t time.Time, part string) (Value, error) {
+	switch part {
+	case "ISOYEAR":
+		year, _ := t.ISOWeek()
+		return IntValue(year), nil
+	case "YEAR":
+		return IntValue(t.Year()), nil
+	case "MONTH":
+		return IntValue(t.Month()), nil
+	case "ISOWEEK":
+		_, week := t.ISOWeek()
+		return IntValue(week), nil
+	case "WEEK":
+		_, week := t.AddDate(0, 0, -int(t.Weekday())).ISOWeek()
+		return IntValue(week), nil
+	case "DAY":
+		return IntValue(t.Day()), nil
+	case "DAYOFYEAR":
+		return IntValue(t.YearDay()), nil
+	case "DAYOFWEEK":
+		return IntValue(int(t.Weekday()) + 1), nil
+	case "QUARTER":
+		day := t.YearDay()
+		const quarterDays = 91
+		switch {
+		case day <= quarterDays:
+			return IntValue(1), nil
+		case day <= quarterDays*2:
+			return IntValue(2), nil
+		case day <= quarterDays*3:
+			return IntValue(3), nil
+		}
+		return IntValue(4), nil
+	case "HOUR":
+		return IntValue(t.Hour()), nil
+	case "MINUTE":
+		return IntValue(t.Minute()), nil
+	case "SECOND":
+		return IntValue(t.Second()), nil
+	case "MILLISECOND":
+		return IntValue(t.Nanosecond() / int(time.Millisecond)), nil
+	case "MICROSECOND":
+		return IntValue(t.Nanosecond() / int(time.Microsecond)), nil
+	case "DATE":
+		return DateValue(t), nil
+	case "DATETIME":
+		return DatetimeValue(t), nil
+	case "TIME":
+		return TimeValue(t), nil
+	}
+	return nil, fmt.Errorf("failed to extract: undefined part %s", part)
 }

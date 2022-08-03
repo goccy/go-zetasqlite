@@ -180,6 +180,11 @@ var normalFuncs = []*FuncInfo{
 		ReturnTypes: []types.TypeKind{types.TIMESTAMP},
 	},
 	{
+		Name:        "extract",
+		BindFunc:    bindExtract,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DATE, types.DATETIME, types.TIME},
+	},
+	{
 		Name:        "concat",
 		BindFunc:    bindConcat,
 		ReturnTypes: []types.TypeKind{types.STRING},
