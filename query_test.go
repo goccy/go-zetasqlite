@@ -1755,6 +1755,46 @@ SELECT item FROM Produce WHERE Produce.category = 'vegetable' QUALIFY RANK() OVE
 			query:       `SELECT PARSE_DATETIME("%a %b %e %I:%M:%S", "Thu Dec 25 07:30:00 2008")`,
 			expectedErr: true,
 		},
+		{
+			name:         "parse time with %I:%M:%S",
+			query:        `SELECT PARSE_TIME("%I:%M:%S", "07:30:00")`,
+			expectedRows: [][]interface{}{{"07:30:00"}},
+		},
+		{
+			name:         "parse time with %T",
+			query:        `SELECT PARSE_TIME("%T", "07:30:00")`,
+			expectedRows: [][]interface{}{{"07:30:00"}},
+		},
+		{
+			name:        "parse time ( the seconds element is in different locations )",
+			query:       `SELECT PARSE_TIME("%S:%I:%M", "07:30:00")`,
+			expectedErr: true,
+		},
+		{
+			name:        "parse time ( one of the seconds elements is missing )",
+			query:       `SELECT PARSE_TIME("%I:%M", "07:30:00")`,
+			expectedErr: true,
+		},
+		{
+			name:         "parse timestamp with %a %b %e %I:%M:%S %Y",
+			query:        `SELECT PARSE_TIMESTAMP("%a %b %e %I:%M:%S %Y", "Thu Dec 25 07:30:00 2008")`,
+			expectedRows: [][]interface{}{{createTimeFromString("2008-12-25 07:30:00+00")}},
+		},
+		{
+			name:         "parse timestamp with %c",
+			query:        `SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008")`,
+			expectedRows: [][]interface{}{{createTimeFromString("2008-12-25 07:30:00+00")}},
+		},
+		{
+			name:        "parse timestamp ( the year element is in different locations )",
+			query:       `SELECT PARSE_TIMESTAMP("%a %b %e %Y %I:%M:%S", "Thu Dec 25 07:30:00 2008")`,
+			expectedErr: true,
+		},
+		{
+			name:        "parse timestamp ( one of the year elements is missing )",
+			query:       `SELECT PARSE_TIMESTAMP("%a %b %e %I:%M:%S", "Thu Dec 25 07:30:00 2008")`,
+			expectedErr: true,
+		},
 	} {
 		test := test
 		t.Run(test.name, func(t *testing.T) {

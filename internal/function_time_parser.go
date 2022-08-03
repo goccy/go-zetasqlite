@@ -693,7 +693,38 @@ func quaterMatcher(text []rune, t *time.Time) (int, error) {
 }
 
 func hourMinuteMatcher(text []rune, t *time.Time) (int, error) {
-	return 0, fmt.Errorf("unimplemented hour minute matcher")
+	fmtLen := len("00:00")
+	if len(text) < fmtLen {
+		return 0, fmt.Errorf("unexpected hour:minute format")
+	}
+	splitted := strings.Split(string(text[:fmtLen]), ":")
+	if len(splitted) != 2 {
+		return 0, fmt.Errorf("unexpected hour:minute format")
+	}
+	hour := splitted[0]
+	minute := splitted[1]
+	if len(hour) != 2 || len(minute) != 2 {
+		return 0, fmt.Errorf("unexpected hour:minute format")
+	}
+	h, err := strconv.ParseInt(hour, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("unexpected hour:minute format: %w", err)
+	}
+	m, err := strconv.ParseInt(minute, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("unexpected hour:minute format: %w", err)
+	}
+	*t = time.Date(
+		int(t.Year()),
+		t.Month(),
+		int(t.Day()),
+		int(h),
+		int(m),
+		int(t.Second()),
+		int(t.Nanosecond()),
+		t.Location(),
+	)
+	return fmtLen, nil
 }
 
 func secondMatcher(text []rune, t *time.Time) (int, error) {
@@ -722,11 +753,59 @@ func secondMatcher(text []rune, t *time.Time) (int, error) {
 }
 
 func unixtimeSecondsMatcher(text []rune, t *time.Time) (int, error) {
-	return 0, fmt.Errorf("unimplemented unixtime seconds matcher")
+	const unixtimeLen = 10
+	if len(text) < unixtimeLen {
+		return 0, fmt.Errorf("unexpected unixtime length")
+	}
+	u, err := strconv.ParseInt(string(text[:unixtimeLen]), 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("unexpected unixtime number")
+	}
+	if u < 0 {
+		return 0, fmt.Errorf("invalid unixtime number %d", u)
+	}
+	*t = time.Unix(u, 0)
+	return unixtimeLen, nil
 }
 
 func hourMinuteSecondMatcher(text []rune, t *time.Time) (int, error) {
-	return 0, fmt.Errorf("unimplemented hour minute second matcher")
+	fmtLen := len("00:00:00")
+	if len(text) < fmtLen {
+		return 0, fmt.Errorf("unexpected hour:minute:second format")
+	}
+	splitted := strings.Split(string(text[:fmtLen]), ":")
+	if len(splitted) != 3 {
+		return 0, fmt.Errorf("unexpected hour:minute:second format")
+	}
+	hour := splitted[0]
+	minute := splitted[1]
+	second := splitted[2]
+	if len(hour) != 2 || len(minute) != 2 || len(second) != 2 {
+		return 0, fmt.Errorf("unexpected hour:minute:second format")
+	}
+	h, err := strconv.ParseInt(hour, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("unexpected hour:minute:second format: %w", err)
+	}
+	m, err := strconv.ParseInt(minute, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("unexpected hour:minute:second format: %w", err)
+	}
+	s, err := strconv.ParseInt(second, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("unexpected hour:minute:second format: %w", err)
+	}
+	*t = time.Date(
+		int(t.Year()),
+		t.Month(),
+		int(t.Day()),
+		int(h),
+		int(m),
+		int(s),
+		int(t.Nanosecond()),
+		t.Location(),
+	)
+	return fmtLen, nil
 }
 
 func tabMatcher(text []rune, t *time.Time) (int, error) {
