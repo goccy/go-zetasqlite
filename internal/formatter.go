@@ -165,6 +165,9 @@ func getFuncNameAndArgs(ctx context.Context, node *ast.BaseFunctionCallNode, isW
 	} else if isWindowFunc && existsWindowFunc {
 		funcName = fmt.Sprintf("zetasqlite_window_%s_%s", funcName, suffixName)
 	} else {
+		if node.Function().IsZetaSQLBuiltin() {
+			return "", nil, fmt.Errorf("%s function is unimplemented", funcName)
+		}
 		path := fullNamePathMap[funcName]
 		funcName = FormatName(
 			MergeNamePath(

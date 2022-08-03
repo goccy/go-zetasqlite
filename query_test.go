@@ -1705,6 +1705,21 @@ SELECT item FROM Produce WHERE Produce.category = 'vegetable' QUALIFY RANK() OVE
 			query:        `SELECT SAFE_CAST("apple" AS INT64) AS not_a_number`,
 			expectedRows: [][]interface{}{{nil}},
 		},
+		{
+			name:         "parse date with %Y%m%d",
+			query:        `SELECT PARSE_DATE("%Y%m%d", "20081225") AS parsed`,
+			expectedRows: [][]interface{}{{"2008-12-25"}},
+		},
+		{
+			name:         "parse date with %F",
+			query:        `SELECT PARSE_DATE("%F", "2008-12-25") AS parsed`,
+			expectedRows: [][]interface{}{{"2008-12-25"}},
+		},
+		{
+			name:         "parse date with %x",
+			query:        `SELECT PARSE_DATE("%x", "12/25/08") AS parsed`,
+			expectedRows: [][]interface{}{{"2008-12-25"}},
+		},
 	} {
 		test := test
 		t.Run(test.name, func(t *testing.T) {

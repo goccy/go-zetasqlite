@@ -139,3 +139,11 @@ func DATE_SUB(t time.Time, v int64, part string) (Value, error) {
 	}
 	return nil, fmt.Errorf("unexpected part value %s", part)
 }
+
+func PARSE_DATE(format, date string) (Value, error) {
+	t, err := parseTimeFormat(format, date, FormatTypeDate)
+	if err != nil {
+		return nil, err
+	}
+	return DateValue(*t), nil
+}
