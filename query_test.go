@@ -1706,6 +1706,11 @@ SELECT item FROM Produce WHERE Produce.category = 'vegetable' QUALIFY RANK() OVE
 			expectedRows: [][]interface{}{{nil}},
 		},
 		{
+			name:         "parse date with %A %b %e %Y",
+			query:        `SELECT PARSE_DATE("%A %b %e %Y", "Thursday Dec 25 2008")`,
+			expectedRows: [][]interface{}{{"2008-12-25"}},
+		},
+		{
 			name:         "parse date with %Y%m%d",
 			query:        `SELECT PARSE_DATE("%Y%m%d", "20081225") AS parsed`,
 			expectedRows: [][]interface{}{{"2008-12-25"}},
@@ -1719,6 +1724,36 @@ SELECT item FROM Produce WHERE Produce.category = 'vegetable' QUALIFY RANK() OVE
 			name:         "parse date with %x",
 			query:        `SELECT PARSE_DATE("%x", "12/25/08") AS parsed`,
 			expectedRows: [][]interface{}{{"2008-12-25"}},
+		},
+		{
+			name:        "parse date ( the year element is in different locations )",
+			query:       `SELECT PARSE_DATE("%Y %A %b %e", "Thursday Dec 25 2008")`,
+			expectedErr: true,
+		},
+		{
+			name:        "parse date ( one of the year elements is missing )",
+			query:       `SELECT PARSE_DATE("%A %b %e", "Thursday Dec 25 2008")`,
+			expectedErr: true,
+		},
+		{
+			name:         "parse datetime",
+			query:        `SELECT PARSE_DATETIME("%a %b %e %I:%M:%S %Y", "Thu Dec 25 07:30:00 2008")`,
+			expectedRows: [][]interface{}{{"2008-12-25T07:30:00"}},
+		},
+		{
+			name:         "parse datetime with %c",
+			query:        `SELECT PARSE_DATETIME("%c", "Thu Dec 25 07:30:00 2008")`,
+			expectedRows: [][]interface{}{{"2008-12-25T07:30:00"}},
+		},
+		{
+			name:        "parse datetime ( the year element is in different locations )",
+			query:       `SELECT PARSE_DATETIME("%a %b %e %Y %I:%M:%S", "Thu Dec 25 07:30:00 2008")`,
+			expectedErr: true,
+		},
+		{
+			name:        "parse datetime ( one of the year elements is missing )",
+			query:       `SELECT PARSE_DATETIME("%a %b %e %I:%M:%S", "Thu Dec 25 07:30:00 2008")`,
+			expectedErr: true,
 		},
 	} {
 		test := test

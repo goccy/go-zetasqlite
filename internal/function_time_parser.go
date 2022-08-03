@@ -392,7 +392,16 @@ func monthMatcher(text []rune, t *time.Time) (int, error) {
 		src := strings.ToLower(string(month))
 		dst := strings.ToLower(string(text[:len(month)]))
 		if src == dst {
-			*t = t.AddDate(0, int(monthIdx+1)-int(t.Month()), 0)
+			*t = time.Date(
+				int(t.Year()),
+				time.Month(monthIdx+1),
+				int(t.Day()),
+				int(t.Hour()),
+				int(t.Minute()),
+				int(t.Second()),
+				int(t.Nanosecond()),
+				t.Location(),
+			)
 			return len(month), nil
 		}
 	}
@@ -428,13 +437,26 @@ func centuryMatcher(text []rune, t *time.Time) (int, error) {
 	if c < 0 {
 		return 0, fmt.Errorf("invalid century number %d", c)
 	}
-	year := int(c*100 - 99)
-	*t = t.AddDate(year-int(t.Year()), 0, 0)
+	*t = time.Date(
+		int(c*100-99),
+		t.Month(),
+		int(t.Day()),
+		int(t.Hour()),
+		int(t.Minute()),
+		int(t.Second()),
+		int(t.Nanosecond()),
+		t.Location(),
+	)
 	return centuryLen, nil
 }
 
 func ansicMatcher(text []rune, t *time.Time) (int, error) {
-	return 0, fmt.Errorf("unimplemented ansic matcher")
+	v, err := time.Parse("Mon Jan 02 15:04:05 2006", string(text))
+	if err != nil {
+		return 0, err
+	}
+	*t = v
+	return len(text), nil
 }
 
 func monthDayYearMatcher(text []rune, t *time.Time) (int, error) {
@@ -464,7 +486,16 @@ func monthDayYearMatcher(text []rune, t *time.Time) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("unexpected month/day/year format: %w", err)
 	}
-	*t = t.AddDate(int(2000+y)-int(t.Year()), int(m)-int(t.Month()), int(d)-int(t.Day()))
+	*t = time.Date(
+		int(2000+y),
+		time.Month(m),
+		int(d),
+		int(t.Hour()),
+		int(t.Minute()),
+		int(t.Second()),
+		int(t.Nanosecond()),
+		t.Location(),
+	)
 	return fmtLen, nil
 }
 
@@ -480,7 +511,16 @@ func dayMatcher(text []rune, t *time.Time) (int, error) {
 	if d < 0 {
 		return 0, fmt.Errorf("invalid day number %d", d)
 	}
-	*t = t.AddDate(0, 0, int(d)-int(t.Day()))
+	*t = time.Date(
+		int(t.Year()),
+		t.Month(),
+		int(d),
+		int(t.Hour()),
+		int(t.Minute()),
+		int(t.Second()),
+		int(t.Nanosecond()),
+		t.Location(),
+	)
 	return dayLen, nil
 }
 
@@ -511,7 +551,16 @@ func yearMonthDayMatcher(text []rune, t *time.Time) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("unexpected year-month-day format: %w", err)
 	}
-	*t = t.AddDate(int(y)-int(t.Year()), int(m)-int(t.Month()), int(d)-int(t.Day()))
+	*t = time.Date(
+		int(y),
+		time.Month(m),
+		int(d),
+		int(t.Hour()),
+		int(t.Minute()),
+		int(t.Second()),
+		int(t.Nanosecond()),
+		t.Location(),
+	)
 	return fmtLen, nil
 }
 
@@ -524,11 +573,53 @@ func centuryISOMatcher(text []rune, t *time.Time) (int, error) {
 }
 
 func hourMatcher(text []rune, t *time.Time) (int, error) {
-	return 0, fmt.Errorf("unimplemented hour matcher")
+	const hourLen = 2
+	if len(text) < hourLen {
+		return 0, fmt.Errorf("unexpected hour number")
+	}
+	h, err := strconv.ParseInt(string(text[:hourLen]), 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("unexpected hour number")
+	}
+	if h < 0 || h > 24 {
+		return 0, fmt.Errorf("invalid hour number %d", h)
+	}
+	*t = time.Date(
+		int(t.Year()),
+		t.Month(),
+		int(t.Day()),
+		int(h),
+		int(t.Minute()),
+		int(t.Second()),
+		int(t.Nanosecond()),
+		t.Location(),
+	)
+	return hourLen, nil
 }
 
 func hour12Matcher(text []rune, t *time.Time) (int, error) {
-	return 0, fmt.Errorf("unimplemented hour12 matcher")
+	const hourLen = 2
+	if len(text) < hourLen {
+		return 0, fmt.Errorf("unexpected hour number")
+	}
+	h, err := strconv.ParseInt(string(text[:hourLen]), 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("unexpected hour number")
+	}
+	if h < 0 || h > 12 {
+		return 0, fmt.Errorf("invalid hour number %d", h)
+	}
+	*t = time.Date(
+		int(t.Year()),
+		t.Month(),
+		int(t.Day()),
+		int(h),
+		int(t.Minute()),
+		int(t.Second()),
+		int(t.Nanosecond()),
+		t.Location(),
+	)
+	return hourLen, nil
 }
 
 func dayOfYearMatcher(text []rune, t *time.Time) (int, error) {
@@ -536,7 +627,28 @@ func dayOfYearMatcher(text []rune, t *time.Time) (int, error) {
 }
 
 func minuteMatcher(text []rune, t *time.Time) (int, error) {
-	return 0, fmt.Errorf("unimplemented minute matcher")
+	const minuteLen = 2
+	if len(text) < minuteLen {
+		return 0, fmt.Errorf("unexpected minute number")
+	}
+	m, err := strconv.ParseInt(string(text[:minuteLen]), 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("unexpected minute number")
+	}
+	if m < 0 || m > 59 {
+		return 0, fmt.Errorf("invalid minute number %d", m)
+	}
+	*t = time.Date(
+		int(t.Year()),
+		t.Month(),
+		int(t.Day()),
+		int(t.Hour()),
+		int(m),
+		int(t.Second()),
+		int(t.Nanosecond()),
+		t.Location(),
+	)
+	return minuteLen, nil
 }
 
 func monthNumberMatcher(text []rune, t *time.Time) (int, error) {
@@ -551,7 +663,16 @@ func monthNumberMatcher(text []rune, t *time.Time) (int, error) {
 	if m < 0 {
 		return 0, fmt.Errorf("invalid month number %d", m)
 	}
-	*t = t.AddDate(0, int(m)-int(t.Month()), 0)
+	*t = time.Date(
+		t.Year(),
+		time.Month(m),
+		int(t.Day()),
+		int(t.Hour()),
+		int(t.Minute()),
+		int(t.Second()),
+		int(t.Nanosecond()),
+		t.Location(),
+	)
 	return monthLen, nil
 }
 
@@ -576,7 +697,28 @@ func hourMinuteMatcher(text []rune, t *time.Time) (int, error) {
 }
 
 func secondMatcher(text []rune, t *time.Time) (int, error) {
-	return 0, fmt.Errorf("unimplemented second matcher")
+	const secondLen = 2
+	if len(text) < secondLen {
+		return 0, fmt.Errorf("unexpected second number")
+	}
+	s, err := strconv.ParseInt(string(text[:secondLen]), 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("unexpected second number")
+	}
+	if s < 0 || s > 59 {
+		return 0, fmt.Errorf("invalid second number %d", s)
+	}
+	*t = time.Date(
+		int(t.Year()),
+		t.Month(),
+		int(t.Day()),
+		int(t.Hour()),
+		int(t.Minute()),
+		int(s),
+		int(t.Nanosecond()),
+		t.Location(),
+	)
+	return secondLen, nil
 }
 
 func unixtimeSecondsMatcher(text []rune, t *time.Time) (int, error) {
@@ -619,7 +761,16 @@ func yearMatcher(text []rune, t *time.Time) (int, error) {
 	if y < 0 {
 		return 0, fmt.Errorf("invalid year number %d", y)
 	}
-	*t = t.AddDate(int(y)-int(t.Year()), 0, 0)
+	*t = time.Date(
+		int(y),
+		t.Month(),
+		int(t.Day()),
+		int(t.Hour()),
+		int(t.Minute()),
+		int(t.Second()),
+		int(t.Nanosecond()),
+		t.Location(),
+	)
 	return yearLen, nil
 }
 
@@ -671,6 +822,9 @@ func parseTimeFormat(formatStr, targetStr string, typ TimeFormatType) (*time.Tim
 			formatIdx++
 			targetIdx++
 		}
+	}
+	if targetIdx != len(target) {
+		return nil, fmt.Errorf("found unused format element %q", target[targetIdx:])
 	}
 	return ret, nil
 }

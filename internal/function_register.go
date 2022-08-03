@@ -165,6 +165,11 @@ var normalFuncs = []*FuncInfo{
 		ReturnTypes: []types.TypeKind{types.DATE},
 	},
 	{
+		Name:        "parse_datetime",
+		BindFunc:    bindParseDatetime,
+		ReturnTypes: []types.TypeKind{types.DATETIME},
+	},
+	{
 		Name:        "concat",
 		BindFunc:    bindConcat,
 		ReturnTypes: []types.TypeKind{types.STRING},
