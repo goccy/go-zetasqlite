@@ -1201,6 +1201,66 @@ func bindDateTrunc(args ...Value) (Value, error) {
 	return DATE_TRUNC(args[0], part)
 }
 
+func bindParseDate(args ...Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("PARSE_DATE: invalid argument num %d", len(args))
+	}
+	format, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	target, err := args[1].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return PARSE_DATE(format, target)
+}
+
+func bindParseDatetime(args ...Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("PARSE_DATETIME: invalid argument num %d", len(args))
+	}
+	format, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	target, err := args[1].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return PARSE_DATETIME(format, target)
+}
+
+func bindParseTime(args ...Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("PARSE_TIME: invalid argument num %d", len(args))
+	}
+	format, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	target, err := args[1].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return PARSE_TIME(format, target)
+}
+
+func bindParseTimestamp(args ...Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("PARSE_TIMESTAMP: invalid argument num %d", len(args))
+	}
+	format, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	target, err := args[1].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return PARSE_TIMESTAMP(format, target)
+}
+
 func bindDecodeArray(args ...Value) (Value, error) {
 	if len(args) != 1 {
 		return nil, fmt.Errorf("DECODE_ARRAY: invalid argument num %d", len(args))

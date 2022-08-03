@@ -385,7 +385,7 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 - [ ] DATE_FROM_UNIX_DATE
 - [ ] FORMAT_DATE
 - [ ] LAST_DAY
-- [ ] PARSE_DATE
+- [x] PARSE_DATE
 - [ ] UNIX_DATE
 
 ### Datetime functions
@@ -399,7 +399,7 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 - [ ] DATETIME_TRUNC
 - [ ] FORMAT_DATETIME
 - [ ] LAST_DAY
-- [ ] PARSE_DATETIME
+- [x] PARSE_DATETIME
 
 ### Time functions
 
@@ -411,7 +411,7 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 - [ ] TIME_DIFF
 - [ ] TIME_TRUNC
 - [ ] FORMAT_TIME
-- [ ] PARSE_TIME
+- [x] PARSE_TIME
 
 ### Timestamp functions
 
@@ -424,7 +424,7 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 - [ ] TIMESTAMP_DIFF
 - [ ] TIMESTAMP_TRUNC
 - [ ] FORMAT_TIMESTAMP
-- [ ] PARSE_TIMESTAMP
+- [x] PARSE_TIMESTAMP
 - [ ] TIMESTAMP_SECONDS
 - [ ] TIMESTAMP_MILLIS
 - [ ] TIMEATAMP_MICROS
