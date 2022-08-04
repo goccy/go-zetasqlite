@@ -376,61 +376,61 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 ### Date functions
 
 - [x] CURRENT_DATE
-- [ ] EXTRACT
+- [x] EXTRACT
 - [x] DATE
 - [x] DATE_ADD
 - [x] DATE_SUB
 - [x] DATE_DIFF
 - [x] DATE_TRUNC
-- [ ] DATE_FROM_UNIX_DATE
+- [x] DATE_FROM_UNIX_DATE
 - [ ] FORMAT_DATE
-- [ ] LAST_DAY
+- [x] LAST_DAY
 - [x] PARSE_DATE
-- [ ] UNIX_DATE
+- [x] UNIX_DATE
 
 ### Datetime functions
 
 - [x] CURRENT_DATETIME
-- [ ] DATETIME
-- [ ] EXTRACT
-- [ ] DATETIME_ADD
-- [ ] DATETIME_SUB
-- [ ] DATETIME_DIFF
-- [ ] DATETIME_TRUNC
+- [x] DATETIME
+- [x] EXTRACT
+- [x] DATETIME_ADD
+- [x] DATETIME_SUB
+- [x] DATETIME_DIFF
+- [x] DATETIME_TRUNC
 - [ ] FORMAT_DATETIME
-- [ ] LAST_DAY
+- [x] LAST_DAY
 - [x] PARSE_DATETIME
 
 ### Time functions
 
 - [x] CURRENT_TIME
-- [ ] TIME
-- [ ] EXTRACT
-- [ ] TIME_ADD
-- [ ] TIME_SUB
-- [ ] TIME_DIFF
-- [ ] TIME_TRUNC
+- [x] TIME
+- [x] EXTRACT
+- [x] TIME_ADD
+- [x] TIME_SUB
+- [x] TIME_DIFF
+- [x] TIME_TRUNC
 - [ ] FORMAT_TIME
 - [x] PARSE_TIME
 
 ### Timestamp functions
 
 - [x] CURRENT_TIMESTAMP
-- [ ] EXTRACT
-- [ ] STRING
-- [ ] TIMESTAMP
-- [ ] TIMESTAMP_ADD
-- [ ] TIMESTAMP_SUB
-- [ ] TIMESTAMP_DIFF
-- [ ] TIMESTAMP_TRUNC
+- [x] EXTRACT
+- [x] STRING
+- [x] TIMESTAMP
+- [x] TIMESTAMP_ADD
+- [x] TIMESTAMP_SUB
+- [x] TIMESTAMP_DIFF
+- [x] TIMESTAMP_TRUNC
 - [ ] FORMAT_TIMESTAMP
 - [x] PARSE_TIMESTAMP
-- [ ] TIMESTAMP_SECONDS
-- [ ] TIMESTAMP_MILLIS
-- [ ] TIMEATAMP_MICROS
-- [ ] UNIX_SECONDS
-- [ ] UNIX_MILLIS
-- [ ] UNIX_MICROS
+- [x] TIMESTAMP_SECONDS
+- [x] TIMESTAMP_MILLIS
+- [x] TIMEATAMP_MICROS
+- [x] UNIX_SECONDS
+- [x] UNIX_MILLIS
+- [x] UNIX_MICROS
 
 ### Interval functions
 

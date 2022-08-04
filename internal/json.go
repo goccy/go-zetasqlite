@@ -43,9 +43,9 @@ func jsonFromZetaSQLValue(v types.Value) string {
 	case types.DATE:
 		return toDateValueFromInt64(v.ToInt64())
 	case types.DATETIME:
-		return toDatetimeValueFromInt64(v.ToInt64())
+		return toDatetimeValueFromInt64(v.ToPacked64DatetimeMicros())
 	case types.TIME:
-		return toTimeValueFromInt64(v.ToInt64())
+		return toTimeValueFromInt64(v.ToPacked64TimeMicros())
 	case types.TIMESTAMP:
 		return toTimestampValueFromTime(v.ToTime())
 	case types.ARRAY:

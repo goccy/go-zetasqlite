@@ -134,6 +134,18 @@ var normalFuncs = []*FuncInfo{
 			types.BOOL, types.STRUCT,
 		},
 	},
+
+	// date functions
+	{
+		Name:        "current_date",
+		BindFunc:    bindCurrentDate,
+		ReturnTypes: []types.TypeKind{types.DATE},
+	},
+	{
+		Name:        "extract",
+		BindFunc:    bindExtract,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DATE, types.DATETIME, types.TIME},
+	},
 	{
 		Name:        "date",
 		BindFunc:    bindDate,
@@ -160,25 +172,172 @@ var normalFuncs = []*FuncInfo{
 		ReturnTypes: []types.TypeKind{types.DATE},
 	},
 	{
+		Name:        "date_from_unix_date",
+		BindFunc:    bindDateFromUnixDate,
+		ReturnTypes: []types.TypeKind{types.DATE},
+	},
+	{
+		Name:        "last_day",
+		BindFunc:    bindLastDay,
+		ReturnTypes: []types.TypeKind{types.DATE, types.DATETIME},
+	},
+	{
 		Name:        "parse_date",
 		BindFunc:    bindParseDate,
 		ReturnTypes: []types.TypeKind{types.DATE},
+	},
+	{
+		Name:        "unix_date",
+		BindFunc:    bindUnixDate,
+		ReturnTypes: []types.TypeKind{types.INT64},
+	},
+
+	// datetime functions
+	{
+		Name:        "current_datetime",
+		BindFunc:    bindCurrentDatetime,
+		ReturnTypes: []types.TypeKind{types.DATETIME},
+	},
+	{
+		Name:        "datetime",
+		BindFunc:    bindDatetime,
+		ReturnTypes: []types.TypeKind{types.DATETIME},
+	},
+	{
+		Name:        "datetime_add",
+		BindFunc:    bindDatetimeAdd,
+		ReturnTypes: []types.TypeKind{types.DATETIME},
+	},
+	{
+		Name:        "datetime_sub",
+		BindFunc:    bindDatetimeSub,
+		ReturnTypes: []types.TypeKind{types.DATETIME},
+	},
+	{
+		Name:        "datetime_diff",
+		BindFunc:    bindDatetimeDiff,
+		ReturnTypes: []types.TypeKind{types.INT64},
+	},
+	{
+		Name:        "datetime_trunc",
+		BindFunc:    bindDatetimeTrunc,
+		ReturnTypes: []types.TypeKind{types.DATETIME},
 	},
 	{
 		Name:        "parse_datetime",
 		BindFunc:    bindParseDatetime,
 		ReturnTypes: []types.TypeKind{types.DATETIME},
 	},
+
+	// time functions
+	{
+		Name:        "current_time",
+		BindFunc:    bindCurrentTime,
+		ReturnTypes: []types.TypeKind{types.TIME},
+	},
+	{
+		Name:        "time",
+		BindFunc:    bindTime,
+		ReturnTypes: []types.TypeKind{types.TIME},
+	},
+	{
+		Name:        "time_add",
+		BindFunc:    bindTimeAdd,
+		ReturnTypes: []types.TypeKind{types.TIME},
+	},
+	{
+		Name:        "time_sub",
+		BindFunc:    bindTimeSub,
+		ReturnTypes: []types.TypeKind{types.TIME},
+	},
+	{
+		Name:        "time_diff",
+		BindFunc:    bindTimeDiff,
+		ReturnTypes: []types.TypeKind{types.INT64},
+	},
+	{
+		Name:        "time_trunc",
+		BindFunc:    bindTimeTrunc,
+		ReturnTypes: []types.TypeKind{types.TIME},
+	},
 	{
 		Name:        "parse_time",
 		BindFunc:    bindParseTime,
 		ReturnTypes: []types.TypeKind{types.TIME},
+	},
+
+	// timestamp functions
+	{
+		Name:        "current_timestamp",
+		BindFunc:    bindCurrentTimestamp,
+		ReturnTypes: []types.TypeKind{types.TIMESTAMP},
+	},
+	{
+		Name:        "string",
+		BindFunc:    bindString,
+		ReturnTypes: []types.TypeKind{types.STRING},
+	},
+	{
+		Name:        "timestamp",
+		BindFunc:    bindTimestamp,
+		ReturnTypes: []types.TypeKind{types.TIMESTAMP},
+	},
+	{
+		Name:        "timestamp_add",
+		BindFunc:    bindTimestampAdd,
+		ReturnTypes: []types.TypeKind{types.TIMESTAMP},
+	},
+	{
+		Name:        "timestamp_sub",
+		BindFunc:    bindTimestampSub,
+		ReturnTypes: []types.TypeKind{types.TIMESTAMP},
+	},
+	{
+		Name:        "timestamp_diff",
+		BindFunc:    bindTimestampDiff,
+		ReturnTypes: []types.TypeKind{types.INT64},
+	},
+	{
+		Name:        "timestamp_trunc",
+		BindFunc:    bindTimestampTrunc,
+		ReturnTypes: []types.TypeKind{types.TIMESTAMP},
 	},
 	{
 		Name:        "parse_timestamp",
 		BindFunc:    bindParseTimestamp,
 		ReturnTypes: []types.TypeKind{types.TIMESTAMP},
 	},
+	{
+		Name:        "timestamp_seconds",
+		BindFunc:    bindTimestampSeconds,
+		ReturnTypes: []types.TypeKind{types.TIMESTAMP},
+	},
+	{
+		Name:        "timestamp_millis",
+		BindFunc:    bindTimestampMillis,
+		ReturnTypes: []types.TypeKind{types.TIMESTAMP},
+	},
+	{
+		Name:        "timestamp_micros",
+		BindFunc:    bindTimestampMicros,
+		ReturnTypes: []types.TypeKind{types.TIMESTAMP},
+	},
+	{
+		Name:        "unix_seconds",
+		BindFunc:    bindUnixSeconds,
+		ReturnTypes: []types.TypeKind{types.INT64},
+	},
+	{
+		Name:        "unix_millis",
+		BindFunc:    bindUnixMillis,
+		ReturnTypes: []types.TypeKind{types.INT64},
+	},
+	{
+		Name:        "unix_micros",
+		BindFunc:    bindUnixMicros,
+		ReturnTypes: []types.TypeKind{types.INT64},
+	},
+
 	{
 		Name:        "concat",
 		BindFunc:    bindConcat,
@@ -287,28 +446,6 @@ var normalFuncs = []*FuncInfo{
 			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
 			types.ARRAY, types.STRUCT,
 		},
-	},
-
-	// currentime functions
-	{
-		Name:        "current_date",
-		BindFunc:    bindCurrentDate,
-		ReturnTypes: []types.TypeKind{types.DATE},
-	},
-	{
-		Name:        "current_datetime",
-		BindFunc:    bindCurrentDatetime,
-		ReturnTypes: []types.TypeKind{types.DATETIME},
-	},
-	{
-		Name:        "current_time",
-		BindFunc:    bindCurrentTime,
-		ReturnTypes: []types.TypeKind{types.TIME},
-	},
-	{
-		Name:        "current_timestamp",
-		BindFunc:    bindCurrentTimestamp,
-		ReturnTypes: []types.TypeKind{types.TIMESTAMP},
 	},
 
 	// string functions

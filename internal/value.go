@@ -1936,7 +1936,11 @@ func timestampValueFromEncodedString(v string) (time.Time, error) {
 		v = unquoted
 	}
 	content := v[len(TimestampValueHeader):]
-	return parseTimestamp(content)
+	loc, err := time.LoadLocation("")
+	if err != nil {
+		return time.Time{}, err
+	}
+	return parseTimestamp(content, loc)
 }
 
 func arrayValueFromEncodedString(v string) ([]interface{}, error) {
@@ -2036,7 +2040,11 @@ func toTimestampValueFromString(s string) (string, error) {
 }
 
 func formatTimestamp(s string) (string, error) {
-	t, err := parseTimestamp(s)
+	loc, err := time.LoadLocation("")
+	if err != nil {
+		return "", err
+	}
+	t, err := parseTimestamp(s, loc)
 	if err != nil {
 		return "", err
 	}
@@ -2070,8 +2078,14 @@ func isTime(time string) bool {
 }
 
 func isTimestamp(timestamp string) bool {
-	_, err := parseTimestamp(timestamp)
-	return err == nil
+	loc, err := time.LoadLocation("")
+	if err != nil {
+		return false
+	}
+	if _, err := parseTimestamp(timestamp, loc); err != nil {
+		return false
+	}
+	return true
 }
 
 func parseDate(date string) (time.Time, error) {
@@ -2086,50 +2100,62 @@ func parseTime(t string) (time.Time, error) {
 	return time.Parse("15:04:05", t)
 }
 
-func parseTimestamp(timestamp string) (time.Time, error) {
-	if t, err := time.Parse("2006-01-02T15:04:05.999999999Z07:00", timestamp); err == nil {
+func parseTimestamp(timestamp string, loc *time.Location) (time.Time, error) {
+	if t, err := time.ParseInLocation("2006-01-02T15:04:05.999999999Z07:00", timestamp, loc); err == nil {
 		return t, nil
 	}
-	if t, err := time.Parse("2006-01-02T15:04:05.999999999+07:00", timestamp); err == nil {
+	if t, err := time.ParseInLocation("2006-01-02T15:04:05.999999999-07:00", timestamp, loc); err == nil {
 		return t, nil
 	}
-	if t, err := time.Parse("2006-01-02T15:04:05.999999999+00", timestamp); err == nil {
+	if t, err := time.ParseInLocation("2006-01-02T15:04:05.999999999-07", timestamp, loc); err == nil {
 		return t, nil
 	}
-	if t, err := time.Parse("2006-01-02T15:04:05Z07:00", timestamp); err == nil {
+	if t, err := time.ParseInLocation("2006-01-02T15:04:05.999999999 MST", timestamp, loc); err == nil {
 		return t, nil
 	}
-	if t, err := time.Parse("2006-01-02T15:04:05+07:00", timestamp); err == nil {
+	if t, err := time.ParseInLocation("2006-01-02T15:04:05Z07:00", timestamp, loc); err == nil {
 		return t, nil
 	}
-	if t, err := time.Parse("2006-01-02T15:04:05+00", timestamp); err == nil {
+	if t, err := time.ParseInLocation("2006-01-02T15:04:05-07:00", timestamp, loc); err == nil {
 		return t, nil
 	}
-	if t, err := time.Parse("2006-01-02T15:04:05", timestamp); err == nil {
+	if t, err := time.ParseInLocation("2006-01-02T15:04:05-07", timestamp, loc); err == nil {
 		return t, nil
 	}
-	if t, err := time.Parse("2006-01-02 15:04:05.999999999Z07:00", timestamp); err == nil {
+	if t, err := time.ParseInLocation("2006-01-02T15:04:05 MST", timestamp, loc); err == nil {
 		return t, nil
 	}
-	if t, err := time.Parse("2006-01-02 15:04:05.999999999+07:00", timestamp); err == nil {
+	if t, err := time.ParseInLocation("2006-01-02T15:04:05", timestamp, loc); err == nil {
 		return t, nil
 	}
-	if t, err := time.Parse("2006-01-02 15:04:05.999999999+00", timestamp); err == nil {
+	if t, err := time.ParseInLocation("2006-01-02 15:04:05.999999999Z07:00", timestamp, loc); err == nil {
 		return t, nil
 	}
-	if t, err := time.Parse("2006-01-02 15:04:05Z07:00", timestamp); err == nil {
+	if t, err := time.ParseInLocation("2006-01-02 15:04:05.999999999-07:00", timestamp, loc); err == nil {
 		return t, nil
 	}
-	if t, err := time.Parse("2006-01-02 15:04:05+07:00", timestamp); err == nil {
+	if t, err := time.ParseInLocation("2006-01-02 15:04:05.999999999-07", timestamp, loc); err == nil {
 		return t, nil
 	}
-	if t, err := time.Parse("2006-01-02 15:04:05+00", timestamp); err == nil {
+	if t, err := time.ParseInLocation("2006-01-02 15:04:05.999999999 MST", timestamp, loc); err == nil {
 		return t, nil
 	}
-	if t, err := time.Parse("2006-01-02 15:04:05", timestamp); err == nil {
+	if t, err := time.ParseInLocation("2006-01-02 15:04:05Z07:00", timestamp, loc); err == nil {
 		return t, nil
 	}
-	if t, err := time.Parse("2006-01-02", timestamp); err == nil {
+	if t, err := time.ParseInLocation("2006-01-02 15:04:05+07:00", timestamp, loc); err == nil {
+		return t, nil
+	}
+	if t, err := time.ParseInLocation("2006-01-02 15:04:05-07", timestamp, loc); err == nil {
+		return t, nil
+	}
+	if t, err := time.ParseInLocation("2006-01-02 15:04:05 MST", timestamp, loc); err == nil {
+		return t, nil
+	}
+	if t, err := time.ParseInLocation("2006-01-02 15:04:05", timestamp, loc); err == nil {
+		return t, nil
+	}
+	if t, err := time.ParseInLocation("2006-01-02", timestamp, loc); err == nil {
 		return t, nil
 	}
 	return time.Time{}, fmt.Errorf("failed to parse timestamp. unexpected format %s", timestamp)
@@ -2140,14 +2166,39 @@ func toDateValueFromInt64(days int64) string {
 	return t.Format("2006-01-02")
 }
 
-func toDatetimeValueFromInt64(days int64) string {
-	t := time.Unix(int64(time.Duration(days)*24*time.Hour/time.Second), 0)
-	return t.Format("2006-01-02T15:04:05")
+const (
+	microSecondShift = 20
+	secShift         = 0
+	minShift         = 6
+	hourShift        = 12
+	dayShift         = 17
+	monthShift       = 22
+	yearShift        = 26
+	secMask          = 0b111111
+	minMask          = 0b111111 << minShift
+	hourMask         = 0b11111 << hourShift
+	dayMask          = 0b11111 << dayShift
+	monthMask        = 0b1111 << monthShift
+	yearMask         = 0x3FFF << yearShift
+)
+
+func toDatetimeValueFromInt64(bit int64) string {
+	b := bit >> 20
+	year := (b & yearMask) >> yearShift
+	month := (b & monthMask) >> monthShift
+	day := (b & dayMask) >> dayShift
+	hour := (b & hourMask) >> hourShift
+	min := (b & minMask) >> minShift
+	sec := (b & secMask) >> secShift
+	return fmt.Sprintf("%04d-%02d-%02dT%02d:%02d:%02d", year, month, day, hour, min, sec)
 }
 
-func toTimeValueFromInt64(days int64) string {
-	t := time.Unix(int64(time.Duration(days)*24*time.Hour/time.Second), 0)
-	return t.Format("15:04:05")
+func toTimeValueFromInt64(bit int64) string {
+	b := bit >> 20
+	hour := (b & hourMask) >> hourShift
+	min := (b & minMask) >> minShift
+	sec := (b & secMask) >> secShift
+	return fmt.Sprintf("%02d:%02d:%02d", hour, min, sec)
 }
 
 func toTimestampValueFromTime(t time.Time) string {
@@ -2157,7 +2208,11 @@ func toTimestampValueFromTime(t time.Time) string {
 func toTimeValue(s string) (time.Time, error) {
 	switch {
 	case isTimestamp(s):
-		return parseTimestamp(s)
+		loc, err := time.LoadLocation("")
+		if err != nil {
+			return time.Time{}, err
+		}
+		return parseTimestamp(s, loc)
 	case isDatetime(s):
 		return parseDatetime(s)
 	case isDate(s):

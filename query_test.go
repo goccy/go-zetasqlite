@@ -1072,34 +1072,6 @@ FROM finishers`,
 				{int64(1)}, {int64(0)}, {int64(-1)},
 			},
 		},
-		{
-			name:  "current_date",
-			query: `SELECT CURRENT_DATE()`,
-			expectedRows: [][]interface{}{
-				{now.Format("2006-01-02")},
-			},
-		},
-		{
-			name:  "current_datetime",
-			query: `SELECT CURRENT_DATETIME()`,
-			expectedRows: [][]interface{}{
-				{now.Format("2006-01-02T15:04:05")},
-			},
-		},
-		{
-			name:  "current_time",
-			query: `SELECT CURRENT_TIME()`,
-			expectedRows: [][]interface{}{
-				{now.Format("15:04:05")},
-			},
-		},
-		{
-			name:  "current_timestamp",
-			query: `SELECT CURRENT_TIMESTAMP()`,
-			expectedRows: [][]interface{}{
-				{now.UTC()},
-			},
-		},
 		// INVALID_ARGUMENT: No matching signature for operator - for argument types: TIMESTAMP, TIMESTAMP. Supported signatures: INT64 - INT64; NUMERIC - NUMERIC; FLOAT64 - FLOAT64; DATE - INT64 [at 1:8]
 		//{
 		//	name:  "interval",
@@ -1705,6 +1677,52 @@ SELECT item FROM Produce WHERE Produce.category = 'vegetable' QUALIFY RANK() OVE
 			query:        `SELECT SAFE_CAST("apple" AS INT64) AS not_a_number`,
 			expectedRows: [][]interface{}{{nil}},
 		},
+
+		// date functions
+		{
+			name:  "current_date",
+			query: `SELECT CURRENT_DATE()`,
+			expectedRows: [][]interface{}{
+				{now.Format("2006-01-02")},
+			},
+		},
+		{
+			name: "extract date",
+			query: `
+SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH FROM date),
+       EXTRACT(ISOWEEK FROM date), EXTRACT(WEEK FROM date), EXTRACT(DAY FROM date) FROM UNNEST([DATE '2015-12-23']) AS date`,
+			expectedRows: [][]interface{}{{"2015-12-23", int64(2015), int64(2015), int64(12), int64(52), int64(51), int64(23)}},
+		},
+		{
+			name:         "date_from_unix_date",
+			query:        `SELECT DATE_FROM_UNIX_DATE(14238) AS date_from_epoch`,
+			expectedRows: [][]interface{}{{"2008-12-25"}},
+		},
+		{
+			name:         "last_day",
+			query:        `SELECT LAST_DAY(DATE '2008-11-25') AS last_day`,
+			expectedRows: [][]interface{}{{"2008-11-30"}},
+		},
+		{
+			name:         "last_day with month",
+			query:        `SELECT LAST_DAY(DATE '2008-11-25', MONTH) AS last_day`,
+			expectedRows: [][]interface{}{{"2008-11-30"}},
+		},
+		{
+			name:         "last_day with year",
+			query:        `SELECT LAST_DAY(DATE '2008-11-25', YEAR) AS last_day`,
+			expectedRows: [][]interface{}{{"2008-12-31"}},
+		},
+		{
+			name:         "last_day with week(sunday)",
+			query:        `SELECT LAST_DAY(DATE '2008-11-10', WEEK(SUNDAY)) AS last_day`,
+			expectedRows: [][]interface{}{{"2008-11-15"}},
+		},
+		{
+			name:         "last_day with week(monday)",
+			query:        `SELECT LAST_DAY(DATE '2008-11-10', WEEK(MONDAY)) AS last_day`,
+			expectedRows: [][]interface{}{{"2008-11-16"}},
+		},
 		{
 			name:         "parse date with %A %b %e %Y",
 			query:        `SELECT PARSE_DATE("%A %b %e %Y", "Thursday Dec 25 2008")`,
@@ -1736,6 +1754,76 @@ SELECT item FROM Produce WHERE Produce.category = 'vegetable' QUALIFY RANK() OVE
 			expectedErr: true,
 		},
 		{
+			name:         "unix_date",
+			query:        `SELECT UNIX_DATE(DATE "2008-12-25") AS days_from_epoch`,
+			expectedRows: [][]interface{}{{int64(14238)}},
+		},
+
+		// datetime functions
+		{
+			name:  "current_datetime",
+			query: `SELECT CURRENT_DATETIME()`,
+			expectedRows: [][]interface{}{
+				{now.Format("2006-01-02T15:04:05")},
+			},
+		},
+		{
+			name:  "datetime",
+			query: `SELECT DATETIME(2008, 12, 25, 05, 30, 00), DATETIME(TIMESTAMP "2008-12-25 05:30:00+00", "America/Los_Angeles")`,
+			expectedRows: [][]interface{}{
+				{"2008-12-25T05:30:00", "2008-12-24T21:30:00"},
+			},
+		},
+		{
+			name:  "datetime_add",
+			query: `SELECT DATETIME "2008-12-25 15:30:00", DATETIME_ADD(DATETIME "2008-12-25 15:30:00", INTERVAL 10 MINUTE)`,
+			expectedRows: [][]interface{}{
+				{"2008-12-25T15:30:00", "2008-12-25T15:40:00"},
+			},
+		},
+		{
+			name:  "datetime_sub",
+			query: `SELECT DATETIME "2008-12-25 15:30:00", DATETIME_SUB(DATETIME "2008-12-25 15:30:00", INTERVAL 10 MINUTE)`,
+			expectedRows: [][]interface{}{
+				{"2008-12-25T15:30:00", "2008-12-25T15:20:00"},
+			},
+		},
+		{
+			name:         "datetime_diff with day",
+			query:        `SELECT DATETIME_DIFF(DATETIME "2010-07-07 10:20:00", DATETIME "2008-12-25 15:30:00", DAY)`,
+			expectedRows: [][]interface{}{{int64(559)}},
+		},
+		{
+			name:         "datetime_diff with week",
+			query:        `SELECT DATETIME_DIFF(DATETIME '2017-10-15 00:00:00', DATETIME '2017-10-14 00:00:00', WEEK)`,
+			expectedRows: [][]interface{}{{int64(1)}},
+		},
+		{
+			name:         "datetime_diff with year",
+			query:        `SELECT DATETIME_DIFF('2017-12-30 00:00:00', '2014-12-30 00:00:00', YEAR), DATETIME_DIFF('2017-12-30 00:00:00', '2014-12-30 00:00:00', ISOYEAR)`,
+			expectedRows: [][]interface{}{{int64(3), int64(2)}},
+		},
+		{
+			name:         "datetime_diff with isoweek",
+			query:        `SELECT DATETIME_DIFF('2017-12-18', '2017-12-17', WEEK), DATETIME_DIFF('2017-12-18', '2017-12-17', WEEK(MONDAY)), DATETIME_DIFF('2017-12-18', '2017-12-17', ISOWEEK)`,
+			expectedRows: [][]interface{}{{int64(0), int64(1), int64(1)}},
+		},
+		{
+			name:         "datetime_trunc with day",
+			query:        `SELECT DATETIME_TRUNC(DATETIME "2008-12-25 15:30:00", DAY)`,
+			expectedRows: [][]interface{}{{"2008-12-25T00:00:00"}},
+		},
+		{
+			name:         "datetime_trunc with weekday(monday)",
+			query:        `SELECT DATETIME_TRUNC(DATETIME "2017-11-05 00:00:00", WEEK(MONDAY))`,
+			expectedRows: [][]interface{}{{"2017-10-30T00:00:00"}},
+		},
+		{
+			name:         "datetime_trunc with isoyear",
+			query:        `SELECT DATETIME_TRUNC('2015-06-15 00:00:00', ISOYEAR)`,
+			expectedRows: [][]interface{}{{"2014-12-29T00:00:00"}},
+		},
+		{
 			name:         "parse datetime",
 			query:        `SELECT PARSE_DATETIME("%a %b %e %I:%M:%S %Y", "Thu Dec 25 07:30:00 2008")`,
 			expectedRows: [][]interface{}{{"2008-12-25T07:30:00"}},
@@ -1754,6 +1842,47 @@ SELECT item FROM Produce WHERE Produce.category = 'vegetable' QUALIFY RANK() OVE
 			name:        "parse datetime ( one of the year elements is missing )",
 			query:       `SELECT PARSE_DATETIME("%a %b %e %I:%M:%S", "Thu Dec 25 07:30:00 2008")`,
 			expectedErr: true,
+		},
+
+		// time functions
+		{
+			name:  "current_time",
+			query: `SELECT CURRENT_TIME()`,
+			expectedRows: [][]interface{}{
+				{now.Format("15:04:05")},
+			},
+		},
+		{
+			name:  "time",
+			query: `SELECT TIME(15, 30, 00), TIME(TIMESTAMP "2008-12-25 15:30:00+08", "America/Los_Angeles")`,
+			expectedRows: [][]interface{}{
+				{"15:30:00", "23:30:00"},
+			},
+		},
+		{
+			name:         "time from datetime",
+			query:        `SELECT TIME(DATETIME "2008-12-25 15:30:00.000000")`,
+			expectedRows: [][]interface{}{{"15:30:00"}},
+		},
+		{
+			name:         "time_add",
+			query:        `SELECT TIME_ADD(TIME "15:30:00", INTERVAL 10 MINUTE)`,
+			expectedRows: [][]interface{}{{"15:40:00"}},
+		},
+		{
+			name:         "time_sub",
+			query:        `SELECT TIME_SUB(TIME "15:30:00", INTERVAL 10 MINUTE)`,
+			expectedRows: [][]interface{}{{"15:20:00"}},
+		},
+		{
+			name:         "time_diff",
+			query:        `SELECT TIME_DIFF(TIME "15:30:00", TIME "14:35:00", MINUTE)`,
+			expectedRows: [][]interface{}{{int64(55)}},
+		},
+		{
+			name:         "time_trunc",
+			query:        `SELECT TIME_TRUNC(TIME "15:30:00", HOUR)`,
+			expectedRows: [][]interface{}{{"15:00:00"}},
 		},
 		{
 			name:         "parse time with %I:%M:%S",
@@ -1775,6 +1904,88 @@ SELECT item FROM Produce WHERE Produce.category = 'vegetable' QUALIFY RANK() OVE
 			query:       `SELECT PARSE_TIME("%I:%M", "07:30:00")`,
 			expectedErr: true,
 		},
+
+		// timestamp functions
+		{
+			name:  "current_timestamp",
+			query: `SELECT CURRENT_TIMESTAMP()`,
+			expectedRows: [][]interface{}{
+				{now.UTC()},
+			},
+		},
+		{
+			name:         "string",
+			query:        `SELECT STRING(TIMESTAMP "2008-12-25 15:30:00+00", "UTC")`,
+			expectedRows: [][]interface{}{{"2008-12-25 15:30:00+00"}},
+		},
+		{
+			name:         "timestamp",
+			query:        `SELECT TIMESTAMP("2008-12-25 15:30:00+00")`,
+			expectedRows: [][]interface{}{{createTimeFromString("2008-12-25 15:30:00+00")}},
+		},
+		{
+			name:         "timestamp with zone",
+			query:        `SELECT TIMESTAMP("2008-12-25 15:30:00", "America/Los_Angeles")`,
+			expectedRows: [][]interface{}{{createTimeFromString("2008-12-25 23:30:00+00")}},
+		},
+		{
+			name:         "timestamp in zone",
+			query:        `SELECT TIMESTAMP("2008-12-25 15:30:00 UTC")`,
+			expectedRows: [][]interface{}{{createTimeFromString("2008-12-25 15:30:00+00")}},
+		},
+		{
+			name:         "timestamp from datetime",
+			query:        `SELECT TIMESTAMP(DATETIME "2008-12-25 15:30:00")`,
+			expectedRows: [][]interface{}{{createTimeFromString("2008-12-25 15:30:00+00")}},
+		},
+		{
+			name:         "timestamp from date",
+			query:        `SELECT TIMESTAMP(DATE "2008-12-25")`,
+			expectedRows: [][]interface{}{{createTimeFromString("2008-12-25 00:00:00+00")}},
+		},
+		{
+			name:         "timestamp_add",
+			query:        `SELECT TIMESTAMP_ADD(TIMESTAMP "2008-12-25 15:30:00+00", INTERVAL 10 MINUTE)`,
+			expectedRows: [][]interface{}{{createTimeFromString("2008-12-25 15:40:00+00")}},
+		},
+		{
+			name:         "timestamp_sub",
+			query:        `SELECT TIMESTAMP_SUB(TIMESTAMP "2008-12-25 15:30:00+00", INTERVAL 10 MINUTE)`,
+			expectedRows: [][]interface{}{{createTimeFromString("2008-12-25 15:20:00+00")}},
+		},
+		{
+			name:         "timestamp_diff",
+			query:        `SELECT TIMESTAMP_DIFF(TIMESTAMP "2010-07-07 10:20:00+00", TIMESTAMP "2008-12-25 15:30:00+00", HOUR)`,
+			expectedRows: [][]interface{}{{int64(13410)}},
+		},
+		{
+			name:  "timestamp_trunc with day",
+			query: `SELECT TIMESTAMP_TRUNC(TIMESTAMP "2008-12-25 15:30:00+00", DAY, "UTC"), TIMESTAMP_TRUNC(TIMESTAMP "2008-12-25 15:30:00+00", DAY, "America/Los_Angeles")`,
+			expectedRows: [][]interface{}{
+				{createTimeFromString("2008-12-25 00:00:00+00"), createTimeFromString("2008-12-25 08:00:00+00")},
+			},
+		},
+		//		{
+		//			name: "timestamp_trunc with week",
+		//			query: `SELECT timestamp_value AS timestamp_value,
+		//			                    TIMESTAMP_TRUNC(timestamp_value, WEEK(MONDAY), "UTC"),
+		//			                    TIMESTAMP_TRUNC(timestamp_value, WEEK(MONDAY), "Pacific/Auckland")
+		//			                    FROM (SELECT TIMESTAMP("2017-11-06 00:00:00+12") AS timestamp_value)`,
+		//			expectedRows: [][]interface{}{
+		//				{
+		//					createTimeFromString("2017-11-05 12:00:00+00"),
+		//					createTimeFromString("2017-10-30 00:00:00+00"),
+		//					createTimeFromString("2017-11-05 11:00:00+00"),
+		//				},
+		//			},
+		//		},
+		{
+			name:  "timestamp_trunc with year",
+			query: `SELECT TIMESTAMP_TRUNC("2015-06-15 00:00:00+00", ISOYEAR)`,
+			expectedRows: [][]interface{}{
+				{createTimeFromString("2014-12-29 00:00:00+00")},
+			},
+		},
 		{
 			name:         "parse timestamp with %a %b %e %I:%M:%S %Y",
 			query:        `SELECT PARSE_TIMESTAMP("%a %b %e %I:%M:%S %Y", "Thu Dec 25 07:30:00 2008")`,
@@ -1794,6 +2005,36 @@ SELECT item FROM Produce WHERE Produce.category = 'vegetable' QUALIFY RANK() OVE
 			name:        "parse timestamp ( one of the year elements is missing )",
 			query:       `SELECT PARSE_TIMESTAMP("%a %b %e %I:%M:%S", "Thu Dec 25 07:30:00 2008")`,
 			expectedErr: true,
+		},
+		{
+			name:         "timestamp_seconds",
+			query:        `SELECT TIMESTAMP_SECONDS(1230219000)`,
+			expectedRows: [][]interface{}{{createTimeFromString("2008-12-25 15:30:00+00")}},
+		},
+		{
+			name:         "timestamp_millis",
+			query:        `SELECT TIMESTAMP_MILLIS(1230219000000)`,
+			expectedRows: [][]interface{}{{createTimeFromString("2008-12-25 15:30:00+00")}},
+		},
+		{
+			name:         "timestamp_micros",
+			query:        `SELECT TIMESTAMP_MICROS(1230219000000000)`,
+			expectedRows: [][]interface{}{{createTimeFromString("2008-12-25 15:30:00+00")}},
+		},
+		{
+			name:         "unix_seconds",
+			query:        `SELECT UNIX_SECONDS(TIMESTAMP "2008-12-25 15:30:00+00")`,
+			expectedRows: [][]interface{}{{int64(1230219000)}},
+		},
+		{
+			name:         "unix_millis",
+			query:        `SELECT UNIX_MILLIS(TIMESTAMP "2008-12-25 15:30:00+00")`,
+			expectedRows: [][]interface{}{{int64(1230219000000)}},
+		},
+		{
+			name:         "unix_micros",
+			query:        `SELECT UNIX_MICROS(TIMESTAMP "2008-12-25 15:30:00+00")`,
+			expectedRows: [][]interface{}{{int64(1230219000000000)}},
 		},
 	} {
 		test := test
