@@ -2140,14 +2140,39 @@ func toDateValueFromInt64(days int64) string {
 	return t.Format("2006-01-02")
 }
 
-func toDatetimeValueFromInt64(days int64) string {
-	t := time.Unix(int64(time.Duration(days)*24*time.Hour/time.Second), 0)
-	return t.Format("2006-01-02T15:04:05")
+const (
+	microSecondShift = 20
+	secShift         = 0
+	minShift         = 6
+	hourShift        = 12
+	dayShift         = 17
+	monthShift       = 22
+	yearShift        = 26
+	secMask          = 0b111111
+	minMask          = 0b111111 << minShift
+	hourMask         = 0b11111 << hourShift
+	dayMask          = 0b11111 << dayShift
+	monthMask        = 0b1111 << monthShift
+	yearMask         = 0x3FFF << yearShift
+)
+
+func toDatetimeValueFromInt64(bit int64) string {
+	b := bit >> 20
+	year := (b & yearMask) >> yearShift
+	month := (b & monthMask) >> monthShift
+	day := (b & dayMask) >> dayShift
+	hour := (b & hourMask) >> hourShift
+	min := (b & minMask) >> minShift
+	sec := (b & secMask) >> secShift
+	return fmt.Sprintf("%04d-%02d-%02dT%02d:%02d:%02d", year, month, day, hour, min, sec)
 }
 
-func toTimeValueFromInt64(days int64) string {
-	t := time.Unix(int64(time.Duration(days)*24*time.Hour/time.Second), 0)
-	return t.Format("15:04:05")
+func toTimeValueFromInt64(bit int64) string {
+	b := bit >> 20
+	hour := (b & hourMask) >> hourShift
+	min := (b & minMask) >> minShift
+	sec := (b & secMask) >> secShift
+	return fmt.Sprintf("%02d:%02d:%02d", hour, min, sec)
 }
 
 func toTimestampValueFromTime(t time.Time) string {

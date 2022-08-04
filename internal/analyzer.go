@@ -69,6 +69,7 @@ func newAnalyzerOptions() *zetasql.AnalyzerOptions {
 		zetasql.FeatureV13DateTimeConstructors,
 		zetasql.FeatureV13ExtendedDateTimeSignatures,
 		zetasql.FeatureV12CivilTime,
+		zetasql.FeatureV12WeekWithWeekday,
 		zetasql.FeatureIntervalType,
 		zetasql.FeatureGroupByRollup,
 		zetasql.FeatureV13NullsFirstLastInOrderBy,

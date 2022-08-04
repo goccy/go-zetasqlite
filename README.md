@@ -382,23 +382,23 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 - [x] DATE_SUB
 - [x] DATE_DIFF
 - [x] DATE_TRUNC
-- [ ] DATE_FROM_UNIX_DATE
+- [x] DATE_FROM_UNIX_DATE
 - [ ] FORMAT_DATE
-- [ ] LAST_DAY
+- [x] LAST_DAY
 - [x] PARSE_DATE
-- [ ] UNIX_DATE
+- [x] UNIX_DATE
 
 ### Datetime functions
 
 - [x] CURRENT_DATETIME
-- [ ] DATETIME
+- [x] DATETIME
 - [x] EXTRACT
-- [ ] DATETIME_ADD
-- [ ] DATETIME_SUB
-- [ ] DATETIME_DIFF
-- [ ] DATETIME_TRUNC
+- [x] DATETIME_ADD
+- [x] DATETIME_SUB
+- [x] DATETIME_DIFF
+- [x] DATETIME_TRUNC
 - [ ] FORMAT_DATETIME
-- [ ] LAST_DAY
+- [x] LAST_DAY
 - [x] PARSE_DATETIME
 
 ### Time functions

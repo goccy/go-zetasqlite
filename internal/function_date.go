@@ -13,30 +13,6 @@ func CURRENT_DATE_WITH_TIME(v time.Time) (Value, error) {
 	return DateValue(v), nil
 }
 
-func CURRENT_DATETIME() (Value, error) {
-	return CURRENT_DATETIME_WITH_TIME(time.Now())
-}
-
-func CURRENT_DATETIME_WITH_TIME(v time.Time) (Value, error) {
-	return DatetimeValue(v), nil
-}
-
-func CURRENT_TIME() (Value, error) {
-	return CURRENT_TIME_WITH_TIME(time.Now())
-}
-
-func CURRENT_TIME_WITH_TIME(v time.Time) (Value, error) {
-	return TimeValue(v), nil
-}
-
-func CURRENT_TIMESTAMP() (Value, error) {
-	return CURRENT_TIMESTAMP_WITH_TIME(time.Now())
-}
-
-func CURRENT_TIMESTAMP_WITH_TIME(v time.Time) (Value, error) {
-	return TimestampValue(v), nil
-}
-
 func DATE(args ...Value) (Value, error) {
 	if len(args) == 3 {
 		year, err := args[0].ToInt64()
@@ -68,50 +44,6 @@ func DATE(args ...Value) (Value, error) {
 	return nil, fmt.Errorf("DATE: unsupported arguments type %v", args)
 }
 
-func DATE_TRUNC(a Value, part string) (Value, error) {
-	t, err := a.ToTime()
-	if err != nil {
-		return nil, err
-	}
-	switch part {
-	case "DAY":
-		return nil, fmt.Errorf("currently unsupported DATE_TRUNC with DAY")
-	case "ISO_WEEK":
-		return nil, fmt.Errorf("currently unsupported DATE_TRUNC with ISO_WEEK")
-	case "WEEK":
-		return DateValue(t.AddDate(0, 0, -int(t.Weekday()))), nil
-	case "MONTH":
-		return DateValue(time.Time{}.AddDate(t.Year()-1, int(t.Month())-1, 0)), nil
-	case "QUARTER":
-		return nil, fmt.Errorf("currently unsupported DATE_TRUNC with QUARTER")
-	case "YEAR":
-		return DateValue(time.Time{}.AddDate(t.Year()-1, 0, 0)), nil
-	case "ISO_YEAR":
-		return nil, fmt.Errorf("currently unsupported DATE_TRUNC with ISO_YAER")
-	}
-	return nil, fmt.Errorf("unexpected part value %s", part)
-}
-
-func DATE_DIFF(a, b Value, part string) (Value, error) {
-	va, err := a.ToTime()
-	if err != nil {
-		return nil, err
-	}
-	vb, err := b.ToTime()
-	if err != nil {
-		return nil, err
-	}
-	switch part {
-	case "DAY":
-		return IntValue(va.Day() - vb.Day()), nil
-	case "MONTH":
-		return IntValue(va.Month() - vb.Month()), nil
-	case "YEAR":
-		return IntValue(va.Year() - vb.Year()), nil
-	}
-	return nil, fmt.Errorf("unexpected part value %s", part)
-}
-
 func DATE_ADD(t time.Time, v int64, part string) (Value, error) {
 	switch part {
 	case "DAY":
@@ -140,10 +72,81 @@ func DATE_SUB(t time.Time, v int64, part string) (Value, error) {
 	return nil, fmt.Errorf("unexpected part value %s", part)
 }
 
+func DATE_DIFF(a, b time.Time, part string) (Value, error) {
+	switch part {
+	case "DAY":
+		return IntValue(a.Day() - b.Day()), nil
+	case "MONTH":
+		return IntValue(a.Month() - b.Month()), nil
+	case "YEAR":
+		return IntValue(a.Year() - b.Year()), nil
+	}
+	return nil, fmt.Errorf("unexpected part value %s", part)
+}
+
+func DATE_TRUNC(t time.Time, part string) (Value, error) {
+	switch part {
+	case "DAY":
+		return nil, fmt.Errorf("currently unsupported DATE_TRUNC with DAY")
+	case "ISOWEEK":
+		return nil, fmt.Errorf("currently unsupported DATE_TRUNC with ISO_WEEK")
+	case "WEEK":
+		return DateValue(t.AddDate(0, 0, -int(t.Weekday()))), nil
+	case "MONTH":
+		return DateValue(time.Time{}.AddDate(t.Year()-1, int(t.Month())-1, 0)), nil
+	case "QUARTER":
+		return nil, fmt.Errorf("currently unsupported DATE_TRUNC with QUARTER")
+	case "YEAR":
+		return DateValue(time.Time{}.AddDate(t.Year()-1, 0, 0)), nil
+	case "ISOYEAR":
+		return nil, fmt.Errorf("currently unsupported DATE_TRUNC with ISO_YAER")
+	}
+	return nil, fmt.Errorf("unexpected part value %s", part)
+}
+
+func DATE_FROM_UNIX_DATE(unixdate int64) (Value, error) {
+	t := time.Unix(int64(time.Duration(unixdate)*24*time.Hour/time.Second), 0)
+	return DateValue(t), nil
+}
+
+func LAST_DAY(t time.Time, part string) (Value, error) {
+	switch part {
+	case "YEAR":
+		return DateValue(time.Date(t.Year()+1, time.Month(1), 0, 0, 0, 0, 0, t.Location())), nil
+	case "QUARTER":
+		return nil, fmt.Errorf("LAST_DAY: unimplemented QUARTER part")
+	case "MONTH":
+		return DateValue(t.AddDate(0, 1, -t.Day())), nil
+	case "WEEK":
+		return DateValue(t.AddDate(0, 0, 6-int(t.Weekday()))), nil
+	case "WEEK_MONDAY":
+		return DateValue(t.AddDate(0, 0, 7-int(t.Weekday()))), nil
+	case "WEEK_TUESDAY":
+		return DateValue(t.AddDate(0, 0, 8-int(t.Weekday()))), nil
+	case "WEEK_WEDNESDAY":
+		return DateValue(t.AddDate(0, 0, 9-int(t.Weekday()))), nil
+	case "WEEK_THURSDAY":
+		return DateValue(t.AddDate(0, 0, 10-int(t.Weekday()))), nil
+	case "WEEK_FRIDAY":
+		return DateValue(t.AddDate(0, 0, 11-int(t.Weekday()))), nil
+	case "WEEK_SATURDAY":
+		return DateValue(t.AddDate(0, 0, 12-int(t.Weekday()))), nil
+	case "ISOWEEK":
+		return DateValue(t.AddDate(0, 0, 6-int(t.Weekday()))), nil
+	case "ISOYEAR":
+		return DateValue(time.Date(t.Year()+1, time.Month(1), 0, 0, 0, 0, 0, t.Location())), nil
+	}
+	return nil, fmt.Errorf("LAST_DAY: unexpected part %s", part)
+}
+
 func PARSE_DATE(format, date string) (Value, error) {
 	t, err := parseTimeFormat(format, date, FormatTypeDate)
 	if err != nil {
 		return nil, err
 	}
 	return DateValue(*t), nil
+}
+
+func UNIX_DATE(t time.Time) (Value, error) {
+	return IntValue(t.Unix() / int64(24*time.Hour/time.Second)), nil
 }

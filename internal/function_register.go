@@ -134,6 +134,18 @@ var normalFuncs = []*FuncInfo{
 			types.BOOL, types.STRUCT,
 		},
 	},
+
+	// date functions
+	{
+		Name:        "current_date",
+		BindFunc:    bindCurrentDate,
+		ReturnTypes: []types.TypeKind{types.DATE},
+	},
+	{
+		Name:        "extract",
+		BindFunc:    bindExtract,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DATE, types.DATETIME, types.TIME},
+	},
 	{
 		Name:        "date",
 		BindFunc:    bindDate,
@@ -160,29 +172,85 @@ var normalFuncs = []*FuncInfo{
 		ReturnTypes: []types.TypeKind{types.DATE},
 	},
 	{
+		Name:        "date_from_unix_date",
+		BindFunc:    bindDateFromUnixDate,
+		ReturnTypes: []types.TypeKind{types.DATE},
+	},
+	{
+		Name:        "last_day",
+		BindFunc:    bindLastDay,
+		ReturnTypes: []types.TypeKind{types.DATE, types.DATETIME},
+	},
+	{
 		Name:        "parse_date",
 		BindFunc:    bindParseDate,
 		ReturnTypes: []types.TypeKind{types.DATE},
+	},
+	{
+		Name:        "unix_date",
+		BindFunc:    bindUnixDate,
+		ReturnTypes: []types.TypeKind{types.INT64},
+	},
+
+	// datetime functions
+	{
+		Name:        "current_datetime",
+		BindFunc:    bindCurrentDatetime,
+		ReturnTypes: []types.TypeKind{types.DATETIME},
+	},
+	{
+		Name:        "datetime",
+		BindFunc:    bindDatetime,
+		ReturnTypes: []types.TypeKind{types.DATETIME},
+	},
+	{
+		Name:        "datetime_add",
+		BindFunc:    bindDatetimeAdd,
+		ReturnTypes: []types.TypeKind{types.DATETIME},
+	},
+	{
+		Name:        "datetime_sub",
+		BindFunc:    bindDatetimeSub,
+		ReturnTypes: []types.TypeKind{types.DATETIME},
+	},
+	{
+		Name:        "datetime_diff",
+		BindFunc:    bindDatetimeDiff,
+		ReturnTypes: []types.TypeKind{types.INT64},
+	},
+	{
+		Name:        "datetime_trunc",
+		BindFunc:    bindDatetimeTrunc,
+		ReturnTypes: []types.TypeKind{types.DATETIME},
 	},
 	{
 		Name:        "parse_datetime",
 		BindFunc:    bindParseDatetime,
 		ReturnTypes: []types.TypeKind{types.DATETIME},
 	},
+
+	// time functions
+	{
+		Name:        "current_time",
+		BindFunc:    bindCurrentTime,
+		ReturnTypes: []types.TypeKind{types.TIME},
+	},
 	{
 		Name:        "parse_time",
 		BindFunc:    bindParseTime,
 		ReturnTypes: []types.TypeKind{types.TIME},
 	},
+
+	// timestamp functions
+	{
+		Name:        "current_timestamp",
+		BindFunc:    bindCurrentTimestamp,
+		ReturnTypes: []types.TypeKind{types.TIMESTAMP},
+	},
 	{
 		Name:        "parse_timestamp",
 		BindFunc:    bindParseTimestamp,
 		ReturnTypes: []types.TypeKind{types.TIMESTAMP},
-	},
-	{
-		Name:        "extract",
-		BindFunc:    bindExtract,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DATE, types.DATETIME, types.TIME},
 	},
 	{
 		Name:        "concat",
@@ -292,28 +360,6 @@ var normalFuncs = []*FuncInfo{
 			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
 			types.ARRAY, types.STRUCT,
 		},
-	},
-
-	// currentime functions
-	{
-		Name:        "current_date",
-		BindFunc:    bindCurrentDate,
-		ReturnTypes: []types.TypeKind{types.DATE},
-	},
-	{
-		Name:        "current_datetime",
-		BindFunc:    bindCurrentDatetime,
-		ReturnTypes: []types.TypeKind{types.DATETIME},
-	},
-	{
-		Name:        "current_time",
-		BindFunc:    bindCurrentTime,
-		ReturnTypes: []types.TypeKind{types.TIME},
-	},
-	{
-		Name:        "current_timestamp",
-		BindFunc:    bindCurrentTimestamp,
-		ReturnTypes: []types.TypeKind{types.TIMESTAMP},
 	},
 
 	// string functions

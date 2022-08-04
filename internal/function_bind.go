@@ -1198,22 +1198,64 @@ func bindDateDiff(args ...Value) (Value, error) {
 	if len(args) != 3 {
 		return nil, fmt.Errorf("DATE_DIFF: invalid argument num %d", len(args))
 	}
+	t, err := args[0].ToTime()
+	if err != nil {
+		return nil, err
+	}
+	t2, err := args[1].ToTime()
+	if err != nil {
+		return nil, err
+	}
 	part, err := args[2].ToString()
 	if err != nil {
 		return nil, err
 	}
-	return DATE_DIFF(args[0], args[1], part)
+	return DATE_DIFF(t, t2, part)
 }
 
 func bindDateTrunc(args ...Value) (Value, error) {
 	if len(args) != 2 {
 		return nil, fmt.Errorf("DATE_TRUNC: invalid argument num %d", len(args))
 	}
+	t, err := args[0].ToTime()
+	if err != nil {
+		return nil, err
+	}
 	part, err := args[1].ToString()
 	if err != nil {
 		return nil, err
 	}
-	return DATE_TRUNC(args[0], part)
+	return DATE_TRUNC(t, part)
+}
+
+func bindDateFromUnixDate(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("DATE_FROM_UNIX_DATE: invalid argument num %d", len(args))
+	}
+	unixdate, err := args[0].ToInt64()
+	if err != nil {
+		return nil, err
+	}
+	return DATE_FROM_UNIX_DATE(unixdate)
+}
+
+func bindLastDay(args ...Value) (Value, error) {
+	if len(args) != 1 && len(args) != 2 {
+		return nil, fmt.Errorf("LAST_DAY: invalid argument num %d", len(args))
+	}
+	t, err := args[0].ToTime()
+	if err != nil {
+		return nil, err
+	}
+	var part = "MONTH"
+	if len(args) == 2 {
+		p, err := args[1].ToString()
+		if err != nil {
+			return nil, err
+		}
+		part = p
+	}
+	return LAST_DAY(t, part)
 }
 
 func bindParseDate(args ...Value) (Value, error) {
@@ -1229,6 +1271,93 @@ func bindParseDate(args ...Value) (Value, error) {
 		return nil, err
 	}
 	return PARSE_DATE(format, target)
+}
+
+func bindUnixDate(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("UNIX_DATE: invalid argument num %d", len(args))
+	}
+	t, err := args[0].ToTime()
+	if err != nil {
+		return nil, err
+	}
+	return UNIX_DATE(t)
+}
+
+func bindDatetime(args ...Value) (Value, error) {
+	return DATETIME(args...)
+}
+
+func bindDatetimeAdd(args ...Value) (Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("DATETIME_ADD: invalid argument num %d", len(args))
+	}
+	t, err := args[0].ToTime()
+	if err != nil {
+		return nil, err
+	}
+	num, err := args[1].ToInt64()
+	if err != nil {
+		return nil, err
+	}
+	part, err := args[2].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return DATETIME_ADD(t, num, part)
+}
+
+func bindDatetimeSub(args ...Value) (Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("DATETIME_SUB: invalid argument num %d", len(args))
+	}
+	t, err := args[0].ToTime()
+	if err != nil {
+		return nil, err
+	}
+	num, err := args[1].ToInt64()
+	if err != nil {
+		return nil, err
+	}
+	part, err := args[2].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return DATETIME_SUB(t, num, part)
+}
+
+func bindDatetimeDiff(args ...Value) (Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("DATETIME_DIFF: invalid argument num %d", len(args))
+	}
+	t, err := args[0].ToTime()
+	if err != nil {
+		return nil, err
+	}
+	t2, err := args[1].ToTime()
+	if err != nil {
+		return nil, err
+	}
+	part, err := args[2].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return DATETIME_DIFF(t, t2, part)
+}
+
+func bindDatetimeTrunc(args ...Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("DATETIME_TRUNC: invalid argument num %d", len(args))
+	}
+	t, err := args[0].ToTime()
+	if err != nil {
+		return nil, err
+	}
+	part, err := args[1].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return DATETIME_TRUNC(t, part)
 }
 
 func bindParseDatetime(args ...Value) (Value, error) {
