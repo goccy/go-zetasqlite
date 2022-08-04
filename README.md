@@ -404,12 +404,12 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 ### Time functions
 
 - [x] CURRENT_TIME
-- [ ] TIME
+- [x] TIME
 - [x] EXTRACT
-- [ ] TIME_ADD
-- [ ] TIME_SUB
-- [ ] TIME_DIFF
-- [ ] TIME_TRUNC
+- [x] TIME_ADD
+- [x] TIME_SUB
+- [x] TIME_DIFF
+- [x] TIME_TRUNC
 - [ ] FORMAT_TIME
 - [x] PARSE_TIME
 

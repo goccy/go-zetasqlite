@@ -1375,6 +1375,82 @@ func bindParseDatetime(args ...Value) (Value, error) {
 	return PARSE_DATETIME(format, target)
 }
 
+func bindTime(args ...Value) (Value, error) {
+	return TIME(args...)
+}
+
+func bindTimeAdd(args ...Value) (Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("TIME_ADD: invalid argument num %d", len(args))
+	}
+	t, err := args[0].ToTime()
+	if err != nil {
+		return nil, err
+	}
+	num, err := args[1].ToInt64()
+	if err != nil {
+		return nil, err
+	}
+	part, err := args[2].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return TIME_ADD(t, num, part)
+}
+
+func bindTimeSub(args ...Value) (Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("TIME_SUB: invalid argument num %d", len(args))
+	}
+	t, err := args[0].ToTime()
+	if err != nil {
+		return nil, err
+	}
+	num, err := args[1].ToInt64()
+	if err != nil {
+		return nil, err
+	}
+	part, err := args[2].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return TIME_SUB(t, num, part)
+}
+
+func bindTimeDiff(args ...Value) (Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("TIME_DIFF: invalid argument num %d", len(args))
+	}
+	t, err := args[0].ToTime()
+	if err != nil {
+		return nil, err
+	}
+	t2, err := args[1].ToTime()
+	if err != nil {
+		return nil, err
+	}
+	part, err := args[2].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return TIME_DIFF(t, t2, part)
+}
+
+func bindTimeTrunc(args ...Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("TIME_TRUNC: invalid argument num %d", len(args))
+	}
+	t, err := args[0].ToTime()
+	if err != nil {
+		return nil, err
+	}
+	part, err := args[1].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return TIME_TRUNC(t, part)
+}
+
 func bindParseTime(args ...Value) (Value, error) {
 	if len(args) != 2 {
 		return nil, fmt.Errorf("PARSE_TIME: invalid argument num %d", len(args))

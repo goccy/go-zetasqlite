@@ -236,6 +236,31 @@ var normalFuncs = []*FuncInfo{
 		ReturnTypes: []types.TypeKind{types.TIME},
 	},
 	{
+		Name:        "time",
+		BindFunc:    bindTime,
+		ReturnTypes: []types.TypeKind{types.TIME},
+	},
+	{
+		Name:        "time_add",
+		BindFunc:    bindTimeAdd,
+		ReturnTypes: []types.TypeKind{types.TIME},
+	},
+	{
+		Name:        "time_sub",
+		BindFunc:    bindTimeSub,
+		ReturnTypes: []types.TypeKind{types.TIME},
+	},
+	{
+		Name:        "time_diff",
+		BindFunc:    bindTimeDiff,
+		ReturnTypes: []types.TypeKind{types.INT64},
+	},
+	{
+		Name:        "time_trunc",
+		BindFunc:    bindTimeTrunc,
+		ReturnTypes: []types.TypeKind{types.TIME},
+	},
+	{
 		Name:        "parse_time",
 		BindFunc:    bindParseTime,
 		ReturnTypes: []types.TypeKind{types.TIME},

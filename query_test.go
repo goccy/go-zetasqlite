@@ -1853,6 +1853,39 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			},
 		},
 		{
+			name:  "time",
+			query: `SELECT TIME(15, 30, 00), TIME(TIMESTAMP "2008-12-25 15:30:00+08", "America/Los_Angeles")`,
+			expectedRows: [][]interface{}{
+				{"15:30:00", "23:30:00"},
+			},
+		},
+		{
+			name:         "time from datetime",
+			query:        `SELECT TIME(DATETIME "2008-12-25 15:30:00.000000")`,
+			expectedRows: [][]interface{}{{"15:30:00"}},
+		},
+		{
+			name:         "time_add",
+			query:        `SELECT TIME_ADD(TIME "15:30:00", INTERVAL 10 MINUTE)`,
+			expectedRows: [][]interface{}{{"15:40:00"}},
+		},
+		{
+			name:         "time_sub",
+			query:        `SELECT TIME_SUB(TIME "15:30:00", INTERVAL 10 MINUTE)`,
+			expectedRows: [][]interface{}{{"15:20:00"}},
+		},
+		{
+			name:         "time_diff",
+			query:        `SELECT TIME_DIFF(TIME "15:30:00", TIME "14:35:00", MINUTE)`,
+			expectedRows: [][]interface{}{{int64(55)}},
+		},
+		{
+			name:         "time_trunc",
+			query:        `SELECT TIME_TRUNC(TIME "15:30:00", HOUR)`,
+			expectedRows: [][]interface{}{{"15:00:00"}},
+		},
+
+		{
 			name:         "parse time with %I:%M:%S",
 			query:        `SELECT PARSE_TIME("%I:%M:%S", "07:30:00")`,
 			expectedRows: [][]interface{}{{"07:30:00"}},
