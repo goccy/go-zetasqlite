@@ -417,20 +417,20 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 
 - [x] CURRENT_TIMESTAMP
 - [x] EXTRACT
-- [ ] STRING
-- [ ] TIMESTAMP
-- [ ] TIMESTAMP_ADD
-- [ ] TIMESTAMP_SUB
-- [ ] TIMESTAMP_DIFF
-- [ ] TIMESTAMP_TRUNC
+- [x] STRING
+- [x] TIMESTAMP
+- [x] TIMESTAMP_ADD
+- [x] TIMESTAMP_SUB
+- [x] TIMESTAMP_DIFF
+- [x] TIMESTAMP_TRUNC
 - [ ] FORMAT_TIMESTAMP
 - [x] PARSE_TIMESTAMP
-- [ ] TIMESTAMP_SECONDS
-- [ ] TIMESTAMP_MILLIS
-- [ ] TIMEATAMP_MICROS
-- [ ] UNIX_SECONDS
-- [ ] UNIX_MILLIS
-- [ ] UNIX_MICROS
+- [x] TIMESTAMP_SECONDS
+- [x] TIMESTAMP_MILLIS
+- [x] TIMEATAMP_MICROS
+- [x] UNIX_SECONDS
+- [x] UNIX_MILLIS
+- [x] UNIX_MICROS
 
 ### Interval functions
 

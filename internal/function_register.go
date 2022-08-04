@@ -273,10 +273,71 @@ var normalFuncs = []*FuncInfo{
 		ReturnTypes: []types.TypeKind{types.TIMESTAMP},
 	},
 	{
+		Name:        "string",
+		BindFunc:    bindString,
+		ReturnTypes: []types.TypeKind{types.STRING},
+	},
+	{
+		Name:        "timestamp",
+		BindFunc:    bindTimestamp,
+		ReturnTypes: []types.TypeKind{types.TIMESTAMP},
+	},
+	{
+		Name:        "timestamp_add",
+		BindFunc:    bindTimestampAdd,
+		ReturnTypes: []types.TypeKind{types.TIMESTAMP},
+	},
+	{
+		Name:        "timestamp_sub",
+		BindFunc:    bindTimestampSub,
+		ReturnTypes: []types.TypeKind{types.TIMESTAMP},
+	},
+	{
+		Name:        "timestamp_diff",
+		BindFunc:    bindTimestampDiff,
+		ReturnTypes: []types.TypeKind{types.INT64},
+	},
+	{
+		Name:        "timestamp_trunc",
+		BindFunc:    bindTimestampTrunc,
+		ReturnTypes: []types.TypeKind{types.TIMESTAMP},
+	},
+	{
 		Name:        "parse_timestamp",
 		BindFunc:    bindParseTimestamp,
 		ReturnTypes: []types.TypeKind{types.TIMESTAMP},
 	},
+	{
+		Name:        "timestamp_seconds",
+		BindFunc:    bindTimestampSeconds,
+		ReturnTypes: []types.TypeKind{types.TIMESTAMP},
+	},
+	{
+		Name:        "timestamp_millis",
+		BindFunc:    bindTimestampMillis,
+		ReturnTypes: []types.TypeKind{types.TIMESTAMP},
+	},
+	{
+		Name:        "timestamp_micros",
+		BindFunc:    bindTimestampMicros,
+		ReturnTypes: []types.TypeKind{types.TIMESTAMP},
+	},
+	{
+		Name:        "unix_seconds",
+		BindFunc:    bindUnixSeconds,
+		ReturnTypes: []types.TypeKind{types.INT64},
+	},
+	{
+		Name:        "unix_millis",
+		BindFunc:    bindUnixMillis,
+		ReturnTypes: []types.TypeKind{types.INT64},
+	},
+	{
+		Name:        "unix_micros",
+		BindFunc:    bindUnixMicros,
+		ReturnTypes: []types.TypeKind{types.INT64},
+	},
+
 	{
 		Name:        "concat",
 		BindFunc:    bindConcat,

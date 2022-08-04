@@ -1884,7 +1884,6 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			query:        `SELECT TIME_TRUNC(TIME "15:30:00", HOUR)`,
 			expectedRows: [][]interface{}{{"15:00:00"}},
 		},
-
 		{
 			name:         "parse time with %I:%M:%S",
 			query:        `SELECT PARSE_TIME("%I:%M:%S", "07:30:00")`,
@@ -1915,6 +1914,79 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			},
 		},
 		{
+			name:         "string",
+			query:        `SELECT STRING(TIMESTAMP "2008-12-25 15:30:00+00", "UTC")`,
+			expectedRows: [][]interface{}{{"2008-12-25 15:30:00+00"}},
+		},
+		{
+			name:         "timestamp",
+			query:        `SELECT TIMESTAMP("2008-12-25 15:30:00+00")`,
+			expectedRows: [][]interface{}{{createTimeFromString("2008-12-25 15:30:00+00")}},
+		},
+		{
+			name:         "timestamp with zone",
+			query:        `SELECT TIMESTAMP("2008-12-25 15:30:00", "America/Los_Angeles")`,
+			expectedRows: [][]interface{}{{createTimeFromString("2008-12-25 23:30:00+00")}},
+		},
+		{
+			name:         "timestamp in zone",
+			query:        `SELECT TIMESTAMP("2008-12-25 15:30:00 UTC")`,
+			expectedRows: [][]interface{}{{createTimeFromString("2008-12-25 15:30:00+00")}},
+		},
+		{
+			name:         "timestamp from datetime",
+			query:        `SELECT TIMESTAMP(DATETIME "2008-12-25 15:30:00")`,
+			expectedRows: [][]interface{}{{createTimeFromString("2008-12-25 15:30:00+00")}},
+		},
+		{
+			name:         "timestamp from date",
+			query:        `SELECT TIMESTAMP(DATE "2008-12-25")`,
+			expectedRows: [][]interface{}{{createTimeFromString("2008-12-25 00:00:00+00")}},
+		},
+		{
+			name:         "timestamp_add",
+			query:        `SELECT TIMESTAMP_ADD(TIMESTAMP "2008-12-25 15:30:00+00", INTERVAL 10 MINUTE)`,
+			expectedRows: [][]interface{}{{createTimeFromString("2008-12-25 15:40:00+00")}},
+		},
+		{
+			name:         "timestamp_sub",
+			query:        `SELECT TIMESTAMP_SUB(TIMESTAMP "2008-12-25 15:30:00+00", INTERVAL 10 MINUTE)`,
+			expectedRows: [][]interface{}{{createTimeFromString("2008-12-25 15:20:00+00")}},
+		},
+		{
+			name:         "timestamp_diff",
+			query:        `SELECT TIMESTAMP_DIFF(TIMESTAMP "2010-07-07 10:20:00+00", TIMESTAMP "2008-12-25 15:30:00+00", HOUR)`,
+			expectedRows: [][]interface{}{{int64(13410)}},
+		},
+		{
+			name:  "timestamp_trunc with day",
+			query: `SELECT TIMESTAMP_TRUNC(TIMESTAMP "2008-12-25 15:30:00+00", DAY, "UTC"), TIMESTAMP_TRUNC(TIMESTAMP "2008-12-25 15:30:00+00", DAY, "America/Los_Angeles")`,
+			expectedRows: [][]interface{}{
+				{createTimeFromString("2008-12-25 00:00:00+00"), createTimeFromString("2008-12-25 08:00:00+00")},
+			},
+		},
+		//		{
+		//			name: "timestamp_trunc with week",
+		//			query: `SELECT timestamp_value AS timestamp_value,
+		//			                    TIMESTAMP_TRUNC(timestamp_value, WEEK(MONDAY), "UTC"),
+		//			                    TIMESTAMP_TRUNC(timestamp_value, WEEK(MONDAY), "Pacific/Auckland")
+		//			                    FROM (SELECT TIMESTAMP("2017-11-06 00:00:00+12") AS timestamp_value)`,
+		//			expectedRows: [][]interface{}{
+		//				{
+		//					createTimeFromString("2017-11-05 12:00:00+00"),
+		//					createTimeFromString("2017-10-30 00:00:00+00"),
+		//					createTimeFromString("2017-11-05 11:00:00+00"),
+		//				},
+		//			},
+		//		},
+		{
+			name:  "timestamp_trunc with year",
+			query: `SELECT TIMESTAMP_TRUNC("2015-06-15 00:00:00+00", ISOYEAR)`,
+			expectedRows: [][]interface{}{
+				{createTimeFromString("2014-12-29 00:00:00+00")},
+			},
+		},
+		{
 			name:         "parse timestamp with %a %b %e %I:%M:%S %Y",
 			query:        `SELECT PARSE_TIMESTAMP("%a %b %e %I:%M:%S %Y", "Thu Dec 25 07:30:00 2008")`,
 			expectedRows: [][]interface{}{{createTimeFromString("2008-12-25 07:30:00+00")}},
@@ -1933,6 +2005,36 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			name:        "parse timestamp ( one of the year elements is missing )",
 			query:       `SELECT PARSE_TIMESTAMP("%a %b %e %I:%M:%S", "Thu Dec 25 07:30:00 2008")`,
 			expectedErr: true,
+		},
+		{
+			name:         "timestamp_seconds",
+			query:        `SELECT TIMESTAMP_SECONDS(1230219000)`,
+			expectedRows: [][]interface{}{{createTimeFromString("2008-12-25 15:30:00+00")}},
+		},
+		{
+			name:         "timestamp_millis",
+			query:        `SELECT TIMESTAMP_MILLIS(1230219000000)`,
+			expectedRows: [][]interface{}{{createTimeFromString("2008-12-25 15:30:00+00")}},
+		},
+		{
+			name:         "timestamp_micros",
+			query:        `SELECT TIMESTAMP_MICROS(1230219000000000)`,
+			expectedRows: [][]interface{}{{createTimeFromString("2008-12-25 15:30:00+00")}},
+		},
+		{
+			name:         "unix_seconds",
+			query:        `SELECT UNIX_SECONDS(TIMESTAMP "2008-12-25 15:30:00+00")`,
+			expectedRows: [][]interface{}{{int64(1230219000)}},
+		},
+		{
+			name:         "unix_millis",
+			query:        `SELECT UNIX_MILLIS(TIMESTAMP "2008-12-25 15:30:00+00")`,
+			expectedRows: [][]interface{}{{int64(1230219000000)}},
+		},
+		{
+			name:         "unix_micros",
+			query:        `SELECT UNIX_MICROS(TIMESTAMP "2008-12-25 15:30:00+00")`,
+			expectedRows: [][]interface{}{{int64(1230219000000000)}},
 		},
 	} {
 		test := test
