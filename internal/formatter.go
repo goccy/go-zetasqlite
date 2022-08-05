@@ -750,7 +750,7 @@ func (n *AggregateScanNode) FormatSQL(ctx context.Context) (string, error) {
 			case InputKeep:
 				stmts = append(stmts, fmt.Sprintf("SELECT %s %s %s", formattedColumns, input, groupBy))
 			case InputNeedsWrap:
-				stmts = append(stmts, fmt.Sprintf("SELECT %s FROM (%s %s)", formattedColumns, input, groupBy))
+				stmts = append(stmts, fmt.Sprintf("SELECT %s FROM (%s) %s", formattedColumns, input, groupBy))
 			case InputNeedsFrom:
 				stmts = append(stmts, fmt.Sprintf("SELECT %s FROM %s %s", formattedColumns, input, groupBy))
 			}
@@ -770,7 +770,7 @@ func (n *AggregateScanNode) FormatSQL(ctx context.Context) (string, error) {
 	case InputKeep:
 		return fmt.Sprintf("SELECT %s %s %s", formattedColumns, input, groupBy), nil
 	case InputNeedsWrap:
-		return fmt.Sprintf("SELECT %s FROM (%s %s)", formattedColumns, input, groupBy), nil
+		return fmt.Sprintf("SELECT %s FROM (%s) %s", formattedColumns, input, groupBy), nil
 	case InputNeedsFrom:
 		return fmt.Sprintf("SELECT %s FROM %s %s", formattedColumns, input, groupBy), nil
 	}
