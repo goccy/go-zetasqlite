@@ -1774,6 +1774,42 @@ SELECT item FROM Produce WHERE Produce.category = 'vegetable' QUALIFY RANK() OVE
 			expectedRows: [][]interface{}{{nil}},
 		},
 
+		// hash functions
+		{
+			name: "farm_fingerprint",
+			query: `
+WITH example AS (
+  SELECT 1 AS x, "foo" AS y, true AS z UNION ALL
+  SELECT 2 AS x, "apple" AS y, false AS z UNION ALL
+  SELECT 3 AS x, "" AS y, true AS z
+) SELECT *, FARM_FINGERPRINT(CONCAT(CAST(x AS STRING), y, CAST(z AS STRING))) FROM example`,
+			expectedRows: [][]interface{}{
+				{int64(1), "foo", true, int64(-1541654101129638711)},
+				{int64(2), "apple", false, int64(2794438866806483259)},
+				{int64(3), "", true, int64(-4880158226897771312)},
+			},
+		},
+		{
+			name:         "md5",
+			query:        `SELECT MD5("Hello World")`,
+			expectedRows: [][]interface{}{{"sQqNsWTgdUEFt6mb5y4/5Q=="}},
+		},
+		{
+			name:         "sha1",
+			query:        `SELECT SHA1("Hello World")`,
+			expectedRows: [][]interface{}{{"Ck1VqNd45QIvq3AZd8XYQLvEhtA="}},
+		},
+		{
+			name:         "sha256",
+			query:        `SELECT SHA256("Hello World")`,
+			expectedRows: [][]interface{}{{"pZGm1Av0IEBKARczz7exkNYsZb8LzaMrV7J32a2fFG4="}},
+		},
+		{
+			name:         "sha512",
+			query:        `SELECT SHA512("Hello World")`,
+			expectedRows: [][]interface{}{{"LHT9F+2v2A6ER7DUZ0HuJDt+t03SFJoKsbkkb7MDgvJ+hT2FhXGeDmfL2g2qj1FnEGRhXWRa4nrLFb+xRH9Fmw=="}},
+		},
+
 		// date functions
 		{
 			name:  "current_date",

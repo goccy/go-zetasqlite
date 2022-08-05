@@ -102,6 +102,23 @@ func bindStringFunc(fn BindFunction) SQLiteFunction {
 	}
 }
 
+func bindBytesFunc(fn BindFunction) SQLiteFunction {
+	return func(args ...interface{}) (interface{}, error) {
+		values, err := convertArgs(args...)
+		if err != nil {
+			return nil, err
+		}
+		ret, err := fn(values...)
+		if err != nil {
+			return nil, err
+		}
+		if ret == nil {
+			return nil, nil
+		}
+		return ret.ToString()
+	}
+}
+
 func bindBoolFunc(fn BindFunction) SQLiteFunction {
 	return func(args ...interface{}) (interface{}, error) {
 		values, err := convertArgs(args...)
@@ -298,6 +315,10 @@ func bindAggregateStringFunc(bindFunc func(ReturnValueConverter) func() *Aggrega
 	return bindFunc(stringValueConverter)
 }
 
+func bindAggregateBytesFunc(bindFunc func(ReturnValueConverter) func() *Aggregator) func() *Aggregator {
+	return bindFunc(stringValueConverter)
+}
+
 func bindAggregateBoolFunc(bindFunc func(ReturnValueConverter) func() *Aggregator) func() *Aggregator {
 	return bindFunc(boolValueConverter)
 }
@@ -404,6 +425,10 @@ func bindWindowFloatFunc(bindFunc func(ReturnValueConverter) func() *WindowAggre
 }
 
 func bindWindowStringFunc(bindFunc func(ReturnValueConverter) func() *WindowAggregator) func() *WindowAggregator {
+	return bindFunc(stringValueConverter)
+}
+
+func bindWindowBytesFunc(bindFunc func(ReturnValueConverter) func() *WindowAggregator) func() *WindowAggregator {
 	return bindFunc(stringValueConverter)
 }
 
@@ -707,10 +732,10 @@ func bindExtract(args ...Value) (Value, error) {
 }
 
 func bindConcat(args ...Value) (Value, error) {
-	if len(args) != 2 {
+	if len(args) < 2 {
 		return nil, fmt.Errorf("CONCAT: invalid argument num %d", len(args))
 	}
-	return CONCAT(args[0], args[1])
+	return CONCAT(args...)
 }
 
 func bindLike(args ...Value) (Value, error) {
@@ -832,11 +857,92 @@ func bindCast(args ...Value) (Value, error) {
 	return args[0], nil
 }
 
+func bindCastBoolString(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("CAST: invalid argument num %d", len(args))
+	}
+	b, err := args[0].ToBool()
+	if err != nil {
+		return nil, err
+	}
+	return StringValue(fmt.Sprintf("%t", b)), nil
+}
+
 func bindSafeCast(args ...Value) (Value, error) {
 	if len(args) != 1 {
 		return nil, fmt.Errorf("SAFE_CAST: invalid argument num %d", len(args))
 	}
 	return &SafeValue{value: args[0]}, nil
+}
+
+func bindFarmFingerprint(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("FARM_FINGERPRINT: invalid argument num %d", len(args))
+	}
+	if existsNull(args) {
+		return nil, nil
+	}
+	v, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return FARM_FINGERPRINT(v)
+}
+
+func bindMD5(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("MD5: invalid argument num %d", len(args))
+	}
+	if existsNull(args) {
+		return nil, nil
+	}
+	v, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return MD5(v)
+}
+
+func bindSha1(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("SHA1: invalid argument num %d", len(args))
+	}
+	if existsNull(args) {
+		return nil, nil
+	}
+	v, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return SHA1(v)
+}
+
+func bindSha256(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("SHA256: invalid argument num %d", len(args))
+	}
+	if existsNull(args) {
+		return nil, nil
+	}
+	v, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return SHA256(v)
+}
+
+func bindSha512(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("SHA512: invalid argument num %d", len(args))
+	}
+	if existsNull(args) {
+		return nil, nil
+	}
+	v, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return SHA512(v)
 }
 
 func timeFromUnixNano(unixNano int64) time.Time {

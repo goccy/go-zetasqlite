@@ -409,6 +409,9 @@ func (n *CastNode) FormatSQL(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if typeSuffix == "string" && n.node.Expr().Type().Kind() == types.BOOL {
+		return fmt.Sprintf("zetasqlite_castbool_string(%s)", expr), nil
+	}
 	return fmt.Sprintf("zetasqlite_cast_%s(%s)", typeSuffix, expr), nil
 }
 

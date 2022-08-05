@@ -464,6 +464,12 @@ var normalFuncs = []*FuncInfo{
 		},
 	},
 	{
+		Name:        "castbool",
+		BindFunc:    bindCastBoolString,
+		ReturnTypes: []types.TypeKind{types.STRING},
+	},
+
+	{
 		Name:     "safe_cast",
 		BindFunc: bindCast,
 		ReturnTypes: []types.TypeKind{
@@ -471,6 +477,33 @@ var normalFuncs = []*FuncInfo{
 			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
 			types.ARRAY, types.STRUCT,
 		},
+	},
+
+	// hash functions
+	{
+		Name:        "farm_fingerprint",
+		BindFunc:    bindFarmFingerprint,
+		ReturnTypes: []types.TypeKind{types.INT64},
+	},
+	{
+		Name:        "md5",
+		BindFunc:    bindMD5,
+		ReturnTypes: []types.TypeKind{types.BYTES},
+	},
+	{
+		Name:        "sha1",
+		BindFunc:    bindSha1,
+		ReturnTypes: []types.TypeKind{types.BYTES},
+	},
+	{
+		Name:        "sha256",
+		BindFunc:    bindSha256,
+		ReturnTypes: []types.TypeKind{types.BYTES},
+	},
+	{
+		Name:        "sha512",
+		BindFunc:    bindSha512,
+		ReturnTypes: []types.TypeKind{types.BYTES},
 	},
 
 	// string functions
@@ -1027,6 +1060,9 @@ func setupNormalFuncMap(info *FuncInfo) error {
 		case types.STRING:
 			name = fmt.Sprintf("zetasqlite_%s_string", info.Name)
 			fn = bindStringFunc(info.BindFunc)
+		case types.BYTES:
+			name = fmt.Sprintf("zetasqlite_%s_bytes", info.Name)
+			fn = bindBytesFunc(info.BindFunc)
 		case types.BOOL:
 			name = fmt.Sprintf("zetasqlite_%s_bool", info.Name)
 			fn = bindBoolFunc(info.BindFunc)
@@ -1075,6 +1111,9 @@ func setupAggregateFuncMap(info *AggregateFuncInfo) error {
 		case types.STRING:
 			name = fmt.Sprintf("zetasqlite_%s_string", info.Name)
 			aggregator = bindAggregateStringFunc(info.BindFunc)
+		case types.BYTES:
+			name = fmt.Sprintf("zetasqlite_%s_bytes", info.Name)
+			aggregator = bindAggregateBytesFunc(info.BindFunc)
 		case types.BOOL:
 			name = fmt.Sprintf("zetasqlite_%s_bool", info.Name)
 			aggregator = bindAggregateBoolFunc(info.BindFunc)
@@ -1123,6 +1162,9 @@ func setupWindowFuncMap(info *WindowFuncInfo) error {
 		case types.STRING:
 			name = fmt.Sprintf("zetasqlite_window_%s_string", info.Name)
 			aggregator = bindWindowStringFunc(info.BindFunc)
+		case types.BYTES:
+			name = fmt.Sprintf("zetasqlite_window_%s_bytes", info.Name)
+			aggregator = bindWindowBytesFunc(info.BindFunc)
 		case types.BOOL:
 			name = fmt.Sprintf("zetasqlite_window_%s_bool", info.Name)
 			aggregator = bindWindowBoolFunc(info.BindFunc)

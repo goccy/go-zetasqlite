@@ -251,8 +251,16 @@ func ARRAY_SAFE_ORDINAL(v Value, idx int) (Value, error) {
 	return array.values[idx-1], nil
 }
 
-func CONCAT(a, b Value) (Value, error) {
-	return a.Add(b)
+func CONCAT(args ...Value) (Value, error) {
+	var ret string
+	for _, v := range args {
+		s, err := v.ToString()
+		if err != nil {
+			return nil, err
+		}
+		ret += s
+	}
+	return StringValue(ret), nil
 }
 
 func LIKE(a, b Value) (Value, error) {
