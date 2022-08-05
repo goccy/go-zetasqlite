@@ -498,6 +498,11 @@ func (n *SubqueryExprNode) FormatSQL(ctx context.Context) (string, error) {
 	case ast.SubqueryTypeExists:
 		return fmt.Sprintf("EXISTS (%s)", sql), nil
 	case ast.SubqueryTypeIn:
+		expr, err := newNode(n.node.InExpr()).FormatSQL(ctx)
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("%s IN (%s)", expr, sql), nil
 	case ast.SubqueryTypeLikeAny:
 	case ast.SubqueryTypeLikeAll:
 	}
@@ -797,7 +802,7 @@ func (n *SetOperationScanNode) FormatSQL(ctx context.Context) (string, error) {
 	case ast.SetOperationTypeUnionAll:
 		opType = "UNION ALL"
 	case ast.SetOperationTypeUnionDistinct:
-		opType = "UNION DISTINCT"
+		opType = "UNION"
 	case ast.SetOperationTypeIntersectAll:
 		opType = "INTERSECT ALL"
 	case ast.SetOperationTypeIntersectDistinct:
@@ -893,7 +898,54 @@ func (n *OrderByScanNode) FormatSQL(ctx context.Context) (string, error) {
 }
 
 func (n *LimitOffsetScanNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
+	if n.node == nil {
+		return "", nil
+	}
+	input, err := newNode(n.node.InputScan()).FormatSQL(ctx)
+	if err != nil {
+		return "", err
+	}
+	columns := []string{}
+	columnMap := columnRefMap(ctx)
+	for _, col := range n.node.ColumnList() {
+		colName := string(uniqueColumnName(ctx, col))
+		if ref, exists := columnMap[colName]; exists {
+			columns = append(columns, ref)
+			delete(columnMap, colName)
+		} else {
+			columns = append(
+				columns,
+				fmt.Sprintf("`%s`", colName),
+			)
+		}
+	}
+	formattedInput, err := formatInput(input)
+	if err != nil {
+		return "", err
+	}
+	var limitExpr string
+	if n.node.Limit() != nil {
+		expr, err := newNode(n.node.Limit()).FormatSQL(ctx)
+		if err != nil {
+			return "", err
+		}
+		limitExpr = fmt.Sprintf("LIMIT %s", expr)
+	}
+	var offsetExpr string
+	if n.node.Offset() != nil {
+		expr, err := newNode(n.node.Offset()).FormatSQL(ctx)
+		if err != nil {
+			return "", err
+		}
+		offsetExpr = fmt.Sprintf("OFFSET %s", expr)
+	}
+	return fmt.Sprintf(
+		"SELECT %s %s %s %s",
+		strings.Join(columns, ","),
+		formattedInput,
+		limitExpr,
+		offsetExpr,
+	), nil
 }
 
 func (n *WithRefScanNode) FormatSQL(ctx context.Context) (string, error) {
