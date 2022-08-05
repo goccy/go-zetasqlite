@@ -1006,6 +1006,31 @@ FROM finishers
 			},
 		},
 		{
+			name: "window row_number",
+			query: `
+WITH Numbers AS
+ (SELECT 1 as x
+  UNION ALL SELECT 2
+  UNION ALL SELECT 2
+  UNION ALL SELECT 5
+  UNION ALL SELECT 8
+  UNION ALL SELECT 10
+  UNION ALL SELECT 10
+)
+SELECT x,
+  ROW_NUMBER() OVER (ORDER BY x) AS row_num
+FROM Numbers`,
+			expectedRows: [][]interface{}{
+				{int64(1), int64(1)},
+				{int64(2), int64(2)},
+				{int64(2), int64(3)},
+				{int64(5), int64(4)},
+				{int64(8), int64(5)},
+				{int64(10), int64(6)},
+				{int64(10), int64(7)},
+			},
+		},
+		{
 			name: "window lag",
 			query: `
 WITH finishers AS

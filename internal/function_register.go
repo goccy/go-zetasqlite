@@ -415,9 +415,12 @@ var normalFuncs = []*FuncInfo{
 		},
 	},
 	{
-		Name:        "coalesce",
-		BindFunc:    bindCoalesce,
-		ReturnTypes: []types.TypeKind{types.STRING},
+		Name:     "coalesce",
+		BindFunc: bindCoalesce,
+		ReturnTypes: []types.TypeKind{
+			types.INT64, types.DOUBLE, types.STRING, types.BOOL,
+			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
+		},
 	},
 	{
 		Name:        "if",
