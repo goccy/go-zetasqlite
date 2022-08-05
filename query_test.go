@@ -61,10 +61,16 @@ func TestQuery(t *testing.T) {
 			expectedRows: [][]interface{}{{float64(5)}},
 		},
 		{
-			name:         "concat operator",
+			name:         "concat string operator",
 			query:        `SELECT "a" || "b"`,
 			expectedRows: [][]interface{}{{"ab"}},
 		},
+		{
+			name:         "concat array operator",
+			query:        `SELECT [1, 2] || [3, 4]`,
+			expectedRows: [][]interface{}{{[]int64{1, 2, 3, 4}}},
+		},
+
 		// priority 4 operator
 		{
 			name:         "add operator",
