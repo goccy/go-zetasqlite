@@ -778,6 +778,32 @@ FROM Produce`,
 			},
 		},
 		{
+			name: `window first_value`,
+			query: `
+WITH Produce AS
+ (SELECT 'kale' as item, 23 as purchases, 'vegetable' as category
+  UNION ALL SELECT 'banana', 2, 'fruit'
+  UNION ALL SELECT 'cabbage', 9, 'vegetable'
+  UNION ALL SELECT 'apple', 8, 'fruit'
+  UNION ALL SELECT 'leek', 2, 'vegetable'
+  UNION ALL SELECT 'lettuce', 10, 'vegetable')
+SELECT item, purchases, category, FIRST_VALUE(item)
+  OVER (
+    PARTITION BY category
+    ORDER BY purchases
+    ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+  ) AS most_popular
+FROM Produce`,
+			expectedRows: [][]interface{}{
+				{"banana", int64(2), "fruit", "banana"},
+				{"apple", int64(8), "fruit", "banana"},
+				{"leek", int64(2), "vegetable", "leek"},
+				{"cabbage", int64(9), "vegetable", "leek"},
+				{"lettuce", int64(10), "vegetable", "leek"},
+				{"kale", int64(23), "vegetable", "leek"},
+			},
+		},
+		{
 			name: `window last_value`,
 			query: `
 WITH Produce AS

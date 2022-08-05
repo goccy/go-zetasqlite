@@ -153,6 +153,40 @@ func (f *WINDOW_AVG) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
 	return avg, nil
 }
 
+type WINDOW_FIRST_VALUE struct {
+}
+
+func (f *WINDOW_FIRST_VALUE) Step(v Value, opt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+	if v == nil {
+		return nil
+	}
+	return agg.Step(v, opt)
+}
+
+func (f *WINDOW_FIRST_VALUE) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
+	var firstValue Value
+	if err := agg.Done(func(values []Value, start, end int) error {
+		if start >= len(values) || end < 0 {
+			return nil
+		}
+		if len(values) == 0 {
+			return nil
+		}
+		if start < 0 {
+			start = 0
+		}
+		if end >= len(values) {
+			end = len(values) - 1
+		}
+		values = values[start : end+1]
+		firstValue = values[0]
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return firstValue, nil
+}
+
 type WINDOW_LAST_VALUE struct {
 }
 

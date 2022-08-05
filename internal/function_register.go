@@ -887,16 +887,27 @@ var windowFuncs = []*WindowFuncInfo{
 		ReturnTypes: []types.TypeKind{types.DOUBLE},
 	},
 	{
-		Name:        "last_value",
-		BindFunc:    bindWindowLastValue,
-		ReturnTypes: []types.TypeKind{types.STRING},
+		Name:     "first_value",
+		BindFunc: bindWindowFirstValue,
+		ReturnTypes: []types.TypeKind{
+			types.INT64, types.DOUBLE, types.STRING, types.BOOL,
+			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
+		},
+	},
+	{
+		Name:     "last_value",
+		BindFunc: bindWindowLastValue,
+		ReturnTypes: []types.TypeKind{
+			types.INT64, types.DOUBLE, types.STRING, types.BOOL,
+			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
+		},
 	},
 	{
 		Name:     "lag",
 		BindFunc: bindWindowLag,
 		ReturnTypes: []types.TypeKind{
 			types.INT64, types.DOUBLE, types.STRING, types.BOOL,
-			types.DATE, types.DATETIME, types.TIMESTAMP,
+			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
 		},
 	},
 	{

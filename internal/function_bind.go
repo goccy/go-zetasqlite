@@ -2238,6 +2238,24 @@ func bindWindowAvg(converter ReturnValueConverter) func() *WindowAggregator {
 	}
 }
 
+func bindWindowFirstValue(converter ReturnValueConverter) func() *WindowAggregator {
+	return func() *WindowAggregator {
+		fn := &WINDOW_FIRST_VALUE{}
+		return newWindowAggregator(
+			func(args []Value, opt *AggregatorOption, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+				if len(args) != 1 {
+					return fmt.Errorf("WINDOW_FIRST_VALUE: invalid argument num %d", len(args))
+				}
+				return fn.Step(args[0], windowOpt, agg)
+			},
+			func(agg *WindowFuncAggregatedStatus) (Value, error) {
+				return fn.Done(agg)
+			},
+			converter,
+		)
+	}
+}
+
 func bindWindowLastValue(converter ReturnValueConverter) func() *WindowAggregator {
 	return func() *WindowAggregator {
 		fn := &WINDOW_LAST_VALUE{}
