@@ -2218,6 +2218,13 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			query:        `SELECT UNIX_MICROS(TIMESTAMP "2008-12-25 15:30:00+00")`,
 			expectedRows: [][]interface{}{{int64(1230219000000000)}},
 		},
+
+		// uuid functions
+		{
+			name:         "generate_uuid",
+			query:        `SELECT LENGTH(GENERATE_UUID())`,
+			expectedRows: [][]interface{}{{int64(36)}},
+		},
 	} {
 		test := test
 		t.Run(test.name, func(t *testing.T) {

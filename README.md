@@ -450,7 +450,7 @@ Not suported yet
 
 ### UUID functions
 
-- [ ] GENERATE_UUID
+- [x] GENERATE_UUID
 
 ### Net functions
 

@@ -144,6 +144,11 @@ var normalFuncs = []*FuncInfo{
 		BindFunc:    bindIsNotDistinctFrom,
 		ReturnTypes: []types.TypeKind{types.BOOL},
 	},
+	{
+		Name:        "generate_uuid",
+		BindFunc:    bindGenerateUUID,
+		ReturnTypes: []types.TypeKind{types.STRING},
+	},
 
 	// date functions
 	{

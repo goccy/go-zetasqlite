@@ -5,6 +5,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 func ADD(a, b Value) (Value, error) {
@@ -579,4 +581,9 @@ func EXTRACT(t time.Time, part string) (Value, error) {
 		return TimeValue(t), nil
 	}
 	return nil, fmt.Errorf("failed to extract: undefined part %s", part)
+}
+
+func GENERATE_UUID() (Value, error) {
+	id := uuid.NewString()
+	return StringValue(string(id)), nil
 }

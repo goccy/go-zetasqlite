@@ -731,6 +731,13 @@ func bindExtract(args ...Value) (Value, error) {
 	return EXTRACT(t, part)
 }
 
+func bindGenerateUUID(args ...Value) (Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("GENERATE_UUID: invalid argument num %d", len(args))
+	}
+	return GENERATE_UUID()
+}
+
 func bindConcat(args ...Value) (Value, error) {
 	if len(args) < 2 {
 		return nil, fmt.Errorf("CONCAT: invalid argument num %d", len(args))
