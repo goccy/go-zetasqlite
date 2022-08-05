@@ -134,6 +134,16 @@ var normalFuncs = []*FuncInfo{
 			types.BOOL, types.STRUCT,
 		},
 	},
+	{
+		Name:        "is_distinct_from",
+		BindFunc:    bindIsDistinctFrom,
+		ReturnTypes: []types.TypeKind{types.BOOL},
+	},
+	{
+		Name:        "is_not_distinct_from",
+		BindFunc:    bindIsNotDistinctFrom,
+		ReturnTypes: []types.TypeKind{types.BOOL},
+	},
 
 	// date functions
 	{

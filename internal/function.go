@@ -372,6 +372,29 @@ func OR(args ...Value) (Value, error) {
 	return BoolValue(false), nil
 }
 
+func IS_DISTINCT_FROM(a, b Value) (Value, error) {
+	if a == nil || b == nil {
+		eq := a == nil && b == nil
+		return BoolValue(!eq), nil
+	}
+	cond, err := a.EQ(b)
+	if err != nil {
+		return nil, err
+	}
+	return BoolValue(!cond), nil
+}
+
+func IS_NOT_DISTINCT_FROM(a, b Value) (Value, error) {
+	if a == nil || b == nil {
+		return BoolValue(a == nil && b == nil), nil
+	}
+	cond, err := a.EQ(b)
+	if err != nil {
+		return nil, err
+	}
+	return BoolValue(cond), nil
+}
+
 func CASE_WITH_VALUE(caseV Value, args ...Value) (Value, error) {
 	if len(args) == 0 {
 		return nil, fmt.Errorf("when value must be specified")

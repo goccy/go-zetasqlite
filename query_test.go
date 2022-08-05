@@ -137,6 +137,11 @@ func TestQuery(t *testing.T) {
 			expectedRows: [][]interface{}{{true}},
 		},
 		{
+			name:         "ne operator2",
+			query:        "SELECT 100 <> 10",
+			expectedRows: [][]interface{}{{true}},
+		},
+		{
 			name:         "like operator",
 			query:        `SELECT "abcd" LIKE "a%d"`,
 			expectedRows: [][]interface{}{{true}},
@@ -224,12 +229,46 @@ func TestQuery(t *testing.T) {
 			query:        `SELECT EXISTS ( SELECT val FROM UNNEST([1, 2, 3]) AS val WHERE val = 4 )`,
 			expectedRows: [][]interface{}{{false}},
 		},
-		// not supported `IS DISTINCT FROM` by zetasql
-		//{
-		//	name:         "is distinct from",
-		//	query:        `SELECT 1 IS DISTINCT FROM 2`,
-		//	expectedRows: [][]interface{}{{int64(1)}},
-		//},
+		{
+			name:         "is distinct from with 1 and 2",
+			query:        `SELECT 1 IS DISTINCT FROM 2`,
+			expectedRows: [][]interface{}{{true}},
+		},
+		{
+			name:         "is distinct from with 1 and null",
+			query:        `SELECT 1 IS DISTINCT FROM NULL`,
+			expectedRows: [][]interface{}{{true}},
+		},
+		{
+			name:         "is not distinct from with 1 and 1",
+			query:        `SELECT 1 IS NOT DISTINCT FROM 1`,
+			expectedRows: [][]interface{}{{true}},
+		},
+		{
+			name:         "is not distinct from with null and null",
+			query:        `SELECT NULL IS NOT DISTINCT FROM NULL`,
+			expectedRows: [][]interface{}{{true}},
+		},
+		{
+			name:         "is distinct from with null and null",
+			query:        `SELECT NULL IS DISTINCT FROM NULL`,
+			expectedRows: [][]interface{}{{false}},
+		},
+		{
+			name:         "is distinct from with 1 and 1",
+			query:        `SELECT 1 IS DISTINCT FROM 1`,
+			expectedRows: [][]interface{}{{false}},
+		},
+		{
+			name:         "is not distinct from with 1 and 2",
+			query:        `SELECT 1 IS NOT DISTINCT FROM 2`,
+			expectedRows: [][]interface{}{{false}},
+		},
+		{
+			name:         "is not distinct from with 1 and null",
+			query:        `SELECT 1 IS NOT DISTINCT FROM NULL`,
+			expectedRows: [][]interface{}{{false}},
+		},
 		{
 			name: "case-when",
 			query: `

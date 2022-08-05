@@ -668,6 +668,20 @@ func bindSafeArrayAtOrdinal(args ...Value) (Value, error) {
 	return ARRAY_SAFE_ORDINAL(args[0], int(i64))
 }
 
+func bindIsDistinctFrom(args ...Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("IS_DISTINCT_FROM: invalid argument num %d", len(args))
+	}
+	return IS_DISTINCT_FROM(args[0], args[1])
+}
+
+func bindIsNotDistinctFrom(args ...Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("IS_NOT_DISTINCT_FROM: invalid argument num %d", len(args))
+	}
+	return IS_NOT_DISTINCT_FROM(args[0], args[1])
+}
+
 func bindExtract(args ...Value) (Value, error) {
 	if len(args) != 2 {
 		return nil, fmt.Errorf("EXTRACT: invalid argument num %d", len(args))
