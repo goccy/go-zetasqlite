@@ -364,3 +364,21 @@ func (f *WINDOW_DENSE_RANK) Done(agg *WindowFuncAggregatedStatus) (Value, error)
 	}
 	return rankValue, nil
 }
+
+type WINDOW_ROW_NUMBER struct {
+}
+
+func (f *WINDOW_ROW_NUMBER) Step(opt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+	return agg.Step(IntValue(1), opt)
+}
+
+func (f *WINDOW_ROW_NUMBER) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
+	var rowNum Value
+	if err := agg.Done(func(_ []Value, start, end int) error {
+		rowNum = IntValue(start + 1)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return rowNum, nil
+}

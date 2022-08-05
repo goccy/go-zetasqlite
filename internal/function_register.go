@@ -906,6 +906,11 @@ var windowFuncs = []*WindowFuncInfo{
 		BindFunc:    bindWindowDenseRank,
 		ReturnTypes: []types.TypeKind{types.INT64},
 	},
+	{
+		Name:        "row_number",
+		BindFunc:    bindWindowRowNumber,
+		ReturnTypes: []types.TypeKind{types.INT64},
+	},
 }
 
 type NameAndFunc struct {

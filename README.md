@@ -204,7 +204,7 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 - [ ] PERCENT_RANK
 - [ ] CUME_DIST
 - [ ] NTILE
-- [ ] ROW_NUMBER
+- [x] ROW_NUMBER
 
 ### Bit functions
 

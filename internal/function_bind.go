@@ -2324,3 +2324,21 @@ func bindWindowDenseRank(converter ReturnValueConverter) func() *WindowAggregato
 		)
 	}
 }
+
+func bindWindowRowNumber(converter ReturnValueConverter) func() *WindowAggregator {
+	return func() *WindowAggregator {
+		fn := &WINDOW_ROW_NUMBER{}
+		return newWindowAggregator(
+			func(args []Value, opt *AggregatorOption, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+				if len(args) != 0 {
+					return fmt.Errorf("WINDOW_ROW_NUMBER: invalid argument num %d", len(args))
+				}
+				return fn.Step(windowOpt, agg)
+			},
+			func(agg *WindowFuncAggregatedStatus) (Value, error) {
+				return fn.Done(agg)
+			},
+			converter,
+		)
+	}
+}
