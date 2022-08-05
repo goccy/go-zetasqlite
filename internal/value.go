@@ -2334,7 +2334,17 @@ func encodeValueWithType(v interface{}, t types.Type) (interface{}, error) {
 		}
 		return toStructValueFromJSONString(string(b)), nil
 	case types.TIME:
+		text, ok := v.(string)
+		if !ok {
+			return nil, fmt.Errorf("failed to convert TIME from %T", v)
+		}
+		return toTimeValueFromString(text), nil
 	case types.DATETIME:
+		text, ok := v.(string)
+		if !ok {
+			return nil, fmt.Errorf("failed to convert DATETIME from %T", v)
+		}
+		return toDatetimeValueFromString(text), nil
 	case types.PROTO:
 		return nil, fmt.Errorf("failed to convert PROTO type from %T", v)
 	case types.GEOGRAPHY:

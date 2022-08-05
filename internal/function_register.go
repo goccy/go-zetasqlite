@@ -423,19 +423,31 @@ var normalFuncs = []*FuncInfo{
 		},
 	},
 	{
-		Name:        "if",
-		BindFunc:    bindIf,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE, types.STRING, types.BOOL},
+		Name:     "if",
+		BindFunc: bindIf,
+		ReturnTypes: []types.TypeKind{
+			types.INT64, types.DOUBLE, types.STRING, types.BOOL,
+			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
+			types.ARRAY, types.STRUCT,
+		},
 	},
 	{
-		Name:        "ifnull",
-		BindFunc:    bindIfNull,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE, types.STRING},
+		Name:     "ifnull",
+		BindFunc: bindIfNull,
+		ReturnTypes: []types.TypeKind{
+			types.INT64, types.DOUBLE, types.STRING, types.BOOL,
+			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
+			types.ARRAY, types.STRUCT,
+		},
 	},
 	{
-		Name:        "nullif",
-		BindFunc:    bindNullIf,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE, types.STRING},
+		Name:     "nullif",
+		BindFunc: bindNullIf,
+		ReturnTypes: []types.TypeKind{
+			types.INT64, types.DOUBLE, types.STRING, types.BOOL,
+			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
+			types.ARRAY, types.STRUCT,
+		},
 	},
 	{
 		Name:        "length",
