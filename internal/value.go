@@ -2093,7 +2093,10 @@ func parseDate(date string) (time.Time, error) {
 }
 
 func parseDatetime(datetime string) (time.Time, error) {
-	return time.Parse("2006-01-02T15:04:05", datetime)
+	if t, err := time.Parse("2006-01-02T15:04:05", datetime); err == nil {
+		return t, nil
+	}
+	return time.Parse("2006-01-02 15:04:05", datetime)
 }
 
 func parseTime(t string) (time.Time, error) {
