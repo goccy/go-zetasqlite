@@ -1378,6 +1378,24 @@ func bindDateFromUnixDate(args ...Value) (Value, error) {
 	return DATE_FROM_UNIX_DATE(unixdate)
 }
 
+func bindFormatDate(args ...Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("FORMAT_DATE: invalid argument num %d", len(args))
+	}
+	if existsNull(args) {
+		return nil, nil
+	}
+	format, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	t, err := args[1].ToTime()
+	if err != nil {
+		return nil, err
+	}
+	return FORMAT_DATE(format, t)
+}
+
 func bindLastDay(args ...Value) (Value, error) {
 	if len(args) != 1 && len(args) != 2 {
 		return nil, fmt.Errorf("LAST_DAY: invalid argument num %d", len(args))
@@ -1559,6 +1577,24 @@ func bindDatetimeTrunc(args ...Value) (Value, error) {
 	return DATETIME_TRUNC(t, part)
 }
 
+func bindFormatDatetime(args ...Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("FORMAT_DATETIME: invalid argument num %d", len(args))
+	}
+	if existsNull(args) {
+		return nil, nil
+	}
+	format, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	t, err := args[1].ToTime()
+	if err != nil {
+		return nil, err
+	}
+	return FORMAT_DATETIME(format, t)
+}
+
 func bindParseDatetime(args ...Value) (Value, error) {
 	if len(args) != 2 {
 		return nil, fmt.Errorf("PARSE_DATETIME: invalid argument num %d", len(args))
@@ -1702,6 +1738,24 @@ func bindTimeTrunc(args ...Value) (Value, error) {
 		return nil, err
 	}
 	return TIME_TRUNC(t, part)
+}
+
+func bindFormatTime(args ...Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("FORMAT_TIME: invalid argument num %d", len(args))
+	}
+	if existsNull(args) {
+		return nil, nil
+	}
+	format, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	t, err := args[1].ToTime()
+	if err != nil {
+		return nil, err
+	}
+	return FORMAT_TIME(format, t)
 }
 
 func bindParseTime(args ...Value) (Value, error) {
@@ -1888,6 +1942,32 @@ func bindTimestampTrunc(args ...Value) (Value, error) {
 		zone = z
 	}
 	return TIMESTAMP_TRUNC(t, part, zone)
+}
+
+func bindFormatTimestamp(args ...Value) (Value, error) {
+	if len(args) != 2 && len(args) != 3 {
+		return nil, fmt.Errorf("FORMAT_TIMESTAMP: invalid argument num %d", len(args))
+	}
+	if existsNull(args) {
+		return nil, nil
+	}
+	format, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	t, err := args[1].ToTime()
+	if err != nil {
+		return nil, err
+	}
+	var zone string
+	if len(args) == 3 {
+		z, err := args[2].ToString()
+		if err != nil {
+			return nil, err
+		}
+		zone = z
+	}
+	return FORMAT_TIMESTAMP(format, t, zone)
 }
 
 func bindParseTimestamp(args ...Value) (Value, error) {

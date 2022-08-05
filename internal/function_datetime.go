@@ -378,6 +378,14 @@ func DATETIME_TRUNC(t time.Time, part string) (Value, error) {
 	return nil, fmt.Errorf("unexpected part value %s", part)
 }
 
+func FORMAT_DATETIME(format string, t time.Time) (Value, error) {
+	s, err := formatTime(format, &t, FormatTypeDatetime)
+	if err != nil {
+		return nil, err
+	}
+	return StringValue(s), nil
+}
+
 func PARSE_DATETIME(format, date string) (Value, error) {
 	t, err := parseTimeFormat(format, date, FormatTypeDatetime)
 	if err != nil {

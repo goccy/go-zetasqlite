@@ -187,6 +187,11 @@ var normalFuncs = []*FuncInfo{
 		ReturnTypes: []types.TypeKind{types.DATE},
 	},
 	{
+		Name:        "format_date",
+		BindFunc:    bindFormatDate,
+		ReturnTypes: []types.TypeKind{types.STRING},
+	},
+	{
 		Name:        "last_day",
 		BindFunc:    bindLastDay,
 		ReturnTypes: []types.TypeKind{types.DATE, types.DATETIME},
@@ -234,6 +239,11 @@ var normalFuncs = []*FuncInfo{
 		ReturnTypes: []types.TypeKind{types.DATETIME},
 	},
 	{
+		Name:        "format_datetime",
+		BindFunc:    bindFormatDatetime,
+		ReturnTypes: []types.TypeKind{types.STRING},
+	},
+	{
 		Name:        "parse_datetime",
 		BindFunc:    bindParseDatetime,
 		ReturnTypes: []types.TypeKind{types.DATETIME},
@@ -269,6 +279,11 @@ var normalFuncs = []*FuncInfo{
 		Name:        "time_trunc",
 		BindFunc:    bindTimeTrunc,
 		ReturnTypes: []types.TypeKind{types.TIME},
+	},
+	{
+		Name:        "format_time",
+		BindFunc:    bindFormatTime,
+		ReturnTypes: []types.TypeKind{types.STRING},
 	},
 	{
 		Name:        "parse_time",
@@ -311,6 +326,11 @@ var normalFuncs = []*FuncInfo{
 		Name:        "timestamp_trunc",
 		BindFunc:    bindTimestampTrunc,
 		ReturnTypes: []types.TypeKind{types.TIMESTAMP},
+	},
+	{
+		Name:        "format_timestamp",
+		BindFunc:    bindFormatTimestamp,
+		ReturnTypes: []types.TypeKind{types.STRING},
 	},
 	{
 		Name:        "parse_timestamp",

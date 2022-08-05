@@ -245,6 +245,19 @@ func TIMESTAMP_TRUNC(t time.Time, part, zone string) (Value, error) {
 	return nil, fmt.Errorf("TIMESTAMP_TRUNC: unexpected part value %s", part)
 }
 
+func FORMAT_TIMESTAMP(format string, t time.Time, zone string) (Value, error) {
+	loc, err := time.LoadLocation(zone)
+	if err != nil {
+		return nil, err
+	}
+	t = t.In(loc)
+	s, err := formatTime(format, &t, FormatTypeTimestamp)
+	if err != nil {
+		return nil, err
+	}
+	return StringValue(s), nil
+}
+
 func PARSE_TIMESTAMP(format, date string) (Value, error) {
 	t, err := parseTimeFormat(format, date, FormatTypeTimestamp)
 	if err != nil {

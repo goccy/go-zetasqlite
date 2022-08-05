@@ -277,7 +277,7 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 
 ### Navigation functions
 
-- [ ] FIRST_VALUE
+- [x] FIRST_VALUE
 - [x] LAST_VALUE
 - [ ] NTH_VALUE
 - [ ] LEAD
@@ -287,11 +287,11 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 
 ### Hash functions
 
-- [ ] FARM_FINGERPRINT
-- [ ] MD5
-- [ ] SHA1
-- [ ] SHA256
-- [ ] SHA512
+- [x] FARM_FINGERPRINT
+- [x] MD5
+- [x] SHA1
+- [x] SHA256
+- [x] SHA512
 
 ### String functions
 
@@ -383,7 +383,7 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 - [x] DATE_DIFF
 - [x] DATE_TRUNC
 - [x] DATE_FROM_UNIX_DATE
-- [ ] FORMAT_DATE
+- [x] FORMAT_DATE
 - [x] LAST_DAY
 - [x] PARSE_DATE
 - [x] UNIX_DATE
@@ -397,7 +397,7 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 - [x] DATETIME_SUB
 - [x] DATETIME_DIFF
 - [x] DATETIME_TRUNC
-- [ ] FORMAT_DATETIME
+- [x] FORMAT_DATETIME
 - [x] LAST_DAY
 - [x] PARSE_DATETIME
 
@@ -410,7 +410,7 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 - [x] TIME_SUB
 - [x] TIME_DIFF
 - [x] TIME_TRUNC
-- [ ] FORMAT_TIME
+- [x] FORMAT_TIME
 - [x] PARSE_TIME
 
 ### Timestamp functions
@@ -423,7 +423,7 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 - [x] TIMESTAMP_SUB
 - [x] TIMESTAMP_DIFF
 - [x] TIMESTAMP_TRUNC
-- [ ] FORMAT_TIMESTAMP
+- [x] FORMAT_TIMESTAMP
 - [x] PARSE_TIMESTAMP
 - [x] TIMESTAMP_SECONDS
 - [x] TIMESTAMP_MILLIS

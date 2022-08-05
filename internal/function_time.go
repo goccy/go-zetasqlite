@@ -171,6 +171,14 @@ func TIME_TRUNC(t time.Time, part string) (Value, error) {
 	return nil, fmt.Errorf("TIME_TRUNC: unexpected part value %s", part)
 }
 
+func FORMAT_TIME(format string, t time.Time) (Value, error) {
+	s, err := formatTime(format, &t, FormatTypeTime)
+	if err != nil {
+		return nil, err
+	}
+	return StringValue(s), nil
+}
+
 func PARSE_TIME(format, date string) (Value, error) {
 	t, err := parseTimeFormat(format, date, FormatTypeTime)
 	if err != nil {

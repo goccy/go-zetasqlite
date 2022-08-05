@@ -113,6 +113,14 @@ func DATE_FROM_UNIX_DATE(unixdate int64) (Value, error) {
 	return DateValue(t), nil
 }
 
+func FORMAT_DATE(format string, t time.Time) (Value, error) {
+	s, err := formatTime(format, &t, FormatTypeDate)
+	if err != nil {
+		return nil, err
+	}
+	return StringValue(s), nil
+}
+
 func LAST_DAY(t time.Time, part string) (Value, error) {
 	switch part {
 	case "YEAR":
