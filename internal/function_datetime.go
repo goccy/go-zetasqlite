@@ -5,8 +5,12 @@ import (
 	"time"
 )
 
-func CURRENT_DATETIME() (Value, error) {
-	return CURRENT_DATETIME_WITH_TIME(time.Now())
+func CURRENT_DATETIME(zone string) (Value, error) {
+	loc, err := time.LoadLocation(zone)
+	if err != nil {
+		return nil, err
+	}
+	return CURRENT_DATETIME_WITH_TIME(time.Now().In(loc))
 }
 
 func CURRENT_DATETIME_WITH_TIME(v time.Time) (Value, error) {

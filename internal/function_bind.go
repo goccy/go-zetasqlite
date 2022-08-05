@@ -754,14 +754,14 @@ func bindNot(args ...Value) (Value, error) {
 }
 
 func bindAnd(args ...Value) (Value, error) {
-	if len(args) < 2 {
+	if len(args) == 0 {
 		return nil, fmt.Errorf("AND: invalid argument num %d", len(args))
 	}
 	return AND(args...)
 }
 
 func bindOr(args ...Value) (Value, error) {
-	if len(args) < 2 {
+	if len(args) == 0 {
 		return nil, fmt.Errorf("OR: invalid argument num %d", len(args))
 	}
 	return OR(args...)
@@ -1123,14 +1123,39 @@ func bindRangeBucket(args ...Value) (Value, error) {
 }
 
 func bindCurrentDate(args ...Value) (Value, error) {
-	if len(args) == 1 {
+	if len(args) == 0 {
+		return CURRENT_DATE("")
+	}
+	if len(args) == 2 {
+		unixNano, err := args[0].ToInt64()
+		if err != nil {
+			return nil, err
+		}
+		zone, err := args[1].ToString()
+		if err != nil {
+			return nil, err
+		}
+		loc, err := time.LoadLocation(zone)
+		if err != nil {
+			return nil, err
+		}
+		return CURRENT_DATE_WITH_TIME(timeFromUnixNano(unixNano).In(loc))
+	}
+	switch args[0].(type) {
+	case IntValue:
 		unixNano, err := args[0].ToInt64()
 		if err != nil {
 			return nil, err
 		}
 		return CURRENT_DATE_WITH_TIME(timeFromUnixNano(unixNano))
+	case StringValue:
+		zone, err := args[0].ToString()
+		if err != nil {
+			return nil, err
+		}
+		return CURRENT_DATE(zone)
 	}
-	return CURRENT_DATE()
+	return nil, fmt.Errorf("CURRENT_DATE: unexpected argument type %T", args[0])
 }
 
 func bindDate(args ...Value) (Value, error) {
@@ -1266,14 +1291,39 @@ func bindUnixDate(args ...Value) (Value, error) {
 }
 
 func bindCurrentDatetime(args ...Value) (Value, error) {
-	if len(args) == 1 {
+	if len(args) == 0 {
+		return CURRENT_DATETIME("")
+	}
+	if len(args) == 2 {
+		unixNano, err := args[0].ToInt64()
+		if err != nil {
+			return nil, err
+		}
+		zone, err := args[1].ToString()
+		if err != nil {
+			return nil, err
+		}
+		loc, err := time.LoadLocation(zone)
+		if err != nil {
+			return nil, err
+		}
+		return CURRENT_DATETIME_WITH_TIME(timeFromUnixNano(unixNano).In(loc))
+	}
+	switch args[0].(type) {
+	case IntValue:
 		unixNano, err := args[0].ToInt64()
 		if err != nil {
 			return nil, err
 		}
 		return CURRENT_DATETIME_WITH_TIME(timeFromUnixNano(unixNano))
+	case StringValue:
+		zone, err := args[0].ToString()
+		if err != nil {
+			return nil, err
+		}
+		return CURRENT_DATETIME(zone)
 	}
-	return CURRENT_DATETIME()
+	return nil, fmt.Errorf("CURRENT_DATETIME: unexpected argument type %T", args[0])
 }
 
 func bindDatetime(args ...Value) (Value, error) {
@@ -1368,14 +1418,39 @@ func bindParseDatetime(args ...Value) (Value, error) {
 }
 
 func bindCurrentTime(args ...Value) (Value, error) {
-	if len(args) == 1 {
+	if len(args) == 0 {
+		return CURRENT_TIME("")
+	}
+	if len(args) == 2 {
+		unixNano, err := args[0].ToInt64()
+		if err != nil {
+			return nil, err
+		}
+		zone, err := args[1].ToString()
+		if err != nil {
+			return nil, err
+		}
+		loc, err := time.LoadLocation(zone)
+		if err != nil {
+			return nil, err
+		}
+		return CURRENT_TIME_WITH_TIME(timeFromUnixNano(unixNano).In(loc))
+	}
+	switch args[0].(type) {
+	case IntValue:
 		unixNano, err := args[0].ToInt64()
 		if err != nil {
 			return nil, err
 		}
 		return CURRENT_TIME_WITH_TIME(timeFromUnixNano(unixNano))
+	case StringValue:
+		zone, err := args[0].ToString()
+		if err != nil {
+			return nil, err
+		}
+		return CURRENT_TIME(zone)
 	}
-	return CURRENT_TIME()
+	return nil, fmt.Errorf("CURRENT_TIME: unexpected argument type %T", args[0])
 }
 
 func bindTime(args ...Value) (Value, error) {
@@ -1470,14 +1545,39 @@ func bindParseTime(args ...Value) (Value, error) {
 }
 
 func bindCurrentTimestamp(args ...Value) (Value, error) {
-	if len(args) == 1 {
+	if len(args) == 0 {
+		return CURRENT_TIMESTAMP("")
+	}
+	if len(args) == 2 {
+		unixNano, err := args[0].ToInt64()
+		if err != nil {
+			return nil, err
+		}
+		zone, err := args[1].ToString()
+		if err != nil {
+			return nil, err
+		}
+		loc, err := time.LoadLocation(zone)
+		if err != nil {
+			return nil, err
+		}
+		return CURRENT_TIMESTAMP_WITH_TIME(timeFromUnixNano(unixNano).In(loc))
+	}
+	switch args[0].(type) {
+	case IntValue:
 		unixNano, err := args[0].ToInt64()
 		if err != nil {
 			return nil, err
 		}
 		return CURRENT_TIMESTAMP_WITH_TIME(timeFromUnixNano(unixNano))
+	case StringValue:
+		zone, err := args[0].ToString()
+		if err != nil {
+			return nil, err
+		}
+		return CURRENT_TIMESTAMP(zone)
 	}
-	return CURRENT_TIMESTAMP()
+	return nil, fmt.Errorf("CURRENT_TIMESTAMP: unexpected argument type %T", args[0])
 }
 
 func bindString(args ...Value) (Value, error) {
