@@ -5,8 +5,12 @@ import (
 	"time"
 )
 
-func CURRENT_DATE() (Value, error) {
-	return CURRENT_DATE_WITH_TIME(time.Now())
+func CURRENT_DATE(zone string) (Value, error) {
+	loc, err := time.LoadLocation(zone)
+	if err != nil {
+		return nil, err
+	}
+	return CURRENT_DATE_WITH_TIME(time.Now().In(loc))
 }
 
 func CURRENT_DATE_WITH_TIME(v time.Time) (Value, error) {
@@ -107,6 +111,14 @@ func DATE_TRUNC(t time.Time, part string) (Value, error) {
 func DATE_FROM_UNIX_DATE(unixdate int64) (Value, error) {
 	t := time.Unix(int64(time.Duration(unixdate)*24*time.Hour/time.Second), 0)
 	return DateValue(t), nil
+}
+
+func FORMAT_DATE(format string, t time.Time) (Value, error) {
+	s, err := formatTime(format, &t, FormatTypeDate)
+	if err != nil {
+		return nil, err
+	}
+	return StringValue(s), nil
 }
 
 func LAST_DAY(t time.Time, part string) (Value, error) {

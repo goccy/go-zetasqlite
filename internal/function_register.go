@@ -134,6 +134,21 @@ var normalFuncs = []*FuncInfo{
 			types.BOOL, types.STRUCT,
 		},
 	},
+	{
+		Name:        "is_distinct_from",
+		BindFunc:    bindIsDistinctFrom,
+		ReturnTypes: []types.TypeKind{types.BOOL},
+	},
+	{
+		Name:        "is_not_distinct_from",
+		BindFunc:    bindIsNotDistinctFrom,
+		ReturnTypes: []types.TypeKind{types.BOOL},
+	},
+	{
+		Name:        "generate_uuid",
+		BindFunc:    bindGenerateUUID,
+		ReturnTypes: []types.TypeKind{types.STRING},
+	},
 
 	// date functions
 	{
@@ -175,6 +190,11 @@ var normalFuncs = []*FuncInfo{
 		Name:        "date_from_unix_date",
 		BindFunc:    bindDateFromUnixDate,
 		ReturnTypes: []types.TypeKind{types.DATE},
+	},
+	{
+		Name:        "format_date",
+		BindFunc:    bindFormatDate,
+		ReturnTypes: []types.TypeKind{types.STRING},
 	},
 	{
 		Name:        "last_day",
@@ -224,6 +244,11 @@ var normalFuncs = []*FuncInfo{
 		ReturnTypes: []types.TypeKind{types.DATETIME},
 	},
 	{
+		Name:        "format_datetime",
+		BindFunc:    bindFormatDatetime,
+		ReturnTypes: []types.TypeKind{types.STRING},
+	},
+	{
 		Name:        "parse_datetime",
 		BindFunc:    bindParseDatetime,
 		ReturnTypes: []types.TypeKind{types.DATETIME},
@@ -259,6 +284,11 @@ var normalFuncs = []*FuncInfo{
 		Name:        "time_trunc",
 		BindFunc:    bindTimeTrunc,
 		ReturnTypes: []types.TypeKind{types.TIME},
+	},
+	{
+		Name:        "format_time",
+		BindFunc:    bindFormatTime,
+		ReturnTypes: []types.TypeKind{types.STRING},
 	},
 	{
 		Name:        "parse_time",
@@ -301,6 +331,11 @@ var normalFuncs = []*FuncInfo{
 		Name:        "timestamp_trunc",
 		BindFunc:    bindTimestampTrunc,
 		ReturnTypes: []types.TypeKind{types.TIMESTAMP},
+	},
+	{
+		Name:        "format_timestamp",
+		BindFunc:    bindFormatTimestamp,
+		ReturnTypes: []types.TypeKind{types.STRING},
 	},
 	{
 		Name:        "parse_timestamp",
@@ -405,24 +440,39 @@ var normalFuncs = []*FuncInfo{
 		},
 	},
 	{
-		Name:        "coalesce",
-		BindFunc:    bindCoalesce,
-		ReturnTypes: []types.TypeKind{types.STRING},
+		Name:     "coalesce",
+		BindFunc: bindCoalesce,
+		ReturnTypes: []types.TypeKind{
+			types.INT64, types.DOUBLE, types.STRING, types.BOOL,
+			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
+		},
 	},
 	{
-		Name:        "if",
-		BindFunc:    bindIf,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE, types.STRING, types.BOOL},
+		Name:     "if",
+		BindFunc: bindIf,
+		ReturnTypes: []types.TypeKind{
+			types.INT64, types.DOUBLE, types.STRING, types.BOOL,
+			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
+			types.ARRAY, types.STRUCT,
+		},
 	},
 	{
-		Name:        "ifnull",
-		BindFunc:    bindIfNull,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE, types.STRING},
+		Name:     "ifnull",
+		BindFunc: bindIfNull,
+		ReturnTypes: []types.TypeKind{
+			types.INT64, types.DOUBLE, types.STRING, types.BOOL,
+			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
+			types.ARRAY, types.STRUCT,
+		},
 	},
 	{
-		Name:        "nullif",
-		BindFunc:    bindNullIf,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE, types.STRING},
+		Name:     "nullif",
+		BindFunc: bindNullIf,
+		ReturnTypes: []types.TypeKind{
+			types.INT64, types.DOUBLE, types.STRING, types.BOOL,
+			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
+			types.ARRAY, types.STRUCT,
+		},
 	},
 	{
 		Name:        "length",
@@ -439,6 +489,12 @@ var normalFuncs = []*FuncInfo{
 		},
 	},
 	{
+		Name:        "castbool",
+		BindFunc:    bindCastBoolString,
+		ReturnTypes: []types.TypeKind{types.STRING},
+	},
+
+	{
 		Name:     "safe_cast",
 		BindFunc: bindCast,
 		ReturnTypes: []types.TypeKind{
@@ -446,6 +502,33 @@ var normalFuncs = []*FuncInfo{
 			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
 			types.ARRAY, types.STRUCT,
 		},
+	},
+
+	// hash functions
+	{
+		Name:        "farm_fingerprint",
+		BindFunc:    bindFarmFingerprint,
+		ReturnTypes: []types.TypeKind{types.INT64},
+	},
+	{
+		Name:        "md5",
+		BindFunc:    bindMD5,
+		ReturnTypes: []types.TypeKind{types.BYTES},
+	},
+	{
+		Name:        "sha1",
+		BindFunc:    bindSha1,
+		ReturnTypes: []types.TypeKind{types.BYTES},
+	},
+	{
+		Name:        "sha256",
+		BindFunc:    bindSha256,
+		ReturnTypes: []types.TypeKind{types.BYTES},
+	},
+	{
+		Name:        "sha512",
+		BindFunc:    bindSha512,
+		ReturnTypes: []types.TypeKind{types.BYTES},
 	},
 
 	// string functions
@@ -874,16 +957,27 @@ var windowFuncs = []*WindowFuncInfo{
 		ReturnTypes: []types.TypeKind{types.DOUBLE},
 	},
 	{
-		Name:        "last_value",
-		BindFunc:    bindWindowLastValue,
-		ReturnTypes: []types.TypeKind{types.STRING},
+		Name:     "first_value",
+		BindFunc: bindWindowFirstValue,
+		ReturnTypes: []types.TypeKind{
+			types.INT64, types.DOUBLE, types.STRING, types.BOOL,
+			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
+		},
+	},
+	{
+		Name:     "last_value",
+		BindFunc: bindWindowLastValue,
+		ReturnTypes: []types.TypeKind{
+			types.INT64, types.DOUBLE, types.STRING, types.BOOL,
+			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
+		},
 	},
 	{
 		Name:     "lag",
 		BindFunc: bindWindowLag,
 		ReturnTypes: []types.TypeKind{
 			types.INT64, types.DOUBLE, types.STRING, types.BOOL,
-			types.DATE, types.DATETIME, types.TIMESTAMP,
+			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
 		},
 	},
 	{
@@ -894,6 +988,11 @@ var windowFuncs = []*WindowFuncInfo{
 	{
 		Name:        "dense_rank",
 		BindFunc:    bindWindowDenseRank,
+		ReturnTypes: []types.TypeKind{types.INT64},
+	},
+	{
+		Name:        "row_number",
+		BindFunc:    bindWindowRowNumber,
 		ReturnTypes: []types.TypeKind{types.INT64},
 	},
 }
@@ -986,6 +1085,9 @@ func setupNormalFuncMap(info *FuncInfo) error {
 		case types.STRING:
 			name = fmt.Sprintf("zetasqlite_%s_string", info.Name)
 			fn = bindStringFunc(info.BindFunc)
+		case types.BYTES:
+			name = fmt.Sprintf("zetasqlite_%s_bytes", info.Name)
+			fn = bindBytesFunc(info.BindFunc)
 		case types.BOOL:
 			name = fmt.Sprintf("zetasqlite_%s_bool", info.Name)
 			fn = bindBoolFunc(info.BindFunc)
@@ -1034,6 +1136,9 @@ func setupAggregateFuncMap(info *AggregateFuncInfo) error {
 		case types.STRING:
 			name = fmt.Sprintf("zetasqlite_%s_string", info.Name)
 			aggregator = bindAggregateStringFunc(info.BindFunc)
+		case types.BYTES:
+			name = fmt.Sprintf("zetasqlite_%s_bytes", info.Name)
+			aggregator = bindAggregateBytesFunc(info.BindFunc)
 		case types.BOOL:
 			name = fmt.Sprintf("zetasqlite_%s_bool", info.Name)
 			aggregator = bindAggregateBoolFunc(info.BindFunc)
@@ -1082,6 +1187,9 @@ func setupWindowFuncMap(info *WindowFuncInfo) error {
 		case types.STRING:
 			name = fmt.Sprintf("zetasqlite_window_%s_string", info.Name)
 			aggregator = bindWindowStringFunc(info.BindFunc)
+		case types.BYTES:
+			name = fmt.Sprintf("zetasqlite_window_%s_bytes", info.Name)
+			aggregator = bindWindowBytesFunc(info.BindFunc)
 		case types.BOOL:
 			name = fmt.Sprintf("zetasqlite_window_%s_bool", info.Name)
 			aggregator = bindWindowBoolFunc(info.BindFunc)

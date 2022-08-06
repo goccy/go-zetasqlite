@@ -5,8 +5,12 @@ import (
 	"time"
 )
 
-func CURRENT_TIME() (Value, error) {
-	return CURRENT_TIME_WITH_TIME(time.Now())
+func CURRENT_TIME(zone string) (Value, error) {
+	loc, err := time.LoadLocation(zone)
+	if err != nil {
+		return nil, err
+	}
+	return CURRENT_TIME_WITH_TIME(time.Now().In(loc))
 }
 
 func CURRENT_TIME_WITH_TIME(v time.Time) (Value, error) {
@@ -165,6 +169,14 @@ func TIME_TRUNC(t time.Time, part string) (Value, error) {
 		)), nil
 	}
 	return nil, fmt.Errorf("TIME_TRUNC: unexpected part value %s", part)
+}
+
+func FORMAT_TIME(format string, t time.Time) (Value, error) {
+	s, err := formatTime(format, &t, FormatTypeTime)
+	if err != nil {
+		return nil, err
+	}
+	return StringValue(s), nil
 }
 
 func PARSE_TIME(format, date string) (Value, error) {

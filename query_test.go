@@ -61,10 +61,16 @@ func TestQuery(t *testing.T) {
 			expectedRows: [][]interface{}{{float64(5)}},
 		},
 		{
-			name:         "concat operator",
+			name:         "concat string operator",
 			query:        `SELECT "a" || "b"`,
 			expectedRows: [][]interface{}{{"ab"}},
 		},
+		{
+			name:         "concat array operator",
+			query:        `SELECT [1, 2] || [3, 4]`,
+			expectedRows: [][]interface{}{{[]int64{1, 2, 3, 4}}},
+		},
+
 		// priority 4 operator
 		{
 			name:         "add operator",
@@ -134,6 +140,11 @@ func TestQuery(t *testing.T) {
 		{
 			name:         "ne operator",
 			query:        "SELECT 100 != 10",
+			expectedRows: [][]interface{}{{true}},
+		},
+		{
+			name:         "ne operator2",
+			query:        "SELECT 100 <> 10",
 			expectedRows: [][]interface{}{{true}},
 		},
 		{
@@ -224,12 +235,46 @@ func TestQuery(t *testing.T) {
 			query:        `SELECT EXISTS ( SELECT val FROM UNNEST([1, 2, 3]) AS val WHERE val = 4 )`,
 			expectedRows: [][]interface{}{{false}},
 		},
-		// not supported `IS DISTINCT FROM` by zetasql
-		//{
-		//	name:         "is distinct from",
-		//	query:        `SELECT 1 IS DISTINCT FROM 2`,
-		//	expectedRows: [][]interface{}{{int64(1)}},
-		//},
+		{
+			name:         "is distinct from with 1 and 2",
+			query:        `SELECT 1 IS DISTINCT FROM 2`,
+			expectedRows: [][]interface{}{{true}},
+		},
+		{
+			name:         "is distinct from with 1 and null",
+			query:        `SELECT 1 IS DISTINCT FROM NULL`,
+			expectedRows: [][]interface{}{{true}},
+		},
+		{
+			name:         "is not distinct from with 1 and 1",
+			query:        `SELECT 1 IS NOT DISTINCT FROM 1`,
+			expectedRows: [][]interface{}{{true}},
+		},
+		{
+			name:         "is not distinct from with null and null",
+			query:        `SELECT NULL IS NOT DISTINCT FROM NULL`,
+			expectedRows: [][]interface{}{{true}},
+		},
+		{
+			name:         "is distinct from with null and null",
+			query:        `SELECT NULL IS DISTINCT FROM NULL`,
+			expectedRows: [][]interface{}{{false}},
+		},
+		{
+			name:         "is distinct from with 1 and 1",
+			query:        `SELECT 1 IS DISTINCT FROM 1`,
+			expectedRows: [][]interface{}{{false}},
+		},
+		{
+			name:         "is not distinct from with 1 and 2",
+			query:        `SELECT 1 IS NOT DISTINCT FROM 2`,
+			expectedRows: [][]interface{}{{false}},
+		},
+		{
+			name:         "is not distinct from with 1 and null",
+			query:        `SELECT 1 IS NOT DISTINCT FROM NULL`,
+			expectedRows: [][]interface{}{{false}},
+		},
 		{
 			name: "case-when",
 			query: `
@@ -733,6 +778,32 @@ FROM Produce`,
 			},
 		},
 		{
+			name: `window first_value`,
+			query: `
+WITH Produce AS
+ (SELECT 'kale' as item, 23 as purchases, 'vegetable' as category
+  UNION ALL SELECT 'banana', 2, 'fruit'
+  UNION ALL SELECT 'cabbage', 9, 'vegetable'
+  UNION ALL SELECT 'apple', 8, 'fruit'
+  UNION ALL SELECT 'leek', 2, 'vegetable'
+  UNION ALL SELECT 'lettuce', 10, 'vegetable')
+SELECT item, purchases, category, FIRST_VALUE(item)
+  OVER (
+    PARTITION BY category
+    ORDER BY purchases
+    ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+  ) AS most_popular
+FROM Produce`,
+			expectedRows: [][]interface{}{
+				{"banana", int64(2), "fruit", "banana"},
+				{"apple", int64(8), "fruit", "banana"},
+				{"leek", int64(2), "vegetable", "leek"},
+				{"cabbage", int64(9), "vegetable", "leek"},
+				{"lettuce", int64(10), "vegetable", "leek"},
+				{"kale", int64(23), "vegetable", "leek"},
+			},
+		},
+		{
 			name: `window last_value`,
 			query: `
 WITH Produce AS
@@ -958,6 +1029,31 @@ FROM finishers
 				{"Lauren Matthews", createTimeFromString("2016-10-18 10:01:17+00"), "F35-39", int64(2)},
 				{"Desiree Berry", createTimeFromString("2016-10-18 10:05:42+00"), "F35-39", int64(3)},
 				{"Suzy Slane", createTimeFromString("2016-10-18 10:06:24+00"), "F35-39", int64(4)},
+			},
+		},
+		{
+			name: "window row_number",
+			query: `
+WITH Numbers AS
+ (SELECT 1 as x
+  UNION ALL SELECT 2
+  UNION ALL SELECT 2
+  UNION ALL SELECT 5
+  UNION ALL SELECT 8
+  UNION ALL SELECT 10
+  UNION ALL SELECT 10
+)
+SELECT x,
+  ROW_NUMBER() OVER (ORDER BY x) AS row_num
+FROM Numbers`,
+			expectedRows: [][]interface{}{
+				{int64(1), int64(1)},
+				{int64(2), int64(2)},
+				{int64(2), int64(3)},
+				{int64(5), int64(4)},
+				{int64(8), int64(5)},
+				{int64(10), int64(6)},
+				{int64(10), int64(7)},
 			},
 		},
 		{
@@ -1678,6 +1774,42 @@ SELECT item FROM Produce WHERE Produce.category = 'vegetable' QUALIFY RANK() OVE
 			expectedRows: [][]interface{}{{nil}},
 		},
 
+		// hash functions
+		{
+			name: "farm_fingerprint",
+			query: `
+WITH example AS (
+  SELECT 1 AS x, "foo" AS y, true AS z UNION ALL
+  SELECT 2 AS x, "apple" AS y, false AS z UNION ALL
+  SELECT 3 AS x, "" AS y, true AS z
+) SELECT *, FARM_FINGERPRINT(CONCAT(CAST(x AS STRING), y, CAST(z AS STRING))) FROM example`,
+			expectedRows: [][]interface{}{
+				{int64(1), "foo", true, int64(-1541654101129638711)},
+				{int64(2), "apple", false, int64(2794438866806483259)},
+				{int64(3), "", true, int64(-4880158226897771312)},
+			},
+		},
+		{
+			name:         "md5",
+			query:        `SELECT MD5("Hello World")`,
+			expectedRows: [][]interface{}{{"sQqNsWTgdUEFt6mb5y4/5Q=="}},
+		},
+		{
+			name:         "sha1",
+			query:        `SELECT SHA1("Hello World")`,
+			expectedRows: [][]interface{}{{"Ck1VqNd45QIvq3AZd8XYQLvEhtA="}},
+		},
+		{
+			name:         "sha256",
+			query:        `SELECT SHA256("Hello World")`,
+			expectedRows: [][]interface{}{{"pZGm1Av0IEBKARczz7exkNYsZb8LzaMrV7J32a2fFG4="}},
+		},
+		{
+			name:         "sha512",
+			query:        `SELECT SHA512("Hello World")`,
+			expectedRows: [][]interface{}{{"LHT9F+2v2A6ER7DUZ0HuJDt+t03SFJoKsbkkb7MDgvJ+hT2FhXGeDmfL2g2qj1FnEGRhXWRa4nrLFb+xRH9Fmw=="}},
+		},
+
 		// date functions
 		{
 			name:  "current_date",
@@ -1697,6 +1829,21 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			name:         "date_from_unix_date",
 			query:        `SELECT DATE_FROM_UNIX_DATE(14238) AS date_from_epoch`,
 			expectedRows: [][]interface{}{{"2008-12-25"}},
+		},
+		{
+			name:         "format_date with %x",
+			query:        `SELECT FORMAT_DATE("%x", DATE "2008-12-25")`,
+			expectedRows: [][]interface{}{{"12/25/08"}},
+		},
+		{
+			name:         "format_date with %b-%d-%Y",
+			query:        `SELECT FORMAT_DATE("%b-%d-%Y", DATE "2008-12-25")`,
+			expectedRows: [][]interface{}{{"Dec-25-2008"}},
+		},
+		{
+			name:         "format_date with %b %Y",
+			query:        `SELECT FORMAT_DATE("%b %Y", DATE "2008-12-25")`,
+			expectedRows: [][]interface{}{{"Dec 2008"}},
 		},
 		{
 			name:         "last_day",
@@ -1824,6 +1971,21 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			expectedRows: [][]interface{}{{"2014-12-29T00:00:00"}},
 		},
 		{
+			name:         "format_datetime with %c",
+			query:        `SELECT FORMAT_DATETIME("%c", DATETIME "2008-12-25 15:30:00")`,
+			expectedRows: [][]interface{}{{"Thu Dec 25 15:30:00 2008"}},
+		},
+		{
+			name:         "format_datetime with %b-%d-%Y",
+			query:        `SELECT FORMAT_DATETIME("%b-%d-%Y", DATETIME "2008-12-25 15:30:00")`,
+			expectedRows: [][]interface{}{{"Dec-25-2008"}},
+		},
+		{
+			name:         "format_datetime with %b %Y",
+			query:        `SELECT FORMAT_DATETIME("%b %Y", DATETIME "2008-12-25 15:30:00")`,
+			expectedRows: [][]interface{}{{"Dec 2008"}},
+		},
+		{
 			name:         "parse datetime",
 			query:        `SELECT PARSE_DATETIME("%a %b %e %I:%M:%S %Y", "Thu Dec 25 07:30:00 2008")`,
 			expectedRows: [][]interface{}{{"2008-12-25T07:30:00"}},
@@ -1883,6 +2045,11 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			name:         "time_trunc",
 			query:        `SELECT TIME_TRUNC(TIME "15:30:00", HOUR)`,
 			expectedRows: [][]interface{}{{"15:00:00"}},
+		},
+		{
+			name:         "format_time with %R",
+			query:        `SELECT FORMAT_TIME("%R", TIME "15:30:00")`,
+			expectedRows: [][]interface{}{{"15:30"}},
 		},
 		{
 			name:         "parse time with %I:%M:%S",
@@ -1987,6 +2154,21 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			},
 		},
 		{
+			name:         "format_timestamp with %c",
+			query:        `SELECT FORMAT_TIMESTAMP("%c", TIMESTAMP "2008-12-25 15:30:00+00", "UTC")`,
+			expectedRows: [][]interface{}{{"Thu Dec 25 15:30:00 2008"}},
+		},
+		{
+			name:         "format_timestamp with %b-%d-%Y",
+			query:        `SELECT FORMAT_TIMESTAMP("%b-%d-%Y", TIMESTAMP "2008-12-25 15:30:00+00")`,
+			expectedRows: [][]interface{}{{"Dec-25-2008"}},
+		},
+		{
+			name:         "format_timestamp with %b %Y",
+			query:        `SELECT FORMAT_TIMESTAMP("%b %Y", TIMESTAMP "2008-12-25 15:30:00+00")`,
+			expectedRows: [][]interface{}{{"Dec 2008"}},
+		},
+		{
 			name:         "parse timestamp with %a %b %e %I:%M:%S %Y",
 			query:        `SELECT PARSE_TIMESTAMP("%a %b %e %I:%M:%S %Y", "Thu Dec 25 07:30:00 2008")`,
 			expectedRows: [][]interface{}{{createTimeFromString("2008-12-25 07:30:00+00")}},
@@ -2035,6 +2217,13 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			name:         "unix_micros",
 			query:        `SELECT UNIX_MICROS(TIMESTAMP "2008-12-25 15:30:00+00")`,
 			expectedRows: [][]interface{}{{int64(1230219000000000)}},
+		},
+
+		// uuid functions
+		{
+			name:         "generate_uuid",
+			query:        `SELECT LENGTH(GENERATE_UUID())`,
+			expectedRows: [][]interface{}{{int64(36)}},
 		},
 	} {
 		test := test

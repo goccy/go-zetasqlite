@@ -5,8 +5,12 @@ import (
 	"time"
 )
 
-func CURRENT_DATETIME() (Value, error) {
-	return CURRENT_DATETIME_WITH_TIME(time.Now())
+func CURRENT_DATETIME(zone string) (Value, error) {
+	loc, err := time.LoadLocation(zone)
+	if err != nil {
+		return nil, err
+	}
+	return CURRENT_DATETIME_WITH_TIME(time.Now().In(loc))
 }
 
 func CURRENT_DATETIME_WITH_TIME(v time.Time) (Value, error) {
@@ -372,6 +376,14 @@ func DATETIME_TRUNC(t time.Time, part string) (Value, error) {
 		return DatetimeValue(firstDay.AddDate(0, 0, 1-int(firstDay.Weekday()))), nil
 	}
 	return nil, fmt.Errorf("unexpected part value %s", part)
+}
+
+func FORMAT_DATETIME(format string, t time.Time) (Value, error) {
+	s, err := formatTime(format, &t, FormatTypeDatetime)
+	if err != nil {
+		return nil, err
+	}
+	return StringValue(s), nil
 }
 
 func PARSE_DATETIME(format, date string) (Value, error) {

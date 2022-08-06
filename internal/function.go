@@ -5,6 +5,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 func ADD(a, b Value) (Value, error) {
@@ -251,8 +253,16 @@ func ARRAY_SAFE_ORDINAL(v Value, idx int) (Value, error) {
 	return array.values[idx-1], nil
 }
 
-func CONCAT(a, b Value) (Value, error) {
-	return a.Add(b)
+func CONCAT(args ...Value) (Value, error) {
+	var ret string
+	for _, v := range args {
+		s, err := v.ToString()
+		if err != nil {
+			return nil, err
+		}
+		ret += s
+	}
+	return StringValue(ret), nil
 }
 
 func LIKE(a, b Value) (Value, error) {
@@ -370,6 +380,29 @@ func OR(args ...Value) (Value, error) {
 		}
 	}
 	return BoolValue(false), nil
+}
+
+func IS_DISTINCT_FROM(a, b Value) (Value, error) {
+	if a == nil || b == nil {
+		eq := a == nil && b == nil
+		return BoolValue(!eq), nil
+	}
+	cond, err := a.EQ(b)
+	if err != nil {
+		return nil, err
+	}
+	return BoolValue(!cond), nil
+}
+
+func IS_NOT_DISTINCT_FROM(a, b Value) (Value, error) {
+	if a == nil || b == nil {
+		return BoolValue(a == nil && b == nil), nil
+	}
+	cond, err := a.EQ(b)
+	if err != nil {
+		return nil, err
+	}
+	return BoolValue(cond), nil
 }
 
 func CASE_WITH_VALUE(caseV Value, args ...Value) (Value, error) {
@@ -548,4 +581,9 @@ func EXTRACT(t time.Time, part string) (Value, error) {
 		return TimeValue(t), nil
 	}
 	return nil, fmt.Errorf("failed to extract: undefined part %s", part)
+}
+
+func GENERATE_UUID() (Value, error) {
+	id := uuid.NewString()
+	return StringValue(string(id)), nil
 }

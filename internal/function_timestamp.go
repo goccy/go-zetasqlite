@@ -5,8 +5,12 @@ import (
 	"time"
 )
 
-func CURRENT_TIMESTAMP() (Value, error) {
-	return CURRENT_TIMESTAMP_WITH_TIME(time.Now())
+func CURRENT_TIMESTAMP(zone string) (Value, error) {
+	loc, err := time.LoadLocation(zone)
+	if err != nil {
+		return nil, err
+	}
+	return CURRENT_TIMESTAMP_WITH_TIME(time.Now().In(loc))
 }
 
 func CURRENT_TIMESTAMP_WITH_TIME(v time.Time) (Value, error) {
@@ -239,6 +243,19 @@ func TIMESTAMP_TRUNC(t time.Time, part, zone string) (Value, error) {
 		return TimestampValue(firstDay.AddDate(0, 0, 1-int(firstDay.Weekday()))), nil
 	}
 	return nil, fmt.Errorf("TIMESTAMP_TRUNC: unexpected part value %s", part)
+}
+
+func FORMAT_TIMESTAMP(format string, t time.Time, zone string) (Value, error) {
+	loc, err := time.LoadLocation(zone)
+	if err != nil {
+		return nil, err
+	}
+	t = t.In(loc)
+	s, err := formatTime(format, &t, FormatTypeTimestamp)
+	if err != nil {
+		return nil, err
+	}
+	return StringValue(s), nil
 }
 
 func PARSE_TIMESTAMP(format, date string) (Value, error) {

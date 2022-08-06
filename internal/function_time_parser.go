@@ -87,7 +87,8 @@ const (
 
 type FormatTimeInfo struct {
 	AvailableTypes []TimeFormatType
-	Matcher        func([]rune, *time.Time) (int, error)
+	Parse          func([]rune, *time.Time) (int, error)
+	Format         func(*time.Time) ([]rune, error)
 }
 
 func (i *FormatTimeInfo) Available(typ TimeFormatType) bool {
@@ -104,257 +105,299 @@ var formatPatternMap = map[rune]*FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Matcher: weekOfDayMatcher,
+		Parse:  weekOfDayParser,
+		Format: weekOfDayFormatter,
 	},
 	'a': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Matcher: shortWeekOfDayMatcher,
+		Parse:  shortWeekOfDayParser,
+		Format: shortWeekOfDayFormatter,
 	},
 	'B': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Matcher: monthMatcher,
+		Parse:  monthParser,
+		Format: monthFormatter,
 	},
 	'b': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Matcher: shortMonthMatcher,
+		Parse:  shortMonthParser,
+		Format: shortMonthFormatter,
 	},
 	'C': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Matcher: centuryMatcher,
+		Parse:  centuryParser,
+		Format: centuryFormatter,
 	},
 	'c': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Matcher: ansicMatcher,
+		Parse:  ansicParser,
+		Format: ansicFormatter,
 	},
 	'D': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Matcher: monthDayYearMatcher,
+		Parse:  monthDayYearParser,
+		Format: monthDayYearFormatter,
 	},
 	'd': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Matcher: dayMatcher,
+		Parse:  dayParser,
+		Format: dayFormatter,
 	},
 	'e': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Matcher: dayMatcher,
+		Parse:  dayParser,
+		Format: dayFormatter,
 	},
 	'F': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Matcher: yearMonthDayMatcher,
+		Parse:  yearMonthDayParser,
+		Format: yearMonthDayFormatter,
 	},
 	'G': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Matcher: yearISOMatcher,
+		Parse:  yearISOParser,
+		Format: yearISOFormatter,
 	},
 	'g': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Matcher: centuryISOMatcher,
+		Parse:  centuryISOParser,
+		Format: centuryISOFormatter,
 	},
 	'H': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeTime, FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Matcher: hourMatcher,
+		Parse:  hourParser,
+		Format: hourFormatter,
 	},
 	'h': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Matcher: shortMonthMatcher,
+		Parse:  shortMonthParser,
+		Format: shortMonthFormatter,
 	},
 	'I': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeTime, FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Matcher: hour12Matcher,
+		Parse:  hour12Parser,
+		Format: hour12Formatter,
 	},
 	'J': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Matcher: yearISOMatcher,
+		Parse:  yearISOParser,
+		Format: yearISOFormatter,
 	},
 	'j': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Matcher: dayOfYearMatcher,
+		Parse:  dayOfYearParser,
+		Format: dayOfYearFormatter,
 	},
 	'k': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeTime, FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Matcher: hourMatcher,
+		Parse:  hourParser,
+		Format: hourFormatter,
 	},
 	'l': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeTime, FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Matcher: hour12Matcher,
+		Parse:  hour12Parser,
+		Format: hour12Formatter,
 	},
 	'M': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeTime, FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Matcher: minuteMatcher,
+		Parse:  minuteParser,
+		Format: minuteFormatter,
 	},
 	'm': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Matcher: monthNumberMatcher,
+		Parse:  monthNumberParser,
+		Format: monthNumberFormatter,
 	},
 	'n': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTime, FormatTypeTimestamp,
 		},
-		Matcher: newLineMatcher,
+		Parse:  newLineParser,
+		Format: newLineFormatter,
 	},
 	'P': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeTime, FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Matcher: smallAMPMMatcher,
+		Parse:  smallAMPMParser,
+		Format: smallAMPMFormatter,
 	},
 	'p': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeTime, FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Matcher: largeAMPMMatcher,
+		Parse:  largeAMPMParser,
+		Format: largeAMPMFormatter,
 	},
 	'Q': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Matcher: quaterMatcher,
+		Parse:  quarterParser,
+		Format: quarterFormatter,
 	},
 	'R': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeTime, FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Matcher: hourMinuteMatcher,
+		Parse:  hourMinuteParser,
+		Format: hourMinuteFormatter,
 	},
 	'S': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeTime, FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Matcher: secondMatcher,
+		Parse:  secondParser,
+		Format: secondFormatter,
 	},
 	's': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeTime, FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Matcher: unixtimeSecondsMatcher,
+		Parse:  unixtimeSecondsParser,
+		Format: unixtimeSecondsFormatter,
 	},
 	'T': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeTime, FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Matcher: hourMinuteSecondMatcher,
+		Parse:  hourMinuteSecondParser,
+		Format: hourMinuteSecondFormatter,
 	},
 	't': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeTime, FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Matcher: tabMatcher,
+		Parse:  tabParser,
+		Format: tabFormatter,
 	},
 	'U': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Matcher: weekOfYearMatcher,
+		Parse:  weekOfYearParser,
+		Format: weekOfYearFormatter,
 	},
 	'u': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Matcher: weekNumberMatcher,
+		Parse:  weekNumberParser,
+		Format: weekNumberFormatter,
 	},
 	'V': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Matcher: weekOfYearISOMatcher,
+		Parse:  weekOfYearISOParser,
+		Format: weekOfYearISOFormatter,
 	},
 	'W': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Matcher: weekOfYearMatcher,
+		Parse:  weekOfYearParser,
+		Format: weekOfYearFormatter,
 	},
 	'w': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Matcher: weekNumberZeroBaseMatcher,
+		Parse:  weekNumberZeroBaseParser,
+		Format: weekNumberZeroBaseFormatter,
 	},
 	'X': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeTime, FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Matcher: hourMinuteSecondMatcher,
+		Parse:  hourMinuteSecondParser,
+		Format: hourMinuteSecondFormatter,
 	},
 	'x': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Matcher: monthDayYearMatcher,
+		Parse:  monthDayYearParser,
+		Format: monthDayYearFormatter,
 	},
 	'Y': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Matcher: yearMatcher,
+		Parse:  yearParser,
+		Format: yearFormatter,
 	},
 	'y': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Matcher: centuryMatcher,
+		Parse:  centuryParser,
+		Format: centuryFormatter,
 	},
 	'Z': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeTimestamp,
 		},
-		Matcher: timeZoneMatcher,
+		Parse:  timeZoneParser,
+		Format: timeZoneFormatter,
 	},
 	'z': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeTimestamp,
 		},
-		Matcher: timeZoneOffsetMatcher,
+		Parse:  timeZoneOffsetParser,
+		Format: timeZoneOffsetFormatter,
 	},
 	'%': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTime, FormatTypeTimestamp,
 		},
-		Matcher: escapeMatcher,
+		Parse:  escapeParser,
+		Format: escapeFormatter,
 	},
 }
 
-func weekOfDayMatcher(text []rune, t *time.Time) (int, error) {
+func weekOfDayParser(text []rune, t *time.Time) (int, error) {
 	for _, dayOfWeek := range dayOfWeeks {
 		if len(text) < len(dayOfWeek) {
 			continue
@@ -368,7 +411,11 @@ func weekOfDayMatcher(text []rune, t *time.Time) (int, error) {
 	return 0, fmt.Errorf("unexpected day of week")
 }
 
-func shortWeekOfDayMatcher(text []rune, t *time.Time) (int, error) {
+func weekOfDayFormatter(t *time.Time) ([]rune, error) {
+	return []rune(dayOfWeeks[int(t.Weekday())]), nil
+}
+
+func shortWeekOfDayParser(text []rune, t *time.Time) (int, error) {
 	const shortLen = 3
 	if len(text) < shortLen {
 		return 0, fmt.Errorf("unexpected short day of week")
@@ -384,7 +431,12 @@ func shortWeekOfDayMatcher(text []rune, t *time.Time) (int, error) {
 	return 0, fmt.Errorf("unexpected short day of week")
 }
 
-func monthMatcher(text []rune, t *time.Time) (int, error) {
+func shortWeekOfDayFormatter(t *time.Time) ([]rune, error) {
+	const shortLen = 3
+	return []rune(string(dayOfWeeks[int(t.Weekday())])[:shortLen]), nil
+}
+
+func monthParser(text []rune, t *time.Time) (int, error) {
 	for monthIdx, month := range months {
 		if len(text) < len(month) {
 			continue
@@ -408,7 +460,12 @@ func monthMatcher(text []rune, t *time.Time) (int, error) {
 	return 0, fmt.Errorf("unexpected month")
 }
 
-func shortMonthMatcher(text []rune, t *time.Time) (int, error) {
+func monthFormatter(t *time.Time) ([]rune, error) {
+	monthIdx := int(t.Month())
+	return []rune(months[monthIdx-1]), nil
+}
+
+func shortMonthParser(text []rune, t *time.Time) (int, error) {
 	const shortLen = 3
 
 	if len(text) < shortLen {
@@ -425,7 +482,13 @@ func shortMonthMatcher(text []rune, t *time.Time) (int, error) {
 	return 0, fmt.Errorf("unexpected short month")
 }
 
-func centuryMatcher(text []rune, t *time.Time) (int, error) {
+func shortMonthFormatter(t *time.Time) ([]rune, error) {
+	const shortLen = 3
+	monthIdx := int(t.Month())
+	return []rune(string(months[monthIdx-1])[:shortLen]), nil
+}
+
+func centuryParser(text []rune, t *time.Time) (int, error) {
 	const centuryLen = 2
 	if len(text) < centuryLen {
 		return 0, fmt.Errorf("unexpected century number")
@@ -450,7 +513,11 @@ func centuryMatcher(text []rune, t *time.Time) (int, error) {
 	return centuryLen, nil
 }
 
-func ansicMatcher(text []rune, t *time.Time) (int, error) {
+func centuryFormatter(t *time.Time) ([]rune, error) {
+	return []rune(fmt.Sprint(t.Year())[:2]), nil
+}
+
+func ansicParser(text []rune, t *time.Time) (int, error) {
 	v, err := time.Parse("Mon Jan 02 15:04:05 2006", string(text))
 	if err != nil {
 		return 0, err
@@ -459,7 +526,11 @@ func ansicMatcher(text []rune, t *time.Time) (int, error) {
 	return len(text), nil
 }
 
-func monthDayYearMatcher(text []rune, t *time.Time) (int, error) {
+func ansicFormatter(t *time.Time) ([]rune, error) {
+	return []rune(t.Format("Mon Jan 02 15:04:05 2006")), nil
+}
+
+func monthDayYearParser(text []rune, t *time.Time) (int, error) {
 	fmtLen := len("00/00/00")
 	if len(text) < fmtLen {
 		return 0, fmt.Errorf("unexpected month/day/year format")
@@ -499,7 +570,19 @@ func monthDayYearMatcher(text []rune, t *time.Time) (int, error) {
 	return fmtLen, nil
 }
 
-func dayMatcher(text []rune, t *time.Time) (int, error) {
+func monthDayYearFormatter(t *time.Time) ([]rune, error) {
+	year := fmt.Sprint(t.Year())
+	return []rune(
+		fmt.Sprintf(
+			"%s/%s/%s",
+			fmt.Sprintf("%02d", t.Month()),
+			fmt.Sprintf("%02d", t.Day()),
+			year[2:],
+		),
+	), nil
+}
+
+func dayParser(text []rune, t *time.Time) (int, error) {
 	const dayLen = 2
 	if len(text) < dayLen {
 		return 0, fmt.Errorf("unexpected day number")
@@ -524,7 +607,11 @@ func dayMatcher(text []rune, t *time.Time) (int, error) {
 	return dayLen, nil
 }
 
-func yearMonthDayMatcher(text []rune, t *time.Time) (int, error) {
+func dayFormatter(t *time.Time) ([]rune, error) {
+	return []rune(fmt.Sprintf("%02d", t.Day())), nil
+}
+
+func yearMonthDayParser(text []rune, t *time.Time) (int, error) {
 	fmtLen := len("2021-01-20")
 	if len(text) < fmtLen {
 		return 0, fmt.Errorf("unexpected year-month-day format")
@@ -564,15 +651,29 @@ func yearMonthDayMatcher(text []rune, t *time.Time) (int, error) {
 	return fmtLen, nil
 }
 
-func yearISOMatcher(text []rune, t *time.Time) (int, error) {
+func yearMonthDayFormatter(t *time.Time) ([]rune, error) {
+	return []rune(t.Format("2006-01-02")), nil
+}
+
+func yearISOParser(text []rune, t *time.Time) (int, error) {
 	return 0, fmt.Errorf("unimplemented year ISO matcher")
 }
 
-func centuryISOMatcher(text []rune, t *time.Time) (int, error) {
+func yearISOFormatter(t *time.Time) ([]rune, error) {
+	year, _ := t.ISOWeek()
+	return []rune(fmt.Sprint(year)), nil
+}
+
+func centuryISOParser(text []rune, t *time.Time) (int, error) {
 	return 0, fmt.Errorf("unimplemented century ISO matcher")
 }
 
-func hourMatcher(text []rune, t *time.Time) (int, error) {
+func centuryISOFormatter(t *time.Time) ([]rune, error) {
+	year, _ := t.ISOWeek()
+	return []rune(fmt.Sprint(year)), nil
+}
+
+func hourParser(text []rune, t *time.Time) (int, error) {
 	const hourLen = 2
 	if len(text) < hourLen {
 		return 0, fmt.Errorf("unexpected hour number")
@@ -597,7 +698,11 @@ func hourMatcher(text []rune, t *time.Time) (int, error) {
 	return hourLen, nil
 }
 
-func hour12Matcher(text []rune, t *time.Time) (int, error) {
+func hourFormatter(t *time.Time) ([]rune, error) {
+	return []rune(fmt.Sprintf("%02d", t.Hour())), nil
+}
+
+func hour12Parser(text []rune, t *time.Time) (int, error) {
 	const hourLen = 2
 	if len(text) < hourLen {
 		return 0, fmt.Errorf("unexpected hour number")
@@ -622,11 +727,19 @@ func hour12Matcher(text []rune, t *time.Time) (int, error) {
 	return hourLen, nil
 }
 
-func dayOfYearMatcher(text []rune, t *time.Time) (int, error) {
+func hour12Formatter(t *time.Time) ([]rune, error) {
+	return []rune(fmt.Sprintf("%02d", t.Hour())), nil
+}
+
+func dayOfYearParser(text []rune, t *time.Time) (int, error) {
 	return 0, fmt.Errorf("unimplemented day of year matcher")
 }
 
-func minuteMatcher(text []rune, t *time.Time) (int, error) {
+func dayOfYearFormatter(t *time.Time) ([]rune, error) {
+	return []rune(fmt.Sprint(t.YearDay())), nil
+}
+
+func minuteParser(text []rune, t *time.Time) (int, error) {
 	const minuteLen = 2
 	if len(text) < minuteLen {
 		return 0, fmt.Errorf("unexpected minute number")
@@ -651,7 +764,11 @@ func minuteMatcher(text []rune, t *time.Time) (int, error) {
 	return minuteLen, nil
 }
 
-func monthNumberMatcher(text []rune, t *time.Time) (int, error) {
+func minuteFormatter(t *time.Time) ([]rune, error) {
+	return []rune(fmt.Sprintf("%02d", t.Minute())), nil
+}
+
+func monthNumberParser(text []rune, t *time.Time) (int, error) {
 	const monthLen = 2
 	if len(text) < monthLen {
 		return 0, fmt.Errorf("unexpected month number")
@@ -676,23 +793,58 @@ func monthNumberMatcher(text []rune, t *time.Time) (int, error) {
 	return monthLen, nil
 }
 
-func newLineMatcher(text []rune, t *time.Time) (int, error) {
+func monthNumberFormatter(t *time.Time) ([]rune, error) {
+	return []rune(fmt.Sprintf("%02d", t.Month())), nil
+}
+
+func newLineParser(text []rune, t *time.Time) (int, error) {
 	return 0, fmt.Errorf("unimplemented new line matcher")
 }
 
-func smallAMPMMatcher(text []rune, t *time.Time) (int, error) {
+func newLineFormatter(t *time.Time) ([]rune, error) {
+	return []rune("\n"), nil
+}
+
+func smallAMPMParser(text []rune, t *time.Time) (int, error) {
 	return 0, fmt.Errorf("unimplemented am pm matcher")
 }
 
-func largeAMPMMatcher(text []rune, t *time.Time) (int, error) {
+func smallAMPMFormatter(t *time.Time) ([]rune, error) {
+	if t.Hour() < 12 {
+		return []rune("am"), nil
+	}
+	return []rune("pm"), nil
+}
+
+func largeAMPMParser(text []rune, t *time.Time) (int, error) {
 	return 0, fmt.Errorf("unimplemented AM PM matcher")
 }
 
-func quaterMatcher(text []rune, t *time.Time) (int, error) {
+func largeAMPMFormatter(t *time.Time) ([]rune, error) {
+	if t.Hour() < 12 {
+		return []rune("AM"), nil
+	}
+	return []rune("PM"), nil
+}
+
+func quarterParser(text []rune, t *time.Time) (int, error) {
 	return 0, fmt.Errorf("unimplemented quater matcher")
 }
 
-func hourMinuteMatcher(text []rune, t *time.Time) (int, error) {
+func quarterFormatter(t *time.Time) ([]rune, error) {
+	day := t.YearDay()
+	switch {
+	case day < 90:
+		return []rune("1"), nil
+	case day < 180:
+		return []rune("2"), nil
+	case day < 270:
+		return []rune("3"), nil
+	}
+	return []rune("4"), nil
+}
+
+func hourMinuteParser(text []rune, t *time.Time) (int, error) {
 	fmtLen := len("00:00")
 	if len(text) < fmtLen {
 		return 0, fmt.Errorf("unexpected hour:minute format")
@@ -727,7 +879,11 @@ func hourMinuteMatcher(text []rune, t *time.Time) (int, error) {
 	return fmtLen, nil
 }
 
-func secondMatcher(text []rune, t *time.Time) (int, error) {
+func hourMinuteFormatter(t *time.Time) ([]rune, error) {
+	return []rune(t.Format("15:04")), nil
+}
+
+func secondParser(text []rune, t *time.Time) (int, error) {
 	const secondLen = 2
 	if len(text) < secondLen {
 		return 0, fmt.Errorf("unexpected second number")
@@ -752,7 +908,11 @@ func secondMatcher(text []rune, t *time.Time) (int, error) {
 	return secondLen, nil
 }
 
-func unixtimeSecondsMatcher(text []rune, t *time.Time) (int, error) {
+func secondFormatter(t *time.Time) ([]rune, error) {
+	return []rune(fmt.Sprintf("%02d", time.Duration(t.Second())/time.Second)), nil
+}
+
+func unixtimeSecondsParser(text []rune, t *time.Time) (int, error) {
 	const unixtimeLen = 10
 	if len(text) < unixtimeLen {
 		return 0, fmt.Errorf("unexpected unixtime length")
@@ -768,7 +928,11 @@ func unixtimeSecondsMatcher(text []rune, t *time.Time) (int, error) {
 	return unixtimeLen, nil
 }
 
-func hourMinuteSecondMatcher(text []rune, t *time.Time) (int, error) {
+func unixtimeSecondsFormatter(t *time.Time) ([]rune, error) {
+	return []rune(fmt.Sprint(t.Unix())), nil
+}
+
+func hourMinuteSecondParser(text []rune, t *time.Time) (int, error) {
 	fmtLen := len("00:00:00")
 	if len(text) < fmtLen {
 		return 0, fmt.Errorf("unexpected hour:minute:second format")
@@ -808,27 +972,55 @@ func hourMinuteSecondMatcher(text []rune, t *time.Time) (int, error) {
 	return fmtLen, nil
 }
 
-func tabMatcher(text []rune, t *time.Time) (int, error) {
+func hourMinuteSecondFormatter(t *time.Time) ([]rune, error) {
+	return []rune(t.Format("15:04:05")), nil
+}
+
+func tabParser(text []rune, t *time.Time) (int, error) {
 	return 0, fmt.Errorf("unimplemented tab matcher")
 }
 
-func weekOfYearMatcher(text []rune, t *time.Time) (int, error) {
+func tabFormatter(t *time.Time) ([]rune, error) {
+	return []rune("\t"), nil
+}
+
+func weekOfYearParser(text []rune, t *time.Time) (int, error) {
 	return 0, fmt.Errorf("unimplemented week of year matcher")
 }
 
-func weekNumberMatcher(text []rune, t *time.Time) (int, error) {
+func weekOfYearFormatter(t *time.Time) ([]rune, error) {
+	_, week := t.ISOWeek()
+	return []rune(fmt.Sprint(week)), nil
+}
+
+func weekNumberParser(text []rune, t *time.Time) (int, error) {
 	return 0, fmt.Errorf("unimplemented week number matcher")
 }
 
-func weekOfYearISOMatcher(text []rune, t *time.Time) (int, error) {
+func weekNumberFormatter(t *time.Time) ([]rune, error) {
+	_, week := t.ISOWeek()
+	return []rune(fmt.Sprint(week)), nil
+}
+
+func weekOfYearISOParser(text []rune, t *time.Time) (int, error) {
 	return 0, fmt.Errorf("unimplemented week of year ISO matcher")
 }
 
-func weekNumberZeroBaseMatcher(text []rune, t *time.Time) (int, error) {
+func weekOfYearISOFormatter(t *time.Time) ([]rune, error) {
+	_, week := t.ISOWeek()
+	return []rune(fmt.Sprint(week)), nil
+}
+
+func weekNumberZeroBaseParser(text []rune, t *time.Time) (int, error) {
 	return 0, fmt.Errorf("unimplemented week number zero base matcher")
 }
 
-func yearMatcher(text []rune, t *time.Time) (int, error) {
+func weekNumberZeroBaseFormatter(t *time.Time) ([]rune, error) {
+	_, week := t.ISOWeek()
+	return []rune(fmt.Sprint(week - 1)), nil
+}
+
+func yearParser(text []rune, t *time.Time) (int, error) {
 	const yearLen = 4
 	if len(text) < yearLen {
 		return 0, fmt.Errorf("unexpected year number")
@@ -853,16 +1045,34 @@ func yearMatcher(text []rune, t *time.Time) (int, error) {
 	return yearLen, nil
 }
 
-func timeZoneMatcher(text []rune, t *time.Time) (int, error) {
+func yearFormatter(t *time.Time) ([]rune, error) {
+	return []rune(fmt.Sprint(t.Year())), nil
+}
+
+func timeZoneParser(text []rune, t *time.Time) (int, error) {
 	return 0, fmt.Errorf("unimplemented time zone matcher")
 }
 
-func timeZoneOffsetMatcher(text []rune, t *time.Time) (int, error) {
+func timeZoneFormatter(t *time.Time) ([]rune, error) {
+	name, _ := t.Zone()
+	return []rune(name), nil
+}
+
+func timeZoneOffsetParser(text []rune, t *time.Time) (int, error) {
 	return 0, fmt.Errorf("unimplemented time zone offset matcher")
 }
 
-func escapeMatcher(text []rune, t *time.Time) (int, error) {
+func timeZoneOffsetFormatter(t *time.Time) ([]rune, error) {
+	_, offset := t.Zone()
+	return []rune(fmt.Sprint(offset)), nil
+}
+
+func escapeParser(text []rune, t *time.Time) (int, error) {
 	return 0, fmt.Errorf("unimplemented escape matcher")
+}
+
+func escapeFormatter(t *time.Time) ([]rune, error) {
+	return []rune("%"), nil
 }
 
 func parseTimeFormat(formatStr, targetStr string, typ TimeFormatType) (*time.Time, error) {
@@ -891,7 +1101,7 @@ func parseTimeFormat(formatStr, targetStr string, typ TimeFormatType) (*time.Tim
 			if targetIdx >= len(target) {
 				return nil, fmt.Errorf("invalid target text")
 			}
-			progress, err := info.Matcher(target[targetIdx:], ret)
+			progress, err := info.Parse(target[targetIdx:], ret)
 			if err != nil {
 				return nil, err
 			}
@@ -906,4 +1116,34 @@ func parseTimeFormat(formatStr, targetStr string, typ TimeFormatType) (*time.Tim
 		return nil, fmt.Errorf("found unused format element %q", target[targetIdx:])
 	}
 	return ret, nil
+}
+
+func formatTime(formatStr string, t *time.Time, typ TimeFormatType) (string, error) {
+	format := []rune(formatStr)
+	var ret []rune
+	for i := 0; i < len(format); i++ {
+		c := format[i]
+		if c == '%' {
+			i++
+			if i >= len(format) {
+				return "", fmt.Errorf("invalid time format")
+			}
+			c = format[i]
+			info := formatPatternMap[c]
+			if info == nil {
+				return "", fmt.Errorf("unexpected format type %%%s", c)
+			}
+			if !info.Available(typ) {
+				return "", fmt.Errorf("unavailable format by %s type", typ)
+			}
+			formatted, err := info.Format(t)
+			if err != nil {
+				return "", err
+			}
+			ret = append(ret, formatted...)
+		} else {
+			ret = append(ret, c)
+		}
+	}
+	return string(ret), nil
 }

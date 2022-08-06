@@ -30,6 +30,15 @@ type WindowFuncInfo struct {
 	ReturnTypes []types.TypeKind
 }
 
+func existsNull(args []Value) bool {
+	for _, v := range args {
+		if v == nil {
+			return true
+		}
+	}
+	return false
+}
+
 func convertArgs(args ...interface{}) ([]Value, error) {
 	values := make([]Value, 0, len(args))
 	for _, arg := range args {
@@ -77,6 +86,23 @@ func bindFloatFunc(fn BindFunction) SQLiteFunction {
 }
 
 func bindStringFunc(fn BindFunction) SQLiteFunction {
+	return func(args ...interface{}) (interface{}, error) {
+		values, err := convertArgs(args...)
+		if err != nil {
+			return nil, err
+		}
+		ret, err := fn(values...)
+		if err != nil {
+			return nil, err
+		}
+		if ret == nil {
+			return nil, nil
+		}
+		return ret.ToString()
+	}
+}
+
+func bindBytesFunc(fn BindFunction) SQLiteFunction {
 	return func(args ...interface{}) (interface{}, error) {
 		values, err := convertArgs(args...)
 		if err != nil {
@@ -289,6 +315,10 @@ func bindAggregateStringFunc(bindFunc func(ReturnValueConverter) func() *Aggrega
 	return bindFunc(stringValueConverter)
 }
 
+func bindAggregateBytesFunc(bindFunc func(ReturnValueConverter) func() *Aggregator) func() *Aggregator {
+	return bindFunc(stringValueConverter)
+}
+
 func bindAggregateBoolFunc(bindFunc func(ReturnValueConverter) func() *Aggregator) func() *Aggregator {
 	return bindFunc(boolValueConverter)
 }
@@ -395,6 +425,10 @@ func bindWindowFloatFunc(bindFunc func(ReturnValueConverter) func() *WindowAggre
 }
 
 func bindWindowStringFunc(bindFunc func(ReturnValueConverter) func() *WindowAggregator) func() *WindowAggregator {
+	return bindFunc(stringValueConverter)
+}
+
+func bindWindowBytesFunc(bindFunc func(ReturnValueConverter) func() *WindowAggregator) func() *WindowAggregator {
 	return bindFunc(stringValueConverter)
 }
 
@@ -668,6 +702,20 @@ func bindSafeArrayAtOrdinal(args ...Value) (Value, error) {
 	return ARRAY_SAFE_ORDINAL(args[0], int(i64))
 }
 
+func bindIsDistinctFrom(args ...Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("IS_DISTINCT_FROM: invalid argument num %d", len(args))
+	}
+	return IS_DISTINCT_FROM(args[0], args[1])
+}
+
+func bindIsNotDistinctFrom(args ...Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("IS_NOT_DISTINCT_FROM: invalid argument num %d", len(args))
+	}
+	return IS_NOT_DISTINCT_FROM(args[0], args[1])
+}
+
 func bindExtract(args ...Value) (Value, error) {
 	if len(args) != 2 {
 		return nil, fmt.Errorf("EXTRACT: invalid argument num %d", len(args))
@@ -683,11 +731,18 @@ func bindExtract(args ...Value) (Value, error) {
 	return EXTRACT(t, part)
 }
 
+func bindGenerateUUID(args ...Value) (Value, error) {
+	if len(args) != 0 {
+		return nil, fmt.Errorf("GENERATE_UUID: invalid argument num %d", len(args))
+	}
+	return GENERATE_UUID()
+}
+
 func bindConcat(args ...Value) (Value, error) {
-	if len(args) != 2 {
+	if len(args) < 2 {
 		return nil, fmt.Errorf("CONCAT: invalid argument num %d", len(args))
 	}
-	return CONCAT(args[0], args[1])
+	return CONCAT(args...)
 }
 
 func bindLike(args ...Value) (Value, error) {
@@ -740,14 +795,14 @@ func bindNot(args ...Value) (Value, error) {
 }
 
 func bindAnd(args ...Value) (Value, error) {
-	if len(args) < 2 {
+	if len(args) == 0 {
 		return nil, fmt.Errorf("AND: invalid argument num %d", len(args))
 	}
 	return AND(args...)
 }
 
 func bindOr(args ...Value) (Value, error) {
-	if len(args) < 2 {
+	if len(args) == 0 {
 		return nil, fmt.Errorf("OR: invalid argument num %d", len(args))
 	}
 	return OR(args...)
@@ -809,11 +864,92 @@ func bindCast(args ...Value) (Value, error) {
 	return args[0], nil
 }
 
+func bindCastBoolString(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("CAST: invalid argument num %d", len(args))
+	}
+	b, err := args[0].ToBool()
+	if err != nil {
+		return nil, err
+	}
+	return StringValue(fmt.Sprintf("%t", b)), nil
+}
+
 func bindSafeCast(args ...Value) (Value, error) {
 	if len(args) != 1 {
 		return nil, fmt.Errorf("SAFE_CAST: invalid argument num %d", len(args))
 	}
 	return &SafeValue{value: args[0]}, nil
+}
+
+func bindFarmFingerprint(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("FARM_FINGERPRINT: invalid argument num %d", len(args))
+	}
+	if existsNull(args) {
+		return nil, nil
+	}
+	v, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return FARM_FINGERPRINT(v)
+}
+
+func bindMD5(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("MD5: invalid argument num %d", len(args))
+	}
+	if existsNull(args) {
+		return nil, nil
+	}
+	v, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return MD5(v)
+}
+
+func bindSha1(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("SHA1: invalid argument num %d", len(args))
+	}
+	if existsNull(args) {
+		return nil, nil
+	}
+	v, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return SHA1(v)
+}
+
+func bindSha256(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("SHA256: invalid argument num %d", len(args))
+	}
+	if existsNull(args) {
+		return nil, nil
+	}
+	v, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return SHA256(v)
+}
+
+func bindSha512(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("SHA512: invalid argument num %d", len(args))
+	}
+	if existsNull(args) {
+		return nil, nil
+	}
+	v, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return SHA512(v)
 }
 
 func timeFromUnixNano(unixNano int64) time.Time {
@@ -1109,23 +1245,54 @@ func bindRangeBucket(args ...Value) (Value, error) {
 }
 
 func bindCurrentDate(args ...Value) (Value, error) {
-	if len(args) == 1 {
+	if len(args) == 0 {
+		return CURRENT_DATE("")
+	}
+	if len(args) == 2 {
+		unixNano, err := args[0].ToInt64()
+		if err != nil {
+			return nil, err
+		}
+		zone, err := args[1].ToString()
+		if err != nil {
+			return nil, err
+		}
+		loc, err := time.LoadLocation(zone)
+		if err != nil {
+			return nil, err
+		}
+		return CURRENT_DATE_WITH_TIME(timeFromUnixNano(unixNano).In(loc))
+	}
+	switch args[0].(type) {
+	case IntValue:
 		unixNano, err := args[0].ToInt64()
 		if err != nil {
 			return nil, err
 		}
 		return CURRENT_DATE_WITH_TIME(timeFromUnixNano(unixNano))
+	case StringValue:
+		zone, err := args[0].ToString()
+		if err != nil {
+			return nil, err
+		}
+		return CURRENT_DATE(zone)
 	}
-	return CURRENT_DATE()
+	return nil, fmt.Errorf("CURRENT_DATE: unexpected argument type %T", args[0])
 }
 
 func bindDate(args ...Value) (Value, error) {
+	if existsNull(args) {
+		return nil, nil
+	}
 	return DATE(args...)
 }
 
 func bindDateAdd(args ...Value) (Value, error) {
 	if len(args) != 3 {
 		return nil, fmt.Errorf("DATE_ADD: invalid argument num %d", len(args))
+	}
+	if existsNull(args) {
+		return nil, nil
 	}
 	t, err := args[0].ToTime()
 	if err != nil {
@@ -1146,6 +1313,9 @@ func bindDateSub(args ...Value) (Value, error) {
 	if len(args) != 3 {
 		return nil, fmt.Errorf("DATE_SUB: invalid argument num %d", len(args))
 	}
+	if existsNull(args) {
+		return nil, nil
+	}
 	t, err := args[0].ToTime()
 	if err != nil {
 		return nil, err
@@ -1164,6 +1334,9 @@ func bindDateSub(args ...Value) (Value, error) {
 func bindDateDiff(args ...Value) (Value, error) {
 	if len(args) != 3 {
 		return nil, fmt.Errorf("DATE_DIFF: invalid argument num %d", len(args))
+	}
+	if existsNull(args) {
+		return nil, nil
 	}
 	t, err := args[0].ToTime()
 	if err != nil {
@@ -1184,6 +1357,9 @@ func bindDateTrunc(args ...Value) (Value, error) {
 	if len(args) != 2 {
 		return nil, fmt.Errorf("DATE_TRUNC: invalid argument num %d", len(args))
 	}
+	if existsNull(args) {
+		return nil, nil
+	}
 	t, err := args[0].ToTime()
 	if err != nil {
 		return nil, err
@@ -1199,6 +1375,9 @@ func bindDateFromUnixDate(args ...Value) (Value, error) {
 	if len(args) != 1 {
 		return nil, fmt.Errorf("DATE_FROM_UNIX_DATE: invalid argument num %d", len(args))
 	}
+	if existsNull(args) {
+		return nil, nil
+	}
 	unixdate, err := args[0].ToInt64()
 	if err != nil {
 		return nil, err
@@ -1206,9 +1385,30 @@ func bindDateFromUnixDate(args ...Value) (Value, error) {
 	return DATE_FROM_UNIX_DATE(unixdate)
 }
 
+func bindFormatDate(args ...Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("FORMAT_DATE: invalid argument num %d", len(args))
+	}
+	if existsNull(args) {
+		return nil, nil
+	}
+	format, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	t, err := args[1].ToTime()
+	if err != nil {
+		return nil, err
+	}
+	return FORMAT_DATE(format, t)
+}
+
 func bindLastDay(args ...Value) (Value, error) {
 	if len(args) != 1 && len(args) != 2 {
 		return nil, fmt.Errorf("LAST_DAY: invalid argument num %d", len(args))
+	}
+	if existsNull(args) {
+		return nil, nil
 	}
 	t, err := args[0].ToTime()
 	if err != nil {
@@ -1229,6 +1429,9 @@ func bindParseDate(args ...Value) (Value, error) {
 	if len(args) != 2 {
 		return nil, fmt.Errorf("PARSE_DATE: invalid argument num %d", len(args))
 	}
+	if existsNull(args) {
+		return nil, nil
+	}
 	format, err := args[0].ToString()
 	if err != nil {
 		return nil, err
@@ -1244,6 +1447,9 @@ func bindUnixDate(args ...Value) (Value, error) {
 	if len(args) != 1 {
 		return nil, fmt.Errorf("UNIX_DATE: invalid argument num %d", len(args))
 	}
+	if existsNull(args) {
+		return nil, nil
+	}
 	t, err := args[0].ToTime()
 	if err != nil {
 		return nil, err
@@ -1252,23 +1458,54 @@ func bindUnixDate(args ...Value) (Value, error) {
 }
 
 func bindCurrentDatetime(args ...Value) (Value, error) {
-	if len(args) == 1 {
+	if len(args) == 0 {
+		return CURRENT_DATETIME("")
+	}
+	if len(args) == 2 {
+		unixNano, err := args[0].ToInt64()
+		if err != nil {
+			return nil, err
+		}
+		zone, err := args[1].ToString()
+		if err != nil {
+			return nil, err
+		}
+		loc, err := time.LoadLocation(zone)
+		if err != nil {
+			return nil, err
+		}
+		return CURRENT_DATETIME_WITH_TIME(timeFromUnixNano(unixNano).In(loc))
+	}
+	switch args[0].(type) {
+	case IntValue:
 		unixNano, err := args[0].ToInt64()
 		if err != nil {
 			return nil, err
 		}
 		return CURRENT_DATETIME_WITH_TIME(timeFromUnixNano(unixNano))
+	case StringValue:
+		zone, err := args[0].ToString()
+		if err != nil {
+			return nil, err
+		}
+		return CURRENT_DATETIME(zone)
 	}
-	return CURRENT_DATETIME()
+	return nil, fmt.Errorf("CURRENT_DATETIME: unexpected argument type %T", args[0])
 }
 
 func bindDatetime(args ...Value) (Value, error) {
+	if existsNull(args) {
+		return nil, nil
+	}
 	return DATETIME(args...)
 }
 
 func bindDatetimeAdd(args ...Value) (Value, error) {
 	if len(args) != 3 {
 		return nil, fmt.Errorf("DATETIME_ADD: invalid argument num %d", len(args))
+	}
+	if existsNull(args) {
+		return nil, nil
 	}
 	t, err := args[0].ToTime()
 	if err != nil {
@@ -1289,6 +1526,9 @@ func bindDatetimeSub(args ...Value) (Value, error) {
 	if len(args) != 3 {
 		return nil, fmt.Errorf("DATETIME_SUB: invalid argument num %d", len(args))
 	}
+	if existsNull(args) {
+		return nil, nil
+	}
 	t, err := args[0].ToTime()
 	if err != nil {
 		return nil, err
@@ -1307,6 +1547,9 @@ func bindDatetimeSub(args ...Value) (Value, error) {
 func bindDatetimeDiff(args ...Value) (Value, error) {
 	if len(args) != 3 {
 		return nil, fmt.Errorf("DATETIME_DIFF: invalid argument num %d", len(args))
+	}
+	if existsNull(args) {
+		return nil, nil
 	}
 	t, err := args[0].ToTime()
 	if err != nil {
@@ -1327,6 +1570,9 @@ func bindDatetimeTrunc(args ...Value) (Value, error) {
 	if len(args) != 2 {
 		return nil, fmt.Errorf("DATETIME_TRUNC: invalid argument num %d", len(args))
 	}
+	if existsNull(args) {
+		return nil, nil
+	}
 	t, err := args[0].ToTime()
 	if err != nil {
 		return nil, err
@@ -1338,9 +1584,30 @@ func bindDatetimeTrunc(args ...Value) (Value, error) {
 	return DATETIME_TRUNC(t, part)
 }
 
+func bindFormatDatetime(args ...Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("FORMAT_DATETIME: invalid argument num %d", len(args))
+	}
+	if existsNull(args) {
+		return nil, nil
+	}
+	format, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	t, err := args[1].ToTime()
+	if err != nil {
+		return nil, err
+	}
+	return FORMAT_DATETIME(format, t)
+}
+
 func bindParseDatetime(args ...Value) (Value, error) {
 	if len(args) != 2 {
 		return nil, fmt.Errorf("PARSE_DATETIME: invalid argument num %d", len(args))
+	}
+	if existsNull(args) {
+		return nil, nil
 	}
 	format, err := args[0].ToString()
 	if err != nil {
@@ -1354,23 +1621,54 @@ func bindParseDatetime(args ...Value) (Value, error) {
 }
 
 func bindCurrentTime(args ...Value) (Value, error) {
-	if len(args) == 1 {
+	if len(args) == 0 {
+		return CURRENT_TIME("")
+	}
+	if len(args) == 2 {
+		unixNano, err := args[0].ToInt64()
+		if err != nil {
+			return nil, err
+		}
+		zone, err := args[1].ToString()
+		if err != nil {
+			return nil, err
+		}
+		loc, err := time.LoadLocation(zone)
+		if err != nil {
+			return nil, err
+		}
+		return CURRENT_TIME_WITH_TIME(timeFromUnixNano(unixNano).In(loc))
+	}
+	switch args[0].(type) {
+	case IntValue:
 		unixNano, err := args[0].ToInt64()
 		if err != nil {
 			return nil, err
 		}
 		return CURRENT_TIME_WITH_TIME(timeFromUnixNano(unixNano))
+	case StringValue:
+		zone, err := args[0].ToString()
+		if err != nil {
+			return nil, err
+		}
+		return CURRENT_TIME(zone)
 	}
-	return CURRENT_TIME()
+	return nil, fmt.Errorf("CURRENT_TIME: unexpected argument type %T", args[0])
 }
 
 func bindTime(args ...Value) (Value, error) {
+	if existsNull(args) {
+		return nil, nil
+	}
 	return TIME(args...)
 }
 
 func bindTimeAdd(args ...Value) (Value, error) {
 	if len(args) != 3 {
 		return nil, fmt.Errorf("TIME_ADD: invalid argument num %d", len(args))
+	}
+	if existsNull(args) {
+		return nil, nil
 	}
 	t, err := args[0].ToTime()
 	if err != nil {
@@ -1391,6 +1689,9 @@ func bindTimeSub(args ...Value) (Value, error) {
 	if len(args) != 3 {
 		return nil, fmt.Errorf("TIME_SUB: invalid argument num %d", len(args))
 	}
+	if existsNull(args) {
+		return nil, nil
+	}
 	t, err := args[0].ToTime()
 	if err != nil {
 		return nil, err
@@ -1409,6 +1710,9 @@ func bindTimeSub(args ...Value) (Value, error) {
 func bindTimeDiff(args ...Value) (Value, error) {
 	if len(args) != 3 {
 		return nil, fmt.Errorf("TIME_DIFF: invalid argument num %d", len(args))
+	}
+	if existsNull(args) {
+		return nil, nil
 	}
 	t, err := args[0].ToTime()
 	if err != nil {
@@ -1429,6 +1733,9 @@ func bindTimeTrunc(args ...Value) (Value, error) {
 	if len(args) != 2 {
 		return nil, fmt.Errorf("TIME_TRUNC: invalid argument num %d", len(args))
 	}
+	if existsNull(args) {
+		return nil, nil
+	}
 	t, err := args[0].ToTime()
 	if err != nil {
 		return nil, err
@@ -1440,9 +1747,30 @@ func bindTimeTrunc(args ...Value) (Value, error) {
 	return TIME_TRUNC(t, part)
 }
 
+func bindFormatTime(args ...Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("FORMAT_TIME: invalid argument num %d", len(args))
+	}
+	if existsNull(args) {
+		return nil, nil
+	}
+	format, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	t, err := args[1].ToTime()
+	if err != nil {
+		return nil, err
+	}
+	return FORMAT_TIME(format, t)
+}
+
 func bindParseTime(args ...Value) (Value, error) {
 	if len(args) != 2 {
 		return nil, fmt.Errorf("PARSE_TIME: invalid argument num %d", len(args))
+	}
+	if existsNull(args) {
+		return nil, nil
 	}
 	format, err := args[0].ToString()
 	if err != nil {
@@ -1456,19 +1784,47 @@ func bindParseTime(args ...Value) (Value, error) {
 }
 
 func bindCurrentTimestamp(args ...Value) (Value, error) {
-	if len(args) == 1 {
+	if len(args) == 0 {
+		return CURRENT_TIMESTAMP("")
+	}
+	if len(args) == 2 {
+		unixNano, err := args[0].ToInt64()
+		if err != nil {
+			return nil, err
+		}
+		zone, err := args[1].ToString()
+		if err != nil {
+			return nil, err
+		}
+		loc, err := time.LoadLocation(zone)
+		if err != nil {
+			return nil, err
+		}
+		return CURRENT_TIMESTAMP_WITH_TIME(timeFromUnixNano(unixNano).In(loc))
+	}
+	switch args[0].(type) {
+	case IntValue:
 		unixNano, err := args[0].ToInt64()
 		if err != nil {
 			return nil, err
 		}
 		return CURRENT_TIMESTAMP_WITH_TIME(timeFromUnixNano(unixNano))
+	case StringValue:
+		zone, err := args[0].ToString()
+		if err != nil {
+			return nil, err
+		}
+		return CURRENT_TIMESTAMP(zone)
 	}
-	return CURRENT_TIMESTAMP()
+	return nil, fmt.Errorf("CURRENT_TIMESTAMP: unexpected argument type %T", args[0])
 }
 
 func bindString(args ...Value) (Value, error) {
 	if len(args) != 1 && len(args) != 2 {
 		return nil, fmt.Errorf("STRING: invalid argument num %d", len(args))
+	}
+	if existsNull(args) {
+		return nil, nil
 	}
 	t, err := args[0].ToTime()
 	if err != nil {
@@ -1489,6 +1845,9 @@ func bindTimestamp(args ...Value) (Value, error) {
 	if len(args) != 1 && len(args) != 2 {
 		return nil, fmt.Errorf("TIMESTAMP: invalid argument num %d", len(args))
 	}
+	if existsNull(args) {
+		return nil, nil
+	}
 	var zone string
 	if len(args) == 2 {
 		z, err := args[1].ToString()
@@ -1503,6 +1862,9 @@ func bindTimestamp(args ...Value) (Value, error) {
 func bindTimestampAdd(args ...Value) (Value, error) {
 	if len(args) != 3 {
 		return nil, fmt.Errorf("TIMESTAMP_ADD: invalid argument num %d", len(args))
+	}
+	if existsNull(args) {
+		return nil, nil
 	}
 	t, err := args[0].ToTime()
 	if err != nil {
@@ -1523,6 +1885,9 @@ func bindTimestampSub(args ...Value) (Value, error) {
 	if len(args) != 3 {
 		return nil, fmt.Errorf("TIMESTAMP_SUB: invalid argument num %d", len(args))
 	}
+	if existsNull(args) {
+		return nil, nil
+	}
 	t, err := args[0].ToTime()
 	if err != nil {
 		return nil, err
@@ -1541,6 +1906,9 @@ func bindTimestampSub(args ...Value) (Value, error) {
 func bindTimestampDiff(args ...Value) (Value, error) {
 	if len(args) != 3 {
 		return nil, fmt.Errorf("TIMESTAMP_DIFF: invalid argument num %d", len(args))
+	}
+	if existsNull(args) {
+		return nil, nil
 	}
 	t, err := args[0].ToTime()
 	if err != nil {
@@ -1561,6 +1929,9 @@ func bindTimestampTrunc(args ...Value) (Value, error) {
 	if len(args) != 2 && len(args) != 3 {
 		return nil, fmt.Errorf("TIMESTAMP_TRUNC: invalid argument num %d", len(args))
 	}
+	if existsNull(args) {
+		return nil, nil
+	}
 	t, err := args[0].ToTime()
 	if err != nil {
 		return nil, err
@@ -1580,9 +1951,38 @@ func bindTimestampTrunc(args ...Value) (Value, error) {
 	return TIMESTAMP_TRUNC(t, part, zone)
 }
 
+func bindFormatTimestamp(args ...Value) (Value, error) {
+	if len(args) != 2 && len(args) != 3 {
+		return nil, fmt.Errorf("FORMAT_TIMESTAMP: invalid argument num %d", len(args))
+	}
+	if existsNull(args) {
+		return nil, nil
+	}
+	format, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	t, err := args[1].ToTime()
+	if err != nil {
+		return nil, err
+	}
+	var zone string
+	if len(args) == 3 {
+		z, err := args[2].ToString()
+		if err != nil {
+			return nil, err
+		}
+		zone = z
+	}
+	return FORMAT_TIMESTAMP(format, t, zone)
+}
+
 func bindParseTimestamp(args ...Value) (Value, error) {
 	if len(args) != 2 {
 		return nil, fmt.Errorf("PARSE_TIMESTAMP: invalid argument num %d", len(args))
+	}
+	if existsNull(args) {
+		return nil, nil
 	}
 	format, err := args[0].ToString()
 	if err != nil {
@@ -1599,6 +1999,9 @@ func bindTimestampSeconds(args ...Value) (Value, error) {
 	if len(args) != 1 {
 		return nil, fmt.Errorf("TIMESTAMP_SECONDS: invalid argument num %d", len(args))
 	}
+	if existsNull(args) {
+		return nil, nil
+	}
 	sec, err := args[0].ToInt64()
 	if err != nil {
 		return nil, err
@@ -1609,6 +2012,9 @@ func bindTimestampSeconds(args ...Value) (Value, error) {
 func bindTimestampMillis(args ...Value) (Value, error) {
 	if len(args) != 1 {
 		return nil, fmt.Errorf("TIMESTAMP_MILLIS: invalid argument num %d", len(args))
+	}
+	if existsNull(args) {
+		return nil, nil
 	}
 	millisec, err := args[0].ToInt64()
 	if err != nil {
@@ -1621,6 +2027,9 @@ func bindTimestampMicros(args ...Value) (Value, error) {
 	if len(args) != 1 {
 		return nil, fmt.Errorf("TIMESTAMP_MICROS: invalid argument num %d", len(args))
 	}
+	if existsNull(args) {
+		return nil, nil
+	}
 	microsec, err := args[0].ToInt64()
 	if err != nil {
 		return nil, err
@@ -1631,6 +2040,9 @@ func bindTimestampMicros(args ...Value) (Value, error) {
 func bindUnixSeconds(args ...Value) (Value, error) {
 	if len(args) != 1 {
 		return nil, fmt.Errorf("UNIX_SECONDS: invalid argument num %d", len(args))
+	}
+	if existsNull(args) {
+		return nil, nil
 	}
 	t, err := args[0].ToTime()
 	if err != nil {
@@ -1643,6 +2055,9 @@ func bindUnixMillis(args ...Value) (Value, error) {
 	if len(args) != 1 {
 		return nil, fmt.Errorf("UNIX_MILLIS: invalid argument num %d", len(args))
 	}
+	if existsNull(args) {
+		return nil, nil
+	}
 	t, err := args[0].ToTime()
 	if err != nil {
 		return nil, err
@@ -1654,6 +2069,9 @@ func bindUnixMicros(args ...Value) (Value, error) {
 	if len(args) != 1 {
 		return nil, fmt.Errorf("UNIX_MICROS: invalid argument num %d", len(args))
 	}
+	if existsNull(args) {
+		return nil, nil
+	}
 	t, err := args[0].ToTime()
 	if err != nil {
 		return nil, err
@@ -1664,6 +2082,9 @@ func bindUnixMicros(args ...Value) (Value, error) {
 func bindDecodeArray(args ...Value) (Value, error) {
 	if len(args) != 1 {
 		return nil, fmt.Errorf("DECODE_ARRAY: invalid argument num %d", len(args))
+	}
+	if existsNull(args) {
+		return nil, nil
 	}
 	s, err := args[0].ToString()
 	if err != nil {
@@ -2224,6 +2645,24 @@ func bindWindowAvg(converter ReturnValueConverter) func() *WindowAggregator {
 	}
 }
 
+func bindWindowFirstValue(converter ReturnValueConverter) func() *WindowAggregator {
+	return func() *WindowAggregator {
+		fn := &WINDOW_FIRST_VALUE{}
+		return newWindowAggregator(
+			func(args []Value, opt *AggregatorOption, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+				if len(args) != 1 {
+					return fmt.Errorf("WINDOW_FIRST_VALUE: invalid argument num %d", len(args))
+				}
+				return fn.Step(args[0], windowOpt, agg)
+			},
+			func(agg *WindowFuncAggregatedStatus) (Value, error) {
+				return fn.Done(agg)
+			},
+			converter,
+		)
+	}
+}
+
 func bindWindowLastValue(converter ReturnValueConverter) func() *WindowAggregator {
 	return func() *WindowAggregator {
 		fn := &WINDOW_LAST_VALUE{}
@@ -2300,6 +2739,24 @@ func bindWindowDenseRank(converter ReturnValueConverter) func() *WindowAggregato
 			func(args []Value, opt *AggregatorOption, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
 				if len(args) != 0 {
 					return fmt.Errorf("WINDOW_DENSE_RANK: invalid argument num %d", len(args))
+				}
+				return fn.Step(windowOpt, agg)
+			},
+			func(agg *WindowFuncAggregatedStatus) (Value, error) {
+				return fn.Done(agg)
+			},
+			converter,
+		)
+	}
+}
+
+func bindWindowRowNumber(converter ReturnValueConverter) func() *WindowAggregator {
+	return func() *WindowAggregator {
+		fn := &WINDOW_ROW_NUMBER{}
+		return newWindowAggregator(
+			func(args []Value, opt *AggregatorOption, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+				if len(args) != 0 {
+					return fmt.Errorf("WINDOW_ROW_NUMBER: invalid argument num %d", len(args))
 				}
 				return fn.Step(windowOpt, agg)
 			},

@@ -638,7 +638,7 @@ func (s *WindowFuncAggregatedStatus) lookupMinIndexFromRangeValue(rangeValue int
 	minIndex := -1
 	for idx := len(s.SortedValues) - 1; idx >= 0; idx-- {
 		value := s.SortedValues[idx]
-		if len(value.OrderBy) != 1 {
+		if len(value.OrderBy) == 0 {
 			continue
 		}
 		target, err := value.OrderBy[len(value.OrderBy)-1].Value.ToInt64()
@@ -656,7 +656,7 @@ func (s *WindowFuncAggregatedStatus) lookupMaxIndexFromRangeValue(rangeValue int
 	maxIndex := -1
 	for idx := 0; idx < len(s.SortedValues); idx++ {
 		value := s.SortedValues[idx]
-		if len(value.OrderBy) != 1 {
+		if len(value.OrderBy) == 0 {
 			continue
 		}
 		target, err := value.OrderBy[len(value.OrderBy)-1].Value.ToInt64()
