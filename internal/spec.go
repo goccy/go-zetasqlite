@@ -15,6 +15,7 @@ type NameWithType struct {
 }
 
 type FunctionSpec struct {
+	IsTemp   bool            `json:"isTemp"`
 	NamePath []string        `json:"name"`
 	Language string          `json:"language"`
 	Args     []*NameWithType `json:"args"`
@@ -191,6 +192,7 @@ func newFunctionSpec(ctx context.Context, namePath []string, stmt *ast.CreateFun
 		return nil, fmt.Errorf("failed to format function expression: %w", err)
 	}
 	return &FunctionSpec{
+		IsTemp:   stmt.CreateScope() == ast.CreateScopeTemp,
 		NamePath: MergeNamePath(namePath, stmt.NamePath()),
 		Args:     args,
 		Return:   newType(stmt.ReturnType()),

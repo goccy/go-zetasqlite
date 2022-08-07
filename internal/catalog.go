@@ -134,8 +134,10 @@ func (c *Catalog) AddNewFunctionSpec(ctx context.Context, conn *Conn, spec *Func
 	if err := c.addFunctionSpec(spec); err != nil {
 		return err
 	}
-	if err := c.saveFunctionSpec(ctx, conn, spec); err != nil {
-		return err
+	if !spec.IsTemp {
+		if err := c.saveFunctionSpec(ctx, conn, spec); err != nil {
+			return err
+		}
 	}
 	return nil
 }
