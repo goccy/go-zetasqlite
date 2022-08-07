@@ -26,8 +26,8 @@ type AnalyzerOutput struct {
 	tableSpec      *TableSpec
 	outputColumns  []*ColumnSpec
 	Prepare        func(context.Context, *Conn) (driver.Stmt, error)
-	ExecContext    func(context.Context, *Conn, ...interface{}) (driver.Result, error)
-	QueryContext   func(context.Context, *Conn, ...interface{}) (driver.Rows, error)
+	ExecContext    func(context.Context, *Conn) (driver.Result, error)
+	QueryContext   func(context.Context, *Conn) (driver.Rows, error)
 }
 
 func (o *AnalyzerOutput) Params() []*ast.ParameterNode {
@@ -107,13 +107,82 @@ func (a *Analyzer) SetParameterMode(mode zetasql.ParameterMode) {
 	a.opt.SetParameterMode(mode)
 }
 
-func (a *Analyzer) Analyze(ctx context.Context, conn *Conn, query string) (*AnalyzerOutput, error) {
+func (a *Analyzer) getFullNamePathMap(query string) (map[string][]string, error) {
+	fullNamePathMap := map[string][]string{}
+	loc := zetasql.NewParseResumeLocation(query)
+	for {
+		parsedAST, isEnd, err := zetasql.ParseNextStatement(loc, a.opt.ParserOptions())
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse statement: %w", err)
+		}
+		parsed_ast.Walk(parsedAST, func(node parsed_ast.Node) error {
+			switch n := node.(type) {
+			case *parsed_ast.FunctionCallNode:
+				path := []string{}
+				for _, name := range n.Function().Names() {
+					path = append(path, name.Name())
+				}
+				if len(path) == 0 {
+					return fmt.Errorf("failed to find name path from function call node")
+				}
+				base := path[len(path)-1]
+				fullNamePathMap[base] = path
+			case *parsed_ast.TablePathExpressionNode:
+				switch {
+				case n.PathExpr() != nil:
+					path := []string{}
+					for _, name := range n.PathExpr().Names() {
+						path = append(path, name.Name())
+					}
+					if len(path) == 0 {
+						return fmt.Errorf("failed to find name path from table path expression node")
+					}
+					base := path[len(path)-1]
+					fullNamePathMap[base] = path
+				}
+			case *parsed_ast.InsertStatementNode:
+				path := []string{}
+				for _, name := range n.TargetPath().(*parsed_ast.PathExpressionNode).Names() {
+					path = append(path, name.Name())
+				}
+				if len(path) == 0 {
+					return fmt.Errorf("failed to find name path from insert statement node")
+				}
+				base := path[len(path)-1]
+				fullNamePathMap[base] = path
+			case *parsed_ast.UpdateStatementNode:
+				path := []string{}
+				for _, name := range n.TargetPath().(*parsed_ast.PathExpressionNode).Names() {
+					path = append(path, name.Name())
+				}
+				if len(path) == 0 {
+					return fmt.Errorf("failed to find name path from update statement node")
+				}
+				base := path[len(path)-1]
+				fullNamePathMap[base] = path
+			case *parsed_ast.DeleteStatementNode:
+				path := []string{}
+				for _, name := range n.TargetPath().(*parsed_ast.PathExpressionNode).Names() {
+					path = append(path, name.Name())
+				}
+				if len(path) == 0 {
+					return fmt.Errorf("failed to find name path from delete statement node")
+				}
+				base := path[len(path)-1]
+				fullNamePathMap[base] = path
+			}
+			return nil
+		})
+		if isEnd {
+			break
+		}
+	}
+	return fullNamePathMap, nil
+}
+
+func (a *Analyzer) AnalyzeIterator(ctx context.Context, conn *Conn, query string, args []driver.NamedValue) (*AnalyzerOutputIterator, error) {
 	if err := a.catalog.Sync(ctx, conn); err != nil {
 		return nil, fmt.Errorf("failed to sync catalog: %w", err)
-	}
-	out, err := zetasql.AnalyzeStatement(query, a.catalog.catalog, a.opt)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", query, err)
 	}
 	fullNamePathMap, err := a.getFullNamePathMap(query)
 	if err != nil {
@@ -123,33 +192,83 @@ func (a *Analyzer) Analyze(ctx context.Context, conn *Conn, query string) (*Anal
 	for _, spec := range a.catalog.functions {
 		funcMap[spec.FuncName()] = spec
 	}
-	ctx = withNamePath(ctx, a.namePath)
+	return &AnalyzerOutputIterator{
+		query:           query,
+		args:            args,
+		analyzer:        a,
+		loc:             zetasql.NewParseResumeLocation(query),
+		funcMap:         funcMap,
+		fullNamePathMap: fullNamePathMap,
+	}, nil
+}
+
+type AnalyzerOutputIterator struct {
+	query           string
+	args            []driver.NamedValue
+	analyzer        *Analyzer
+	loc             *zetasql.ParseResumeLocation
+	funcMap         map[string]*FunctionSpec
+	fullNamePathMap map[string][]string
+	out             *zetasql.AnalyzerOutput
+	isEnd           bool
+	err             error
+}
+
+func (it *AnalyzerOutputIterator) Next() bool {
+	if it.isEnd {
+		return false
+	}
+	out, isEnd, err := zetasql.AnalyzeNextStatement(
+		it.loc,
+		it.analyzer.catalog.catalog,
+		it.analyzer.opt,
+	)
+	it.err = err
+	it.out = out
+	it.isEnd = isEnd
+	if it.err != nil {
+		return false
+	}
+	return true
+}
+
+func (it *AnalyzerOutputIterator) Err() error {
+	return it.err
+}
+
+func (it *AnalyzerOutputIterator) Analyze(ctx context.Context) (*AnalyzerOutput, error) {
+	ctx = withNamePath(ctx, it.analyzer.namePath)
 	ctx = withColumnRefMap(ctx, map[string]string{})
 	ctx = withTableNameToColumnListMap(ctx, map[string][]*ast.Column{})
-	ctx = withFullNamePathMap(ctx, fullNamePathMap)
-	ctx = withFuncMap(ctx, funcMap)
+	ctx = withFullNamePathMap(ctx, it.fullNamePathMap)
+	ctx = withFuncMap(ctx, it.funcMap)
 	ctx = withAnalyticOrderColumnNames(ctx, &analyticOrderColumnNames{})
-	stmtNode := out.Statement()
+	stmtNode := it.out.Statement()
 	switch stmtNode.Kind() {
 	case ast.CreateTableStmt:
-		return a.analyzeCreateTableStmt(query, stmtNode.(*ast.CreateTableStmtNode))
+		return it.analyzeCreateTableStmt(stmtNode.(*ast.CreateTableStmtNode))
 	case ast.CreateFunctionStmt:
-		return a.analyzeCreateFunctionStmt(ctx, query, stmtNode.(*ast.CreateFunctionStmtNode))
+		return it.analyzeCreateFunctionStmt(ctx, stmtNode.(*ast.CreateFunctionStmtNode))
 	case ast.InsertStmt, ast.UpdateStmt, ast.DeleteStmt:
-		return a.analyzeDMLStmt(ctx, query, stmtNode)
+		return it.analyzeDMLStmt(ctx, stmtNode)
 	case ast.QueryStmt:
 		ctx = withUseColumnID(ctx)
-		return a.analyzeQueryStmt(ctx, query, stmtNode.(*ast.QueryStmtNode))
+		return it.analyzeQueryStmt(ctx, stmtNode.(*ast.QueryStmtNode))
 	}
 	return nil, fmt.Errorf("unsupported stmt %s", stmtNode.DebugString())
 }
 
-func (a *Analyzer) analyzeCreateTableStmt(query string, node *ast.CreateTableStmtNode) (*AnalyzerOutput, error) {
-	spec := newTableSpec(a.namePath, node)
+func (it *AnalyzerOutputIterator) analyzeCreateTableStmt(node *ast.CreateTableStmtNode) (*AnalyzerOutput, error) {
+	spec := newTableSpec(it.analyzer.namePath, node)
+	params := it.getParamsFromNode(node)
+	args, err := it.getArgsFromParams(params)
+	if err != nil {
+		return nil, err
+	}
 	return &AnalyzerOutput{
 		node:      node,
-		query:     query,
-		params:    a.getParamsFromNode(node),
+		query:     it.query,
+		params:    params,
 		tableSpec: spec,
 		Prepare: func(ctx context.Context, conn *Conn) (driver.Stmt, error) {
 			if spec.CreateMode == ast.CreateOrReplaceMode {
@@ -160,11 +279,11 @@ func (a *Analyzer) analyzeCreateTableStmt(query string, node *ast.CreateTableStm
 			}
 			s, err := conn.PrepareContext(ctx, spec.SQLiteSchema())
 			if err != nil {
-				return nil, fmt.Errorf("failed to prepare %s: %w", query, err)
+				return nil, fmt.Errorf("failed to prepare %s: %w", it.query, err)
 			}
-			return newCreateTableStmt(s, conn, a.catalog, spec), nil
+			return newCreateTableStmt(s, conn, it.analyzer.catalog, spec), nil
 		},
-		ExecContext: func(ctx context.Context, conn *Conn, args ...interface{}) (driver.Result, error) {
+		ExecContext: func(ctx context.Context, conn *Conn) (driver.Result, error) {
 			if spec.CreateMode == ast.CreateOrReplaceMode {
 				dropTableQuery := fmt.Sprintf("DROP TABLE IF EXISTS `%s`", spec.TableName())
 				if _, err := conn.ExecContext(ctx, dropTableQuery); err != nil {
@@ -172,9 +291,9 @@ func (a *Analyzer) analyzeCreateTableStmt(query string, node *ast.CreateTableStm
 				}
 			}
 			if _, err := conn.ExecContext(ctx, spec.SQLiteSchema(), args...); err != nil {
-				return nil, fmt.Errorf("failed to exec %s: %w", query, err)
+				return nil, fmt.Errorf("failed to exec %s: %w", it.query, err)
 			}
-			if err := a.catalog.AddNewTableSpec(ctx, conn, spec); err != nil {
+			if err := it.analyzer.catalog.AddNewTableSpec(ctx, conn, spec); err != nil {
 				return nil, fmt.Errorf("failed to add new table spec: %w", err)
 			}
 			return nil, nil
@@ -182,54 +301,60 @@ func (a *Analyzer) analyzeCreateTableStmt(query string, node *ast.CreateTableStm
 	}, nil
 }
 
-func (a *Analyzer) analyzeCreateFunctionStmt(ctx context.Context, query string, node *ast.CreateFunctionStmtNode) (*AnalyzerOutput, error) {
-	spec, err := newFunctionSpec(ctx, a.namePath, node)
+func (it *AnalyzerOutputIterator) analyzeCreateFunctionStmt(ctx context.Context, node *ast.CreateFunctionStmtNode) (*AnalyzerOutput, error) {
+	spec, err := newFunctionSpec(ctx, it.analyzer.namePath, node)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create function spec: %w", err)
 	}
 	return &AnalyzerOutput{
-		query: query,
+		query: it.query,
 		node:  node,
 		Prepare: func(ctx context.Context, conn *Conn) (driver.Stmt, error) {
-			return newCreateFunctionStmt(conn, a.catalog, spec), nil
+			return newCreateFunctionStmt(conn, it.analyzer.catalog, spec), nil
 		},
-		ExecContext: func(ctx context.Context, conn *Conn, args ...interface{}) (driver.Result, error) {
-			if err := a.catalog.AddNewFunctionSpec(ctx, conn, spec); err != nil {
+		ExecContext: func(ctx context.Context, conn *Conn) (driver.Result, error) {
+			if err := it.analyzer.catalog.AddNewFunctionSpec(ctx, conn, spec); err != nil {
 				return nil, fmt.Errorf("failed to add new function spec: %w", err)
 			}
+			it.funcMap[spec.FuncName()] = spec
 			return nil, nil
 		},
-		QueryContext: func(ctx context.Context, conn *Conn, args ...interface{}) (driver.Rows, error) {
-			if err := a.catalog.AddNewFunctionSpec(ctx, conn, spec); err != nil {
+		QueryContext: func(ctx context.Context, conn *Conn) (driver.Rows, error) {
+			if err := it.analyzer.catalog.AddNewFunctionSpec(ctx, conn, spec); err != nil {
 				return nil, fmt.Errorf("failed to add new function spec: %w", err)
 			}
+			it.funcMap[spec.FuncName()] = spec
 			return &Rows{}, nil
 		},
 	}, nil
 }
 
-func (a *Analyzer) analyzeDMLStmt(ctx context.Context, query string, node ast.Node) (*AnalyzerOutput, error) {
+func (it *AnalyzerOutputIterator) analyzeDMLStmt(ctx context.Context, node ast.Node) (*AnalyzerOutput, error) {
 	formattedQuery, err := newNode(node).FormatSQL(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to format query %s: %w", query, err)
+		return nil, fmt.Errorf("failed to format query %s: %w", it.query, err)
 	}
 	if formattedQuery == "" {
-		return nil, fmt.Errorf("failed to format query %s", query)
+		return nil, fmt.Errorf("failed to format query %s", it.query)
 	}
-	params := a.getParamsFromNode(node)
+	params := it.getParamsFromNode(node)
+	args, err := it.getArgsFromParams(params)
+	if err != nil {
+		return nil, err
+	}
 	return &AnalyzerOutput{
 		node:           node,
-		query:          query,
+		query:          it.query,
 		formattedQuery: formattedQuery,
 		params:         params,
 		Prepare: func(ctx context.Context, conn *Conn) (driver.Stmt, error) {
 			s, err := conn.PrepareContext(ctx, formattedQuery)
 			if err != nil {
-				return nil, fmt.Errorf("failed to prepare %s: %w", query, err)
+				return nil, fmt.Errorf("failed to prepare %s: %w", it.query, err)
 			}
 			return newDMLStmt(s, params, formattedQuery), nil
 		},
-		ExecContext: func(ctx context.Context, conn *Conn, args ...interface{}) (driver.Result, error) {
+		ExecContext: func(ctx context.Context, conn *Conn) (driver.Result, error) {
 			if _, err := conn.ExecContext(ctx, formattedQuery, args...); err != nil {
 				return nil, fmt.Errorf("failed to exec %s: %w", formattedQuery, err)
 			}
@@ -238,7 +363,7 @@ func (a *Analyzer) analyzeDMLStmt(ctx context.Context, query string, node ast.No
 	}, nil
 }
 
-func (a *Analyzer) analyzeQueryStmt(ctx context.Context, query string, node *ast.QueryStmtNode) (*AnalyzerOutput, error) {
+func (it *AnalyzerOutputIterator) analyzeQueryStmt(ctx context.Context, node *ast.QueryStmtNode) (*AnalyzerOutput, error) {
 	outputColumns := []*ColumnSpec{}
 	for _, col := range node.OutputColumnList() {
 		outputColumns = append(outputColumns, &ColumnSpec{
@@ -248,26 +373,30 @@ func (a *Analyzer) analyzeQueryStmt(ctx context.Context, query string, node *ast
 	}
 	formattedQuery, err := newNode(node).FormatSQL(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to format query %s: %w", query, err)
+		return nil, fmt.Errorf("failed to format query %s: %w", it.query, err)
 	}
 	if formattedQuery == "" {
-		return nil, fmt.Errorf("failed to format query %s", query)
+		return nil, fmt.Errorf("failed to format query %s", it.query)
 	}
-	params := a.getParamsFromNode(node)
+	params := it.getParamsFromNode(node)
+	args, err := it.getArgsFromParams(params)
+	if err != nil {
+		return nil, err
+	}
 	return &AnalyzerOutput{
 		node:           node,
-		query:          query,
+		query:          it.query,
 		formattedQuery: formattedQuery,
 		params:         params,
 		isQuery:        true,
 		Prepare: func(ctx context.Context, conn *Conn) (driver.Stmt, error) {
 			s, err := conn.PrepareContext(ctx, formattedQuery)
 			if err != nil {
-				return nil, fmt.Errorf("failed to prepare %s: %w", query, err)
+				return nil, fmt.Errorf("failed to prepare %s: %w", it.query, err)
 			}
 			return newQueryStmt(s, params, formattedQuery, outputColumns), nil
 		},
-		QueryContext: func(ctx context.Context, conn *Conn, args ...interface{}) (driver.Rows, error) {
+		QueryContext: func(ctx context.Context, conn *Conn) (driver.Rows, error) {
 			rows, err := conn.QueryContext(ctx, formattedQuery, args...)
 			if err != nil {
 				return nil, fmt.Errorf("failed to query %s: %w", formattedQuery, err)
@@ -277,74 +406,7 @@ func (a *Analyzer) analyzeQueryStmt(ctx context.Context, query string, node *ast
 	}, nil
 }
 
-func (a *Analyzer) getFullNamePathMap(query string) (map[string][]string, error) {
-	fullNamePathMap := map[string][]string{}
-	parsedAST, err := zetasql.ParseStatement(query, a.opt.ParserOptions())
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse statement: %w", err)
-	}
-	parsed_ast.Walk(parsedAST, func(node parsed_ast.Node) error {
-		switch n := node.(type) {
-		case *parsed_ast.FunctionCallNode:
-			path := []string{}
-			for _, name := range n.Function().Names() {
-				path = append(path, name.Name())
-			}
-			if len(path) == 0 {
-				return fmt.Errorf("failed to find name path from function call node")
-			}
-			base := path[len(path)-1]
-			fullNamePathMap[base] = path
-		case *parsed_ast.TablePathExpressionNode:
-			switch {
-			case n.PathExpr() != nil:
-				path := []string{}
-				for _, name := range n.PathExpr().Names() {
-					path = append(path, name.Name())
-				}
-				if len(path) == 0 {
-					return fmt.Errorf("failed to find name path from table path expression node")
-				}
-				base := path[len(path)-1]
-				fullNamePathMap[base] = path
-			}
-		case *parsed_ast.InsertStatementNode:
-			path := []string{}
-			for _, name := range n.TargetPath().(*parsed_ast.PathExpressionNode).Names() {
-				path = append(path, name.Name())
-			}
-			if len(path) == 0 {
-				return fmt.Errorf("failed to find name path from insert statement node")
-			}
-			base := path[len(path)-1]
-			fullNamePathMap[base] = path
-		case *parsed_ast.UpdateStatementNode:
-			path := []string{}
-			for _, name := range n.TargetPath().(*parsed_ast.PathExpressionNode).Names() {
-				path = append(path, name.Name())
-			}
-			if len(path) == 0 {
-				return fmt.Errorf("failed to find name path from update statement node")
-			}
-			base := path[len(path)-1]
-			fullNamePathMap[base] = path
-		case *parsed_ast.DeleteStatementNode:
-			path := []string{}
-			for _, name := range n.TargetPath().(*parsed_ast.PathExpressionNode).Names() {
-				path = append(path, name.Name())
-			}
-			if len(path) == 0 {
-				return fmt.Errorf("failed to find name path from delete statement node")
-			}
-			base := path[len(path)-1]
-			fullNamePathMap[base] = path
-		}
-		return nil
-	})
-	return fullNamePathMap, nil
-}
-
-func (a *Analyzer) getParamsFromNode(node ast.Node) []*ast.ParameterNode {
+func (it *AnalyzerOutputIterator) getParamsFromNode(node ast.Node) []*ast.ParameterNode {
 	var params []*ast.ParameterNode
 	ast.Walk(node, func(n ast.Node) error {
 		param, ok := n.(*ast.ParameterNode)
@@ -354,4 +416,18 @@ func (a *Analyzer) getParamsFromNode(node ast.Node) []*ast.ParameterNode {
 		return nil
 	})
 	return params
+}
+
+func (it *AnalyzerOutputIterator) getArgsFromParams(params []*ast.ParameterNode) ([]interface{}, error) {
+	argNum := len(params)
+	newNamedValues, err := EncodeNamedValues(it.args[:argNum], params)
+	if err != nil {
+		return nil, err
+	}
+	it.args = it.args[:argNum]
+	args := make([]interface{}, 0, argNum)
+	for _, newNamedValue := range newNamedValues {
+		args = append(args, newNamedValue)
+	}
+	return args, nil
 }

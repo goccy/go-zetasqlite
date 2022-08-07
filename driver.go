@@ -112,46 +112,79 @@ func (s *ZetaSQLiteConn) CheckNamedValue(value *driver.NamedValue) error {
 }
 
 func (c *ZetaSQLiteConn) Prepare(query string) (driver.Stmt, error) {
+	ctx := context.Background()
 	conn := internal.NewConn(c.conn, c.tx)
-	out, err := c.analyzer.Analyze(context.Background(), conn, query)
+	it, err := c.analyzer.AnalyzeIterator(ctx, conn, query, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to analyze query: %w", err)
+		return nil, err
 	}
-	return out.Prepare(context.Background(), conn)
+
+	var stmt driver.Stmt
+	for it.Next() {
+		out, err := it.Analyze(ctx)
+		if err != nil {
+			return nil, err
+		}
+		s, err := out.Prepare(ctx, conn)
+		if err != nil {
+			return nil, err
+		}
+		stmt = s
+	}
+	if err := it.Err(); err != nil {
+		return nil, err
+	}
+	return stmt, nil
 }
 
 func (c *ZetaSQLiteConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
 	conn := internal.NewConn(c.conn, c.tx)
-	out, err := c.analyzer.Analyze(ctx, conn, query)
-	if err != nil {
-		return nil, fmt.Errorf("failed to analyze query: %w", err)
-	}
-	newNamedValues, err := internal.EncodeNamedValues(args, out.Params())
+	it, err := c.analyzer.AnalyzeIterator(ctx, conn, query, args)
 	if err != nil {
 		return nil, err
 	}
-	newArgs := make([]interface{}, 0, len(args))
-	for _, newNamedValue := range newNamedValues {
-		newArgs = append(newArgs, newNamedValue)
+
+	var result driver.Result
+	for it.Next() {
+		out, err := it.Analyze(ctx)
+		if err != nil {
+			return nil, err
+		}
+		r, err := out.ExecContext(ctx, conn)
+		if err != nil {
+			return nil, err
+		}
+		result = r
 	}
-	return out.ExecContext(ctx, conn, newArgs...)
+	if err := it.Err(); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 func (c *ZetaSQLiteConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
 	conn := internal.NewConn(c.conn, c.tx)
-	out, err := c.analyzer.Analyze(ctx, conn, query)
-	if err != nil {
-		return nil, fmt.Errorf("failed to analyze query: %w", err)
-	}
-	newNamedValues, err := internal.EncodeNamedValues(args, out.Params())
+	it, err := c.analyzer.AnalyzeIterator(ctx, conn, query, args)
 	if err != nil {
 		return nil, err
 	}
-	newArgs := make([]interface{}, 0, len(args))
-	for _, newNamedValue := range newNamedValues {
-		newArgs = append(newArgs, newNamedValue)
+
+	var rows driver.Rows
+	for it.Next() {
+		out, err := it.Analyze(ctx)
+		if err != nil {
+			return nil, err
+		}
+		r, err := out.QueryContext(ctx, conn)
+		if err != nil {
+			return nil, err
+		}
+		rows = r
 	}
-	return out.QueryContext(ctx, conn, newArgs...)
+	if err := it.Err(); err != nil {
+		return nil, err
+	}
+	return rows, nil
 }
 
 func (c *ZetaSQLiteConn) Close() error {

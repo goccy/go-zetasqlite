@@ -2225,6 +2225,16 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			query:        `SELECT LENGTH(GENERATE_UUID())`,
 			expectedRows: [][]interface{}{{int64(36)}},
 		},
+
+		// create temp function
+		{
+			name: "create temp function",
+			query: `
+CREATE TEMP FUNCTION Add(x INT64, y INT64) AS (x + y);
+SELECT Add(3, 4);
+`,
+			expectedRows: [][]interface{}{{int64(7)}},
+		},
 	} {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
