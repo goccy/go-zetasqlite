@@ -28,6 +28,54 @@ func TestExec(t *testing.T) {
 			name:  "create table with all types",
 			query: `CREATE TABLE _table_a ( doubleValue DOUBLE, floatValue FLOAT )`,
 		},
+		{
+			name: "transaction",
+			query: `
+CREATE OR REPLACE TABLE Inventory
+(
+ product string,
+ quantity int64,
+ supply_constrained bool
+);
+
+CREATE OR REPLACE TABLE NewArrivals
+(
+ product string,
+ quantity int64,
+ warehouse string
+);
+
+INSERT Inventory (product, quantity)
+VALUES('top load washer', 10),
+     ('front load washer', 20),
+     ('dryer', 30),
+     ('refrigerator', 10),
+     ('microwave', 20),
+     ('dishwasher', 30);
+
+INSERT NewArrivals (product, quantity, warehouse)
+VALUES('top load washer', 100, 'warehouse #1'),
+     ('dryer', 200, 'warehouse #2'),
+     ('oven', 300, 'warehouse #1');
+
+BEGIN TRANSACTION;
+
+CREATE TEMP TABLE tmp AS SELECT * FROM NewArrivals WHERE warehouse = 'warehouse #1';
+DELETE NewArrivals WHERE warehouse = 'warehouse #1';
+MERGE Inventory AS I
+USING tmp AS T
+ON I.product = T.product
+WHEN NOT MATCHED THEN
+ INSERT(product, quantity, supply_constrained)
+ VALUES(product, quantity, false)
+WHEN MATCHED THEN
+ UPDATE SET quantity = I.quantity + T.quantity;
+
+TRUNCATE TABLE tmp;
+
+COMMIT TRANSACTION;
+`,
+		},
 	} {
 		test := test
 		t.Run(test.name, func(t *testing.T) {

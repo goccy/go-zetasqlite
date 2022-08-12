@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
+	"strings"
 
 	"github.com/goccy/go-zetasql"
 	parsed_ast "github.com/goccy/go-zetasql/ast"
@@ -76,11 +77,17 @@ func newAnalyzerOptions() *zetasql.AnalyzerOptions {
 		zetasql.FeatureV13Qualify,
 	})
 	langOpt.SetSupportedStatementKinds([]ast.Kind{
+		ast.BeginStmt,
+		ast.CommitStmt,
+		ast.MergeStmt,
 		ast.QueryStmt,
 		ast.InsertStmt,
 		ast.UpdateStmt,
 		ast.DeleteStmt,
+		ast.DropStmt,
+		ast.TruncateStmt,
 		ast.CreateTableStmt,
+		ast.CreateTableAsSelectStmt,
 		ast.CreateProcedureStmt,
 		ast.CreateFunctionStmt,
 		ast.CreateTableFunctionStmt,
@@ -107,15 +114,31 @@ func (a *Analyzer) SetParameterMode(mode zetasql.ParameterMode) {
 	a.opt.SetParameterMode(mode)
 }
 
-func (a *Analyzer) getFullNamePathMap(query string) (map[string][]string, error) {
-	fullNamePathMap := map[string][]string{}
+func (a *Analyzer) parseScript(query string) ([]parsed_ast.StatementNode, error) {
 	loc := zetasql.NewParseResumeLocation(query)
+	var stmts []parsed_ast.StatementNode
 	for {
-		parsedAST, isEnd, err := zetasql.ParseNextStatement(loc, a.opt.ParserOptions())
+		stmt, isEnd, err := zetasql.ParseNextScriptStatement(loc, a.opt.ParserOptions())
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse statement: %w", err)
 		}
-		parsed_ast.Walk(parsedAST, func(node parsed_ast.Node) error {
+		switch s := stmt.(type) {
+		case *parsed_ast.BeginEndBlockNode:
+			stmts = append(stmts, s.StatementList()...)
+		default:
+			stmts = append(stmts, s)
+		}
+		if isEnd {
+			break
+		}
+	}
+	return stmts, nil
+}
+
+func (a *Analyzer) getFullNamePathMap(stmts []parsed_ast.StatementNode) (map[string][]string, error) {
+	fullNamePathMap := map[string][]string{}
+	for _, stmt := range stmts {
+		parsed_ast.Walk(stmt, func(node parsed_ast.Node) error {
 			switch n := node.(type) {
 			case *parsed_ast.FunctionCallNode:
 				path := []string{}
@@ -173,9 +196,6 @@ func (a *Analyzer) getFullNamePathMap(query string) (map[string][]string, error)
 			}
 			return nil
 		})
-		if isEnd {
-			break
-		}
 	}
 	return fullNamePathMap, nil
 }
@@ -184,7 +204,11 @@ func (a *Analyzer) AnalyzeIterator(ctx context.Context, conn *Conn, query string
 	if err := a.catalog.Sync(ctx, conn); err != nil {
 		return nil, fmt.Errorf("failed to sync catalog: %w", err)
 	}
-	fullNamePathMap, err := a.getFullNamePathMap(query)
+	stmts, err := a.parseScript(query)
+	if err != nil {
+		return nil, err
+	}
+	fullNamePathMap, err := a.getFullNamePathMap(stmts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get full name path map %s: %w", query, err)
 	}
@@ -195,8 +219,8 @@ func (a *Analyzer) AnalyzeIterator(ctx context.Context, conn *Conn, query string
 	return &AnalyzerOutputIterator{
 		query:           query,
 		args:            args,
+		stmts:           stmts,
 		analyzer:        a,
-		loc:             zetasql.NewParseResumeLocation(query),
 		funcMap:         funcMap,
 		fullNamePathMap: fullNamePathMap,
 	}, nil
@@ -206,7 +230,8 @@ type AnalyzerOutputIterator struct {
 	query           string
 	args            []driver.NamedValue
 	analyzer        *Analyzer
-	loc             *zetasql.ParseResumeLocation
+	stmts           []parsed_ast.StatementNode
+	stmtIdx         int
 	funcMap         map[string]*FunctionSpec
 	fullNamePathMap map[string][]string
 	out             *zetasql.AnalyzerOutput
@@ -215,20 +240,21 @@ type AnalyzerOutputIterator struct {
 }
 
 func (it *AnalyzerOutputIterator) Next() bool {
-	if it.isEnd {
+	if it.stmtIdx >= len(it.stmts) {
 		return false
 	}
-	out, isEnd, err := zetasql.AnalyzeNextStatement(
-		it.loc,
+	out, err := zetasql.AnalyzeStatementFromParserAST(
+		it.query,
+		it.stmts[it.stmtIdx],
 		it.analyzer.catalog.catalog,
 		it.analyzer.opt,
 	)
 	it.err = err
 	it.out = out
-	it.isEnd = isEnd
 	if it.err != nil {
 		return false
 	}
+	it.stmtIdx++
 	return true
 }
 
@@ -246,19 +272,30 @@ func (it *AnalyzerOutputIterator) Analyze(ctx context.Context) (*AnalyzerOutput,
 	stmtNode := it.out.Statement()
 	switch stmtNode.Kind() {
 	case ast.CreateTableStmt:
-		return it.analyzeCreateTableStmt(stmtNode.(*ast.CreateTableStmtNode))
+		return it.analyzeCreateTableStmt(ctx, stmtNode.(*ast.CreateTableStmtNode))
+	case ast.CreateTableAsSelectStmt:
+		return it.analyzeCreateTableAsSelectStmt(ctx, stmtNode.(*ast.CreateTableAsSelectStmtNode))
 	case ast.CreateFunctionStmt:
 		return it.analyzeCreateFunctionStmt(ctx, stmtNode.(*ast.CreateFunctionStmtNode))
-	case ast.InsertStmt, ast.UpdateStmt, ast.DeleteStmt:
+	case ast.InsertStmt, ast.UpdateStmt, ast.DeleteStmt, ast.DropStmt:
 		return it.analyzeDMLStmt(ctx, stmtNode)
+	case ast.TruncateStmt:
+		return it.analyzeTruncateStmt(ctx, stmtNode.(*ast.TruncateStmtNode))
+	case ast.MergeStmt:
+		ctx = withUseColumnID(ctx)
+		return it.analyzeMergeStmt(ctx, stmtNode.(*ast.MergeStmtNode))
 	case ast.QueryStmt:
 		ctx = withUseColumnID(ctx)
 		return it.analyzeQueryStmt(ctx, stmtNode.(*ast.QueryStmtNode))
+	case ast.BeginStmt:
+		return it.analyzeBeginStmt(ctx, stmtNode)
+	case ast.CommitStmt:
+		return it.analyzeCommitStmt(ctx, stmtNode)
 	}
 	return nil, fmt.Errorf("unsupported stmt %s", stmtNode.DebugString())
 }
 
-func (it *AnalyzerOutputIterator) analyzeCreateTableStmt(node *ast.CreateTableStmtNode) (*AnalyzerOutput, error) {
+func (it *AnalyzerOutputIterator) analyzeCreateTableStmt(ctx context.Context, node *ast.CreateTableStmtNode) (*AnalyzerOutput, error) {
 	spec := newTableSpec(it.analyzer.namePath, node)
 	params := it.getParamsFromNode(node)
 	args, err := it.getArgsFromParams(params)
@@ -284,8 +321,8 @@ func (it *AnalyzerOutputIterator) analyzeCreateTableStmt(node *ast.CreateTableSt
 			return newCreateTableStmt(s, conn, it.analyzer.catalog, spec), nil
 		},
 		ExecContext: func(ctx context.Context, conn *Conn) (driver.Result, error) {
+			dropTableQuery := fmt.Sprintf("DROP TABLE IF EXISTS `%s`", spec.TableName())
 			if spec.CreateMode == ast.CreateOrReplaceMode {
-				dropTableQuery := fmt.Sprintf("DROP TABLE IF EXISTS `%s`", spec.TableName())
 				if _, err := conn.ExecContext(ctx, dropTableQuery); err != nil {
 					return nil, err
 				}
@@ -295,6 +332,66 @@ func (it *AnalyzerOutputIterator) analyzeCreateTableStmt(node *ast.CreateTableSt
 			}
 			if err := it.analyzer.catalog.AddNewTableSpec(ctx, conn, spec); err != nil {
 				return nil, fmt.Errorf("failed to add new table spec: %w", err)
+			}
+			if spec.IsTemp {
+				stmt, err := zetasql.ParseStatement(dropTableQuery, nil)
+				if err != nil {
+					return nil, err
+				}
+				it.stmts = append(it.stmts, stmt)
+			}
+			return nil, nil
+		},
+	}, nil
+}
+
+func (it *AnalyzerOutputIterator) analyzeCreateTableAsSelectStmt(ctx context.Context, node *ast.CreateTableAsSelectStmtNode) (*AnalyzerOutput, error) {
+	query, err := newNode(node.Query()).FormatSQL(ctx)
+	if err != nil {
+		return nil, err
+	}
+	spec := newTableAsSelectSpec(it.analyzer.namePath, query, node)
+	params := it.getParamsFromNode(node)
+	args, err := it.getArgsFromParams(params)
+	if err != nil {
+		return nil, err
+	}
+	return &AnalyzerOutput{
+		node:   node,
+		query:  it.query,
+		params: params,
+		Prepare: func(ctx context.Context, conn *Conn) (driver.Stmt, error) {
+			if spec.CreateMode == ast.CreateOrReplaceMode {
+				query := fmt.Sprintf("DROP TABLE IF EXISTS `%s`", spec.TableName())
+				if _, err := conn.ExecContext(ctx, query); err != nil {
+					return nil, err
+				}
+			}
+			s, err := conn.PrepareContext(ctx, spec.SQLiteSchema())
+			if err != nil {
+				return nil, fmt.Errorf("failed to prepare %s: %w", it.query, err)
+			}
+			return newCreateTableStmt(s, conn, it.analyzer.catalog, spec), nil
+		},
+		ExecContext: func(ctx context.Context, conn *Conn) (driver.Result, error) {
+			dropTableQuery := fmt.Sprintf("DROP TABLE IF EXISTS `%s`", spec.TableName())
+			if spec.CreateMode == ast.CreateOrReplaceMode {
+				if _, err := conn.ExecContext(ctx, dropTableQuery); err != nil {
+					return nil, err
+				}
+			}
+			if _, err := conn.ExecContext(ctx, spec.SQLiteSchema(), args...); err != nil {
+				return nil, fmt.Errorf("failed to exec %s: %w", it.query, err)
+			}
+			if err := it.analyzer.catalog.AddNewTableSpec(ctx, conn, spec); err != nil {
+				return nil, fmt.Errorf("failed to add new table spec: %w", err)
+			}
+			if spec.IsTemp {
+				stmt, err := zetasql.ParseStatement(dropTableQuery, nil)
+				if err != nil {
+					return nil, err
+				}
+				it.stmts = append(it.stmts, stmt)
 			}
 			return nil, nil
 		},
@@ -406,6 +503,222 @@ func (it *AnalyzerOutputIterator) analyzeQueryStmt(ctx context.Context, node *as
 	}, nil
 }
 
+func (it *AnalyzerOutputIterator) analyzeBeginStmt(ctx context.Context, node ast.Node) (*AnalyzerOutput, error) {
+	return &AnalyzerOutput{
+		node:           node,
+		query:          it.query,
+		formattedQuery: "",
+		isQuery:        true,
+		Prepare: func(ctx context.Context, conn *Conn) (driver.Stmt, error) {
+			return nil, nil
+		},
+		QueryContext: func(ctx context.Context, conn *Conn) (driver.Rows, error) {
+			return nil, nil
+		},
+		ExecContext: func(ctx context.Context, conn *Conn) (driver.Result, error) {
+			return nil, nil
+		},
+	}, nil
+}
+
+func (it *AnalyzerOutputIterator) analyzeCommitStmt(ctx context.Context, node ast.Node) (*AnalyzerOutput, error) {
+	return &AnalyzerOutput{
+		node:           node,
+		query:          it.query,
+		formattedQuery: "",
+		isQuery:        true,
+		Prepare: func(ctx context.Context, conn *Conn) (driver.Stmt, error) {
+			return nil, nil
+		},
+		QueryContext: func(ctx context.Context, conn *Conn) (driver.Rows, error) {
+			return nil, nil
+		},
+		ExecContext: func(ctx context.Context, conn *Conn) (driver.Result, error) {
+			return nil, nil
+		},
+	}, nil
+}
+
+func (it *AnalyzerOutputIterator) analyzeTruncateStmt(ctx context.Context, node *ast.TruncateStmtNode) (*AnalyzerOutput, error) {
+	return &AnalyzerOutput{
+		node:           node,
+		query:          it.query,
+		formattedQuery: "",
+		isQuery:        true,
+		Prepare: func(ctx context.Context, conn *Conn) (driver.Stmt, error) {
+			return nil, nil
+		},
+		QueryContext: func(ctx context.Context, conn *Conn) (driver.Rows, error) {
+			return nil, nil
+		},
+		ExecContext: func(ctx context.Context, conn *Conn) (driver.Result, error) {
+			table := node.TableScan().Table().Name()
+			query := fmt.Sprintf("DELETE FROM `%s`", table)
+			if _, err := conn.ExecContext(ctx, query); err != nil {
+				return nil, fmt.Errorf("failed to truncate %s: %w", query, err)
+			}
+			return nil, nil
+		},
+	}, nil
+}
+
+func (it *AnalyzerOutputIterator) analyzeMergeStmt(ctx context.Context, node *ast.MergeStmtNode) (*AnalyzerOutput, error) {
+	targetTable, err := newNode(node.TableScan()).FormatSQL(ctx)
+	if err != nil {
+		return nil, err
+	}
+	sourceTable, err := newNode(node.FromScan()).FormatSQL(ctx)
+	if err != nil {
+		return nil, err
+	}
+	expr, err := newNode(node.MergeExpr()).FormatSQL(ctx)
+	if err != nil {
+		return nil, err
+	}
+	fn, ok := node.MergeExpr().(*ast.FunctionCallNode)
+	if !ok {
+		return nil, fmt.Errorf("currently MERGE expression is supported equal expression only")
+	}
+	if fn.Function().FullName(false) != "$equal" {
+		return nil, fmt.Errorf("currently MERGE expression is supported equal expression only")
+	}
+	args := fn.ArgumentList()
+	if len(args) != 2 {
+		return nil, fmt.Errorf("unexpected MERGE expression column num. expected 2 column but specified %d column", len(args))
+	}
+	colA, ok := args[0].(*ast.ColumnRefNode)
+	if !ok {
+		return nil, fmt.Errorf("unexpected MERGE expression. expected column reference but got %T", args[0])
+	}
+	colB, ok := args[1].(*ast.ColumnRefNode)
+	if !ok {
+		return nil, fmt.Errorf("unexpected MERGE expression. expected column reference but got %T", args[1])
+	}
+	var (
+		sourceColumn *ast.Column
+		targetColumn *ast.Column
+	)
+	if strings.Contains(sourceTable, colA.Column().TableName()) {
+		sourceColumn = colA.Column()
+		targetColumn = colB.Column()
+	} else {
+		sourceColumn = colB.Column()
+		targetColumn = colA.Column()
+	}
+	mergedTableSourceColumnName := fmt.Sprintf("`%s`", string(uniqueColumnName(ctx, sourceColumn)))
+	mergedTableTargetColumnName := fmt.Sprintf("`%s`", string(uniqueColumnName(ctx, targetColumn)))
+	mergedTableOutputColumns := []string{
+		mergedTableTargetColumnName,
+		mergedTableSourceColumnName,
+	}
+	var stmts []string
+	stmts = append(stmts, fmt.Sprintf(
+		"CREATE TABLE zetasqlite_merged_table AS SELECT DISTINCT * FROM (SELECT * FROM %[1]s LEFT JOIN %[2]s ON %[3]s UNION ALL SELECT * FROM %[2]s LEFT JOIN %[1]s ON %[3]s)",
+		sourceTable, targetTable, expr,
+	))
+
+	// exists target table and source table
+	matchedFromStmt := fmt.Sprintf(
+		"FROM zetasqlite_merged_table WHERE %[2]s = %[1]s AND %[3]s = %[1]s",
+		targetColumn.Name(),
+		mergedTableSourceColumnName,
+		mergedTableTargetColumnName,
+	)
+
+	// exists target table but not exists source table
+	notMatchedBySourceFromStmt := fmt.Sprintf(
+		"FROM zetasqlite_merged_table WHERE %[2]s = `%[1]s` AND %[3]s IS NULL",
+		targetColumn.Name(),
+		mergedTableTargetColumnName,
+		mergedTableSourceColumnName,
+	)
+
+	// exists source table but not exists target table
+	notMatchedByTargetFromStmt := fmt.Sprintf(
+		"FROM zetasqlite_merged_table WHERE %[2]s = `%[1]s` AND %[3]s IS NULL",
+		sourceColumn.Name(),
+		mergedTableSourceColumnName,
+		mergedTableTargetColumnName,
+	)
+	for _, when := range node.WhenClauseList() {
+		var fromStmt string
+		switch when.MatchType() {
+		case ast.MatchTypeMatched:
+			fromStmt = matchedFromStmt
+		case ast.MatchTypeNotMatchedBySource:
+			fromStmt = notMatchedBySourceFromStmt
+		case ast.MatchTypeNotMatchedByTarget:
+			fromStmt = notMatchedByTargetFromStmt
+		}
+		whereStmt := fmt.Sprintf(
+			"WHERE EXISTS(SELECT %s %s)",
+			strings.Join(mergedTableOutputColumns, ","),
+			fromStmt,
+		)
+		switch when.ActionType() {
+		case ast.ActionTypeInsert:
+			var columns []string
+			for _, col := range when.InsertColumnList() {
+				columns = append(columns, fmt.Sprintf("`%s`", col.Name()))
+			}
+			row, err := newNode(when.InsertRow()).FormatSQL(unuseColumnID(ctx))
+			if err != nil {
+				return nil, err
+			}
+			stmts = append(stmts, fmt.Sprintf(
+				"INSERT INTO `%[1]s`(%[2]s) SELECT %[3]s FROM (SELECT * FROM `%[4]s` %[5]s)",
+				targetColumn.TableName(),
+				strings.Join(columns, ","),
+				row,
+				sourceColumn.TableName(),
+				whereStmt,
+			))
+		case ast.ActionTypeUpdate:
+			var items []string
+			for _, item := range when.UpdateItemList() {
+				sql, err := newNode(item).FormatSQL(ctx)
+				if err != nil {
+					return nil, err
+				}
+				items = append(items, sql)
+			}
+			stmts = append(stmts, fmt.Sprintf(
+				"UPDATE `%s` SET %s %s",
+				targetColumn.TableName(),
+				strings.Join(items, ","),
+				fromStmt,
+			))
+		case ast.ActionTypeDelete:
+			stmts = append(stmts, fmt.Sprintf(
+				"DELETE FROM `%s` %s",
+				targetColumn.TableName(),
+				whereStmt,
+			))
+		}
+	}
+	stmts = append(stmts, "DROP TABLE zetasqlite_merged_table")
+	return &AnalyzerOutput{
+		node:           node,
+		query:          it.query,
+		formattedQuery: "",
+		isQuery:        true,
+		Prepare: func(ctx context.Context, conn *Conn) (driver.Stmt, error) {
+			return nil, nil
+		},
+		QueryContext: func(ctx context.Context, conn *Conn) (driver.Rows, error) {
+			return nil, nil
+		},
+		ExecContext: func(ctx context.Context, conn *Conn) (driver.Result, error) {
+			for _, stmt := range stmts {
+				if _, err := conn.ExecContext(ctx, stmt); err != nil {
+					return nil, fmt.Errorf("failed to exec merge statement %s: %w", stmt, err)
+				}
+			}
+			return nil, nil
+		},
+	}, nil
+}
+
 func (it *AnalyzerOutputIterator) getParamsFromNode(node ast.Node) []*ast.ParameterNode {
 	var params []*ast.ParameterNode
 	ast.Walk(node, func(n ast.Node) error {
@@ -420,6 +733,9 @@ func (it *AnalyzerOutputIterator) getParamsFromNode(node ast.Node) []*ast.Parame
 
 func (it *AnalyzerOutputIterator) getArgsFromParams(params []*ast.ParameterNode) ([]interface{}, error) {
 	argNum := len(params)
+	if len(it.args) < argNum {
+		return nil, fmt.Errorf("not enough query arguments")
+	}
 	newNamedValues, err := EncodeNamedValues(it.args[:argNum], params)
 	if err != nil {
 		return nil, err

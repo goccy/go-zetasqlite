@@ -103,8 +103,16 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 - [x] UPDATE
 - [x] INSERT
 - [x] DELETE
+- [x] DROP
+- [x] TRUNCATE
+- [x] MERGE
+- [x] BEGIN-END
+- [x] BEGIN TRANSACTION
+- [x] COMMIT TRANSACTION
 - [x] CREATE TABLE
 - [x] CREATE FUNCTION
+- [x] CREATE TEMPORARY TABLE
+- [x] CREATE TEMPORARY FUNCTION
 
 ## Standard SQL Features
 

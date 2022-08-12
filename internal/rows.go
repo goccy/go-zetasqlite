@@ -177,7 +177,7 @@ func (r *Rows) convertValue(value interface{}, typ *Type) (driver.Value, error) 
 		if err != nil {
 			return nil, err
 		}
-		return s.m, nil
+		return s.Interface(), nil
 	case types.DATE:
 		val, err := ValueOf(value)
 		if err != nil {

@@ -935,11 +935,13 @@ func (sv *StructValue) Format(verb rune) string {
 }
 
 func (sv *StructValue) Interface() interface{} {
-	mapV := map[string]interface{}{}
-	for k, v := range sv.m {
-		mapV[k] = v.Interface()
+	fields := []map[string]interface{}{}
+	for i := 0; i < len(sv.keys); i++ {
+		fields = append(fields, map[string]interface{}{
+			sv.keys[i]: sv.values[i].Interface(),
+		})
 	}
-	return mapV
+	return fields
 }
 
 type DateValue time.Time
@@ -2311,7 +2313,7 @@ func encodeValueWithType(v interface{}, t types.Type) (interface{}, error) {
 		if err != nil {
 			return nil, err
 		}
-		return []byte(s), nil
+		return base64.StdEncoding.EncodeToString([]byte(s)), nil
 	case types.DATE:
 		text, ok := v.(string)
 		if !ok {
@@ -2325,17 +2327,86 @@ func encodeValueWithType(v interface{}, t types.Type) (interface{}, error) {
 		}
 		return toTimestampValueFromString(text)
 	case types.ARRAY:
-		b, err := json.Marshal(v)
-		if err != nil {
-			return nil, fmt.Errorf("failed to encode array value %v: %w", v, err)
+		rv := reflect.ValueOf(v)
+		if rv.Kind() != reflect.Slice && rv.Kind() != reflect.Array {
+			return nil, fmt.Errorf("failed to convert %v to array", v)
 		}
-		return toArrayValueFromJSONString(string(b)), nil
+		elemType := t.AsArray().ElementType()
+		var values []string
+		for i := 0; i < rv.Len(); i++ {
+			value, err := encodeValueWithType(rv.Index(i).Interface(), elemType)
+			if err != nil {
+				return nil, err
+			}
+			if value == nil {
+				values = append(values, "null")
+			} else if elemType.Kind() == types.STRING || elemType.Kind() == types.BYTES {
+				values = append(values, strconv.Quote(fmt.Sprint(value)))
+			} else {
+				values = append(values, fmt.Sprint(value))
+			}
+		}
+		value := fmt.Sprintf("[%s]", strings.Join(values, ","))
+		return toArrayValueFromJSONString(value), nil
 	case types.STRUCT:
-		b, err := json.Marshal(v)
-		if err != nil {
-			return nil, fmt.Errorf("failed to encode struct value %v: %w", v, err)
+		rv := reflect.ValueOf(v)
+		switch rv.Kind() {
+		case reflect.Ptr:
+			return encodeValueWithType(rv.Elem().Interface(), t)
+		case reflect.Struct:
+			st := t.AsStruct()
+			structType := rv.Type()
+			fields := make([]string, 0, rv.NumField())
+			for i := 0; i < rv.NumField(); i++ {
+				typ := st.Field(i).Type()
+				field, err := encodeValueWithType(rv.Field(i), typ)
+				if err != nil {
+					return nil, err
+				}
+				if field == nil {
+					fields = append(fields, fmt.Sprintf(`"%s":null`))
+				} else if typ.Kind() == types.STRING || typ.Kind() == types.BYTES {
+					fields = append(fields, strconv.Quote(fmt.Sprint(field)))
+				} else {
+					fields = append(fields, fmt.Sprintf(`"%s":%s`, structType.Field(i), fmt.Sprint(field)))
+				}
+			}
+			value := fmt.Sprintf("{%s}", strings.Join(fields, ","))
+			return toStructValueFromJSONString(value), nil
+		case reflect.Slice:
+			// we expect []map[string]interface{} type for struct
+			st := t.AsStruct()
+			if st.NumFields() != rv.Len() {
+				return nil, fmt.Errorf("unexpected field number. expected %d but got %d", st.NumFields(), rv.Len())
+			}
+			fields := make([]string, 0, rv.Len())
+			for i := 0; i < rv.Len(); i++ {
+				elem := rv.Index(i)
+				if elem.Kind() != reflect.Map {
+					return nil, fmt.Errorf("unexpected element type of slice %s for struct type. please use map[string]interface{}", elem.Kind())
+				}
+				keys := elem.MapKeys()
+				if len(keys) != 1 {
+					return nil, fmt.Errorf("unexpected map key number. expected one key for column but got %d", len(keys))
+				}
+				if keys[0].Kind() != reflect.String {
+					return nil, fmt.Errorf("unexpected map key type. expected string type but got %s", keys[0].Kind())
+				}
+				fieldName := keys[0].Interface().(string)
+				fieldValue := elem.MapIndex(keys[0]).Interface()
+				field, err := encodeValueWithType(fieldValue, st.Field(i).Type())
+				if err != nil {
+					return nil, err
+				}
+				fields = append(fields, fmt.Sprintf(`"%s":%s`, fieldName, fmt.Sprint(field)))
+			}
+			value := fmt.Sprintf("{%s}", strings.Join(fields, ","))
+			return toStructValueFromJSONString(value), nil
+		case reflect.Map:
+			return nil, fmt.Errorf("unsupported map type for STRUCT column. please use slice or struct type")
+		default:
+			return nil, fmt.Errorf("failed to convert %v to struct", v)
 		}
-		return toStructValueFromJSONString(string(b)), nil
 	case types.TIME:
 		text, ok := v.(string)
 		if !ok {

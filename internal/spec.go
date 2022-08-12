@@ -45,9 +45,11 @@ func (s *FunctionSpec) SQL() string {
 }
 
 type TableSpec struct {
+	IsTemp     bool           `json:"isTemp"`
 	NamePath   []string       `json:"namePath"`
 	Columns    []*ColumnSpec  `json:"columns"`
 	CreateMode ast.CreateMode `json:"createMode"`
+	Query      string         `json:"query"`
 }
 
 func (s *TableSpec) Column(name string) *ColumnSpec {
@@ -64,6 +66,9 @@ func (s *TableSpec) TableName() string {
 }
 
 func (s *TableSpec) SQLiteSchema() string {
+	if s.Query != "" {
+		return fmt.Sprintf("CREATE TABLE `%s` AS %s", s.TableName(), s.Query)
+	}
 	columns := []string{}
 	for _, c := range s.Columns {
 		columns = append(columns, c.SQLiteSchema())
@@ -202,9 +207,9 @@ func newFunctionSpec(ctx context.Context, namePath []string, stmt *ast.CreateFun
 	}, nil
 }
 
-func newTableSpec(namePath []string, stmt *ast.CreateTableStmtNode) *TableSpec {
+func newColumnsFromDef(def []*ast.ColumnDefinitionNode) []*ColumnSpec {
 	columns := []*ColumnSpec{}
-	for _, columnNode := range stmt.ColumnDefinitionList() {
+	for _, columnNode := range def {
 		annotation := columnNode.Annotations()
 		var isNotNull bool
 		if annotation != nil {
@@ -221,10 +226,25 @@ func newTableSpec(namePath []string, stmt *ast.CreateTableStmtNode) *TableSpec {
 			IsNotNull: isNotNull,
 		})
 	}
+	return columns
+}
+
+func newTableSpec(namePath []string, stmt *ast.CreateTableStmtNode) *TableSpec {
 	return &TableSpec{
+		IsTemp:     stmt.CreateScope() == ast.CreateScopeTemp,
 		NamePath:   MergeNamePath(namePath, stmt.NamePath()),
-		Columns:    columns,
+		Columns:    newColumnsFromDef(stmt.ColumnDefinitionList()),
 		CreateMode: stmt.CreateMode(),
+	}
+}
+
+func newTableAsSelectSpec(namePath []string, query string, stmt *ast.CreateTableAsSelectStmtNode) *TableSpec {
+	return &TableSpec{
+		IsTemp:     stmt.CreateScope() == ast.CreateScopeTemp,
+		NamePath:   MergeNamePath(namePath, stmt.NamePath()),
+		Columns:    newColumnsFromDef(stmt.ColumnDefinitionList()),
+		CreateMode: stmt.CreateMode(),
+		Query:      query,
 	}
 }
 
