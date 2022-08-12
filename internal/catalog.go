@@ -121,8 +121,10 @@ func (c *Catalog) AddNewTableSpec(ctx context.Context, conn *Conn, spec *TableSp
 	if err := c.addTableSpec(spec); err != nil {
 		return err
 	}
-	if err := c.saveTableSpec(ctx, conn, spec); err != nil {
-		return err
+	if !spec.IsTemp {
+		if err := c.saveTableSpec(ctx, conn, spec); err != nil {
+			return err
+		}
 	}
 	return nil
 }

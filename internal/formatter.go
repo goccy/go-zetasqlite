@@ -44,14 +44,19 @@ func getTableName(ctx context.Context, t types.Table) string {
 
 func uniqueColumnName(ctx context.Context, col *ast.Column) []byte {
 	colName := string([]byte(col.Name()))
-	if !useColumnID(ctx) {
-		copied := make([]byte, 0, len(colName))
-		copied = append(copied, colName...)
+	if useTableNameForColumn(ctx) {
+		copied := make([]byte, 0, len(col.TableName())+len(colName)+5)
+		copied = append(copied, fmt.Sprintf("%s.%s", col.TableName(), colName)...)
 		return copied
 	}
-	colID := col.ColumnID()
-	copied := make([]byte, 0, len(colName)+len(fmt.Sprint(colID))+1)
-	copied = append(copied, fmt.Sprintf("%s#%d", colName, colID)...)
+	if useColumnID(ctx) {
+		colID := col.ColumnID()
+		copied := make([]byte, 0, len(colName)+len(fmt.Sprint(colID))+1)
+		copied = append(copied, fmt.Sprintf("%s#%d", colName, colID)...)
+		return copied
+	}
+	copied := make([]byte, 0, len(colName))
+	copied = append(copied, colName...)
 	return copied
 }
 
@@ -1299,7 +1304,19 @@ func (n *AbortBatchStmtNode) FormatSQL(ctx context.Context) (string, error) {
 }
 
 func (n *DropStmtNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
+	if n.node == nil {
+		return "", nil
+	}
+	tableName := FormatName(
+		MergeNamePath(
+			namePathFromContext(ctx),
+			n.node.NamePath(),
+		),
+	)
+	if n.node.IsIfExists() {
+		return fmt.Sprintf("DROP TABLE IF EXISTS `%s`", tableName), nil
+	}
+	return fmt.Sprintf("DROP TABLE `%s`", tableName), nil
 }
 
 func (n *DropMaterializedViewStmtNode) FormatSQL(ctx context.Context) (string, error) {
@@ -1422,7 +1439,7 @@ func (n *InsertRowNode) FormatSQL(ctx context.Context) (string, error) {
 		}
 		values = append(values, sql)
 	}
-	return fmt.Sprintf("(%s)", strings.Join(values, ",")), nil
+	return fmt.Sprintf("%s", strings.Join(values, ",")), nil
 }
 
 func (n *InsertStmtNode) FormatSQL(ctx context.Context) (string, error) {
@@ -1440,7 +1457,7 @@ func (n *InsertStmtNode) FormatSQL(ctx context.Context) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		rows = append(rows, sql)
+		rows = append(rows, fmt.Sprintf("(%s)", sql))
 	}
 	return fmt.Sprintf("INSERT INTO `%s` (%s) VALUES %s",
 		table,
@@ -1469,7 +1486,7 @@ func (n *UpdateItemNode) FormatSQL(ctx context.Context) (string, error) {
 	if n.node == nil {
 		return "", nil
 	}
-	target, err := newNode(n.node.Target()).FormatSQL(ctx)
+	target, err := newNode(n.node.Target()).FormatSQL(unuseColumnID(withoutUseTableNameForColumn(ctx)))
 	if err != nil {
 		return "", err
 	}

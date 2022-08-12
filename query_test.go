@@ -1191,15 +1191,27 @@ FROM finishers`,
 			expectedRows: [][]interface{}{
 				{
 					[]interface{}{
-						map[string]interface{}{
-							"_field_1": float64(1),
-							"_field_2": float64(2),
-							"_field_3": float64(3),
+						[]map[string]interface{}{
+							map[string]interface{}{
+								"_field_1": float64(1),
+							},
+							map[string]interface{}{
+								"_field_2": float64(2),
+							},
+							map[string]interface{}{
+								"_field_3": float64(3),
+							},
 						},
-						map[string]interface{}{
-							"_field_1": float64(4),
-							"_field_2": float64(5),
-							"_field_3": float64(6),
+						[]map[string]interface{}{
+							map[string]interface{}{
+								"_field_1": float64(4),
+							},
+							map[string]interface{}{
+								"_field_2": float64(5),
+							},
+							map[string]interface{}{
+								"_field_3": float64(6),
+							},
 						},
 					},
 				},
@@ -1211,18 +1223,22 @@ FROM finishers`,
 			expectedRows: [][]interface{}{
 				{
 					[]interface{}{
-						map[string]interface{}{
-							"_field_1": []interface{}{
-								float64(1),
-								float64(2),
-								float64(3),
+						[]map[string]interface{}{
+							map[string]interface{}{
+								"_field_1": []interface{}{
+									float64(1),
+									float64(2),
+									float64(3),
+								},
 							},
 						},
-						map[string]interface{}{
-							"_field_1": []interface{}{
-								float64(4),
-								float64(5),
-								float64(6),
+						[]map[string]interface{}{
+							map[string]interface{}{
+								"_field_1": []interface{}{
+									float64(4),
+									float64(5),
+									float64(6),
+								},
 							},
 						},
 					},
@@ -2224,6 +2240,16 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			name:         "generate_uuid",
 			query:        `SELECT LENGTH(GENERATE_UUID())`,
 			expectedRows: [][]interface{}{{int64(36)}},
+		},
+
+		// begin-end
+		{
+			name: "begin-end",
+			query: `
+BEGIN
+  SELECT 1;
+END;`,
+			expectedRows: [][]interface{}{{int64(1)}},
 		},
 
 		// create temp function

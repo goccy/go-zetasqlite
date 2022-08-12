@@ -23,6 +23,7 @@ type (
 	tableNameToColumnListMapKey     struct{}
 	useColumnIDKey                  struct{}
 	rowIDColumnKey                  struct{}
+	useTableNameForColumnKey        struct{}
 )
 
 func namePathFromContext(ctx context.Context) []string {
@@ -180,6 +181,26 @@ func withUseColumnID(ctx context.Context) context.Context {
 
 func useColumnID(ctx context.Context) bool {
 	value := ctx.Value(useColumnIDKey{})
+	if value == nil {
+		return false
+	}
+	return value.(bool)
+}
+
+func unuseColumnID(ctx context.Context) context.Context {
+	return context.WithValue(ctx, useColumnIDKey{}, false)
+}
+
+func withUseTableNameForColumn(ctx context.Context) context.Context {
+	return context.WithValue(ctx, useTableNameForColumnKey{}, true)
+}
+
+func withoutUseTableNameForColumn(ctx context.Context) context.Context {
+	return context.WithValue(ctx, useTableNameForColumnKey{}, false)
+}
+
+func useTableNameForColumn(ctx context.Context) bool {
+	value := ctx.Value(useTableNameForColumnKey{})
 	if value == nil {
 		return false
 	}
