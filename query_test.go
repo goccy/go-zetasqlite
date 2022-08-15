@@ -2261,6 +2261,30 @@ SELECT Add(3, 4);
 `,
 			expectedRows: [][]interface{}{{int64(7)}},
 		},
+
+		// except
+		{
+			name:         "except",
+			query:        `WITH orders AS (SELECT 5 as order_id, "sprocket" as item_name, 200 as quantity) SELECT * EXCEPT (order_id) FROM orders`,
+			expectedRows: [][]interface{}{{"sprocket", int64(200)}},
+		},
+		{
+			name:         "except",
+			query:        `SELECT * FROM UNNEST(ARRAY<int64>[1, 2, 3]) AS number EXCEPT DISTINCT SELECT 1`,
+			expectedRows: [][]interface{}{{int64(2)}, {int64(3)}},
+		},
+
+		// replace
+		{
+			name:         "replace",
+			query:        `WITH orders AS (SELECT 5 as order_id, "sprocket" as item_name, 200 as quantity) SELECT * REPLACE ("widget" AS item_name) FROM orders`,
+			expectedRows: [][]interface{}{{int64(5), "widget", int64(200)}},
+		},
+		{
+			name:         "replace",
+			query:        `WITH orders AS (SELECT 5 as order_id, "sprocket" as item_name, 200 as quantity) SELECT * REPLACE (quantity/2 AS quantity) FROM orders`,
+			expectedRows: [][]interface{}{{int64(5), "sprocket", float64(100)}},
+		},
 	} {
 		test := test
 		t.Run(test.name, func(t *testing.T) {

@@ -808,11 +808,11 @@ func (n *SetOperationScanNode) FormatSQL(ctx context.Context) (string, error) {
 	case ast.SetOperationTypeIntersectAll:
 		opType = "INTERSECT ALL"
 	case ast.SetOperationTypeIntersectDistinct:
-		opType = "INTERSECT DISTINCT"
+		opType = "INTERSECT"
 	case ast.SetOperationTypeExceptAll:
 		opType = "EXCEPT ALL"
 	case ast.SetOperationTypeExceptDistinct:
-		opType = "EXCEPT DISTINCT"
+		opType = "EXCEPT"
 	default:
 		opType = "UNKONWN"
 	}

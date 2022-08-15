@@ -160,6 +160,8 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 - [X] GROUP BY - ROLLUP
 - [X] INNER/LEFT/RIGHT/FULL/CROSS JOIN
 - [x] QUALIFY
+- [x] EXCEPT
+- [x] REPLACE
 
 ### Aggregate functions
 
