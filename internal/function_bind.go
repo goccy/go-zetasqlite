@@ -2767,3 +2767,165 @@ func bindWindowRowNumber(converter ReturnValueConverter) func() *WindowAggregato
 		)
 	}
 }
+
+func bindWindowCorr(converter ReturnValueConverter) func() *WindowAggregator {
+	return func() *WindowAggregator {
+		fn := &WINDOW_CORR{}
+		return newWindowAggregator(
+			func(args []Value, opt *AggregatorOption, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+				if len(args) != 2 {
+					return fmt.Errorf("WINDOW_CORR: invalid argument num %d", len(args))
+				}
+				return fn.Step(args[0], args[1], windowOpt, agg)
+			},
+			func(agg *WindowFuncAggregatedStatus) (Value, error) {
+				return fn.Done(agg)
+			},
+			converter,
+		)
+	}
+}
+
+func bindWindowCovarPop(converter ReturnValueConverter) func() *WindowAggregator {
+	return func() *WindowAggregator {
+		fn := &WINDOW_COVAR_POP{}
+		return newWindowAggregator(
+			func(args []Value, opt *AggregatorOption, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+				if len(args) != 2 {
+					return fmt.Errorf("WINDOW_COVAR_POP: invalid argument num %d", len(args))
+				}
+				return fn.Step(args[0], args[1], windowOpt, agg)
+			},
+			func(agg *WindowFuncAggregatedStatus) (Value, error) {
+				return fn.Done(agg)
+			},
+			converter,
+		)
+	}
+}
+
+func bindWindowCovarSamp(converter ReturnValueConverter) func() *WindowAggregator {
+	return func() *WindowAggregator {
+		fn := &WINDOW_COVAR_SAMP{}
+		return newWindowAggregator(
+			func(args []Value, opt *AggregatorOption, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+				if len(args) != 2 {
+					return fmt.Errorf("WINDOW_COVAR_SAMP: invalid argument num %d", len(args))
+				}
+				return fn.Step(args[0], args[1], windowOpt, agg)
+			},
+			func(agg *WindowFuncAggregatedStatus) (Value, error) {
+				return fn.Done(agg)
+			},
+			converter,
+		)
+	}
+}
+
+func bindWindowStdDevPop(converter ReturnValueConverter) func() *WindowAggregator {
+	return func() *WindowAggregator {
+		fn := &WINDOW_STDDEV_POP{}
+		return newWindowAggregator(
+			func(args []Value, opt *AggregatorOption, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+				if len(args) != 1 {
+					return fmt.Errorf("WINDOW_STDDEV_POP: invalid argument num %d", len(args))
+				}
+				return fn.Step(args[0], windowOpt, agg)
+			},
+			func(agg *WindowFuncAggregatedStatus) (Value, error) {
+				return fn.Done(agg)
+			},
+			converter,
+		)
+	}
+}
+
+func bindWindowStdDevSamp(converter ReturnValueConverter) func() *WindowAggregator {
+	return func() *WindowAggregator {
+		fn := &WINDOW_STDDEV_SAMP{}
+		return newWindowAggregator(
+			func(args []Value, opt *AggregatorOption, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+				if len(args) != 1 {
+					return fmt.Errorf("WINDOW_STDDEV_SAMP: invalid argument num %d", len(args))
+				}
+				return fn.Step(args[0], windowOpt, agg)
+			},
+			func(agg *WindowFuncAggregatedStatus) (Value, error) {
+				return fn.Done(agg)
+			},
+			converter,
+		)
+	}
+}
+
+func bindWindowStdDev(converter ReturnValueConverter) func() *WindowAggregator {
+	return func() *WindowAggregator {
+		fn := &WINDOW_STDDEV_SAMP{}
+		return newWindowAggregator(
+			func(args []Value, opt *AggregatorOption, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+				if len(args) != 1 {
+					return fmt.Errorf("WINDOW_STDDEV: invalid argument num %d", len(args))
+				}
+				return fn.Step(args[0], windowOpt, agg)
+			},
+			func(agg *WindowFuncAggregatedStatus) (Value, error) {
+				return fn.Done(agg)
+			},
+			converter,
+		)
+	}
+}
+
+func bindWindowVarPop(converter ReturnValueConverter) func() *WindowAggregator {
+	return func() *WindowAggregator {
+		fn := &WINDOW_VAR_POP{}
+		return newWindowAggregator(
+			func(args []Value, opt *AggregatorOption, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+				if len(args) != 1 {
+					return fmt.Errorf("WINDOW_VAR_POP: invalid argument num %d", len(args))
+				}
+				return fn.Step(args[0], windowOpt, agg)
+			},
+			func(agg *WindowFuncAggregatedStatus) (Value, error) {
+				return fn.Done(agg)
+			},
+			converter,
+		)
+	}
+}
+
+func bindWindowVarSamp(converter ReturnValueConverter) func() *WindowAggregator {
+	return func() *WindowAggregator {
+		fn := &WINDOW_VAR_SAMP{}
+		return newWindowAggregator(
+			func(args []Value, opt *AggregatorOption, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+				if len(args) != 1 {
+					return fmt.Errorf("WINDOW_VAR_SAMP: invalid argument num %d", len(args))
+				}
+				return fn.Step(args[0], windowOpt, agg)
+			},
+			func(agg *WindowFuncAggregatedStatus) (Value, error) {
+				return fn.Done(agg)
+			},
+			converter,
+		)
+	}
+}
+
+func bindWindowVariance(converter ReturnValueConverter) func() *WindowAggregator {
+	return func() *WindowAggregator {
+		fn := &WINDOW_VAR_SAMP{}
+		return newWindowAggregator(
+			func(args []Value, opt *AggregatorOption, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+				if len(args) != 1 {
+					return fmt.Errorf("WINDOW_VARIANCE: invalid argument num %d", len(args))
+				}
+				return fn.Step(args[0], windowOpt, agg)
+			},
+			func(agg *WindowFuncAggregatedStatus) (Value, error) {
+				return fn.Done(agg)
+			},
+			converter,
+		)
+	}
+}

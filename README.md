@@ -183,15 +183,15 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 
 ### Statistical aggregate functions
 
-- [ ] CORR
-- [ ] COVAR_POP
-- [ ] COVAR_SAMP
-- [ ] STDDEV_POP
-- [ ] STDDEV_SAMP
-- [ ] STDDEV
-- [ ] VAR_POP
-- [ ] VAR_SAMP
-- [ ] VARIANCE
+- [x] CORR
+- [x] COVAR_POP
+- [x] COVAR_SAMP
+- [x] STDDEV_POP
+- [x] STDDEV_SAMP
+- [x] STDDEV
+- [x] VAR_POP
+- [x] VAR_SAMP
+- [x] VARIANCE
 
 ### Approximate aggregate functions
 

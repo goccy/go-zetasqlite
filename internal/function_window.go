@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"math"
 	"sync"
+
+	"gonum.org/v1/gonum/stat"
 )
 
 type WINDOW_SUM struct {
@@ -28,15 +30,6 @@ func (f *WINDOW_SUM) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
 		initialized bool
 	)
 	if err := agg.Done(func(values []Value, start, end int) error {
-		if start >= len(values) || end < 0 {
-			return nil
-		}
-		if start < 0 {
-			start = 0
-		}
-		if end >= len(values) {
-			end = len(values) - 1
-		}
 		initialized = true
 		for _, value := range values[start : end+1] {
 			if sum == nil {
@@ -72,15 +65,6 @@ func (f *WINDOW_COUNT_STAR) Done(agg *WindowFuncAggregatedStatus) (Value, error)
 		initialized bool
 	)
 	if err := agg.Done(func(values []Value, start, end int) error {
-		if start >= len(values) || end < 0 {
-			return nil
-		}
-		if start < 0 {
-			start = 0
-		}
-		if end >= len(values) {
-			end = len(values) - 1
-		}
 		initialized = true
 		count = int64(len(values[start : end+1]))
 		return nil
@@ -110,17 +94,8 @@ func (f *WINDOW_AVG) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
 		initialized bool
 	)
 	if err := agg.Done(func(values []Value, start, end int) error {
-		if start >= len(values) || end < 0 {
-			return nil
-		}
 		if len(values) == 0 {
 			return nil
-		}
-		if start < 0 {
-			start = 0
-		}
-		if end >= len(values) {
-			end = len(values) - 1
 		}
 		initialized = true
 		for _, value := range values[start : end+1] {
@@ -166,17 +141,8 @@ func (f *WINDOW_FIRST_VALUE) Step(v Value, opt *WindowFuncStatus, agg *WindowFun
 func (f *WINDOW_FIRST_VALUE) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
 	var firstValue Value
 	if err := agg.Done(func(values []Value, start, end int) error {
-		if start >= len(values) || end < 0 {
-			return nil
-		}
 		if len(values) == 0 {
 			return nil
-		}
-		if start < 0 {
-			start = 0
-		}
-		if end >= len(values) {
-			end = len(values) - 1
 		}
 		values = values[start : end+1]
 		firstValue = values[0]
@@ -200,17 +166,8 @@ func (f *WINDOW_LAST_VALUE) Step(v Value, opt *WindowFuncStatus, agg *WindowFunc
 func (f *WINDOW_LAST_VALUE) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
 	var lastValue Value
 	if err := agg.Done(func(values []Value, start, end int) error {
-		if start >= len(values) || end < 0 {
-			return nil
-		}
 		if len(values) == 0 {
 			return nil
-		}
-		if start < 0 {
-			start = 0
-		}
-		if end >= len(values) {
-			end = len(values) - 1
 		}
 		values = values[start : end+1]
 		lastValue = values[len(values)-1]
@@ -415,4 +372,282 @@ func (f *WINDOW_ROW_NUMBER) Done(agg *WindowFuncAggregatedStatus) (Value, error)
 		return nil, err
 	}
 	return rowNum, nil
+}
+
+type WINDOW_CORR struct {
+}
+
+func (f *WINDOW_CORR) Step(x, y Value, opt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+	if x == nil || y == nil {
+		return nil
+	}
+	return agg.Step(&ArrayValue{values: []Value{x, y}}, opt)
+}
+
+func (f *WINDOW_CORR) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
+	var (
+		x []float64
+		y []float64
+	)
+	if err := agg.Done(func(values []Value, start, end int) error {
+		if len(values) < 2 {
+			return nil
+		}
+		for _, value := range values[start : end+1] {
+			arr, err := value.ToArray()
+			if err != nil {
+				return err
+			}
+			if len(arr.values) != 2 {
+				return fmt.Errorf("invalid corr arguments")
+			}
+			x1, err := arr.values[0].ToFloat64()
+			if err != nil {
+				return err
+			}
+			x2, err := arr.values[1].ToFloat64()
+			if err != nil {
+				return err
+			}
+			x = append(x, x1)
+			y = append(y, x2)
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	if len(x) == 0 || len(y) == 0 {
+		return nil, nil
+	}
+	return FloatValue(stat.Correlation(x, y, nil)), nil
+}
+
+type WINDOW_COVAR_POP struct {
+}
+
+func (f *WINDOW_COVAR_POP) Step(x, y Value, opt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+	if x == nil || y == nil {
+		return nil
+	}
+	return agg.Step(&ArrayValue{values: []Value{x, y}}, opt)
+}
+
+func (f *WINDOW_COVAR_POP) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
+	var (
+		x []float64
+		y []float64
+	)
+	if err := agg.Done(func(values []Value, start, end int) error {
+		if len(values) < 2 {
+			return nil
+		}
+		for _, value := range values[start : end+1] {
+			arr, err := value.ToArray()
+			if err != nil {
+				return err
+			}
+			if len(arr.values) != 2 {
+				return fmt.Errorf("invalid corr arguments")
+			}
+			x1, err := arr.values[0].ToFloat64()
+			if err != nil {
+				return err
+			}
+			x2, err := arr.values[1].ToFloat64()
+			if err != nil {
+				return err
+			}
+			x = append(x, x1)
+			y = append(y, x2)
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	if len(x) == 0 || len(y) == 0 {
+		return nil, nil
+	}
+	return FloatValue(stat.Covariance(x, y, nil)), nil
+}
+
+type WINDOW_COVAR_SAMP struct {
+}
+
+func (f *WINDOW_COVAR_SAMP) Step(x, y Value, opt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+	if x == nil || y == nil {
+		return nil
+	}
+	return agg.Step(&ArrayValue{values: []Value{x, y}}, opt)
+}
+
+func (f *WINDOW_COVAR_SAMP) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
+	var (
+		x []float64
+		y []float64
+	)
+	if err := agg.Done(func(values []Value, start, end int) error {
+		if len(values) < 2 {
+			return nil
+		}
+		for _, value := range values[start : end+1] {
+			arr, err := value.ToArray()
+			if err != nil {
+				return err
+			}
+			if len(arr.values) != 2 {
+				return fmt.Errorf("invalid corr arguments")
+			}
+			x1, err := arr.values[0].ToFloat64()
+			if err != nil {
+				return err
+			}
+			x2, err := arr.values[1].ToFloat64()
+			if err != nil {
+				return err
+			}
+			x = append(x, x1)
+			y = append(y, x2)
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	if len(x) == 0 || len(y) == 0 {
+		return nil, nil
+	}
+	return FloatValue(stat.Covariance(x, y, nil)), nil
+}
+
+type WINDOW_STDDEV_POP struct {
+}
+
+func (f *WINDOW_STDDEV_POP) Step(v Value, opt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+	if v == nil {
+		return nil
+	}
+	return agg.Step(v, opt)
+}
+
+func (f *WINDOW_STDDEV_POP) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
+	var stddevpop []float64
+	if err := agg.Done(func(values []Value, start, end int) error {
+		if len(values) < 2 {
+			return nil
+		}
+		for _, value := range values[start : end+1] {
+			f64, err := value.ToFloat64()
+			if err != nil {
+				return err
+			}
+			stddevpop = append(stddevpop, f64)
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	if len(stddevpop) == 0 {
+		return nil, nil
+	}
+	_, std := stat.PopMeanStdDev(stddevpop, nil)
+	return FloatValue(std), nil
+}
+
+type WINDOW_STDDEV_SAMP struct {
+}
+
+func (f *WINDOW_STDDEV_SAMP) Step(v Value, opt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+	if v == nil {
+		return nil
+	}
+	return agg.Step(v, opt)
+}
+
+func (f *WINDOW_STDDEV_SAMP) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
+	var stddevsamp []float64
+	if err := agg.Done(func(values []Value, start, end int) error {
+		if len(values) < 2 {
+			return nil
+		}
+		for _, value := range values[start : end+1] {
+			f64, err := value.ToFloat64()
+			if err != nil {
+				return err
+			}
+			stddevsamp = append(stddevsamp, f64)
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	if len(stddevsamp) == 0 {
+		return nil, nil
+	}
+	return FloatValue(stat.StdDev(stddevsamp, nil)), nil
+}
+
+type WINDOW_VAR_POP struct {
+}
+
+func (f *WINDOW_VAR_POP) Step(v Value, opt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+	if v == nil {
+		return nil
+	}
+	return agg.Step(v, opt)
+}
+
+func (f *WINDOW_VAR_POP) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
+	var varpop []float64
+	if err := agg.Done(func(values []Value, start, end int) error {
+		if len(values) < 2 {
+			return nil
+		}
+		for _, value := range values[start : end+1] {
+			f64, err := value.ToFloat64()
+			if err != nil {
+				return err
+			}
+			varpop = append(varpop, f64)
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	if len(varpop) == 0 {
+		return nil, nil
+	}
+	_, variance := stat.PopMeanVariance(varpop, nil)
+	return FloatValue(variance), nil
+}
+
+type WINDOW_VAR_SAMP struct {
+}
+
+func (f *WINDOW_VAR_SAMP) Step(v Value, opt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+	if v == nil {
+		return nil
+	}
+	return agg.Step(v, opt)
+}
+
+func (f *WINDOW_VAR_SAMP) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
+	var varsamp []float64
+	if err := agg.Done(func(values []Value, start, end int) error {
+		if len(values) < 2 {
+			return nil
+		}
+		for _, value := range values[start : end+1] {
+			f64, err := value.ToFloat64()
+			if err != nil {
+				return err
+			}
+			varsamp = append(varsamp, f64)
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	if len(varsamp) == 0 {
+		return nil, nil
+	}
+	return FloatValue(stat.Variance(varsamp, nil)), nil
 }
