@@ -1,12 +1,12 @@
 package internal
 
 import (
-	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
 	"sync"
 
+	"github.com/goccy/go-json"
 	ast "github.com/goccy/go-zetasql/resolved_ast"
 )
 

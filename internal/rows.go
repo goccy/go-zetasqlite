@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/goccy/go-json"
 	"github.com/goccy/go-zetasql/types"
 )
 
@@ -24,7 +25,8 @@ func (r *Rows) Columns() []string {
 }
 
 func (r *Rows) ColumnTypeDatabaseTypeName(i int) string {
-	return r.columns[i].Type.Name
+	encodedType, _ := json.Marshal(r.columns[i].Type)
+	return string(encodedType)
 }
 
 func (r *Rows) Close() error {
