@@ -947,6 +947,21 @@ var windowFuncs = []*WindowFuncInfo{
 		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
 	},
 	{
+		Name:        "max",
+		BindFunc:    bindWindowMax,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+	{
+		Name:        "min",
+		BindFunc:    bindWindowMin,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+	{
+		Name:        "count",
+		BindFunc:    bindWindowCount,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+	{
 		Name:        "count_star",
 		BindFunc:    bindWindowCountStar,
 		ReturnTypes: []types.TypeKind{types.INT64},

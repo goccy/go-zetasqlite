@@ -52,6 +52,99 @@ func (f *WINDOW_SUM) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
 	return sum, nil
 }
 
+type WINDOW_MAX struct {
+}
+
+func (f *WINDOW_MAX) Step(v Value, opt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+	if v == nil {
+		return nil
+	}
+	return agg.Step(v, opt)
+}
+
+func (f *WINDOW_MAX) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
+	var (
+		max Value
+	)
+	if err := agg.Done(func(values []Value, start, end int) error {
+		for _, value := range values[start : end+1] {
+			if max == nil {
+				max = value
+			} else {
+				cond, err := value.GT(max)
+				if err != nil {
+					return err
+				}
+				if cond {
+					max = value
+				}
+			}
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return max, nil
+}
+
+type WINDOW_MIN struct {
+}
+
+func (f *WINDOW_MIN) Step(v Value, opt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+	if v == nil {
+		return nil
+	}
+	return agg.Step(v, opt)
+}
+
+func (f *WINDOW_MIN) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
+	var (
+		min Value
+	)
+	if err := agg.Done(func(values []Value, start, end int) error {
+		for _, value := range values[start : end+1] {
+			if min == nil {
+				min = value
+			} else {
+				cond, err := value.LT(min)
+				if err != nil {
+					return err
+				}
+				if cond {
+					min = value
+				}
+			}
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return min, nil
+}
+
+type WINDOW_COUNT struct {
+}
+
+func (f *WINDOW_COUNT) Step(v Value, opt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+	if v == nil {
+		return nil
+	}
+	return agg.Step(v, opt)
+}
+
+func (f *WINDOW_COUNT) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
+	var (
+		count Value
+	)
+	if err := agg.Done(func(values []Value, start, end int) error {
+		count = IntValue(len(values[start : end+1]))
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return count, nil
+}
+
 type WINDOW_COUNT_STAR struct {
 }
 
