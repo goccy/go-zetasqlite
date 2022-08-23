@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"math/big"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -36,6 +37,7 @@ type Value interface {
 	ToStruct() (*StructValue, error)
 	ToJSON() (string, error)
 	ToTime() (time.Time, error)
+	ToRat() (*big.Rat, error)
 	Marshal() (string, error)
 	Format(verb rune) string
 	Interface() interface{}
@@ -155,6 +157,12 @@ func (iv IntValue) ToJSON() (string, error) {
 
 func (iv IntValue) ToTime() (time.Time, error) {
 	return time.Time{}, fmt.Errorf("failed to convert %d to time.Time type", iv)
+}
+
+func (iv IntValue) ToRat() (*big.Rat, error) {
+	r := new(big.Rat)
+	r.SetInt64(int64(iv))
+	return r, nil
 }
 
 func (iv IntValue) Marshal() (string, error) {
@@ -280,6 +288,12 @@ func (sv StringValue) ToTime() (time.Time, error) {
 		return parseDate(string(sv))
 	}
 	return time.Time{}, fmt.Errorf("failed to convert %s to time.Time type", sv)
+}
+
+func (sv StringValue) ToRat() (*big.Rat, error) {
+	r := new(big.Rat)
+	r.SetString(string(sv))
+	return r, nil
 }
 
 func (sv StringValue) Marshal() (string, error) {
@@ -409,6 +423,12 @@ func (fv FloatValue) ToTime() (time.Time, error) {
 	return time.Time{}, fmt.Errorf("failed to convert time.Time from float64: %v", fv)
 }
 
+func (fv FloatValue) ToRat() (*big.Rat, error) {
+	r := new(big.Rat)
+	r.SetFloat64(float64(fv))
+	return r, nil
+}
+
 func (fv FloatValue) Marshal() (string, error) {
 	return fmt.Sprint(fv), nil
 }
@@ -419,6 +439,160 @@ func (fv FloatValue) Format(verb rune) string {
 
 func (fv FloatValue) Interface() interface{} {
 	return float64(fv)
+}
+
+type NumericValue big.Rat
+
+func (nv *NumericValue) Add(v Value) (Value, error) {
+	z := new(big.Rat)
+	x := (*big.Rat)(nv)
+	y, err := v.ToRat()
+	if err != nil {
+		return nil, err
+	}
+	return (*NumericValue)(z.Add(x, y)), nil
+}
+
+func (nv *NumericValue) Sub(v Value) (Value, error) {
+	z := new(big.Rat)
+	x := (*big.Rat)(nv)
+	y, err := v.ToRat()
+	if err != nil {
+		return nil, err
+	}
+	zy := new(big.Rat)
+	return (*NumericValue)(z.Add(x, zy.Neg(y))), nil
+}
+
+func (nv *NumericValue) Mul(v Value) (Value, error) {
+	z := new(big.Rat)
+	x := (*big.Rat)(nv)
+	y, err := v.ToRat()
+	if err != nil {
+		return nil, err
+	}
+	return (*NumericValue)(z.Mul(x, y)), nil
+}
+
+func (nv *NumericValue) Div(v Value) (ret Value, e error) {
+	defer func() {
+		if err := recover(); err != nil {
+			e = err.(error)
+		}
+	}()
+	z := new(big.Rat)
+	x := (*big.Rat)(nv)
+	y, err := v.ToRat()
+	if err != nil {
+		return nil, err
+	}
+	zy := new(big.Rat)
+	return (*NumericValue)(z.Mul(x, zy.Inv(y))), nil
+}
+
+func (nv *NumericValue) EQ(v Value) (bool, error) {
+	x := (*big.Rat)(nv)
+	y, err := v.ToRat()
+	if err != nil {
+		return false, err
+	}
+	return x.Cmp(y) == 0, nil
+}
+
+func (nv *NumericValue) GT(v Value) (bool, error) {
+	x := (*big.Rat)(nv)
+	y, err := v.ToRat()
+	if err != nil {
+		return false, err
+	}
+	return x.Cmp(y) > 0, nil
+}
+
+func (nv *NumericValue) GTE(v Value) (bool, error) {
+	x := (*big.Rat)(nv)
+	y, err := v.ToRat()
+	if err != nil {
+		return false, err
+	}
+	return x.Cmp(y) >= 0, nil
+}
+
+func (nv *NumericValue) LT(v Value) (bool, error) {
+	x := (*big.Rat)(nv)
+	y, err := v.ToRat()
+	if err != nil {
+		return false, err
+	}
+	return x.Cmp(y) < 0, nil
+}
+
+func (nv *NumericValue) LTE(v Value) (bool, error) {
+	x := (*big.Rat)(nv)
+	y, err := v.ToRat()
+	if err != nil {
+		return false, err
+	}
+	return x.Cmp(y) <= 0, nil
+}
+
+func (nv *NumericValue) ToInt64() (int64, error) {
+	return (*big.Rat)(nv).Num().Int64(), nil
+}
+
+func (nv *NumericValue) ToString() (string, error) {
+	return (*big.Rat)(nv).RatString(), nil
+}
+
+func (nv *NumericValue) ToFloat64() (float64, error) {
+	f, _ := (*big.Rat)(nv).Float64()
+	return f, nil
+}
+
+func (nv *NumericValue) ToBool() (bool, error) {
+	v := (*big.Rat)(nv).Num().Int64()
+	if v == 1 {
+		return true, nil
+	} else if v == 0 {
+		return false, nil
+	}
+	return false, fmt.Errorf("failed to convert numeric value to bool type")
+}
+
+func (nv *NumericValue) ToArray() (*ArrayValue, error) {
+	return nil, fmt.Errorf("failed to convert array from numeric value")
+}
+
+func (nv *NumericValue) ToStruct() (*StructValue, error) {
+	return nil, fmt.Errorf("failed to convert struct from numeric value")
+}
+
+func (nv *NumericValue) ToJSON() (string, error) {
+	return (*big.Rat)(nv).RatString(), nil
+}
+
+func (nv *NumericValue) ToTime() (time.Time, error) {
+	return time.Time{}, fmt.Errorf("failed to convert time.Time from numeric value")
+}
+
+func (nv *NumericValue) ToRat() (*big.Rat, error) {
+	return (*big.Rat)(nv), nil
+}
+
+func (nv *NumericValue) Marshal() (string, error) {
+	b, err := (*big.Rat)(nv).MarshalText()
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
+}
+
+func (nv *NumericValue) Format(verb rune) string {
+	return (*big.Rat)(nv).RatString()
+}
+
+func (nv *NumericValue) Interface() interface{} {
+	f, _ := (*big.Rat)(nv).Float64()
+	return f
 }
 
 type BoolValue bool
@@ -499,6 +673,16 @@ func (bv BoolValue) ToJSON() (string, error) {
 
 func (bv BoolValue) ToTime() (time.Time, error) {
 	return time.Time{}, fmt.Errorf("failed to convert bool from time.Time: %v", bv)
+}
+
+func (bv BoolValue) ToRat() (*big.Rat, error) {
+	r := new(big.Rat)
+	if bv {
+		r.SetInt64(1)
+		return r, nil
+	}
+	r.SetInt64(0)
+	return r, nil
 }
 
 func (bv BoolValue) Marshal() (string, error) {
@@ -688,6 +872,10 @@ func (av *ArrayValue) ToJSON() (string, error) {
 
 func (av *ArrayValue) ToTime() (time.Time, error) {
 	return time.Time{}, fmt.Errorf("failed to convert time.Time from array %v", av)
+}
+
+func (av *ArrayValue) ToRat() (*big.Rat, error) {
+	return nil, fmt.Errorf("failed to convert *big.Rat from array %v", av)
 }
 
 func (av *ArrayValue) Marshal() (string, error) {
@@ -896,6 +1084,10 @@ func (sv *StructValue) ToTime() (time.Time, error) {
 	return time.Time{}, fmt.Errorf("failed to convert time.Time from struct %v", sv)
 }
 
+func (sv *StructValue) ToRat() (*big.Rat, error) {
+	return nil, fmt.Errorf("failed to convert *big.Rat from struct %v", sv)
+}
+
 func (sv *StructValue) Marshal() (string, error) {
 	fields := []string{}
 	for i := 0; i < len(sv.keys); i++ {
@@ -1061,6 +1253,10 @@ func (d DateValue) ToTime() (time.Time, error) {
 	return time.Time(d), nil
 }
 
+func (d DateValue) ToRat() (*big.Rat, error) {
+	return nil, fmt.Errorf("failed to convert *big.Rat from date %v", d)
+}
+
 func (d DateValue) Marshal() (string, error) {
 	json, err := d.ToJSON()
 	if err != nil {
@@ -1188,6 +1384,10 @@ func (d DatetimeValue) ToTime() (time.Time, error) {
 	return time.Time(d), nil
 }
 
+func (d DatetimeValue) ToRat() (*big.Rat, error) {
+	return nil, fmt.Errorf("failed to convert *big.Rat from datetime %v", d)
+}
+
 func (d DatetimeValue) Marshal() (string, error) {
 	json, err := d.ToJSON()
 	if err != nil {
@@ -1313,6 +1513,10 @@ func (d TimeValue) ToJSON() (string, error) {
 
 func (d TimeValue) ToTime() (time.Time, error) {
 	return time.Time(d), nil
+}
+
+func (d TimeValue) ToRat() (*big.Rat, error) {
+	return nil, fmt.Errorf("failed to convert *big.Rat from time %v", d)
 }
 
 func (d TimeValue) Marshal() (string, error) {
@@ -1459,6 +1663,10 @@ func (d TimestampValue) ToJSON() (string, error) {
 
 func (d TimestampValue) ToTime() (time.Time, error) {
 	return time.Time(d), nil
+}
+
+func (d TimestampValue) ToRat() (*big.Rat, error) {
+	return nil, fmt.Errorf("failed to convert *big.Rat from timestamp %v", d)
 }
 
 func (d TimestampValue) Marshal() (string, error) {
@@ -1624,6 +1832,14 @@ func (v *SafeValue) ToTime() (time.Time, error) {
 	return ret, nil
 }
 
+func (v *SafeValue) ToRat() (*big.Rat, error) {
+	ret, err := v.value.ToRat()
+	if err != nil {
+		return nil, nil
+	}
+	return ret, nil
+}
+
 func (v *SafeValue) Marshal() (string, error) {
 	ret, err := v.value.Marshal()
 	if err != nil {
@@ -1643,6 +1859,7 @@ func (v *SafeValue) Interface() interface{} {
 const (
 	ArrayValueHeader     = "zetasqlitearray:"
 	StructValueHeader    = "zetasqlitestruct:"
+	NumericValueHeader   = "zetasqlitenumeric:"
 	DateValueHeader      = "zetasqlitedate:"
 	DatetimeValueHeader  = "zetasqlitedatetime:"
 	TimeValueHeader      = "zetasqlitetime:"
@@ -1685,6 +1902,8 @@ func ValueOf(v interface{}) (Value, error) {
 			return ArrayValueOf(vv)
 		case isStructValue(vv):
 			return StructValueOf(vv)
+		case isNumericValue(vv):
+			return NumericValueOf(vv)
 		case isDateValue(vv):
 			return DateValueOf(vv)
 		case isDatetimeValue(vv):
@@ -1727,6 +1946,16 @@ func isStructValue(v string) bool {
 	return strings.HasPrefix(v, StructValueHeader)
 }
 
+func isNumericValue(v string) bool {
+	if len(v) < len(NumericValueHeader) {
+		return false
+	}
+	if v[0] == '"' {
+		return strings.HasPrefix(v[1:], NumericValueHeader)
+	}
+	return strings.HasPrefix(v, NumericValueHeader)
+}
+
 func isDateValue(v string) bool {
 	if len(v) < len(DateValueHeader) {
 		return false
@@ -1765,6 +1994,14 @@ func isTimestampValue(v string) bool {
 		return strings.HasPrefix(v[1:], TimestampValueHeader)
 	}
 	return strings.HasPrefix(v, TimestampValueHeader)
+}
+
+func NumericValueOf(v string) (Value, error) {
+	numeric, err := numericValueFromEncodedString(v)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get numeric value from encoded string: %w", err)
+	}
+	return (*NumericValue)(numeric), nil
 }
 
 func DateValueOf(v string) (Value, error) {
@@ -1881,6 +2118,23 @@ func toArrayValueFromJSONString(json string) string {
 	)
 }
 
+func numericValueFromEncodedString(v string) (*big.Rat, error) {
+	if len(v) == 0 {
+		return nil, nil
+	}
+	if v[0] == '"' {
+		unquoted, err := strconv.Unquote(v)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unquote value %q: %w", v, err)
+		}
+		v = unquoted
+	}
+	content := v[len(NumericValueHeader):]
+	ret := new(big.Rat)
+	ret.SetString(content)
+	return ret, nil
+}
+
 func dateValueFromEncodedString(v string) (time.Time, error) {
 	if len(v) == 0 {
 		return time.Time{}, nil
@@ -1993,6 +2247,16 @@ func toStructValueFromJSONString(json string) string {
 			"%s%s",
 			StructValueHeader,
 			base64.StdEncoding.EncodeToString([]byte(json)),
+		),
+	)
+}
+
+func toNumericValueFromString(s string) string {
+	return strconv.Quote(
+		fmt.Sprintf(
+			"%s%s",
+			NumericValueHeader,
+			s,
 		),
 	)
 }

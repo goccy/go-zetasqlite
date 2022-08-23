@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS Singers (
 func TestRegisterCustomDriver(t *testing.T) {
 	sql.Register("zetasqlite-custom", &zetasqlite.ZetaSQLiteDriver{
 		ConnectHook: func(conn *zetasqlite.ZetaSQLiteConn) error {
-			conn.SetNamePath([]string{"projectID", "datasetID"})
+			conn.SetNamePath([]string{"project-id", "datasetID"})
 			return nil
 		},
 	})
@@ -53,13 +53,13 @@ func TestRegisterCustomDriver(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS Samples (Id INT64 NOT NULL)`); err != nil {
+	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS tableID (Id INT64 NOT NULL)`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(`INSERT datasetID.Samples (Id) VALUES (1)`); err != nil {
+	if _, err := db.Exec("INSERT `project-id`.datasetID.tableID (Id) VALUES (1)"); err != nil {
 		t.Fatal(err)
 	}
-	row := db.QueryRow("SELECT * FROM Samples WHERE Id = @id", 1)
+	row := db.QueryRow("SELECT * FROM project-id.datasetID.tableID WHERE Id = @id", 1)
 	if row.Err() != nil {
 		t.Fatal(row.Err())
 	}

@@ -1,12 +1,12 @@
 package internal
 
 import (
-	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
 	"sync"
 
+	"github.com/goccy/go-json"
 	ast "github.com/goccy/go-zetasql/resolved_ast"
 )
 
@@ -510,6 +510,15 @@ func (s *WindowFuncAggregatedStatus) Done(cb func([]Value, int, int) error) erro
 	resultValues := make([]Value, 0, len(sortedValues))
 	for _, value := range sortedValues {
 		resultValues = append(resultValues, value.Value)
+	}
+	if start >= len(resultValues) || end < 0 {
+		return nil
+	}
+	if start < 0 {
+		start = 0
+	}
+	if end >= len(resultValues) {
+		end = len(resultValues) - 1
 	}
 	return cb(resultValues, start, end)
 }

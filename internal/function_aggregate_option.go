@@ -1,8 +1,9 @@
 package internal
 
 import (
-	"encoding/json"
 	"fmt"
+
+	"github.com/goccy/go-json"
 )
 
 type AggregatorFuncOption struct {

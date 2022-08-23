@@ -543,7 +543,7 @@ func (n *TableScanNode) FormatSQL(ctx context.Context) (string, error) {
 			fmt.Sprintf("`%s` AS `%s`", col.Name(), uniqueColumnName(ctx, col)),
 		)
 	}
-	return fmt.Sprintf("(SELECT %s FROM %s)", strings.Join(columns, ","), tableName), nil
+	return fmt.Sprintf("(SELECT %s FROM `%s`)", strings.Join(columns, ","), tableName), nil
 }
 
 func (n *JoinScanNode) FormatSQL(ctx context.Context) (string, error) {
@@ -808,11 +808,11 @@ func (n *SetOperationScanNode) FormatSQL(ctx context.Context) (string, error) {
 	case ast.SetOperationTypeIntersectAll:
 		opType = "INTERSECT ALL"
 	case ast.SetOperationTypeIntersectDistinct:
-		opType = "INTERSECT DISTINCT"
+		opType = "INTERSECT"
 	case ast.SetOperationTypeExceptAll:
 		opType = "EXCEPT ALL"
 	case ast.SetOperationTypeExceptDistinct:
-		opType = "EXCEPT DISTINCT"
+		opType = "EXCEPT"
 	default:
 		opType = "UNKONWN"
 	}
@@ -977,7 +977,7 @@ func (n *WithRefScanNode) FormatSQL(ctx context.Context) (string, error) {
 			"ROW_NUMBER() OVER() AS `row_id`",
 		)
 	}
-	return fmt.Sprintf("(SELECT %s FROM %s)", strings.Join(formattedColumns, ","), tableName), nil
+	return fmt.Sprintf("(SELECT %s FROM `%s`)", strings.Join(formattedColumns, ","), tableName), nil
 }
 
 func (n *AnalyticScanNode) FormatSQL(ctx context.Context) (string, error) {

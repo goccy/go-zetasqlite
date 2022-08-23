@@ -947,6 +947,21 @@ var windowFuncs = []*WindowFuncInfo{
 		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
 	},
 	{
+		Name:        "max",
+		BindFunc:    bindWindowMax,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+	{
+		Name:        "min",
+		BindFunc:    bindWindowMin,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+	{
+		Name:        "count",
+		BindFunc:    bindWindowCount,
+		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+	},
+	{
 		Name:        "count_star",
 		BindFunc:    bindWindowCountStar,
 		ReturnTypes: []types.TypeKind{types.INT64},
@@ -994,6 +1009,53 @@ var windowFuncs = []*WindowFuncInfo{
 		Name:        "row_number",
 		BindFunc:    bindWindowRowNumber,
 		ReturnTypes: []types.TypeKind{types.INT64},
+	},
+
+	// statistical aggregate functions
+	{
+		Name:        "corr",
+		BindFunc:    bindWindowCorr,
+		ReturnTypes: []types.TypeKind{types.DOUBLE},
+	},
+	{
+		Name:        "covar_pop",
+		BindFunc:    bindWindowCovarPop,
+		ReturnTypes: []types.TypeKind{types.DOUBLE},
+	},
+	{
+		Name:        "covar_samp",
+		BindFunc:    bindWindowCovarSamp,
+		ReturnTypes: []types.TypeKind{types.DOUBLE},
+	},
+	{
+		Name:        "stddev_pop",
+		BindFunc:    bindWindowStdDevPop,
+		ReturnTypes: []types.TypeKind{types.DOUBLE},
+	},
+	{
+		Name:        "stddev_samp",
+		BindFunc:    bindWindowStdDevSamp,
+		ReturnTypes: []types.TypeKind{types.DOUBLE},
+	},
+	{
+		Name:        "stddev",
+		BindFunc:    bindWindowStdDev,
+		ReturnTypes: []types.TypeKind{types.DOUBLE},
+	},
+	{
+		Name:        "var_pop",
+		BindFunc:    bindWindowVarPop,
+		ReturnTypes: []types.TypeKind{types.DOUBLE},
+	},
+	{
+		Name:        "var_samp",
+		BindFunc:    bindWindowVarSamp,
+		ReturnTypes: []types.TypeKind{types.DOUBLE},
+	},
+	{
+		Name:        "variance",
+		BindFunc:    bindWindowVariance,
+		ReturnTypes: []types.TypeKind{types.DOUBLE},
 	},
 }
 
