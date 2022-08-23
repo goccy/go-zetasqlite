@@ -278,7 +278,9 @@ func (it *AnalyzerOutputIterator) Analyze(ctx context.Context) (*AnalyzerOutput,
 		return it.analyzeCreateTableAsSelectStmt(ctx, stmtNode.(*ast.CreateTableAsSelectStmtNode))
 	case ast.CreateFunctionStmt:
 		return it.analyzeCreateFunctionStmt(ctx, stmtNode.(*ast.CreateFunctionStmtNode))
-	case ast.InsertStmt, ast.UpdateStmt, ast.DeleteStmt, ast.DropStmt:
+	case ast.DropStmt:
+		return it.analyzeDropStmt(ctx, stmtNode.(*ast.DropStmtNode))
+	case ast.InsertStmt, ast.UpdateStmt, ast.DeleteStmt:
 		return it.analyzeDMLStmt(ctx, stmtNode)
 	case ast.TruncateStmt:
 		return it.analyzeTruncateStmt(ctx, stmtNode.(*ast.TruncateStmtNode))
@@ -423,6 +425,51 @@ func (it *AnalyzerOutputIterator) analyzeCreateFunctionStmt(ctx context.Context,
 			}
 			it.funcMap[spec.FuncName()] = spec
 			return &Rows{}, nil
+		},
+	}, nil
+}
+
+func (it *AnalyzerOutputIterator) analyzeDropStmt(ctx context.Context, node *ast.DropStmtNode) (*AnalyzerOutput, error) {
+	formattedQuery, err := newNode(node).FormatSQL(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to format query %s: %w", it.query, err)
+	}
+	if formattedQuery == "" {
+		return nil, fmt.Errorf("failed to format query %s", it.query)
+	}
+	params := it.getParamsFromNode(node)
+	args, err := it.getArgsFromParams(params)
+	if err != nil {
+		return nil, err
+	}
+	objectType := node.ObjectType()
+	name := FormatName(MergeNamePath(it.analyzer.namePath, node.NamePath()))
+	return &AnalyzerOutput{
+		node:           node,
+		query:          it.query,
+		formattedQuery: formattedQuery,
+		params:         params,
+		Prepare: func(ctx context.Context, conn *Conn) (driver.Stmt, error) {
+			return nil, fmt.Errorf("currently unsupported prepared statement for DROP statment")
+		},
+		ExecContext: func(ctx context.Context, conn *Conn) (driver.Result, error) {
+			switch objectType {
+			case "TABLE":
+				if _, err := conn.ExecContext(ctx, formattedQuery, args...); err != nil {
+					return nil, fmt.Errorf("failed to exec %s: %w", formattedQuery, err)
+				}
+				if err := it.analyzer.catalog.DeleteTableSpec(ctx, conn, name); err != nil {
+					return nil, fmt.Errorf("failed to delete table spec: %w", err)
+				}
+			case "FUNCTION":
+				if err := it.analyzer.catalog.DeleteFunctionSpec(ctx, conn, name); err != nil {
+					return nil, fmt.Errorf("failed to delete function spec: %w", err)
+				}
+				delete(it.funcMap, name)
+			default:
+				return nil, fmt.Errorf("currently unsupported DROP %s statement", objectType)
+			}
+			return nil, nil
 		},
 	}, nil
 }

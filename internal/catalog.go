@@ -40,6 +40,9 @@ INSERT INTO zetasqlite_catalog (
   spec = @spec,
   updatedAt = @updatedAt
 `
+	deleteCatalogQuery = `
+DELETE FROM zetasqlite_catalog WHERE name = @name
+`
 )
 
 type CatalogSpecKind string
@@ -174,6 +177,28 @@ func (c *Catalog) AddNewFunctionSpec(ctx context.Context, conn *Conn, spec *Func
 		if err := c.saveFunctionSpec(ctx, conn, spec); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func (c *Catalog) DeleteTableSpec(ctx context.Context, conn *Conn, name string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	// TODO: need to remove table from *types.SimpleCatalog
+	if _, err := conn.ExecContext(ctx, deleteCatalogQuery, sql.Named("name", name)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *Catalog) DeleteFunctionSpec(ctx context.Context, conn *Conn, name string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	// TODO: need to remove function from *types.SimpleCatalog
+	if _, err := conn.ExecContext(ctx, deleteCatalogQuery, sql.Named("name", name)); err != nil {
+		return err
 	}
 	return nil
 }
