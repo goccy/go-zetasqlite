@@ -50,25 +50,59 @@ const (
 )
 
 type Catalog struct {
-	db           *sql.DB
-	catalog      *types.SimpleCatalog
-	lastSyncedAt time.Time
-	mu           sync.Mutex
-	tables       []*TableSpec
-	functions    []*FunctionSpec
-	tableMap     map[string]*TableSpec
-	funcMap      map[string]*FunctionSpec
+	db               *sql.DB
+	lastSyncedAt     time.Time
+	mu               sync.Mutex
+	tables           []*TableSpec
+	functions        []*FunctionSpec
+	defaultCatalog   *types.SimpleCatalog
+	pathToCatalogMap map[string]*types.SimpleCatalog
+	tableMap         map[string]*TableSpec
+	funcMap          map[string]*FunctionSpec
 }
 
 func NewCatalog(db *sql.DB) *Catalog {
 	catalog := types.NewSimpleCatalog("zetasqlite")
 	catalog.AddZetaSQLBuiltinFunctions()
 	return &Catalog{
-		db:       db,
-		catalog:  catalog,
-		tableMap: map[string]*TableSpec{},
-		funcMap:  map[string]*FunctionSpec{},
+		db:               db,
+		defaultCatalog:   catalog,
+		pathToCatalogMap: map[string]*types.SimpleCatalog{},
+		tableMap:         map[string]*TableSpec{},
+		funcMap:          map[string]*FunctionSpec{},
 	}
+}
+
+func (c *Catalog) pathToCatalogMapKey(path []string) string {
+	return strings.Join(path, "_")
+}
+
+func (c *Catalog) getCatalog(path []string) *types.SimpleCatalog {
+	cat, exists := c.pathToCatalogMap[c.pathToCatalogMapKey(path)]
+	if !exists {
+		return c.defaultCatalog
+	}
+	return cat
+}
+
+func (c *Catalog) getFunctions(path []string) []*FunctionSpec {
+	if len(path) == 0 {
+		return c.functions
+	}
+	key := c.pathToCatalogMapKey(path)
+	specs := make([]*FunctionSpec, 0, len(c.functions))
+	for _, fn := range c.functions {
+		if len(fn.NamePath) == 1 {
+			// function name only
+			specs = append(specs, fn)
+			continue
+		}
+		pathPrefixKey := c.pathToCatalogMapKey(c.trimmedLastPath(fn.NamePath))
+		if strings.Contains(pathPrefixKey, key) {
+			specs = append(specs, fn)
+		}
+	}
+	return specs
 }
 
 func (c *Catalog) Sync(ctx context.Context, conn *Conn) error {
@@ -213,6 +247,13 @@ func (c *Catalog) loadFunctionSpec(spec string) error {
 	return nil
 }
 
+func (c *Catalog) trimmedLastPath(path []string) []string {
+	if len(path) == 0 {
+		return path
+	}
+	return path[:len(path)-1]
+}
+
 func (c *Catalog) addFunctionSpec(spec *FunctionSpec) error {
 	funcName := spec.FuncName()
 	if _, exists := c.funcMap[funcName]; exists {
@@ -221,7 +262,20 @@ func (c *Catalog) addFunctionSpec(spec *FunctionSpec) error {
 	}
 	c.functions = append(c.functions, spec)
 	c.funcMap[funcName] = spec
-	return c.addFunctionSpecRecursive(c.catalog, spec)
+	catalogMapKey := c.pathToCatalogMapKey(c.trimmedLastPath(spec.NamePath))
+	cat, exists := c.pathToCatalogMap[catalogMapKey]
+	if !exists {
+		cat = types.NewSimpleCatalog("zetasqlite")
+		cat.AddZetaSQLBuiltinFunctions()
+		c.pathToCatalogMap[catalogMapKey] = cat
+	}
+	if err := c.addFunctionSpecRecursive(cat, spec); err != nil {
+		return err
+	}
+	if err := c.addFunctionSpecRecursive(c.defaultCatalog, spec); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (c *Catalog) addTableSpec(spec *TableSpec) error {
@@ -232,7 +286,20 @@ func (c *Catalog) addTableSpec(spec *TableSpec) error {
 	}
 	c.tables = append(c.tables, spec)
 	c.tableMap[tableName] = spec
-	return c.addTableSpecRecursive(c.catalog, spec)
+	catalogMapKey := c.pathToCatalogMapKey(c.trimmedLastPath(spec.NamePath))
+	cat, exists := c.pathToCatalogMap[catalogMapKey]
+	if !exists {
+		cat = types.NewSimpleCatalog("zetasqlite")
+		cat.AddZetaSQLBuiltinFunctions()
+		c.pathToCatalogMap[catalogMapKey] = cat
+	}
+	if err := c.addTableSpecRecursive(cat, spec); err != nil {
+		return err
+	}
+	if err := c.addTableSpecRecursive(c.defaultCatalog, spec); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (c *Catalog) addTableSpecRecursive(cat *types.SimpleCatalog, spec *TableSpec) error {

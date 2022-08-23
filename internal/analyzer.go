@@ -213,7 +213,7 @@ func (a *Analyzer) AnalyzeIterator(ctx context.Context, conn *Conn, query string
 		return nil, fmt.Errorf("failed to get full name path map %s: %w", query, err)
 	}
 	funcMap := map[string]*FunctionSpec{}
-	for _, spec := range a.catalog.functions {
+	for _, spec := range a.catalog.getFunctions(a.namePath) {
 		funcMap[spec.FuncName()] = spec
 	}
 	return &AnalyzerOutputIterator{
@@ -246,7 +246,7 @@ func (it *AnalyzerOutputIterator) Next() bool {
 	out, err := zetasql.AnalyzeStatementFromParserAST(
 		it.query,
 		it.stmts[it.stmtIdx],
-		it.analyzer.catalog.catalog,
+		it.analyzer.catalog.getCatalog(it.analyzer.namePath),
 		it.analyzer.opt,
 	)
 	it.err = err
