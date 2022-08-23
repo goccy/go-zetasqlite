@@ -75,6 +75,7 @@ func newAnalyzerOptions() *zetasql.AnalyzerOptions {
 		zetasql.FeatureGroupByRollup,
 		zetasql.FeatureV13NullsFirstLastInOrderBy,
 		zetasql.FeatureV13Qualify,
+		zetasql.FeatureV13AllowDashesInTableName,
 	})
 	langOpt.SetSupportedStatementKinds([]ast.Kind{
 		ast.BeginStmt,

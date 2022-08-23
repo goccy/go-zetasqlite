@@ -543,7 +543,7 @@ func (n *TableScanNode) FormatSQL(ctx context.Context) (string, error) {
 			fmt.Sprintf("`%s` AS `%s`", col.Name(), uniqueColumnName(ctx, col)),
 		)
 	}
-	return fmt.Sprintf("(SELECT %s FROM %s)", strings.Join(columns, ","), tableName), nil
+	return fmt.Sprintf("(SELECT %s FROM `%s`)", strings.Join(columns, ","), tableName), nil
 }
 
 func (n *JoinScanNode) FormatSQL(ctx context.Context) (string, error) {
@@ -977,7 +977,7 @@ func (n *WithRefScanNode) FormatSQL(ctx context.Context) (string, error) {
 			"ROW_NUMBER() OVER() AS `row_id`",
 		)
 	}
-	return fmt.Sprintf("(SELECT %s FROM %s)", strings.Join(formattedColumns, ","), tableName), nil
+	return fmt.Sprintf("(SELECT %s FROM `%s`)", strings.Join(formattedColumns, ","), tableName), nil
 }
 
 func (n *AnalyticScanNode) FormatSQL(ctx context.Context) (string, error) {
