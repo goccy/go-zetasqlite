@@ -169,6 +169,16 @@ func (r *Rows) convertValue(value interface{}, typ *Type) (driver.Value, error) 
 			return v, nil
 		case types.STRUCT:
 			return array.Interface(), nil
+		case types.JSON:
+			v := []string{}
+			for _, value := range array.values {
+				jv, err := value.ToJSON()
+				if err != nil {
+					return nil, err
+				}
+				v = append(v, jv)
+			}
+			return v, nil
 		}
 	case types.STRUCT:
 		val, err := ValueOf(value)
@@ -208,6 +218,12 @@ func (r *Rows) convertValue(value interface{}, typ *Type) (driver.Value, error) 
 			return nil, err
 		}
 		return t.UTC(), nil
+	case types.JSON:
+		val, err := ValueOf(value)
+		if err != nil {
+			return nil, err
+		}
+		return val.ToJSON()
 	}
 	return value, nil
 }

@@ -11,7 +11,7 @@ import (
 
 func JSONFromZetaSQLValue(v types.Value) string {
 	value := jsonFromZetaSQLValue(v)
-	if value == "null" {
+	if value == "null" && v.Type().Kind() != types.JSON {
 		return "null"
 	}
 	switch v.Type().Kind() {
@@ -31,6 +31,9 @@ func JSONFromZetaSQLValue(v types.Value) string {
 		return toArrayValueFromJSONString(value)
 	case types.STRUCT:
 		return toStructValueFromJSONString(value)
+	case types.JSON:
+		v, _ := toJsonValueFromString(value)
+		return v
 	}
 	return value
 }
@@ -68,6 +71,8 @@ func jsonFromZetaSQLValue(v types.Value) string {
 			)
 		}
 		return fmt.Sprintf("{%s}", strings.Join(fields, ","))
+	case types.JSON:
+		return v.JSONString()
 	default:
 		vv := v.SQLLiteral(0)
 		if vv == "NULL" {

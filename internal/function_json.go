@@ -5,5 +5,9 @@ func TO_JSON(v Value, stringifyWideNumbers bool) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return StringValue(s), nil
+	return JsonValue(s), nil
+}
+
+func JSON_TYPE(v JsonValue) (Value, error) {
+	return StringValue(v.Type()), nil
 }

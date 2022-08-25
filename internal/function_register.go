@@ -544,6 +544,26 @@ var normalFuncs = []*FuncInfo{
 		BindFunc:    bindToJson,
 		ReturnTypes: []types.TypeKind{types.JSON},
 	},
+	{
+		Name:        "bool",
+		BindFunc:    bindBool,
+		ReturnTypes: []types.TypeKind{types.BOOL},
+	},
+	{
+		Name:        "int64",
+		BindFunc:    bindInt64,
+		ReturnTypes: []types.TypeKind{types.INT64},
+	},
+	{
+		Name:        "double",
+		BindFunc:    bindDouble,
+		ReturnTypes: []types.TypeKind{types.DOUBLE},
+	},
+	{
+		Name:        "json_type",
+		BindFunc:    bindJsonType,
+		ReturnTypes: []types.TypeKind{types.STRING},
+	},
 
 	// math functions
 

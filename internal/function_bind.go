@@ -1016,6 +1016,48 @@ func bindToJson(args ...Value) (Value, error) {
 	return TO_JSON(args[0], stringifyWideNumbers)
 }
 
+func bindBool(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("BOOL: invalid argument num %d", len(args))
+	}
+	return args[0], nil
+}
+
+func bindInt64(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("INT64: invalid argument num %d", len(args))
+	}
+	return args[0], nil
+}
+
+func bindDouble(args ...Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("FLOAT64: invalid argument num %d", len(args))
+	}
+	mode, err := args[1].ToString()
+	if err != nil {
+		return nil, err
+	}
+	switch mode {
+	case "exact":
+		return args[0], nil
+	case "round":
+		return args[0], nil
+	}
+	return nil, fmt.Errorf("unexpected wide_number_mode: %s", mode)
+}
+
+func bindJsonType(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("JSON_TYPE: invalid argument num %d", len(args))
+	}
+	value, ok := args[0].(JsonValue)
+	if !ok {
+		return nil, fmt.Errorf("JSON_TYPE: failed to convert %T to JSON value", args[0])
+	}
+	return JSON_TYPE(value)
+}
+
 func bindAbs(args ...Value) (Value, error) {
 	if len(args) != 1 {
 		return nil, fmt.Errorf("ABS: invalid argument num %d", len(args))
@@ -1871,6 +1913,10 @@ func bindString(args ...Value) (Value, error) {
 	}
 	if existsNull(args) {
 		return nil, nil
+	}
+	jsonValue, ok := args[0].(JsonValue)
+	if ok {
+		return StringValue(fmt.Sprint(jsonValue.Interface())), nil
 	}
 	t, err := args[0].ToTime()
 	if err != nil {

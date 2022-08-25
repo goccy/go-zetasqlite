@@ -94,7 +94,7 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 - [x] ARRAY
 - [x] STRUCT
 - [ ] GEOGRAPHY
-- [ ] JSON
+- [x] JSON
 - [x] RECORD
 
 ## Statements
@@ -369,8 +369,13 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 - [ ] JSON_EXTRACT_STRING_ARRAY
 - [ ] JSON_VALUE_ARRAY
 - [ ] PARSE_JSON
-- [ ] TO_JSON
+- [x] TO_JSON
 - [ ] TO_JSON_STRING
+- [ ] STRING
+- [x] BOOL
+- [x] INT64
+- [x] FLOAT64
+- [x] JSON_TYPE
 
 ### Array functions
 
