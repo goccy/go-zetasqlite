@@ -1193,24 +1193,24 @@ FROM finishers`,
 					[]interface{}{
 						[]map[string]interface{}{
 							map[string]interface{}{
-								"_field_1": float64(1),
+								"$col1": float64(1),
 							},
 							map[string]interface{}{
-								"_field_2": float64(2),
+								"$col2": float64(2),
 							},
 							map[string]interface{}{
-								"_field_3": float64(3),
+								"$col3": float64(3),
 							},
 						},
 						[]map[string]interface{}{
 							map[string]interface{}{
-								"_field_1": float64(4),
+								"$col1": float64(4),
 							},
 							map[string]interface{}{
-								"_field_2": float64(5),
+								"$col2": float64(5),
 							},
 							map[string]interface{}{
-								"_field_3": float64(6),
+								"$col3": float64(6),
 							},
 						},
 					},
@@ -1225,7 +1225,7 @@ FROM finishers`,
 					[]interface{}{
 						[]map[string]interface{}{
 							map[string]interface{}{
-								"_field_1": []interface{}{
+								"$col1": []interface{}{
 									float64(1),
 									float64(2),
 									float64(3),
@@ -1234,7 +1234,7 @@ FROM finishers`,
 						},
 						[]map[string]interface{}{
 							map[string]interface{}{
-								"_field_1": []interface{}{
+								"$col1": []interface{}{
 									float64(4),
 									float64(5),
 									float64(6),
@@ -2284,6 +2284,22 @@ SELECT Add(3, 4);
 			name:         "replace",
 			query:        `WITH orders AS (SELECT 5 as order_id, "sprocket" as item_name, 200 as quantity) SELECT * REPLACE (quantity/2 AS quantity) FROM orders`,
 			expectedRows: [][]interface{}{{int64(5), "sprocket", float64(100)}},
+		},
+
+		// json
+		{
+			name: "to_json",
+			query: `
+With CoordinatesTable AS (
+    (SELECT 1 AS id, [10,20] AS coordinates) UNION ALL
+    (SELECT 2 AS id, [30,40] AS coordinates) UNION ALL
+    (SELECT 3 AS id, [50,60] AS coordinates))
+SELECT TO_JSON(t) AS json_objects FROM CoordinatesTable AS t`,
+			expectedRows: [][]interface{}{
+				{`{"id":1,"coordinates":[10,20]}`},
+				{`{"id":2,"coordinates":[30,40]}`},
+				{`{"id":3,"coordinates":[50,60]}`},
+			},
 		},
 	} {
 		test := test

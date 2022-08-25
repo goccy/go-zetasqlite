@@ -48,8 +48,9 @@ DELETE FROM zetasqlite_catalog WHERE name = @name
 type CatalogSpecKind string
 
 const (
-	TableSpecKind    CatalogSpecKind = "table"
-	FunctionSpecKind CatalogSpecKind = "function"
+	TableSpecKind      CatalogSpecKind = "table"
+	FunctionSpecKind   CatalogSpecKind = "function"
+	defaultCatalogName                 = "zetasqlite"
 )
 
 type Catalog struct {
@@ -64,12 +65,16 @@ type Catalog struct {
 	funcMap          map[string]*FunctionSpec
 }
 
+func newSimpleCatalog(name string) *types.SimpleCatalog {
+	catalog := types.NewSimpleCatalog(name)
+	catalog.AddZetaSQLBuiltinFunctions(nil)
+	return catalog
+}
+
 func NewCatalog(db *sql.DB) *Catalog {
-	catalog := types.NewSimpleCatalog("zetasqlite")
-	catalog.AddZetaSQLBuiltinFunctions()
 	return &Catalog{
 		db:               db,
-		defaultCatalog:   catalog,
+		defaultCatalog:   newSimpleCatalog(defaultCatalogName),
 		pathToCatalogMap: map[string]*types.SimpleCatalog{},
 		tableMap:         map[string]*TableSpec{},
 		funcMap:          map[string]*FunctionSpec{},
@@ -290,8 +295,7 @@ func (c *Catalog) addFunctionSpec(spec *FunctionSpec) error {
 	catalogMapKey := c.pathToCatalogMapKey(c.trimmedLastPath(spec.NamePath))
 	cat, exists := c.pathToCatalogMap[catalogMapKey]
 	if !exists {
-		cat = types.NewSimpleCatalog("zetasqlite")
-		cat.AddZetaSQLBuiltinFunctions()
+		cat = newSimpleCatalog(defaultCatalogName)
 		c.pathToCatalogMap[catalogMapKey] = cat
 	}
 	if err := c.addFunctionSpecRecursive(cat, spec); err != nil {
@@ -314,8 +318,7 @@ func (c *Catalog) addTableSpec(spec *TableSpec) error {
 	catalogMapKey := c.pathToCatalogMapKey(c.trimmedLastPath(spec.NamePath))
 	cat, exists := c.pathToCatalogMap[catalogMapKey]
 	if !exists {
-		cat = types.NewSimpleCatalog("zetasqlite")
-		cat.AddZetaSQLBuiltinFunctions()
+		cat = newSimpleCatalog(defaultCatalogName)
 		c.pathToCatalogMap[catalogMapKey] = cat
 	}
 	if err := c.addTableSpecRecursive(cat, spec); err != nil {
@@ -330,7 +333,7 @@ func (c *Catalog) addTableSpec(spec *TableSpec) error {
 func (c *Catalog) addTableSpecRecursive(cat *types.SimpleCatalog, spec *TableSpec) error {
 	if len(spec.NamePath) > 1 {
 		subCatalogName := spec.NamePath[0]
-		subCatalog := types.NewSimpleCatalog(subCatalogName)
+		subCatalog := newSimpleCatalog(subCatalogName)
 		if !c.existsCatalog(cat, subCatalogName) {
 			cat.AddCatalog(subCatalog)
 		}
@@ -386,7 +389,7 @@ func (c *Catalog) createSimpleTable(tableName string, spec *TableSpec) (*types.S
 func (c *Catalog) addFunctionSpecRecursive(cat *types.SimpleCatalog, spec *FunctionSpec) error {
 	if len(spec.NamePath) > 1 {
 		subCatalogName := spec.NamePath[0]
-		subCatalog := types.NewSimpleCatalog(subCatalogName)
+		subCatalog := newSimpleCatalog(subCatalogName)
 		if !c.existsCatalog(cat, subCatalogName) {
 			cat.AddCatalog(subCatalog)
 		}
