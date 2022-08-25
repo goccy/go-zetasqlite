@@ -2301,6 +2301,67 @@ SELECT TO_JSON(t) AS json_objects FROM CoordinatesTable AS t`,
 				{`{"id":3,"coordinates":[50,60]}`},
 			},
 		},
+		{
+			name: "to_json_string",
+			query: `
+With CoordinatesTable AS (
+    (SELECT 1 AS id, [10,20] AS coordinates) UNION ALL
+    (SELECT 2 AS id, [30,40] AS coordinates) UNION ALL
+    (SELECT 3 AS id, [50,60] AS coordinates))
+SELECT id, coordinates, TO_JSON_STRING(t) AS json_data
+FROM CoordinatesTable AS t`,
+			expectedRows: [][]interface{}{
+				{int64(1), []int64{10, 20}, `{"id":1,"coordinates":[10,20]}`},
+				{int64(2), []int64{30, 40}, `{"id":2,"coordinates":[30,40]}`},
+				{int64(3), []int64{50, 60}, `{"id":3,"coordinates":[50,60]}`},
+			},
+		},
+		{
+			name:         "json_string",
+			query:        `SELECT STRING(JSON '"purple"') AS color`,
+			expectedRows: [][]interface{}{{"purple"}},
+		},
+		{
+			name:         "json_bool",
+			query:        `SELECT BOOL(JSON 'true') AS vacancy`,
+			expectedRows: [][]interface{}{{true}},
+		},
+		{
+			name:         "json_int64",
+			query:        `SELECT INT64(JSON '2005') AS flight_number`,
+			expectedRows: [][]interface{}{{int64(2005)}},
+		},
+		{
+			name:         "json_float64",
+			query:        `SELECT FLOAT64(JSON '9.8') AS velocity`,
+			expectedRows: [][]interface{}{{float64(9.8)}},
+		},
+		{
+			name: "json_type",
+			query: `
+SELECT json_val, JSON_TYPE(json_val) AS type
+FROM
+  UNNEST(
+    [
+      JSON '"apple"',
+      JSON '10',
+      JSON '3.14',
+      JSON 'null',
+      JSON '{"city": "New York", "State": "NY"}',
+      JSON '["apple", "banana"]',
+      JSON 'false'
+    ]
+  ) AS json_val`,
+			expectedRows: [][]interface{}{
+				{`"apple"`, "string"},
+				{"10", "number"},
+				{"3.14", "number"},
+				{"null", "null"},
+				{`{"State":"NY","city":"New York"}`, "object"},
+				{`["apple","banana"]`, "array"},
+				{"false", "boolean"},
+			},
+		},
 	} {
 		test := test
 		t.Run(test.name, func(t *testing.T) {

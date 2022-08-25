@@ -545,6 +545,11 @@ var normalFuncs = []*FuncInfo{
 		ReturnTypes: []types.TypeKind{types.JSON},
 	},
 	{
+		Name:        "to_json_string",
+		BindFunc:    bindToJsonString,
+		ReturnTypes: []types.TypeKind{types.STRING},
+	},
+	{
 		Name:        "bool",
 		BindFunc:    bindBool,
 		ReturnTypes: []types.TypeKind{types.BOOL},

@@ -1016,6 +1016,21 @@ func bindToJson(args ...Value) (Value, error) {
 	return TO_JSON(args[0], stringifyWideNumbers)
 }
 
+func bindToJsonString(args ...Value) (Value, error) {
+	if len(args) != 1 && len(args) != 2 {
+		return nil, fmt.Errorf("TO_JSON_STRING: invalid argument num %d", len(args))
+	}
+	var prettyPrint bool
+	if len(args) == 2 {
+		b, err := args[1].ToBool()
+		if err != nil {
+			return nil, err
+		}
+		prettyPrint = b
+	}
+	return TO_JSON_STRING(args[0], prettyPrint)
+}
+
 func bindBool(args ...Value) (Value, error) {
 	if len(args) != 1 {
 		return nil, fmt.Errorf("BOOL: invalid argument num %d", len(args))
