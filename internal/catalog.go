@@ -190,7 +190,9 @@ func (c *Catalog) DeleteTableSpec(ctx context.Context, conn *Conn, name string) 
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// TODO: need to remove table from *types.SimpleCatalog
+	if err := c.deleteTableSpecByName(name); err != nil {
+		return err
+	}
 	if _, err := conn.ExecContext(ctx, deleteCatalogQuery, sql.Named("name", name)); err != nil {
 		return err
 	}
@@ -201,9 +203,67 @@ func (c *Catalog) DeleteFunctionSpec(ctx context.Context, conn *Conn, name strin
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// TODO: need to remove function from *types.SimpleCatalog
+	if err := c.deleteFunctionSpecByName(name); err != nil {
+		return err
+	}
 	if _, err := conn.ExecContext(ctx, deleteCatalogQuery, sql.Named("name", name)); err != nil {
 		return err
+	}
+	return nil
+}
+
+func (c *Catalog) deleteTableSpecByName(name string) error {
+	spec, exists := c.tableMap[name]
+	if !exists {
+		return fmt.Errorf("failed to find table spec from map by %s", name)
+	}
+	tables := make([]*TableSpec, 0, len(c.tables))
+	for _, table := range c.tables {
+		if spec == table {
+			continue
+		}
+		tables = append(tables, table)
+	}
+	c.tables = tables
+	delete(c.tableMap, name)
+	if err := c.resetCatalogs(); err != nil {
+		return fmt.Errorf("failed to reset catalogs: %w", err)
+	}
+	return nil
+}
+
+func (c *Catalog) deleteFunctionSpecByName(name string) error {
+	spec, exists := c.funcMap[name]
+	if !exists {
+		return fmt.Errorf("failed to find function spec from map by %s", name)
+	}
+	functions := make([]*FunctionSpec, 0, len(c.functions))
+	for _, function := range c.functions {
+		if spec == function {
+			continue
+		}
+		functions = append(functions, function)
+	}
+	c.functions = functions
+	delete(c.funcMap, name)
+	if err := c.resetCatalogs(); err != nil {
+		return fmt.Errorf("failed to reset catalogs: %w", err)
+	}
+	return nil
+}
+
+func (c *Catalog) resetCatalogs() error {
+	c.defaultCatalog = newSimpleCatalog(defaultCatalogName)
+	c.pathToCatalogMap = map[string]*types.SimpleCatalog{}
+	for _, spec := range c.tables {
+		if err := c.addTableSpec(spec); err != nil {
+			return err
+		}
+	}
+	for _, spec := range c.functions {
+		if err := c.addFunctionSpec(spec); err != nil {
+			return err
+		}
 	}
 	return nil
 }
