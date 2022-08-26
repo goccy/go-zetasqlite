@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/goccy/go-zetasql"
 	internal "github.com/goccy/go-zetasqlite/internal"
 	"github.com/mattn/go-sqlite3"
 )
@@ -101,10 +100,6 @@ func (c *ZetaSQLiteConn) SetNamePath(path []string) {
 
 func (c *ZetaSQLiteConn) AddNamePath(path string) {
 	c.analyzer.AddNamePath(path)
-}
-
-func (c *ZetaSQLiteConn) SetParameterMode(mode zetasql.ParameterMode) {
-	c.analyzer.SetParameterMode(mode)
 }
 
 func (s *ZetaSQLiteConn) CheckNamedValue(value *driver.NamedValue) error {
