@@ -111,10 +111,6 @@ func (a *Analyzer) AddNamePath(path string) {
 	a.namePath = append(a.namePath, path)
 }
 
-func (a *Analyzer) SetParameterMode(mode zetasql.ParameterMode) {
-	a.opt.SetParameterMode(mode)
-}
-
 func (a *Analyzer) parseScript(query string) ([]parsed_ast.StatementNode, error) {
 	loc := zetasql.NewParseResumeLocation(query)
 	var stmts []parsed_ast.StatementNode
@@ -201,6 +197,32 @@ func (a *Analyzer) getFullNamePathMap(stmts []parsed_ast.StatementNode) (map[str
 	return fullNamePathMap, nil
 }
 
+func (a *Analyzer) getParameterMode(stmt parsed_ast.StatementNode) (zetasql.ParameterMode, error) {
+	var (
+		enabledNamedParameter      bool
+		enabledPositionalParameter bool
+	)
+	parsed_ast.Walk(stmt, func(node parsed_ast.Node) error {
+		switch n := node.(type) {
+		case *parsed_ast.ParameterExprNode:
+			if n.Position() > 0 {
+				enabledPositionalParameter = true
+			}
+			if n.Name() != nil {
+				enabledNamedParameter = true
+			}
+		}
+		return nil
+	})
+	if enabledNamedParameter && enabledPositionalParameter {
+		return zetasql.ParameterNone, fmt.Errorf("named parameter and positional parameter cannot be used together")
+	}
+	if enabledPositionalParameter {
+		return zetasql.ParameterPositional, nil
+	}
+	return zetasql.ParameterNamed, nil
+}
+
 func (a *Analyzer) AnalyzeIterator(ctx context.Context, conn *Conn, query string, args []driver.NamedValue) (*AnalyzerOutputIterator, error) {
 	if err := a.catalog.Sync(ctx, conn); err != nil {
 		return nil, fmt.Errorf("failed to sync catalog: %w", err)
@@ -209,9 +231,20 @@ func (a *Analyzer) AnalyzeIterator(ctx context.Context, conn *Conn, query string
 	if err != nil {
 		return nil, err
 	}
+	resultStmts := make([]*Statement, 0, len(stmts))
 	fullNamePathMap, err := a.getFullNamePathMap(stmts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get full name path map %s: %w", query, err)
+	}
+	for _, stmt := range stmts {
+		mode, err := a.getParameterMode(stmt)
+		if err != nil {
+			return nil, err
+		}
+		resultStmts = append(resultStmts, &Statement{
+			stmt: stmt,
+			mode: mode,
+		})
 	}
 	funcMap := map[string]*FunctionSpec{}
 	for _, spec := range a.catalog.getFunctions(a.namePath) {
@@ -220,21 +253,26 @@ func (a *Analyzer) AnalyzeIterator(ctx context.Context, conn *Conn, query string
 	return &AnalyzerOutputIterator{
 		query:           query,
 		args:            args,
-		stmts:           stmts,
+		stmts:           resultStmts,
 		analyzer:        a,
 		funcMap:         funcMap,
 		fullNamePathMap: fullNamePathMap,
 	}, nil
 }
 
+type Statement struct {
+	stmt parsed_ast.StatementNode
+	mode zetasql.ParameterMode
+}
+
 type AnalyzerOutputIterator struct {
 	query           string
 	args            []driver.NamedValue
 	analyzer        *Analyzer
-	stmts           []parsed_ast.StatementNode
+	stmts           []*Statement
 	stmtIdx         int
-	funcMap         map[string]*FunctionSpec
 	fullNamePathMap map[string][]string
+	funcMap         map[string]*FunctionSpec
 	out             *zetasql.AnalyzerOutput
 	isEnd           bool
 	err             error
@@ -244,9 +282,11 @@ func (it *AnalyzerOutputIterator) Next() bool {
 	if it.stmtIdx >= len(it.stmts) {
 		return false
 	}
+	stmt := it.stmts[it.stmtIdx]
+	it.analyzer.opt.SetParameterMode(stmt.mode)
 	out, err := zetasql.AnalyzeStatementFromParserAST(
 		it.query,
-		it.stmts[it.stmtIdx],
+		stmt.stmt,
 		it.analyzer.catalog.getCatalog(it.analyzer.namePath),
 		it.analyzer.opt,
 	)
@@ -341,7 +381,10 @@ func (it *AnalyzerOutputIterator) analyzeCreateTableStmt(ctx context.Context, no
 				if err != nil {
 					return nil, err
 				}
-				it.stmts = append(it.stmts, stmt)
+				it.stmts = append(it.stmts, &Statement{
+					stmt: stmt,
+					mode: zetasql.ParameterNamed,
+				})
 			}
 			return nil, nil
 		},
@@ -394,7 +437,10 @@ func (it *AnalyzerOutputIterator) analyzeCreateTableAsSelectStmt(ctx context.Con
 				if err != nil {
 					return nil, err
 				}
-				it.stmts = append(it.stmts, stmt)
+				it.stmts = append(it.stmts, &Statement{
+					stmt: stmt,
+					mode: zetasql.ParameterNamed,
+				})
 			}
 			return nil, nil
 		},

@@ -538,6 +538,38 @@ var normalFuncs = []*FuncInfo{
 		ReturnTypes: []types.TypeKind{types.STRING},
 	},
 
+	// json functions
+	{
+		Name:        "to_json",
+		BindFunc:    bindToJson,
+		ReturnTypes: []types.TypeKind{types.JSON},
+	},
+	{
+		Name:        "to_json_string",
+		BindFunc:    bindToJsonString,
+		ReturnTypes: []types.TypeKind{types.STRING},
+	},
+	{
+		Name:        "bool",
+		BindFunc:    bindBool,
+		ReturnTypes: []types.TypeKind{types.BOOL},
+	},
+	{
+		Name:        "int64",
+		BindFunc:    bindInt64,
+		ReturnTypes: []types.TypeKind{types.INT64},
+	},
+	{
+		Name:        "double",
+		BindFunc:    bindDouble,
+		ReturnTypes: []types.TypeKind{types.DOUBLE},
+	},
+	{
+		Name:        "json_type",
+		BindFunc:    bindJsonType,
+		ReturnTypes: []types.TypeKind{types.STRING},
+	},
+
 	// math functions
 
 	{
@@ -1171,6 +1203,9 @@ func setupNormalFuncMap(info *FuncInfo) error {
 		case types.STRUCT:
 			name = fmt.Sprintf("zetasqlite_%s_struct", info.Name)
 			fn = bindStructFunc(info.BindFunc)
+		case types.JSON:
+			name = fmt.Sprintf("zetasqlite_%s_json", info.Name)
+			fn = bindJsonFunc(info.BindFunc)
 		default:
 			return fmt.Errorf("unsupported return type %s for function: %s", retType, info.Name)
 		}
@@ -1222,6 +1257,9 @@ func setupAggregateFuncMap(info *AggregateFuncInfo) error {
 		case types.STRUCT:
 			name = fmt.Sprintf("zetasqlite_%s_struct", info.Name)
 			aggregator = bindAggregateStructFunc(info.BindFunc)
+		case types.JSON:
+			name = fmt.Sprintf("zetasqlite_%s_json", info.Name)
+			aggregator = bindAggregateJsonFunc(info.BindFunc)
 		default:
 			return fmt.Errorf("unsupported return type %s for aggregate function: %s", retType, info.Name)
 		}
@@ -1273,6 +1311,9 @@ func setupWindowFuncMap(info *WindowFuncInfo) error {
 		case types.STRUCT:
 			name = fmt.Sprintf("zetasqlite_window_%s_struct", info.Name)
 			aggregator = bindWindowStructFunc(info.BindFunc)
+		case types.JSON:
+			name = fmt.Sprintf("zetasqlite_window_%s_json", info.Name)
+			aggregator = bindWindowJsonFunc(info.BindFunc)
 		default:
 			return fmt.Errorf("unsupported return type %s for window function: %s", retType, info.Name)
 		}

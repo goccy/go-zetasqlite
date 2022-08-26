@@ -516,16 +516,23 @@ func DECODE_ARRAY(v string) (Value, error) {
 }
 
 func MAKE_STRUCT(args ...Value) (Value, error) {
-	keys := make([]string, len(args))
+	keys := make([]string, len(args)/2)
+	values := make([]Value, len(args)/2)
 	fieldMap := map[string]Value{}
-	for i := 0; i < len(args); i++ {
-		key := fmt.Sprintf("_field_%d", i+1)
-		keys[i] = key
-		fieldMap[key] = args[i]
+	for i := 0; i < len(args)/2; i++ {
+		key := args[i*2]
+		value := args[i*2+1]
+		k, err := key.ToString()
+		if err != nil {
+			return nil, err
+		}
+		keys[i] = k
+		values[i] = value
+		fieldMap[k] = value
 	}
 	return &StructValue{
 		keys:   keys,
-		values: args,
+		values: values,
 		m:      fieldMap,
 	}, nil
 }

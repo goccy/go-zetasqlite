@@ -697,6 +697,130 @@ func (bv BoolValue) Interface() interface{} {
 	return bool(bv)
 }
 
+type JsonValue string
+
+func (jv JsonValue) Add(v Value) (Value, error) {
+	return nil, fmt.Errorf("add operation is unsupported for json %v", jv)
+}
+
+func (jv JsonValue) Sub(v Value) (Value, error) {
+	return nil, fmt.Errorf("sub operation is unsupported for json %v", jv)
+}
+
+func (jv JsonValue) Mul(v Value) (Value, error) {
+	return nil, fmt.Errorf("mul operation is unsupported for json %v", jv)
+}
+
+func (jv JsonValue) Div(v Value) (Value, error) {
+	return nil, fmt.Errorf("div operation is unsupported for json %v", jv)
+}
+
+func (jv JsonValue) EQ(v Value) (bool, error) {
+	return false, fmt.Errorf("eq operation is unsupported for json %v", jv)
+}
+
+func (jv JsonValue) GT(v Value) (bool, error) {
+	return false, fmt.Errorf("gt operation is unsupported for json %v", jv)
+}
+
+func (jv JsonValue) GTE(v Value) (bool, error) {
+	return false, fmt.Errorf("gte operation is unsupported for json %v", jv)
+}
+
+func (jv JsonValue) LT(v Value) (bool, error) {
+	return false, fmt.Errorf("lt operation is unsupported for json %v", jv)
+}
+
+func (jv JsonValue) LTE(v Value) (bool, error) {
+	return false, fmt.Errorf("lte operation is unsupported for json %v", jv)
+}
+
+func (jv JsonValue) ToInt64() (int64, error) {
+	return strconv.ParseInt(string(jv), 10, 64)
+}
+
+func (jv JsonValue) ToString() (string, error) {
+	return toJsonValueFromString(string(jv))
+}
+
+func (jv JsonValue) ToFloat64() (float64, error) {
+	return strconv.ParseFloat(string(jv), 64)
+}
+
+func (jv JsonValue) ToBool() (bool, error) {
+	return strconv.ParseBool(string(jv))
+}
+
+func (jv JsonValue) ToArray() (*ArrayValue, error) {
+	return nil, fmt.Errorf("failed to convert json from array: %v", jv)
+}
+
+func (jv JsonValue) ToStruct() (*StructValue, error) {
+	return nil, fmt.Errorf("failed to convert json from struct: %v", jv)
+}
+
+func (jv JsonValue) ToJSON() (string, error) {
+	return string(jv), nil
+}
+
+func (jv JsonValue) ToTime() (time.Time, error) {
+	return time.Time{}, fmt.Errorf("failed to convert json from time.Time: %v", jv)
+}
+
+func (jv JsonValue) ToRat() (*big.Rat, error) {
+	i64, err := strconv.ParseInt(string(jv), 10, 64)
+	if err != nil {
+		return nil, err
+	}
+	r := new(big.Rat)
+	r.SetInt64(i64)
+	return r, nil
+}
+
+func (jv JsonValue) Marshal() (string, error) {
+	return jv.ToString()
+}
+
+func (jv JsonValue) Format(verb rune) string {
+	return string(jv)
+}
+
+func (jv JsonValue) Interface() interface{} {
+	var v interface{}
+	if err := json.Unmarshal([]byte(jv), &v); err != nil {
+		return nil
+	}
+	return v
+}
+
+func (jv JsonValue) reflectTypeToJsonType(t reflect.Type) string {
+	switch t.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+		reflect.Float32, reflect.Float64:
+		return "number"
+	case reflect.String:
+		return "string"
+	case reflect.Bool:
+		return "boolean"
+	case reflect.Slice, reflect.Array:
+		return "array"
+	case reflect.Struct, reflect.Map:
+		return "object"
+	case reflect.Ptr:
+		return jv.reflectTypeToJsonType(t.Elem())
+	}
+	return "unknown"
+}
+
+func (jv JsonValue) Type() string {
+	if string(jv) == "null" {
+		return "null"
+	}
+	rv := reflect.ValueOf(jv.Interface())
+	return jv.reflectTypeToJsonType(rv.Type())
+}
+
 type ArrayValue struct {
 	values []Value
 }
@@ -1864,6 +1988,7 @@ const (
 	DatetimeValueHeader  = "zetasqlitedatetime:"
 	TimeValueHeader      = "zetasqlitetime:"
 	TimestampValueHeader = "zetasqlitetimestamp:"
+	JsonValueHeader      = "zetasqlitejson:"
 )
 
 func ValueOf(v interface{}) (Value, error) {
@@ -1912,6 +2037,8 @@ func ValueOf(v interface{}) (Value, error) {
 			return TimeValueOf(vv)
 		case isTimestampValue(vv):
 			return TimestampValueOf(vv)
+		case isJsonValue(vv):
+			return JsonValueOf(vv)
 		}
 		return StringValue(vv), nil
 	case []byte:
@@ -1996,6 +2123,16 @@ func isTimestampValue(v string) bool {
 	return strings.HasPrefix(v, TimestampValueHeader)
 }
 
+func isJsonValue(v string) bool {
+	if len(v) < len(JsonValueHeader) {
+		return false
+	}
+	if v[0] == '"' {
+		return strings.HasPrefix(v[1:], JsonValueHeader)
+	}
+	return strings.HasPrefix(v, JsonValueHeader)
+}
+
 func NumericValueOf(v string) (Value, error) {
 	numeric, err := numericValueFromEncodedString(v)
 	if err != nil {
@@ -2034,6 +2171,14 @@ func TimestampValueOf(v string) (Value, error) {
 		return nil, fmt.Errorf("failed to get timestamp value from encoded string: %w", err)
 	}
 	return TimestampValue(date), nil
+}
+
+func JsonValueOf(v string) (Value, error) {
+	json, err := jsonValueFromEncodedString(v)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get json value from encoded string: %w", err)
+	}
+	return JsonValue(json), nil
 }
 
 func ArrayValueOf(v string) (Value, error) {
@@ -2199,6 +2344,25 @@ func timestampValueFromEncodedString(v string) (time.Time, error) {
 	return parseTimestamp(content, loc)
 }
 
+func jsonValueFromEncodedString(v string) (string, error) {
+	if len(v) == 0 {
+		return "", nil
+	}
+	if v[0] == '"' {
+		unquoted, err := strconv.Unquote(v)
+		if err != nil {
+			return "", fmt.Errorf("failed to unquote value %q: %w", v, err)
+		}
+		v = unquoted
+	}
+	content := v[len(JsonValueHeader):]
+	decoded, err := base64.StdEncoding.DecodeString(content)
+	if err != nil {
+		return "", fmt.Errorf("failed to base64 decode for json value %q: %w", content, err)
+	}
+	return string(decoded), nil
+}
+
 func arrayValueFromEncodedString(v string) ([]interface{}, error) {
 	if len(v) == 0 {
 		return nil, nil
@@ -2301,6 +2465,16 @@ func toTimestampValueFromString(s string) (string, error) {
 			"%s%s",
 			TimestampValueHeader,
 			formatted,
+		),
+	), nil
+}
+
+func toJsonValueFromString(s string) (string, error) {
+	return strconv.Quote(
+		fmt.Sprintf(
+			"%s%s",
+			JsonValueHeader,
+			base64.StdEncoding.EncodeToString([]byte(s)),
 		),
 	), nil
 }
@@ -2694,7 +2868,11 @@ func encodeValueWithType(v interface{}, t types.Type) (interface{}, error) {
 	case types.EXTENDED:
 		return nil, fmt.Errorf("failed to convert EXTENDED type from %T", v)
 	case types.JSON:
-		return nil, fmt.Errorf("failed to convert JSON type from %T", v)
+		b, err := json.Marshal(v)
+		if err != nil {
+			return nil, err
+		}
+		return string(b), nil
 	case types.INTERVAL:
 		return nil, fmt.Errorf("failed to convert INTERVAL type from %T", v)
 	default:

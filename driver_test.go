@@ -59,7 +59,7 @@ func TestRegisterCustomDriver(t *testing.T) {
 	if _, err := db.Exec("INSERT `project-id`.datasetID.tableID (Id) VALUES (1)"); err != nil {
 		t.Fatal(err)
 	}
-	row := db.QueryRow("SELECT * FROM project-id.datasetID.tableID WHERE Id = @id", 1)
+	row := db.QueryRow("SELECT * FROM project-id.datasetID.tableID WHERE Id = ?", 1)
 	if row.Err() != nil {
 		t.Fatal(row.Err())
 	}

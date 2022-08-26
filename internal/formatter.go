@@ -414,19 +414,34 @@ func (n *CastNode) FormatSQL(ctx context.Context) (string, error) {
 	return fmt.Sprintf("zetasqlite_cast_%s(%s)", typeSuffix, expr), nil
 }
 
+func extractColumnNameFromFormattedName(col string) string {
+	if len(col) == 0 {
+		return col
+	}
+	if col[0] == '`' {
+		// trimmed back quote
+		col = col[1 : len(col)-1]
+	}
+	return strings.Split(col, "#")[0]
+}
+
 func (n *MakeStructNode) FormatSQL(ctx context.Context) (string, error) {
 	if n.node == nil {
 		return "", nil
 	}
-	var fields []string
+	var args []string
 	for _, field := range n.node.FieldList() {
 		col, err := newNode(field).FormatSQL(ctx)
 		if err != nil {
 			return "", err
 		}
-		fields = append(fields, col)
+		args = append(
+			args,
+			fmt.Sprintf(`'%s'`, extractColumnNameFromFormattedName(col)), // field name
+			col, // field value
+		)
 	}
-	return fmt.Sprintf("zetasqlite_make_struct_struct(%s)", strings.Join(fields, ",")), nil
+	return fmt.Sprintf("zetasqlite_make_struct_struct(%s)", strings.Join(args, ",")), nil
 }
 
 func (n *MakeProtoNode) FormatSQL(ctx context.Context) (string, error) {

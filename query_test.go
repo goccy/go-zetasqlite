@@ -1193,24 +1193,24 @@ FROM finishers`,
 					[]interface{}{
 						[]map[string]interface{}{
 							map[string]interface{}{
-								"_field_1": float64(1),
+								"$col1": float64(1),
 							},
 							map[string]interface{}{
-								"_field_2": float64(2),
+								"$col2": float64(2),
 							},
 							map[string]interface{}{
-								"_field_3": float64(3),
+								"$col3": float64(3),
 							},
 						},
 						[]map[string]interface{}{
 							map[string]interface{}{
-								"_field_1": float64(4),
+								"$col1": float64(4),
 							},
 							map[string]interface{}{
-								"_field_2": float64(5),
+								"$col2": float64(5),
 							},
 							map[string]interface{}{
-								"_field_3": float64(6),
+								"$col3": float64(6),
 							},
 						},
 					},
@@ -1225,7 +1225,7 @@ FROM finishers`,
 					[]interface{}{
 						[]map[string]interface{}{
 							map[string]interface{}{
-								"_field_1": []interface{}{
+								"$col1": []interface{}{
 									float64(1),
 									float64(2),
 									float64(3),
@@ -1234,7 +1234,7 @@ FROM finishers`,
 						},
 						[]map[string]interface{}{
 							map[string]interface{}{
-								"_field_1": []interface{}{
+								"$col1": []interface{}{
 									float64(4),
 									float64(5),
 									float64(6),
@@ -2284,6 +2284,83 @@ SELECT Add(3, 4);
 			name:         "replace",
 			query:        `WITH orders AS (SELECT 5 as order_id, "sprocket" as item_name, 200 as quantity) SELECT * REPLACE (quantity/2 AS quantity) FROM orders`,
 			expectedRows: [][]interface{}{{int64(5), "sprocket", float64(100)}},
+		},
+
+		// json
+		{
+			name: "to_json",
+			query: `
+With CoordinatesTable AS (
+    (SELECT 1 AS id, [10,20] AS coordinates) UNION ALL
+    (SELECT 2 AS id, [30,40] AS coordinates) UNION ALL
+    (SELECT 3 AS id, [50,60] AS coordinates))
+SELECT TO_JSON(t) AS json_objects FROM CoordinatesTable AS t`,
+			expectedRows: [][]interface{}{
+				{`{"id":1,"coordinates":[10,20]}`},
+				{`{"id":2,"coordinates":[30,40]}`},
+				{`{"id":3,"coordinates":[50,60]}`},
+			},
+		},
+		{
+			name: "to_json_string",
+			query: `
+With CoordinatesTable AS (
+    (SELECT 1 AS id, [10,20] AS coordinates) UNION ALL
+    (SELECT 2 AS id, [30,40] AS coordinates) UNION ALL
+    (SELECT 3 AS id, [50,60] AS coordinates))
+SELECT id, coordinates, TO_JSON_STRING(t) AS json_data
+FROM CoordinatesTable AS t`,
+			expectedRows: [][]interface{}{
+				{int64(1), []int64{10, 20}, `{"id":1,"coordinates":[10,20]}`},
+				{int64(2), []int64{30, 40}, `{"id":2,"coordinates":[30,40]}`},
+				{int64(3), []int64{50, 60}, `{"id":3,"coordinates":[50,60]}`},
+			},
+		},
+		{
+			name:         "json_string",
+			query:        `SELECT STRING(JSON '"purple"') AS color`,
+			expectedRows: [][]interface{}{{"purple"}},
+		},
+		{
+			name:         "json_bool",
+			query:        `SELECT BOOL(JSON 'true') AS vacancy`,
+			expectedRows: [][]interface{}{{true}},
+		},
+		{
+			name:         "json_int64",
+			query:        `SELECT INT64(JSON '2005') AS flight_number`,
+			expectedRows: [][]interface{}{{int64(2005)}},
+		},
+		{
+			name:         "json_float64",
+			query:        `SELECT FLOAT64(JSON '9.8') AS velocity`,
+			expectedRows: [][]interface{}{{float64(9.8)}},
+		},
+		{
+			name: "json_type",
+			query: `
+SELECT json_val, JSON_TYPE(json_val) AS type
+FROM
+  UNNEST(
+    [
+      JSON '"apple"',
+      JSON '10',
+      JSON '3.14',
+      JSON 'null',
+      JSON '{"city": "New York", "State": "NY"}',
+      JSON '["apple", "banana"]',
+      JSON 'false'
+    ]
+  ) AS json_val`,
+			expectedRows: [][]interface{}{
+				{`"apple"`, "string"},
+				{"10", "number"},
+				{"3.14", "number"},
+				{"null", "null"},
+				{`{"State":"NY","city":"New York"}`, "object"},
+				{`["apple","banana"]`, "array"},
+				{"false", "boolean"},
+			},
 		},
 	} {
 		test := test

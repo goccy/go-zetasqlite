@@ -29,6 +29,15 @@ func TestExec(t *testing.T) {
 			query: `CREATE TABLE _table_a ( doubleValue DOUBLE, floatValue FLOAT )`,
 		},
 		{
+			name: "recreate table",
+			query: `
+CREATE OR REPLACE TABLE recreate_table ( a string );
+DROP TABLE recreate_table;
+CREATE TABLE recreate_table ( b string );
+INSERT recreate_table (b) VALUES ('hello');
+`,
+		},
+		{
 			name: "transaction",
 			query: `
 CREATE OR REPLACE TABLE Inventory
