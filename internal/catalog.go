@@ -218,16 +218,22 @@ func (c *Catalog) deleteTableSpecByName(name string) error {
 		return fmt.Errorf("failed to find table spec from map by %s", name)
 	}
 	tables := make([]*TableSpec, 0, len(c.tables))
+	specName := strings.Join(spec.NamePath, "_")
 	for _, table := range c.tables {
-		if spec == table {
+		if specName == strings.Join(table.NamePath, "_") {
 			continue
 		}
 		tables = append(tables, table)
 	}
-	c.tables = tables
-	delete(c.tableMap, name)
-	if err := c.resetCatalogs(); err != nil {
-		return fmt.Errorf("failed to reset catalogs: %w", err)
+
+	c.defaultCatalog = newSimpleCatalog(defaultCatalogName)
+	c.pathToCatalogMap = map[string]*types.SimpleCatalog{}
+	c.tables = []*TableSpec{}
+	c.tableMap = map[string]*TableSpec{}
+	for _, spec := range tables {
+		if err := c.addTableSpec(spec); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -238,28 +244,18 @@ func (c *Catalog) deleteFunctionSpecByName(name string) error {
 		return fmt.Errorf("failed to find function spec from map by %s", name)
 	}
 	functions := make([]*FunctionSpec, 0, len(c.functions))
+	specName := strings.Join(spec.NamePath, "_")
 	for _, function := range c.functions {
-		if spec == function {
+		if specName == strings.Join(function.NamePath, "_") {
 			continue
 		}
 		functions = append(functions, function)
 	}
-	c.functions = functions
-	delete(c.funcMap, name)
-	if err := c.resetCatalogs(); err != nil {
-		return fmt.Errorf("failed to reset catalogs: %w", err)
-	}
-	return nil
-}
 
-func (c *Catalog) resetCatalogs() error {
 	c.defaultCatalog = newSimpleCatalog(defaultCatalogName)
 	c.pathToCatalogMap = map[string]*types.SimpleCatalog{}
-	for _, spec := range c.tables {
-		if err := c.addTableSpec(spec); err != nil {
-			return err
-		}
-	}
+	c.functions = []*FunctionSpec{}
+	c.funcMap = map[string]*FunctionSpec{}
 	for _, spec := range c.functions {
 		if err := c.addFunctionSpec(spec); err != nil {
 			return err
@@ -353,13 +349,15 @@ func (c *Catalog) addFunctionSpec(spec *FunctionSpec) error {
 	c.functions = append(c.functions, spec)
 	c.funcMap[funcName] = spec
 	catalogMapKey := c.pathToCatalogMapKey(c.trimmedLastPath(spec.NamePath))
-	cat, exists := c.pathToCatalogMap[catalogMapKey]
-	if !exists {
-		cat = newSimpleCatalog(defaultCatalogName)
-		c.pathToCatalogMap[catalogMapKey] = cat
-	}
-	if err := c.addFunctionSpecRecursive(cat, spec); err != nil {
-		return err
+	if catalogMapKey != "" {
+		cat, exists := c.pathToCatalogMap[catalogMapKey]
+		if !exists {
+			cat = newSimpleCatalog(defaultCatalogName)
+			c.pathToCatalogMap[catalogMapKey] = cat
+		}
+		if err := c.addFunctionSpecRecursive(cat, spec); err != nil {
+			return err
+		}
 	}
 	if err := c.addFunctionSpecRecursive(c.defaultCatalog, spec); err != nil {
 		return err
@@ -376,13 +374,15 @@ func (c *Catalog) addTableSpec(spec *TableSpec) error {
 	c.tables = append(c.tables, spec)
 	c.tableMap[tableName] = spec
 	catalogMapKey := c.pathToCatalogMapKey(c.trimmedLastPath(spec.NamePath))
-	cat, exists := c.pathToCatalogMap[catalogMapKey]
-	if !exists {
-		cat = newSimpleCatalog(defaultCatalogName)
-		c.pathToCatalogMap[catalogMapKey] = cat
-	}
-	if err := c.addTableSpecRecursive(cat, spec); err != nil {
-		return err
+	if catalogMapKey != "" {
+		cat, exists := c.pathToCatalogMap[catalogMapKey]
+		if !exists {
+			cat = newSimpleCatalog(defaultCatalogName)
+			c.pathToCatalogMap[catalogMapKey] = cat
+		}
+		if err := c.addTableSpecRecursive(cat, spec); err != nil {
+			return err
+		}
 	}
 	if err := c.addTableSpecRecursive(c.defaultCatalog, spec); err != nil {
 		return err
