@@ -2286,6 +2286,10 @@ func bindArrayReverse(args ...Value) (Value, error) {
 	return ARRAY_REVERSE(arr)
 }
 
+func bindMakeArray(args ...Value) (Value, error) {
+	return MAKE_ARRAY(args...)
+}
+
 func bindMakeStruct(args ...Value) (Value, error) {
 	if len(args)%2 != 0 {
 		return nil, fmt.Errorf("MAKE_STRUCT: unexpected argument num %d", len(args))
