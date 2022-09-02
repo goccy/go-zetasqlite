@@ -100,6 +100,7 @@ var normalFuncs = []*FuncInfo{
 		ReturnTypes: []types.TypeKind{
 			types.INT64, types.DOUBLE, types.BOOL,
 			types.STRING, types.ARRAY, types.STRUCT,
+			types.DATE, types.TIME, types.TIMESTAMP,
 		},
 	},
 	{
@@ -821,7 +822,11 @@ var normalFuncs = []*FuncInfo{
 		BindFunc:    bindArrayReverse,
 		ReturnTypes: []types.TypeKind{types.ARRAY},
 	},
-
+	{
+		Name:        "make_array",
+		BindFunc:    bindMakeArray,
+		ReturnTypes: []types.TypeKind{types.ARRAY},
+	},
 	{
 		Name:        "make_struct",
 		BindFunc:    bindMakeStruct,

@@ -1179,6 +1179,11 @@ FROM finishers`,
 
 		// array functions
 		{
+			name:         "make_array",
+			query:        `SELECT a, b FROM UNNEST([STRUCT(DATE(2022, 1, 1) AS a, 1 AS b)])`,
+			expectedRows: [][]interface{}{{"2022-01-01", int64(1)}},
+		},
+		{
 			name:  "array function",
 			query: `SELECT ARRAY (SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3) AS new_array`,
 			expectedRows: [][]interface{}{

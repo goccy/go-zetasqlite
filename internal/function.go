@@ -515,6 +515,10 @@ func DECODE_ARRAY(v string) (Value, error) {
 	return StringValue(json), nil
 }
 
+func MAKE_ARRAY(args ...Value) (Value, error) {
+	return &ArrayValue{values: args}, nil
+}
+
 func MAKE_STRUCT(args ...Value) (Value, error) {
 	keys := make([]string, len(args)/2)
 	values := make([]Value, len(args)/2)
