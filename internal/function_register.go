@@ -953,7 +953,7 @@ var aggregateFuncs = []*AggregateFuncInfo{
 		Name:     "max",
 		BindFunc: bindMax,
 		ReturnTypes: []types.TypeKind{
-			types.INT64, types.DOUBLE, types.BOOL,
+			types.INT64, types.DOUBLE, types.STRING, types.BOOL,
 			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
 		},
 	},
@@ -961,7 +961,7 @@ var aggregateFuncs = []*AggregateFuncInfo{
 		Name:     "min",
 		BindFunc: bindMin,
 		ReturnTypes: []types.TypeKind{
-			types.INT64, types.DOUBLE, types.BOOL,
+			types.INT64, types.DOUBLE, types.STRING, types.BOOL,
 			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
 		},
 	},
@@ -984,14 +984,20 @@ var windowFuncs = []*WindowFuncInfo{
 		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
 	},
 	{
-		Name:        "max",
-		BindFunc:    bindWindowMax,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+		Name:     "max",
+		BindFunc: bindWindowMax,
+		ReturnTypes: []types.TypeKind{
+			types.INT64, types.DOUBLE, types.STRING, types.BOOL,
+			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
+		},
 	},
 	{
-		Name:        "min",
-		BindFunc:    bindWindowMin,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
+		Name:     "min",
+		BindFunc: bindWindowMin,
+		ReturnTypes: []types.TypeKind{
+			types.INT64, types.DOUBLE, types.STRING, types.BOOL,
+			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
+		},
 	},
 	{
 		Name:        "count",
