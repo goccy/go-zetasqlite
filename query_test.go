@@ -565,14 +565,34 @@ SELECT ARRAY_CONCAT_AGG(x) AS array_concat_agg FROM (
 			expectedRows: [][]interface{}{{true}},
 		},
 		{
-			name:         "max",
+			name:         "max from int group",
 			query:        `SELECT MAX(x) AS max FROM UNNEST([8, 37, 4, 55]) AS x`,
 			expectedRows: [][]interface{}{{int64(55)}},
 		},
 		{
-			name:         "min",
+			name:         "max from date group",
+			query:        `SELECT MAX(x) AS max FROM UNNEST(['2022-01-01', '2022-02-01', '2022-01-02', '2021-03-01']) AS x`,
+			expectedRows: [][]interface{}{{"2022-02-01"}},
+		},
+		{
+			name:         "max window from date group",
+			query:        `SELECT MAX(x) OVER() AS max FROM UNNEST(['2022-01-01', '2022-02-01', '2022-01-02', '2021-03-01']) AS x`,
+			expectedRows: [][]interface{}{{"2022-02-01"}, {"2022-02-01"}, {"2022-02-01"}, {"2022-02-01"}},
+		},
+		{
+			name:         "min from int group",
 			query:        `SELECT MIN(x) AS min FROM UNNEST([8, 37, 4, 55]) AS x`,
 			expectedRows: [][]interface{}{{int64(4)}},
+		},
+		{
+			name:         "min from date group",
+			query:        `SELECT MIN(x) AS min FROM UNNEST(['2022-01-01', '2022-02-01', '2022-01-02', '2021-03-01']) AS x`,
+			expectedRows: [][]interface{}{{"2021-03-01"}},
+		},
+		{
+			name:         "min window from date group",
+			query:        `SELECT MIN(x) OVER() AS max FROM UNNEST(['2022-01-01', '2022-02-01', '2022-01-02', '2021-03-01']) AS x`,
+			expectedRows: [][]interface{}{{"2021-03-01"}, {"2021-03-01"}, {"2021-03-01"}, {"2021-03-01"}},
 		},
 		{
 			name:         "string_agg",
@@ -2400,7 +2420,7 @@ FROM
 					derefArgs = append(derefArgs, value)
 				}
 				if len(test.expectedRows) <= rowNum {
-					t.Fatalf("unexpected row %v", derefArgs)
+					t.Fatalf("unexpected row %v. expected row num %d but got next row", derefArgs, len(test.expectedRows))
 				}
 				expectedRow := test.expectedRows[rowNum]
 				if len(derefArgs) != len(expectedRow) {
