@@ -2327,6 +2327,11 @@ SELECT TO_JSON(t) AS json_objects FROM CoordinatesTable AS t`,
 			},
 		},
 		{
+			name:         "to_json with struct",
+			query:        `SELECT TO_JSON(STRUCT("foo" AS a, TO_JSON(STRUCT("bar" AS c)) AS b))`,
+			expectedRows: [][]interface{}{{`{"a":"foo","b":{"c":"bar"}}`}},
+		},
+		{
 			name: "to_json_string",
 			query: `
 With CoordinatesTable AS (
