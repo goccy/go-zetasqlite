@@ -467,11 +467,26 @@ FROM Items`,
 			}},
 		},
 		{
+			name:        "array_agg with nulls",
+			query:       `SELECT ARRAY_AGG(x) AS array_agg FROM UNNEST([NULL, 1, -2, 3, -2, 1, NULL]) AS x`,
+			expectedErr: true,
+		},
+		{
+			name:        "array_agg with struct",
+			query:       `SELECT b, ARRAY_AGG(a) FROM UNNEST([STRUCT(1 AS a, 2 AS b), STRUCT(NULL AS a, 2 AS b)]) GROUP BY b`,
+			expectedErr: true,
+		},
+		{
 			name:  "array_agg with ignore nulls",
 			query: `SELECT ARRAY_AGG(x IGNORE NULLS) AS array_agg FROM UNNEST([NULL, 1, -2, 3, -2, 1, NULL]) AS x`,
 			expectedRows: [][]interface{}{{
 				[]int64{1, -2, 3, -2, 1},
 			}},
+		},
+		{
+			name:         "array_agg with ignore nulls and struct",
+			query:        `SELECT b, ARRAY_AGG(a IGNORE NULLS) FROM UNNEST([STRUCT(NULL AS a, 2 AS b), STRUCT(1 AS a, 2 AS b)]) GROUP BY b`,
+			expectedRows: [][]interface{}{{int64(2), []int64{1}}},
 		},
 		{
 			name:  "array_agg with abs",
