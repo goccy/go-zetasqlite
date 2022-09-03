@@ -467,11 +467,26 @@ FROM Items`,
 			}},
 		},
 		{
+			name:        "array_agg with nulls",
+			query:       `SELECT ARRAY_AGG(x) AS array_agg FROM UNNEST([NULL, 1, -2, 3, -2, 1, NULL]) AS x`,
+			expectedErr: true,
+		},
+		{
+			name:        "array_agg with struct",
+			query:       `SELECT b, ARRAY_AGG(a) FROM UNNEST([STRUCT(1 AS a, 2 AS b), STRUCT(NULL AS a, 2 AS b)]) GROUP BY b`,
+			expectedErr: true,
+		},
+		{
 			name:  "array_agg with ignore nulls",
 			query: `SELECT ARRAY_AGG(x IGNORE NULLS) AS array_agg FROM UNNEST([NULL, 1, -2, 3, -2, 1, NULL]) AS x`,
 			expectedRows: [][]interface{}{{
 				[]int64{1, -2, 3, -2, 1},
 			}},
+		},
+		{
+			name:         "array_agg with ignore nulls and struct",
+			query:        `SELECT b, ARRAY_AGG(a IGNORE NULLS) FROM UNNEST([STRUCT(NULL AS a, 2 AS b), STRUCT(1 AS a, 2 AS b)]) GROUP BY b`,
+			expectedRows: [][]interface{}{{int64(2), []int64{1}}},
 		},
 		{
 			name:  "array_agg with abs",
@@ -1218,24 +1233,24 @@ FROM finishers`,
 					[]interface{}{
 						[]map[string]interface{}{
 							map[string]interface{}{
-								"$col1": float64(1),
+								"": float64(1),
 							},
 							map[string]interface{}{
-								"$col2": float64(2),
+								"": float64(2),
 							},
 							map[string]interface{}{
-								"$col3": float64(3),
+								"": float64(3),
 							},
 						},
 						[]map[string]interface{}{
 							map[string]interface{}{
-								"$col1": float64(4),
+								"": float64(4),
 							},
 							map[string]interface{}{
-								"$col2": float64(5),
+								"": float64(5),
 							},
 							map[string]interface{}{
-								"$col3": float64(6),
+								"": float64(6),
 							},
 						},
 					},
@@ -1250,7 +1265,7 @@ FROM finishers`,
 					[]interface{}{
 						[]map[string]interface{}{
 							map[string]interface{}{
-								"$col1": []interface{}{
+								"": []interface{}{
 									float64(1),
 									float64(2),
 									float64(3),
@@ -1259,7 +1274,7 @@ FROM finishers`,
 						},
 						[]map[string]interface{}{
 							map[string]interface{}{
-								"$col1": []interface{}{
+								"": []interface{}{
 									float64(4),
 									float64(5),
 									float64(6),
@@ -2325,6 +2340,11 @@ SELECT TO_JSON(t) AS json_objects FROM CoordinatesTable AS t`,
 				{`{"id":2,"coordinates":[30,40]}`},
 				{`{"id":3,"coordinates":[50,60]}`},
 			},
+		},
+		{
+			name:         "to_json with struct",
+			query:        `SELECT TO_JSON(STRUCT("foo" AS a, TO_JSON(STRUCT("bar" AS c)) AS b))`,
+			expectedRows: [][]interface{}{{`{"a":"foo","b":{"c":"bar"}}`}},
 		},
 		{
 			name: "to_json_string",
