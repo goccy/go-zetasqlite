@@ -1233,24 +1233,24 @@ FROM finishers`,
 					[]interface{}{
 						[]map[string]interface{}{
 							map[string]interface{}{
-								"$col1": float64(1),
+								"": float64(1),
 							},
 							map[string]interface{}{
-								"$col2": float64(2),
+								"": float64(2),
 							},
 							map[string]interface{}{
-								"$col3": float64(3),
+								"": float64(3),
 							},
 						},
 						[]map[string]interface{}{
 							map[string]interface{}{
-								"$col1": float64(4),
+								"": float64(4),
 							},
 							map[string]interface{}{
-								"$col2": float64(5),
+								"": float64(5),
 							},
 							map[string]interface{}{
-								"$col3": float64(6),
+								"": float64(6),
 							},
 						},
 					},
@@ -1265,7 +1265,7 @@ FROM finishers`,
 					[]interface{}{
 						[]map[string]interface{}{
 							map[string]interface{}{
-								"$col1": []interface{}{
+								"": []interface{}{
 									float64(1),
 									float64(2),
 									float64(3),
@@ -1274,7 +1274,7 @@ FROM finishers`,
 						},
 						[]map[string]interface{}{
 							map[string]interface{}{
-								"$col1": []interface{}{
+								"": []interface{}{
 									float64(4),
 									float64(5),
 									float64(6),
