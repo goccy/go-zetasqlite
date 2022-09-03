@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 
 	ast "github.com/goccy/go-zetasql/resolved_ast"
@@ -104,6 +105,28 @@ func (t *Type) IsArray() bool {
 
 func (t *Type) IsStruct() bool {
 	return t.Kind == types.STRUCT
+}
+
+func (t *Type) GoReflectType() (reflect.Type, error) {
+	switch t.Kind {
+	case types.INT32, types.INT64, types.UINT32, types.UINT64:
+		return reflect.TypeOf(int64(0)), nil
+	case types.BOOL:
+		return reflect.TypeOf(false), nil
+	case types.FLOAT, types.DOUBLE:
+		return reflect.TypeOf(float64(0)), nil
+	case types.BYTES, types.STRING, types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP, types.JSON:
+		return reflect.TypeOf(""), nil
+	case types.ARRAY:
+		elem, err := t.ElementType.GoReflectType()
+		if err != nil {
+			return nil, err
+		}
+		return reflect.SliceOf(elem), nil
+	case types.STRUCT:
+		return reflect.TypeOf(map[string]interface{}{}), nil
+	}
+	return nil, fmt.Errorf("cannot convert %s to reflect.Type", t.Name)
 }
 
 func (t *Type) ToZetaSQLType() (types.Type, error) {

@@ -3,6 +3,7 @@ package internal
 import (
 	"database/sql"
 	"database/sql/driver"
+	"fmt"
 	"io"
 	"reflect"
 	"time"
@@ -67,163 +68,205 @@ func (r *Rows) Next(dest []driver.Value) error {
 		values = append(values, &v)
 	}
 	retErr := r.rows.Scan(values...)
+	destV := reflect.ValueOf(dest)
 	for idx, colType := range colTypes {
-		v := reflect.ValueOf(values[idx]).Elem().Interface()
-		value, err := r.convertValue(v, colType)
-		if err != nil {
+		src := reflect.ValueOf(values[idx]).Elem().Interface()
+		dst := destV.Index(idx)
+		if err := r.assignValue(src, dst, colType); err != nil {
 			return err
 		}
-		dest[idx] = value
 	}
 	return retErr
 }
 
-func (r *Rows) convertValue(value interface{}, typ *Type) (driver.Value, error) {
-	if value == nil {
-		return nil, nil
+func (r *Rows) assignValue(src interface{}, dst reflect.Value, typ *Type) error {
+	if src == nil {
+		dst.Set(reflect.New(dst.Type()).Elem())
+		return nil
 	}
+	value, err := ValueOf(src)
+	if err != nil {
+		return err
+	}
+	kind := dst.Type().Kind()
+	switch kind {
+	case reflect.Int:
+		i64, err := value.ToInt64()
+		if err != nil {
+			return err
+		}
+		dst.Set(reflect.ValueOf(int(i64)))
+	case reflect.Int8:
+		i64, err := value.ToInt64()
+		if err != nil {
+			return err
+		}
+		dst.Set(reflect.ValueOf(int8(i64)))
+	case reflect.Int16:
+		i64, err := value.ToInt64()
+		if err != nil {
+			return err
+		}
+		dst.Set(reflect.ValueOf(int16(i64)))
+	case reflect.Int32:
+		i64, err := value.ToInt64()
+		if err != nil {
+			return err
+		}
+		dst.Set(reflect.ValueOf(int32(i64)))
+	case reflect.Int64:
+		i64, err := value.ToInt64()
+		if err != nil {
+			return err
+		}
+		dst.Set(reflect.ValueOf(i64))
+	case reflect.Uint:
+		i64, err := value.ToInt64()
+		if err != nil {
+			return err
+		}
+		dst.Set(reflect.ValueOf(uint(i64)))
+	case reflect.Uint8:
+		i64, err := value.ToInt64()
+		if err != nil {
+			return err
+		}
+		dst.Set(reflect.ValueOf(uint8(i64)))
+	case reflect.Uint16:
+		i64, err := value.ToInt64()
+		if err != nil {
+			return err
+		}
+		dst.Set(reflect.ValueOf(uint16(i64)))
+	case reflect.Uint32:
+		i64, err := value.ToInt64()
+		if err != nil {
+			return err
+		}
+		dst.Set(reflect.ValueOf(uint32(i64)))
+	case reflect.Uint64:
+		i64, err := value.ToInt64()
+		if err != nil {
+			return err
+		}
+		dst.Set(reflect.ValueOf(uint64(i64)))
+	case reflect.Float32:
+		f64, err := value.ToFloat64()
+		if err != nil {
+			return err
+		}
+		dst.Set(reflect.ValueOf(float32(f64)))
+	case reflect.Float64:
+		f64, err := value.ToFloat64()
+		if err != nil {
+			return err
+		}
+		dst.Set(reflect.ValueOf(f64))
+	case reflect.String:
+		s, err := value.ToString()
+		if err != nil {
+			return err
+		}
+		dst.Set(reflect.ValueOf(s))
+	case reflect.Bool:
+		b, err := value.ToBool()
+		if err != nil {
+			return err
+		}
+		dst.Set(reflect.ValueOf(b))
+	case reflect.Interface:
+		return r.assignInterfaceValue(value, dst, typ)
+	default:
+		return fmt.Errorf("unexpected destination type %s for %T", kind, value)
+	}
+	return nil
+}
+
+func (r *Rows) assignInterfaceValue(src Value, dst reflect.Value, typ *Type) error {
 	switch types.TypeKind(typ.Kind) {
+	case types.INT32, types.INT64, types.UINT32, types.UINT64:
+		i64, err := src.ToInt64()
+		if err != nil {
+			return err
+		}
+		dst.Set(reflect.ValueOf(i64))
 	case types.BOOL:
-		val, err := ValueOf(value)
+		b, err := src.ToBool()
 		if err != nil {
-			return nil, err
+			return err
 		}
-		return val.ToBool()
-	case types.ARRAY:
-		val, err := ValueOf(value)
+		dst.Set(reflect.ValueOf(b))
+	case types.FLOAT, types.DOUBLE:
+		f64, err := src.ToFloat64()
 		if err != nil {
-			return nil, err
+			return err
 		}
-		array, err := val.ToArray()
+		dst.Set(reflect.ValueOf(f64))
+	case types.BYTES, types.STRING:
+		s, err := src.ToString()
 		if err != nil {
-			return nil, err
+			return err
 		}
-		elementType, err := typ.ElementType.ToZetaSQLType()
-		if err != nil {
-			return nil, err
-		}
-		switch elementType.Kind() {
-		case types.INT64:
-			v := []int64{}
-			for _, value := range array.values {
-				if value == nil {
-					// TODO: must be add nil to result values
-					continue
-				}
-				iv, err := value.ToInt64()
-				if err != nil {
-					return nil, err
-				}
-				v = append(v, iv)
-			}
-			return v, nil
-		case types.DOUBLE:
-			v := []float64{}
-			for _, value := range array.values {
-				fv, err := value.ToFloat64()
-				if err != nil {
-					return nil, err
-				}
-				v = append(v, fv)
-			}
-			return v, nil
-		case types.BOOL:
-			v := []bool{}
-			for _, value := range array.values {
-				bv, err := value.ToBool()
-				if err != nil {
-					return nil, err
-				}
-				v = append(v, bv)
-			}
-			return v, nil
-		case types.STRING:
-			v := []string{}
-			for _, value := range array.values {
-				sv, err := value.ToString()
-				if err != nil {
-					return nil, err
-				}
-				v = append(v, sv)
-			}
-			return v, nil
-		case types.DATE:
-			v := []string{}
-			for _, value := range array.values {
-				date, err := value.ToJSON()
-				if err != nil {
-					return nil, err
-				}
-				v = append(v, date)
-			}
-			return v, nil
-		case types.TIMESTAMP:
-			v := []time.Time{}
-			for _, value := range array.values {
-				t, err := value.ToTime()
-				if err != nil {
-					return nil, err
-				}
-				v = append(v, t.UTC())
-			}
-			return v, nil
-		case types.STRUCT:
-			return array.Interface(), nil
-		case types.JSON:
-			v := []string{}
-			for _, value := range array.values {
-				jv, err := value.ToJSON()
-				if err != nil {
-					return nil, err
-				}
-				v = append(v, jv)
-			}
-			return v, nil
-		}
-	case types.STRUCT:
-		val, err := ValueOf(value)
-		if err != nil {
-			return nil, err
-		}
-		s, err := val.ToStruct()
-		if err != nil {
-			return nil, err
-		}
-		return s.Interface(), nil
+		dst.Set(reflect.ValueOf(s))
 	case types.DATE:
-		val, err := ValueOf(value)
+		date, err := src.ToJSON()
 		if err != nil {
-			return nil, err
+			return err
 		}
-		return val.ToJSON()
+		dst.Set(reflect.ValueOf(date))
 	case types.DATETIME:
-		val, err := ValueOf(value)
+		datetime, err := src.ToJSON()
 		if err != nil {
-			return nil, err
+			return err
 		}
-		return val.ToJSON()
+		dst.Set(reflect.ValueOf(datetime))
 	case types.TIME:
-		val, err := ValueOf(value)
+		time, err := src.ToJSON()
 		if err != nil {
-			return nil, err
+			return err
 		}
-		return val.ToJSON()
+		dst.Set(reflect.ValueOf(time))
 	case types.TIMESTAMP:
-		val, err := ValueOf(value)
+		t, err := src.ToTime()
 		if err != nil {
-			return nil, err
+			return err
 		}
-		t, err := val.ToTime()
-		if err != nil {
-			return nil, err
-		}
-		return t.UTC(), nil
+		unixmicro := t.UnixMicro()
+		sec := unixmicro / int64(time.Millisecond)
+		nsec := unixmicro - sec*int64(time.Millisecond)
+		dst.Set(reflect.ValueOf(fmt.Sprintf("%d.%d", sec, nsec)))
 	case types.JSON:
-		val, err := ValueOf(value)
+		json, err := src.ToJSON()
 		if err != nil {
-			return nil, err
+			return err
 		}
-		return val.ToJSON()
+		dst.Set(reflect.ValueOf(json))
+	case types.STRUCT:
+		s, err := src.ToStruct()
+		if err != nil {
+			return err
+		}
+		dst.Set(reflect.ValueOf(s.Interface()))
+	case types.ARRAY:
+		array, err := src.ToArray()
+		if err != nil {
+			return err
+		}
+		sliceType := reflect.SliceOf(reflect.TypeOf((*interface{})(nil)).Elem())
+		sliceRef := reflect.New(sliceType)
+		sliceRef.Elem().Set(reflect.MakeSlice(sliceType, 0, len(array.values)))
+		for _, v := range array.values {
+			refV := reflect.New(sliceType.Elem())
+			if v == nil {
+				sliceRef.Elem().Set(reflect.Append(sliceRef.Elem(), refV.Elem()))
+				continue
+			}
+			if err := r.assignInterfaceValue(v, refV.Elem(), typ.ElementType); err != nil {
+				return err
+			}
+			sliceRef.Elem().Set(reflect.Append(sliceRef.Elem(), refV.Elem()))
+		}
+		dst.Set(sliceRef.Elem())
 	}
-	return value, nil
+	return nil
 }

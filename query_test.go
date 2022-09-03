@@ -3,6 +3,7 @@ package zetasqlite_test
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"math"
 	"reflect"
 	"testing"
@@ -68,7 +69,7 @@ func TestQuery(t *testing.T) {
 		{
 			name:         "concat array operator",
 			query:        `SELECT [1, 2] || [3, 4]`,
-			expectedRows: [][]interface{}{{[]int64{1, 2, 3, 4}}},
+			expectedRows: [][]interface{}{{[]interface{}{int64(1), int64(2), int64(3), int64(4)}}},
 		},
 
 		// priority 4 operator
@@ -362,8 +363,8 @@ SELECT * FROM sub1
 UNION ALL
 SELECT * FROM sub2`,
 			expectedRows: [][]interface{}{
-				{[]string{"a", "b"}},
-				{[]string{"c", "d"}},
+				{[]interface{}{"a", "b"}},
+				{[]interface{}{"c", "d"}},
 			},
 		},
 		{
@@ -386,7 +387,7 @@ SELECT
   item_array[SAFE_OFFSET(6)] AS item_safe_offset,
 FROM Items`,
 			expectedRows: [][]interface{}{{
-				[]string{"coffee", "tea", "milk"},
+				[]interface{}{"coffee", "tea", "milk"},
 				"tea",
 				"coffee",
 				nil,
@@ -449,21 +450,21 @@ FROM Items`,
 			name:  "array_agg",
 			query: `SELECT ARRAY_AGG(x) AS array_agg FROM UNNEST([2, 1,-2, 3, -2, 1, 2]) AS x`,
 			expectedRows: [][]interface{}{{
-				[]int64{2, 1, -2, 3, -2, 1, 2},
+				[]interface{}{int64(2), int64(1), int64(-2), int64(3), int64(-2), int64(1), int64(2)},
 			}},
 		},
 		{
 			name:  "array_agg with distinct",
 			query: `SELECT ARRAY_AGG(DISTINCT x) AS array_agg FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x`,
 			expectedRows: [][]interface{}{{
-				[]int64{2, 1, -2, 3},
+				[]interface{}{int64(2), int64(1), int64(-2), int64(3)},
 			}},
 		},
 		{
 			name:  "array_agg with limit",
 			query: `SELECT ARRAY_AGG(x LIMIT 5) AS array_agg FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x`,
 			expectedRows: [][]interface{}{{
-				[]int64{2, 1, -2, 3, -2},
+				[]interface{}{int64(2), int64(1), int64(-2), int64(3), int64(-2)},
 			}},
 		},
 		{
@@ -480,19 +481,19 @@ FROM Items`,
 			name:  "array_agg with ignore nulls",
 			query: `SELECT ARRAY_AGG(x IGNORE NULLS) AS array_agg FROM UNNEST([NULL, 1, -2, 3, -2, 1, NULL]) AS x`,
 			expectedRows: [][]interface{}{{
-				[]int64{1, -2, 3, -2, 1},
+				[]interface{}{int64(1), int64(-2), int64(3), int64(-2), int64(1)},
 			}},
 		},
 		{
 			name:         "array_agg with ignore nulls and struct",
 			query:        `SELECT b, ARRAY_AGG(a IGNORE NULLS) FROM UNNEST([STRUCT(NULL AS a, 2 AS b), STRUCT(1 AS a, 2 AS b)]) GROUP BY b`,
-			expectedRows: [][]interface{}{{int64(2), []int64{1}}},
+			expectedRows: [][]interface{}{{int64(2), []interface{}{int64(1)}}},
 		},
 		{
 			name:  "array_agg with abs",
 			query: `SELECT ARRAY_AGG(x ORDER BY ABS(x)) AS array_agg FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x`,
 			expectedRows: [][]interface{}{{
-				[]int64{1, 1, 2, -2, -2, 2, 3},
+				[]interface{}{int64(1), int64(1), int64(2), int64(-2), int64(-2), int64(2), int64(3)},
 			}},
 		},
 		{
@@ -504,7 +505,7 @@ SELECT ARRAY_CONCAT_AGG(x) AS array_concat_agg FROM (
   UNION ALL SELECT [7, 8, 9]
 )`,
 			expectedRows: [][]interface{}{{
-				[]int64{int64(1), int64(2), int64(3), int64(4), int64(5), int64(6), int64(7), int64(8), int64(9)},
+				[]interface{}{nil, int64(1), int64(2), int64(3), int64(4), int64(5), int64(6), int64(7), int64(8), int64(9)},
 			}},
 		},
 		{
@@ -1056,14 +1057,14 @@ SELECT name,
 FROM finishers
 `,
 			expectedRows: [][]interface{}{
-				{"Sophia Liu", createTimeFromString("2016-10-18 09:51:45+00"), "F30-34", int64(1)},
-				{"Nikki Leith", createTimeFromString("2016-10-18 09:59:01+00"), "F30-34", int64(2)},
-				{"Meghan Lederer", createTimeFromString("2016-10-18 09:59:01+00"), "F30-34", int64(2)},
-				{"Jen Edwards", createTimeFromString("2016-10-18 10:06:36+00"), "F30-34", int64(3)},
-				{"Lisa Stelzner", createTimeFromString("2016-10-18 09:54:11+00"), "F35-39", int64(1)},
-				{"Lauren Matthews", createTimeFromString("2016-10-18 10:01:17+00"), "F35-39", int64(2)},
-				{"Desiree Berry", createTimeFromString("2016-10-18 10:05:42+00"), "F35-39", int64(3)},
-				{"Suzy Slane", createTimeFromString("2016-10-18 10:06:24+00"), "F35-39", int64(4)},
+				{"Sophia Liu", createTimestampFormatFromString("2016-10-18 09:51:45+00"), "F30-34", int64(1)},
+				{"Nikki Leith", createTimestampFormatFromString("2016-10-18 09:59:01+00"), "F30-34", int64(2)},
+				{"Meghan Lederer", createTimestampFormatFromString("2016-10-18 09:59:01+00"), "F30-34", int64(2)},
+				{"Jen Edwards", createTimestampFormatFromString("2016-10-18 10:06:36+00"), "F30-34", int64(3)},
+				{"Lisa Stelzner", createTimestampFormatFromString("2016-10-18 09:54:11+00"), "F35-39", int64(1)},
+				{"Lauren Matthews", createTimestampFormatFromString("2016-10-18 10:01:17+00"), "F35-39", int64(2)},
+				{"Desiree Berry", createTimestampFormatFromString("2016-10-18 10:05:42+00"), "F35-39", int64(3)},
+				{"Suzy Slane", createTimestampFormatFromString("2016-10-18 10:06:24+00"), "F35-39", int64(4)},
 			},
 		},
 		{
@@ -1114,16 +1115,16 @@ SELECT name,
     OVER (PARTITION BY division ORDER BY finish_time ASC) AS preceding_runner
 FROM finishers`,
 			expectedRows: [][]interface{}{
-				{"Carly Forte", createTimeFromString("2016-10-18 03:08:58+00"), "F25-29", nil},
-				{"Sophia Liu", createTimeFromString("2016-10-18 02:51:45+00"), "F30-34", nil},
-				{"Nikki Leith", createTimeFromString("2016-10-18 02:59:01+00"), "F30-34", "Sophia Liu"},
-				{"Jen Edwards", createTimeFromString("2016-10-18 03:06:36+00"), "F30-34", "Nikki Leith"},
-				{"Meghan Lederer", createTimeFromString("2016-10-18 03:07:41+00"), "F30-34", "Jen Edwards"},
-				{"Lauren Reasoner", createTimeFromString("2016-10-18 03:10:14+00"), "F30-34", "Meghan Lederer"},
-				{"Lisa Stelzner", createTimeFromString("2016-10-18 02:54:11+00"), "F35-39", nil},
-				{"Lauren Matthews", createTimeFromString("2016-10-18 03:01:17+00"), "F35-39", "Lisa Stelzner"},
-				{"Desiree Berry", createTimeFromString("2016-10-18 03:05:42+00"), "F35-39", "Lauren Matthews"},
-				{"Suzy Slane", createTimeFromString("2016-10-18 03:06:24+00"), "F35-39", "Desiree Berry"},
+				{"Carly Forte", createTimestampFormatFromString("2016-10-18 03:08:58+00"), "F25-29", nil},
+				{"Sophia Liu", createTimestampFormatFromString("2016-10-18 02:51:45+00"), "F30-34", nil},
+				{"Nikki Leith", createTimestampFormatFromString("2016-10-18 02:59:01+00"), "F30-34", "Sophia Liu"},
+				{"Jen Edwards", createTimestampFormatFromString("2016-10-18 03:06:36+00"), "F30-34", "Nikki Leith"},
+				{"Meghan Lederer", createTimestampFormatFromString("2016-10-18 03:07:41+00"), "F30-34", "Jen Edwards"},
+				{"Lauren Reasoner", createTimestampFormatFromString("2016-10-18 03:10:14+00"), "F30-34", "Meghan Lederer"},
+				{"Lisa Stelzner", createTimestampFormatFromString("2016-10-18 02:54:11+00"), "F35-39", nil},
+				{"Lauren Matthews", createTimestampFormatFromString("2016-10-18 03:01:17+00"), "F35-39", "Lisa Stelzner"},
+				{"Desiree Berry", createTimestampFormatFromString("2016-10-18 03:05:42+00"), "F35-39", "Lauren Matthews"},
+				{"Suzy Slane", createTimestampFormatFromString("2016-10-18 03:06:24+00"), "F35-39", "Desiree Berry"},
 			},
 		},
 		{
@@ -1149,16 +1150,16 @@ SELECT name,
     OVER (PARTITION BY division ORDER BY finish_time ASC) AS two_runners_ahead
 FROM finishers`,
 			expectedRows: [][]interface{}{
-				{"Carly Forte", createTimeFromString("2016-10-18 03:08:58+00"), "F25-29", nil},
-				{"Sophia Liu", createTimeFromString("2016-10-18 02:51:45+00"), "F30-34", nil},
-				{"Nikki Leith", createTimeFromString("2016-10-18 02:59:01+00"), "F30-34", nil},
-				{"Jen Edwards", createTimeFromString("2016-10-18 03:06:36+00"), "F30-34", "Sophia Liu"},
-				{"Meghan Lederer", createTimeFromString("2016-10-18 03:07:41+00"), "F30-34", "Nikki Leith"},
-				{"Lauren Reasoner", createTimeFromString("2016-10-18 03:10:14+00"), "F30-34", "Jen Edwards"},
-				{"Lisa Stelzner", createTimeFromString("2016-10-18 02:54:11+00"), "F35-39", nil},
-				{"Lauren Matthews", createTimeFromString("2016-10-18 03:01:17+00"), "F35-39", nil},
-				{"Desiree Berry", createTimeFromString("2016-10-18 03:05:42+00"), "F35-39", "Lisa Stelzner"},
-				{"Suzy Slane", createTimeFromString("2016-10-18 03:06:24+00"), "F35-39", "Lauren Matthews"},
+				{"Carly Forte", createTimestampFormatFromString("2016-10-18 03:08:58+00"), "F25-29", nil},
+				{"Sophia Liu", createTimestampFormatFromString("2016-10-18 02:51:45+00"), "F30-34", nil},
+				{"Nikki Leith", createTimestampFormatFromString("2016-10-18 02:59:01+00"), "F30-34", nil},
+				{"Jen Edwards", createTimestampFormatFromString("2016-10-18 03:06:36+00"), "F30-34", "Sophia Liu"},
+				{"Meghan Lederer", createTimestampFormatFromString("2016-10-18 03:07:41+00"), "F30-34", "Nikki Leith"},
+				{"Lauren Reasoner", createTimestampFormatFromString("2016-10-18 03:10:14+00"), "F30-34", "Jen Edwards"},
+				{"Lisa Stelzner", createTimestampFormatFromString("2016-10-18 02:54:11+00"), "F35-39", nil},
+				{"Lauren Matthews", createTimestampFormatFromString("2016-10-18 03:01:17+00"), "F35-39", nil},
+				{"Desiree Berry", createTimestampFormatFromString("2016-10-18 03:05:42+00"), "F35-39", "Lisa Stelzner"},
+				{"Suzy Slane", createTimestampFormatFromString("2016-10-18 03:06:24+00"), "F35-39", "Lauren Matthews"},
 			},
 		},
 		{
@@ -1184,16 +1185,16 @@ SELECT name,
     OVER (PARTITION BY division ORDER BY finish_time ASC) AS two_runners_ahead
 FROM finishers`,
 			expectedRows: [][]interface{}{
-				{"Carly Forte", createTimeFromString("2016-10-18 03:08:58+00"), "F25-29", "NoBody"},
-				{"Sophia Liu", createTimeFromString("2016-10-18 02:51:45+00"), "F30-34", "NoBody"},
-				{"Nikki Leith", createTimeFromString("2016-10-18 02:59:01+00"), "F30-34", "NoBody"},
-				{"Jen Edwards", createTimeFromString("2016-10-18 03:06:36+00"), "F30-34", "Sophia Liu"},
-				{"Meghan Lederer", createTimeFromString("2016-10-18 03:07:41+00"), "F30-34", "Nikki Leith"},
-				{"Lauren Reasoner", createTimeFromString("2016-10-18 03:10:14+00"), "F30-34", "Jen Edwards"},
-				{"Lisa Stelzner", createTimeFromString("2016-10-18 02:54:11+00"), "F35-39", "NoBody"},
-				{"Lauren Matthews", createTimeFromString("2016-10-18 03:01:17+00"), "F35-39", "NoBody"},
-				{"Desiree Berry", createTimeFromString("2016-10-18 03:05:42+00"), "F35-39", "Lisa Stelzner"},
-				{"Suzy Slane", createTimeFromString("2016-10-18 03:06:24+00"), "F35-39", "Lauren Matthews"},
+				{"Carly Forte", createTimestampFormatFromString("2016-10-18 03:08:58+00"), "F25-29", "NoBody"},
+				{"Sophia Liu", createTimestampFormatFromString("2016-10-18 02:51:45+00"), "F30-34", "NoBody"},
+				{"Nikki Leith", createTimestampFormatFromString("2016-10-18 02:59:01+00"), "F30-34", "NoBody"},
+				{"Jen Edwards", createTimestampFormatFromString("2016-10-18 03:06:36+00"), "F30-34", "Sophia Liu"},
+				{"Meghan Lederer", createTimestampFormatFromString("2016-10-18 03:07:41+00"), "F30-34", "Nikki Leith"},
+				{"Lauren Reasoner", createTimestampFormatFromString("2016-10-18 03:10:14+00"), "F30-34", "Jen Edwards"},
+				{"Lisa Stelzner", createTimestampFormatFromString("2016-10-18 02:54:11+00"), "F35-39", "NoBody"},
+				{"Lauren Matthews", createTimestampFormatFromString("2016-10-18 03:01:17+00"), "F35-39", "NoBody"},
+				{"Desiree Berry", createTimestampFormatFromString("2016-10-18 03:05:42+00"), "F35-39", "Lisa Stelzner"},
+				{"Suzy Slane", createTimestampFormatFromString("2016-10-18 03:06:24+00"), "F35-39", "Lauren Matthews"},
 			},
 		},
 		{
@@ -1222,7 +1223,7 @@ FROM finishers`,
 			name:  "array function",
 			query: `SELECT ARRAY (SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3) AS new_array`,
 			expectedRows: [][]interface{}{
-				{[]int64{1, 2, 3}},
+				{[]interface{}{int64(1), int64(2), int64(3)}},
 			},
 		},
 		{
@@ -1290,7 +1291,7 @@ FROM finishers`,
 			query: `SELECT ARRAY_CONCAT([1, 2], [3, 4], [5, 6]) as count_to_six`,
 			expectedRows: [][]interface{}{
 				{
-					[]int64{1, 2, 3, 4, 5, 6},
+					[]interface{}{int64(1), int64(2), int64(3), int64(4), int64(5), int64(6)},
 				},
 			},
 		},
@@ -1329,27 +1330,27 @@ SELECT ARRAY_TO_STRING(list, '--', 'MISSING') AS text FROM items`,
 		{
 			name:         "generate_array function",
 			query:        `SELECT GENERATE_ARRAY(1, 5) AS example_array`,
-			expectedRows: [][]interface{}{{[]int64{1, 2, 3, 4, 5}}},
+			expectedRows: [][]interface{}{{[]interface{}{int64(1), int64(2), int64(3), int64(4), int64(5)}}},
 		},
 		{
 			name:         "generate_array function with step",
 			query:        `SELECT GENERATE_ARRAY(0, 10, 3) AS example_array`,
-			expectedRows: [][]interface{}{{[]int64{0, 3, 6, 9}}},
+			expectedRows: [][]interface{}{{[]interface{}{int64(0), int64(3), int64(6), int64(9)}}},
 		},
 		{
 			name:         "generate_array function with negative step value",
 			query:        `SELECT GENERATE_ARRAY(10, 0, -3) AS example_array`,
-			expectedRows: [][]interface{}{{[]int64{10, 7, 4, 1}}},
+			expectedRows: [][]interface{}{{[]interface{}{int64(10), int64(7), int64(4), int64(1)}}},
 		},
 		{
 			name:         "generate_array function with large step value",
 			query:        `SELECT GENERATE_ARRAY(4, 4, 10) AS example_array`,
-			expectedRows: [][]interface{}{{[]int64{4}}},
+			expectedRows: [][]interface{}{{[]interface{}{int64(4)}}},
 		},
 		{
 			name:         "generate_array function with over step value",
 			query:        `SELECT GENERATE_ARRAY(10, 0, 3) AS example_array`,
-			expectedRows: [][]interface{}{{[]int64{}}},
+			expectedRows: [][]interface{}{{[]interface{}{}}},
 		},
 		{
 			name:         "generate_array function with null",
@@ -1360,44 +1361,44 @@ SELECT ARRAY_TO_STRING(list, '--', 'MISSING') AS text FROM items`,
 			name:  "generate_array function for generate multiple array",
 			query: `SELECT GENERATE_ARRAY(start, 5) AS example_array FROM UNNEST([3, 4, 5]) AS start`,
 			expectedRows: [][]interface{}{
-				{[]int64{3, 4, 5}},
-				{[]int64{4, 5}},
-				{[]int64{5}},
+				{[]interface{}{int64(3), int64(4), int64(5)}},
+				{[]interface{}{int64(4), int64(5)}},
+				{[]interface{}{int64(5)}},
 			},
 		},
 		{
 			name:  "generate_date_array function",
 			query: `SELECT GENERATE_DATE_ARRAY('2016-10-05', '2016-10-08') AS example`,
 			expectedRows: [][]interface{}{
-				{[]string{"2016-10-05", "2016-10-06", "2016-10-07", "2016-10-08"}},
+				{[]interface{}{"2016-10-05", "2016-10-06", "2016-10-07", "2016-10-08"}},
 			},
 		},
 		{
 			name:  "generate_date_array function with step",
 			query: `SELECT GENERATE_DATE_ARRAY('2016-10-05', '2016-10-09', INTERVAL 2 DAY) AS example`,
 			expectedRows: [][]interface{}{
-				{[]string{"2016-10-05", "2016-10-07", "2016-10-09"}},
+				{[]interface{}{"2016-10-05", "2016-10-07", "2016-10-09"}},
 			},
 		},
 		{
 			name:  "generate_date_array function with negative step",
 			query: `SELECT GENERATE_DATE_ARRAY('2016-10-05', '2016-10-01', INTERVAL -3 DAY) AS example`,
 			expectedRows: [][]interface{}{
-				{[]string{"2016-10-05", "2016-10-02"}},
+				{[]interface{}{"2016-10-05", "2016-10-02"}},
 			},
 		},
 		{
 			name:  "generate_date_array function with same value",
 			query: `SELECT GENERATE_DATE_ARRAY('2016-10-05', '2016-10-05', INTERVAL 8 DAY) AS example`,
 			expectedRows: [][]interface{}{
-				{[]string{"2016-10-05"}},
+				{[]interface{}{"2016-10-05"}},
 			},
 		},
 		{
 			name:  "generate_date_array function with over step",
 			query: `SELECT GENERATE_DATE_ARRAY('2016-10-05', '2016-10-01', INTERVAL 1 DAY) AS example`,
 			expectedRows: [][]interface{}{
-				{[]string{}},
+				{[]interface{}{}},
 			},
 		},
 		{
@@ -1411,7 +1412,7 @@ SELECT ARRAY_TO_STRING(list, '--', 'MISSING') AS text FROM items`,
 			name:  "generate_date_array function with month",
 			query: `SELECT GENERATE_DATE_ARRAY('2016-01-01', '2016-12-31', INTERVAL 2 MONTH) AS example`,
 			expectedRows: [][]interface{}{
-				{[]string{"2016-01-01", "2016-03-01", "2016-05-01", "2016-07-01", "2016-09-01", "2016-11-01"}},
+				{[]interface{}{"2016-01-01", "2016-03-01", "2016-05-01", "2016-07-01", "2016-09-01", "2016-11-01"}},
 			},
 		},
 		{
@@ -1425,10 +1426,10 @@ FROM (
   UNION ALL SELECT DATE "2016-10-01", DATE "2016-10-31"
 ) AS items`,
 			expectedRows: [][]interface{}{
-				{[]string{"2016-01-01", "2016-01-08", "2016-01-15", "2016-01-22", "2016-01-29"}},
-				{[]string{"2016-04-01", "2016-04-08", "2016-04-15", "2016-04-22", "2016-04-29"}},
-				{[]string{"2016-07-01", "2016-07-08", "2016-07-15", "2016-07-22", "2016-07-29"}},
-				{[]string{"2016-10-01", "2016-10-08", "2016-10-15", "2016-10-22", "2016-10-29"}},
+				{[]interface{}{"2016-01-01", "2016-01-08", "2016-01-15", "2016-01-22", "2016-01-29"}},
+				{[]interface{}{"2016-04-01", "2016-04-08", "2016-04-15", "2016-04-22", "2016-04-29"}},
+				{[]interface{}{"2016-07-01", "2016-07-08", "2016-07-15", "2016-07-22", "2016-07-29"}},
+				{[]interface{}{"2016-10-01", "2016-10-08", "2016-10-15", "2016-10-22", "2016-10-29"}},
 			},
 		},
 		{
@@ -1436,10 +1437,10 @@ FROM (
 			query: `SELECT GENERATE_TIMESTAMP_ARRAY(TIMESTAMP '2016-10-05 00:00:00+00', '2016-10-07 00:00:00+00', INTERVAL 1 DAY) AS timestamp_array`,
 			expectedRows: [][]interface{}{
 				{
-					[]time.Time{
-						createTimeFromString("2016-10-05 00:00:00+00"),
-						createTimeFromString("2016-10-06 00:00:00+00"),
-						createTimeFromString("2016-10-07 00:00:00+00"),
+					[]interface{}{
+						createTimestampFormatFromString("2016-10-05 00:00:00+00"),
+						createTimestampFormatFromString("2016-10-06 00:00:00+00"),
+						createTimestampFormatFromString("2016-10-07 00:00:00+00"),
 					},
 				},
 			},
@@ -1449,10 +1450,10 @@ FROM (
 			query: `SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-05 00:00:00+00', '2016-10-05 00:00:02+00', INTERVAL 1 SECOND) AS timestamp_array`,
 			expectedRows: [][]interface{}{
 				{
-					[]time.Time{
-						createTimeFromString("2016-10-05 00:00:00+00"),
-						createTimeFromString("2016-10-05 00:00:01+00"),
-						createTimeFromString("2016-10-05 00:00:02+00"),
+					[]interface{}{
+						createTimestampFormatFromString("2016-10-05 00:00:00+00"),
+						createTimestampFormatFromString("2016-10-05 00:00:01+00"),
+						createTimestampFormatFromString("2016-10-05 00:00:02+00"),
 					},
 				},
 			},
@@ -1462,10 +1463,10 @@ FROM (
 			query: `SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-06 00:00:00+00', '2016-10-01 00:00:00+00', INTERVAL -2 DAY) AS timestamp_array`,
 			expectedRows: [][]interface{}{
 				{
-					[]time.Time{
-						createTimeFromString("2016-10-06 00:00:00+00"),
-						createTimeFromString("2016-10-04 00:00:00+00"),
-						createTimeFromString("2016-10-02 00:00:00+00"),
+					[]interface{}{
+						createTimestampFormatFromString("2016-10-06 00:00:00+00"),
+						createTimestampFormatFromString("2016-10-04 00:00:00+00"),
+						createTimestampFormatFromString("2016-10-02 00:00:00+00"),
 					},
 				},
 			},
@@ -1475,8 +1476,8 @@ FROM (
 			query: `SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-05 00:00:00+00', '2016-10-05 00:00:00+00', INTERVAL 1 HOUR) AS timestamp_array`,
 			expectedRows: [][]interface{}{
 				{
-					[]time.Time{
-						createTimeFromString("2016-10-05 00:00:00+00"),
+					[]interface{}{
+						createTimestampFormatFromString("2016-10-05 00:00:00+00"),
 					},
 				},
 			},
@@ -1485,7 +1486,7 @@ FROM (
 			name:  "generate_timestamp_array function over step",
 			query: `SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-06 00:00:00+00', '2016-10-05 00:00:00+00', INTERVAL 1 HOUR) AS timestamp_array`,
 			expectedRows: [][]interface{}{
-				{[]time.Time{}},
+				{[]interface{}{}},
 			},
 		},
 		{
@@ -1514,24 +1515,24 @@ FROM
     TIMESTAMP '2016-10-06 01:59:00+00' AS end_timestamp)`,
 			expectedRows: [][]interface{}{
 				{
-					[]time.Time{
-						createTimeFromString("2016-10-05 00:00:00+00"),
-						createTimeFromString("2016-10-05 01:00:00+00"),
-						createTimeFromString("2016-10-05 02:00:00+00"),
+					[]interface{}{
+						createTimestampFormatFromString("2016-10-05 00:00:00+00"),
+						createTimestampFormatFromString("2016-10-05 01:00:00+00"),
+						createTimestampFormatFromString("2016-10-05 02:00:00+00"),
 					},
 				},
 				{
-					[]time.Time{
-						createTimeFromString("2016-10-05 12:00:00+00"),
-						createTimeFromString("2016-10-05 13:00:00+00"),
-						createTimeFromString("2016-10-05 14:00:00+00"),
+					[]interface{}{
+						createTimestampFormatFromString("2016-10-05 12:00:00+00"),
+						createTimestampFormatFromString("2016-10-05 13:00:00+00"),
+						createTimestampFormatFromString("2016-10-05 14:00:00+00"),
 					},
 				},
 				{
-					[]time.Time{
-						createTimeFromString("2016-10-05 23:59:00+00"),
-						createTimeFromString("2016-10-06 00:59:00+00"),
-						createTimeFromString("2016-10-06 01:59:00+00"),
+					[]interface{}{
+						createTimestampFormatFromString("2016-10-05 23:59:00+00"),
+						createTimestampFormatFromString("2016-10-06 00:59:00+00"),
+						createTimestampFormatFromString("2016-10-06 01:59:00+00"),
 					},
 				},
 			},
@@ -1545,9 +1546,9 @@ WITH example AS (
   SELECT [] AS arr
 ) SELECT ARRAY_REVERSE(arr) AS reverse_arr FROM example`,
 			expectedRows: [][]interface{}{
-				{[]int64{3, 2, 1}},
-				{[]int64{5, 4}},
-				{[]int64{}},
+				{[]interface{}{int64(3), int64(2), int64(1)}},
+				{[]interface{}{int64(5), int64(4)}},
+				{[]interface{}{}},
 			},
 		},
 		{
@@ -2133,7 +2134,7 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			name:  "current_timestamp",
 			query: `SELECT CURRENT_TIMESTAMP()`,
 			expectedRows: [][]interface{}{
-				{now.UTC()},
+				{createTimestampFormatFromTime(now.UTC())},
 			},
 		},
 		{
@@ -2144,37 +2145,37 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 		{
 			name:         "timestamp",
 			query:        `SELECT TIMESTAMP("2008-12-25 15:30:00+00")`,
-			expectedRows: [][]interface{}{{createTimeFromString("2008-12-25 15:30:00+00")}},
+			expectedRows: [][]interface{}{{createTimestampFormatFromString("2008-12-25 15:30:00+00")}},
 		},
 		{
 			name:         "timestamp with zone",
 			query:        `SELECT TIMESTAMP("2008-12-25 15:30:00", "America/Los_Angeles")`,
-			expectedRows: [][]interface{}{{createTimeFromString("2008-12-25 23:30:00+00")}},
+			expectedRows: [][]interface{}{{createTimestampFormatFromString("2008-12-25 23:30:00+00")}},
 		},
 		{
 			name:         "timestamp in zone",
 			query:        `SELECT TIMESTAMP("2008-12-25 15:30:00 UTC")`,
-			expectedRows: [][]interface{}{{createTimeFromString("2008-12-25 15:30:00+00")}},
+			expectedRows: [][]interface{}{{createTimestampFormatFromString("2008-12-25 15:30:00+00")}},
 		},
 		{
 			name:         "timestamp from datetime",
 			query:        `SELECT TIMESTAMP(DATETIME "2008-12-25 15:30:00")`,
-			expectedRows: [][]interface{}{{createTimeFromString("2008-12-25 15:30:00+00")}},
+			expectedRows: [][]interface{}{{createTimestampFormatFromString("2008-12-25 15:30:00+00")}},
 		},
 		{
 			name:         "timestamp from date",
 			query:        `SELECT TIMESTAMP(DATE "2008-12-25")`,
-			expectedRows: [][]interface{}{{createTimeFromString("2008-12-25 00:00:00+00")}},
+			expectedRows: [][]interface{}{{createTimestampFormatFromString("2008-12-25 00:00:00+00")}},
 		},
 		{
 			name:         "timestamp_add",
 			query:        `SELECT TIMESTAMP_ADD(TIMESTAMP "2008-12-25 15:30:00+00", INTERVAL 10 MINUTE)`,
-			expectedRows: [][]interface{}{{createTimeFromString("2008-12-25 15:40:00+00")}},
+			expectedRows: [][]interface{}{{createTimestampFormatFromString("2008-12-25 15:40:00+00")}},
 		},
 		{
 			name:         "timestamp_sub",
 			query:        `SELECT TIMESTAMP_SUB(TIMESTAMP "2008-12-25 15:30:00+00", INTERVAL 10 MINUTE)`,
-			expectedRows: [][]interface{}{{createTimeFromString("2008-12-25 15:20:00+00")}},
+			expectedRows: [][]interface{}{{createTimestampFormatFromString("2008-12-25 15:20:00+00")}},
 		},
 		{
 			name:         "timestamp_diff",
@@ -2185,7 +2186,7 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			name:  "timestamp_trunc with day",
 			query: `SELECT TIMESTAMP_TRUNC(TIMESTAMP "2008-12-25 15:30:00+00", DAY, "UTC"), TIMESTAMP_TRUNC(TIMESTAMP "2008-12-25 15:30:00+00", DAY, "America/Los_Angeles")`,
 			expectedRows: [][]interface{}{
-				{createTimeFromString("2008-12-25 00:00:00+00"), createTimeFromString("2008-12-25 08:00:00+00")},
+				{createTimestampFormatFromString("2008-12-25 00:00:00+00"), createTimestampFormatFromString("2008-12-25 08:00:00+00")},
 			},
 		},
 		//		{
@@ -2196,9 +2197,9 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 		//			                    FROM (SELECT TIMESTAMP("2017-11-06 00:00:00+12") AS timestamp_value)`,
 		//			expectedRows: [][]interface{}{
 		//				{
-		//					createTimeFromString("2017-11-05 12:00:00+00"),
-		//					createTimeFromString("2017-10-30 00:00:00+00"),
-		//					createTimeFromString("2017-11-05 11:00:00+00"),
+		//					createTimestampFormatFromString("2017-11-05 12:00:00+00"),
+		//					createTimestampFormatFromString("2017-10-30 00:00:00+00"),
+		//					createTimestampFormatFromString("2017-11-05 11:00:00+00"),
 		//				},
 		//			},
 		//		},
@@ -2206,7 +2207,7 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			name:  "timestamp_trunc with year",
 			query: `SELECT TIMESTAMP_TRUNC("2015-06-15 00:00:00+00", ISOYEAR)`,
 			expectedRows: [][]interface{}{
-				{createTimeFromString("2014-12-29 00:00:00+00")},
+				{createTimestampFormatFromString("2014-12-29 00:00:00+00")},
 			},
 		},
 		{
@@ -2227,12 +2228,12 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 		{
 			name:         "parse timestamp with %a %b %e %I:%M:%S %Y",
 			query:        `SELECT PARSE_TIMESTAMP("%a %b %e %I:%M:%S %Y", "Thu Dec 25 07:30:00 2008")`,
-			expectedRows: [][]interface{}{{createTimeFromString("2008-12-25 07:30:00+00")}},
+			expectedRows: [][]interface{}{{createTimestampFormatFromString("2008-12-25 07:30:00+00")}},
 		},
 		{
 			name:         "parse timestamp with %c",
 			query:        `SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008")`,
-			expectedRows: [][]interface{}{{createTimeFromString("2008-12-25 07:30:00+00")}},
+			expectedRows: [][]interface{}{{createTimestampFormatFromString("2008-12-25 07:30:00+00")}},
 		},
 		{
 			name:        "parse timestamp ( the year element is in different locations )",
@@ -2247,17 +2248,17 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 		{
 			name:         "timestamp_seconds",
 			query:        `SELECT TIMESTAMP_SECONDS(1230219000)`,
-			expectedRows: [][]interface{}{{createTimeFromString("2008-12-25 15:30:00+00")}},
+			expectedRows: [][]interface{}{{createTimestampFormatFromString("2008-12-25 15:30:00+00")}},
 		},
 		{
 			name:         "timestamp_millis",
 			query:        `SELECT TIMESTAMP_MILLIS(1230219000000)`,
-			expectedRows: [][]interface{}{{createTimeFromString("2008-12-25 15:30:00+00")}},
+			expectedRows: [][]interface{}{{createTimestampFormatFromString("2008-12-25 15:30:00+00")}},
 		},
 		{
 			name:         "timestamp_micros",
 			query:        `SELECT TIMESTAMP_MICROS(1230219000000000)`,
-			expectedRows: [][]interface{}{{createTimeFromString("2008-12-25 15:30:00+00")}},
+			expectedRows: [][]interface{}{{createTimestampFormatFromString("2008-12-25 15:30:00+00")}},
 		},
 		{
 			name:         "unix_seconds",
@@ -2356,9 +2357,9 @@ With CoordinatesTable AS (
 SELECT id, coordinates, TO_JSON_STRING(t) AS json_data
 FROM CoordinatesTable AS t`,
 			expectedRows: [][]interface{}{
-				{int64(1), []int64{10, 20}, `{"id":1,"coordinates":[10,20]}`},
-				{int64(2), []int64{30, 40}, `{"id":2,"coordinates":[30,40]}`},
-				{int64(3), []int64{50, 60}, `{"id":3,"coordinates":[50,60]}`},
+				{int64(1), []interface{}{int64(10), int64(20)}, `{"id":1,"coordinates":[10,20]}`},
+				{int64(2), []interface{}{int64(30), int64(40)}, `{"id":2,"coordinates":[30,40]}`},
+				{int64(3), []interface{}{int64(50), int64(60)}, `{"id":3,"coordinates":[50,60]}`},
 			},
 		},
 		{
@@ -2446,10 +2447,8 @@ FROM
 				if len(derefArgs) != len(expectedRow) {
 					t.Fatalf("failed to get columns. expected %d but got %d", len(expectedRow), len(derefArgs))
 				}
-				for i := 0; i < len(derefArgs); i++ {
-					if diff := cmp.Diff(expectedRow[i], derefArgs[i], floatCmpOpt); diff != "" {
-						t.Errorf("(-want +got):\n%s", diff)
-					}
+				if diff := cmp.Diff(expectedRow, derefArgs, floatCmpOpt); diff != "" {
+					t.Errorf("(-want +got):\n%s", diff)
 				}
 				rowNum++
 			}
@@ -2470,7 +2469,14 @@ FROM
 	}
 }
 
-func createTimeFromString(v string) time.Time {
+func createTimestampFormatFromTime(t time.Time) string {
+	unixmicro := t.UnixMicro()
+	sec := unixmicro / int64(time.Millisecond)
+	nsec := unixmicro - sec*int64(time.Millisecond)
+	return fmt.Sprintf("%d.%d", sec, nsec)
+}
+
+func createTimestampFormatFromString(v string) string {
 	t, _ := time.Parse("2006-01-02 15:04:05+00", v)
-	return t
+	return createTimestampFormatFromTime(t)
 }
