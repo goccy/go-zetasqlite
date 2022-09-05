@@ -1867,6 +1867,20 @@ WITH example AS (
 			expectedRows: [][]interface{}{{"LHT9F+2v2A6ER7DUZ0HuJDt+t03SFJoKsbkkb7MDgvJ+hT2FhXGeDmfL2g2qj1FnEGRhXWRa4nrLFb+xRH9Fmw=="}},
 		},
 
+		// string functions
+		{
+			name:         "ascii",
+			query:        `SELECT ASCII('abcd'), ASCII('a'), ASCII(''), ASCII(NULL)`,
+			expectedRows: [][]interface{}{{int64(97), int64(97), int64(0), nil}},
+		},
+		{
+			name: "byte_length",
+			query: `
+WITH example AS (SELECT 'абвгд' AS characters, b'абвгд' AS bytes)
+SELECT characters, BYTE_LENGTH(characters), bytes, BYTE_LENGTH(bytes) FROM example`,
+			expectedRows: [][]interface{}{{"абвгд", int64(10), "абвгд", int64(10)}},
+		},
+
 		// date functions
 		{
 			name:  "current_date",

@@ -534,6 +534,16 @@ var normalFuncs = []*FuncInfo{
 
 	// string functions
 	{
+		Name:        "ascii",
+		BindFunc:    bindAscii,
+		ReturnTypes: []types.TypeKind{types.INT64},
+	},
+	{
+		Name:        "byte_length",
+		BindFunc:    bindByteLength,
+		ReturnTypes: []types.TypeKind{types.INT64},
+	},
+	{
 		Name:        "format",
 		BindFunc:    bindFormat,
 		ReturnTypes: []types.TypeKind{types.STRING},

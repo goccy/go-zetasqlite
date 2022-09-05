@@ -987,6 +987,37 @@ func timeFromUnixNano(unixNano int64) time.Time {
 	return time.Unix(0, unixNano)
 }
 
+func bindAscii(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("ASCII: invalid argument num %d", len(args))
+	}
+	if args[0] == nil {
+		return nil, nil
+	}
+	ascii, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	if ascii == "" {
+		return IntValue(0), nil
+	}
+	return ASCII(ascii)
+}
+
+func bindByteLength(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("BYTE_LENGTH: invalid argument num %d", len(args))
+	}
+	if args[0] == nil {
+		return nil, nil
+	}
+	v, err := args[0].ToBytes()
+	if err != nil {
+		return nil, err
+	}
+	return BYTE_LENGTH(v)
+}
+
 func bindFormat(args ...Value) (Value, error) {
 	if len(args) == 0 {
 		return nil, fmt.Errorf("FORMAT: invalid argument num %d", len(args))

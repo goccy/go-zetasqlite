@@ -4,6 +4,14 @@ import (
 	"fmt"
 )
 
+func ASCII(v string) (Value, error) {
+	return IntValue(v[0]), nil
+}
+
+func BYTE_LENGTH(v []byte) (Value, error) {
+	return IntValue(len(v)), nil
+}
+
 func FORMAT(format string, args ...Value) (Value, error) {
 	formatted := make([]rune, 0, len(format))
 	text := []rune(format)
