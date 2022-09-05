@@ -1878,7 +1878,194 @@ WITH example AS (
 			query: `
 WITH example AS (SELECT 'абвгд' AS characters, b'абвгд' AS bytes)
 SELECT characters, BYTE_LENGTH(characters), bytes, BYTE_LENGTH(bytes) FROM example`,
-			expectedRows: [][]interface{}{{"абвгд", int64(10), "абвгд", int64(10)}},
+			expectedRows: [][]interface{}{{"абвгд", int64(10), "0LDQsdCy0LPQtA==", int64(10)}},
+		},
+		{
+			name: "char_length",
+			query: `
+WITH example AS (SELECT 'абвгд' AS characters)
+SELECT characters, CHAR_LENGTH(characters) FROM example`,
+			expectedRows: [][]interface{}{{"абвгд", int64(5)}},
+		},
+		{
+			name: "character_length",
+			query: `
+WITH example AS (SELECT 'абвгд' AS characters)
+SELECT characters, CHARACTER_LENGTH(characters) FROM example`,
+			expectedRows: [][]interface{}{{"абвгд", int64(5)}},
+		},
+		{
+			name:         "chr",
+			query:        `SELECT CHR(65), CHR(255), CHR(513), CHR(1024), CHR(97), CHR(0xF9B5), CHR(0), CHR(NULL)`,
+			expectedRows: [][]interface{}{{"A", "ÿ", "ȁ", "Ѐ", "a", "例", "", nil}},
+		},
+		{
+			name:         "code_points_to_bytes",
+			query:        `SELECT CODE_POINTS_TO_BYTES([65, 98, 67, 100])`,
+			expectedRows: [][]interface{}{{"QWJDZA=="}},
+		},
+		{
+			name:         "code_points_to_string",
+			query:        `SELECT CODE_POINTS_TO_STRING([65, 255, 513, 1024]), CODE_POINTS_TO_STRING([97, 0, 0xF9B5]), CODE_POINTS_TO_STRING([65, 255, NULL, 1024])`,
+			expectedRows: [][]interface{}{{"AÿȁЀ", "a例", nil}},
+		},
+		// TODO: currently unsupported COLLATE function
+		//		{
+		//			name: "collate",
+		//			query: `
+		//WITH Words AS (SELECT COLLATE('a', 'und:ci') AS char1, COLLATE('Z', 'und:ci') AS char2)
+		//SELECT ( Words.char1 < Words.char2 ) FROM Words`,
+		//			expectedRows: [][]interface{}{{true}},
+		//		},
+		{
+			name:         "concat",
+			query:        `SELECT CONCAT('T.P.', ' ', 'Bar'), CONCAT('Summer', ' ', 1923)`,
+			expectedRows: [][]interface{}{{"T.P. Bar", "Summer 1923"}},
+		},
+		{
+			name:         "from_base32",
+			query:        `SELECT FROM_BASE32('MFRGGZDF74======')`,
+			expectedRows: [][]interface{}{{"YWJjZGX/"}},
+		},
+		{
+			name:         "from_base64",
+			query:        `SELECT FROM_BASE64('/+A=')`,
+			expectedRows: [][]interface{}{{"/+A="}},
+		},
+		{
+			name:         "from_hex",
+			query:        `SELECT FROM_HEX('00010203aaeeefff'), FROM_HEX('0AF'), FROM_HEX('666f6f626172')`,
+			expectedRows: [][]interface{}{{"AAECA6ru7/8=", "AK8=", "Zm9vYmFy"}},
+		},
+		{
+			name: "initcap",
+			query: `
+WITH example AS
+(
+  SELECT 'Hello World-everyone!' AS value UNION ALL
+  SELECT 'tHe dog BARKS loudly+friendly' AS value UNION ALL
+  SELECT 'apples&oranges;&pears' AS value UNION ALL
+  SELECT 'καθίσματα ταινιών' AS value
+)
+SELECT value, INITCAP(value) AS initcap_value FROM example`,
+			expectedRows: [][]interface{}{
+				{"Hello World-everyone!", "Hello World-Everyone!"},
+				{"tHe dog BARKS loudly+friendly", "The Dog Barks Loudly+Friendly"},
+				{"apples&oranges;&pears", "Apples&Oranges;&Pears"},
+				{"καθίσματα ταινιών", "Καθίσματα Ταινιών"},
+			},
+		},
+		{
+			name: "initcap with delimiters",
+			query: `
+WITH example AS
+(
+  SELECT 'hello WORLD!' AS value, '' AS delimiters UNION ALL
+  SELECT 'καθίσματα ταιντιώ@ν' AS value, 'τ@' AS delimiters UNION ALL
+  SELECT 'Apples1oranges2pears' AS value, '12' AS delimiters UNION ALL
+  SELECT 'tHisEisEaESentence' AS value, 'E' AS delimiters
+)
+SELECT value, delimiters, INITCAP(value, delimiters) AS initcap_value FROM example`,
+			expectedRows: [][]interface{}{
+				{"hello WORLD!", "", "Hello world!"},
+				{"καθίσματα ταιντιώ@ν", "τ@", "ΚαθίσματΑ τΑιντΙώ@Ν"},
+				{"Apples1oranges2pears", "12", "Apples1Oranges2Pears"},
+				{"tHisEisEaESentence", "E", "ThisEIsEAESentence"},
+			},
+		},
+		{
+			name: "instr",
+			query: `
+WITH example AS
+(
+ SELECT 'banana' as source_value, 'an' as search_value, 1 as position, 1 as occurrence UNION ALL
+ SELECT 'banana' as source_value, 'an' as search_value, 1 as position, 2 as occurrence UNION ALL
+ SELECT 'banana' as source_value, 'an' as search_value, 1 as position, 3 as occurrence UNION ALL
+ SELECT 'banana' as source_value, 'an' as search_value, 3 as position, 1 as occurrence UNION ALL
+ SELECT 'banana' as source_value, 'an' as search_value, -1 as position, 1 as occurrence UNION ALL
+ SELECT 'banana' as source_value, 'an' as search_value, -3 as position, 1 as occurrence UNION ALL
+ SELECT 'banana' as source_value, 'ann' as search_value, 1 as position, 1 as occurrence UNION ALL
+ SELECT 'helloooo' as source_value, 'oo' as search_value, 1 as position, 1 as occurrence UNION ALL
+ SELECT 'helloooo' as source_value, 'oo' as search_value, 1 as position, 2 as occurrence
+) SELECT source_value, search_value, position, occurrence, INSTR(source_value, search_value, position, occurrence) FROM example`,
+			expectedRows: [][]interface{}{
+				{"banana", "an", int64(1), int64(1), int64(2)},
+				{"banana", "an", int64(1), int64(2), int64(4)},
+				{"banana", "an", int64(1), int64(3), int64(0)},
+				{"banana", "an", int64(3), int64(1), int64(4)},
+				{"banana", "an", int64(-1), int64(1), int64(4)},
+				{"banana", "an", int64(-3), int64(1), int64(4)},
+				{"banana", "ann", int64(1), int64(1), int64(0)},
+				{"helloooo", "oo", int64(1), int64(1), int64(5)},
+				{"helloooo", "oo", int64(1), int64(2), int64(6)},
+			},
+		},
+		{
+			name:         "left with string value",
+			query:        `SELECT LEFT('apple', 3), LEFT('banana', 3), LEFT('абвгд', 3)`,
+			expectedRows: [][]interface{}{{"app", "ban", "абв"}},
+		},
+		{
+			name:         "left with bytes value",
+			query:        `SELECT LEFT(b'apple', 3), LEFT(b'banana', 3), LEFT(b'\xab\xcd\xef\xaa\xbb', 3)`,
+			expectedRows: [][]interface{}{{"YXBw", "YmFu", "q83v"}},
+		},
+		{
+			name:         "length",
+			query:        `SELECT LENGTH('абвгд'), LENGTH(CAST('абвгд' AS BYTES))`,
+			expectedRows: [][]interface{}{{int64(5), int64(10)}},
+		},
+		{
+			name:         "lower",
+			query:        `SELECT LOWER('FOO'), LOWER('BAR'), LOWER('BAZ')`,
+			expectedRows: [][]interface{}{{"foo", "bar", "baz"}},
+		},
+		{
+			name:         "ltrim",
+			query:        `SELECT LTRIM('   apple   '), LTRIM('***apple***', '*')`,
+			expectedRows: [][]interface{}{{"apple   ", "apple***"}},
+		},
+		{
+			name:         "to_base32",
+			query:        `SELECT TO_BASE32(b'abcde\xFF')`,
+			expectedRows: [][]interface{}{{"MFRGGZDF74======"}},
+		},
+		{
+			name:         "to_base64",
+			query:        `SELECT TO_BASE64(b'\377\340')`,
+			expectedRows: [][]interface{}{{"/+A="}},
+		},
+		{
+			name:  "to_code_points with string value",
+			query: `SELECT word, TO_CODE_POINTS(word) FROM UNNEST(['foo', 'bar', 'baz', 'giraffe', 'llama']) AS word`,
+			expectedRows: [][]interface{}{
+				{"foo", []interface{}{int64(102), int64(111), int64(111)}},
+				{"bar", []interface{}{int64(98), int64(97), int64(114)}},
+				{"baz", []interface{}{int64(98), int64(97), int64(122)}},
+				{"giraffe", []interface{}{int64(103), int64(105), int64(114), int64(97), int64(102), int64(102), int64(101)}},
+				{"llama", []interface{}{int64(108), int64(108), int64(97), int64(109), int64(97)}},
+			},
+		},
+		{
+			name:  "to_code_points with bytes value",
+			query: `SELECT word, TO_CODE_POINTS(word) FROM UNNEST([b'\x00\x01\x10\xff', b'\x66\x6f\x6f']) AS word`,
+			expectedRows: [][]interface{}{
+				{"AAEQ/w==", []interface{}{int64(0), int64(1), int64(16), int64(255)}},
+				{"Zm9v", []interface{}{int64(102), int64(111), int64(111)}},
+			},
+		},
+		{
+			name:  "to_code_points compare string and bytes",
+			query: `SELECT TO_CODE_POINTS(b'Ā'), TO_CODE_POINTS('Ā')`,
+			expectedRows: [][]interface{}{
+				{[]interface{}{int64(196), int64(128)}, []interface{}{int64(256)}},
+			},
+		},
+
+		{
+			name:         "to_hex",
+			query:        `SELECT TO_HEX(b'\x00\x01\x02\x03\xAA\xEE\xEF\xFF'), TO_HEX(b'foobar')`,
+			expectedRows: [][]interface{}{{"00010203aaeeefff", "666f6f626172"}},
 		},
 
 		// date functions

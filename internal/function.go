@@ -253,18 +253,6 @@ func ARRAY_SAFE_ORDINAL(v Value, idx int) (Value, error) {
 	return array.values[idx-1], nil
 }
 
-func CONCAT(args ...Value) (Value, error) {
-	var ret string
-	for _, v := range args {
-		s, err := v.ToString()
-		if err != nil {
-			return nil, err
-		}
-		ret += s
-	}
-	return StringValue(ret), nil
-}
-
 func LIKE(a, b Value) (Value, error) {
 	va, err := a.ToString()
 	if err != nil {
@@ -494,17 +482,6 @@ func NULLIF(expr, exprToMatch Value) (Value, error) {
 		return nil, nil
 	}
 	return expr, nil
-}
-
-func LENGTH(v Value) (Value, error) {
-	if v == nil {
-		return IntValue(0), nil
-	}
-	s, err := v.ToString()
-	if err != nil {
-		return nil, err
-	}
-	return IntValue(int64(len(s))), nil
 }
 
 func DECODE_ARRAY(v string) (Value, error) {

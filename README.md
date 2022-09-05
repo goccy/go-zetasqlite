@@ -85,7 +85,7 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 - [x] FLOAT64 ( `FLOAT` )
 - [x] BOOL ( `BOOLEAN` )
 - [x] STRING
-- [ ] BYTES
+- [x] BYTES
 - [x] DATE
 - [x] TIME
 - [x] DATETIME
@@ -93,9 +93,9 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 - [ ] INTERVAL
 - [x] ARRAY
 - [x] STRUCT
-- [ ] GEOGRAPHY
 - [x] JSON
 - [x] RECORD
+- [ ] GEOGRAPHY
 
 ## Statements
 
@@ -225,7 +225,7 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 - [x] CAST AS ARRAY
 - [ ] CAST AS BIGNUMERIC
 - [x] CAST AS BOOL
-- [ ] CAST AS BYTES
+- [x] CAST AS BYTES
 - [x] CAST AS DATE
 - [x] CAST AS DATETIME
 - [x] CAST AS FLOAT64
@@ -305,28 +305,28 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 
 ### String functions
 
-- [ ] ASCII
-- [ ] BYTE_LENGTH
-- [ ] CHAR_LENGTH
-- [ ] CHARACTER_LENGTH
-- [ ] CHR
-- [ ] CODE_POINTS_TO_BYTES
-- [ ] CODE_POINTS_TO_STRING
+- [x] ASCII
+- [x] BYTE_LENGTH
+- [x] CHAR_LENGTH
+- [x] CHARACTER_LENGTH
+- [x] CHR
+- [x] CODE_POINTS_TO_BYTES
+- [x] CODE_POINTS_TO_STRING
 - [ ] COLLATE
-- [ ] CONCAT
+- [x] CONCAT
 - [ ] CONTAINS_SUBSTR
 - [ ] ENDS_WITH
 - [x] FORMAT
-- [ ] FROM_BASE32
-- [ ] FROM_BASE64
-- [ ] FROM_HEX
-- [ ] INITCAP
-- [ ] INSTR
-- [ ] LEFT
-- [ ] LENGTH
+- [x] FROM_BASE32
+- [x] FROM_BASE64
+- [x] FROM_HEX
+- [x] INITCAP
+- [x] INSTR
+- [x] LEFT
+- [x] LENGTH
 - [ ] LPAD
-- [ ] LOWER
-- [ ] LTRIM
+- [x] LOWER
+- [x] LTRIM
 - [ ] NORMALIZE
 - [ ] NORMALIZE_AND_CASEFOLD
 - [ ] OCTET_LENGTH
@@ -349,10 +349,10 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 - [ ] STRPOS
 - [ ] SUBSTR
 - [ ] SUBSTRING
-- [ ] TO_BASE32
-- [ ] TO_BASE64
-- [ ] TO_CODE_POINTS
-- [ ] TO_HEX
+- [x] TO_BASE32
+- [x] TO_BASE64
+- [x] TO_CODE_POINTS
+- [x] TO_HEX
 - [ ] TRANSALTE
 - [ ] TRIM
 - [ ] UNICODE
@@ -370,8 +370,8 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 - [ ] JSON_VALUE_ARRAY
 - [ ] PARSE_JSON
 - [x] TO_JSON
-- [ ] TO_JSON_STRING
-- [ ] STRING
+- [x] TO_JSON_STRING
+- [x] STRING
 - [x] BOOL
 - [x] INT64
 - [x] FLOAT64

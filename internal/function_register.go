@@ -373,12 +373,6 @@ var normalFuncs = []*FuncInfo{
 		BindFunc:    bindUnixMicros,
 		ReturnTypes: []types.TypeKind{types.INT64},
 	},
-
-	{
-		Name:        "concat",
-		BindFunc:    bindConcat,
-		ReturnTypes: []types.TypeKind{types.STRING},
-	},
 	{
 		Name:        "like",
 		BindFunc:    bindLike,
@@ -484,7 +478,7 @@ var normalFuncs = []*FuncInfo{
 		Name:     "cast",
 		BindFunc: bindCast,
 		ReturnTypes: []types.TypeKind{
-			types.INT64, types.DOUBLE, types.BOOL, types.STRING,
+			types.INT64, types.DOUBLE, types.BOOL, types.STRING, types.BYTES,
 			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
 			types.ARRAY, types.STRUCT,
 		},
@@ -499,7 +493,7 @@ var normalFuncs = []*FuncInfo{
 		Name:     "safe_cast",
 		BindFunc: bindCast,
 		ReturnTypes: []types.TypeKind{
-			types.INT64, types.DOUBLE, types.BOOL, types.STRING,
+			types.INT64, types.DOUBLE, types.BOOL, types.STRING, types.BYTES,
 			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
 			types.ARRAY, types.STRUCT,
 		},
@@ -542,6 +536,101 @@ var normalFuncs = []*FuncInfo{
 		Name:        "byte_length",
 		BindFunc:    bindByteLength,
 		ReturnTypes: []types.TypeKind{types.INT64},
+	},
+	{
+		Name:        "char_length",
+		BindFunc:    bindCharLength,
+		ReturnTypes: []types.TypeKind{types.INT64},
+	},
+	{
+		Name:        "chr",
+		BindFunc:    bindChr,
+		ReturnTypes: []types.TypeKind{types.STRING},
+	},
+	{
+		Name:        "code_points_to_bytes",
+		BindFunc:    bindCodePointsToBytes,
+		ReturnTypes: []types.TypeKind{types.BYTES},
+	},
+	{
+		Name:        "code_points_to_string",
+		BindFunc:    bindCodePointsToString,
+		ReturnTypes: []types.TypeKind{types.STRING},
+	},
+	{
+		Name:        "collate",
+		BindFunc:    bindCollate,
+		ReturnTypes: []types.TypeKind{types.STRING},
+	},
+	{
+		Name:        "concat",
+		BindFunc:    bindConcat,
+		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
+	},
+	{
+		Name:        "from_base32",
+		BindFunc:    bindFromBase32,
+		ReturnTypes: []types.TypeKind{types.BYTES},
+	},
+	{
+		Name:        "from_base64",
+		BindFunc:    bindFromBase64,
+		ReturnTypes: []types.TypeKind{types.BYTES},
+	},
+	{
+		Name:        "from_hex",
+		BindFunc:    bindFromHex,
+		ReturnTypes: []types.TypeKind{types.BYTES},
+	},
+	{
+		Name:        "initcap",
+		BindFunc:    bindInitcap,
+		ReturnTypes: []types.TypeKind{types.STRING},
+	},
+	{
+		Name:        "instr",
+		BindFunc:    bindInstr,
+		ReturnTypes: []types.TypeKind{types.INT64},
+	},
+	{
+		Name:        "left",
+		BindFunc:    bindLeft,
+		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
+	},
+	{
+		Name:        "length",
+		BindFunc:    bindLength,
+		ReturnTypes: []types.TypeKind{types.INT64},
+	},
+	{
+		Name:        "lower",
+		BindFunc:    bindLower,
+		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
+	},
+	{
+		Name:        "ltrim",
+		BindFunc:    bindLtrim,
+		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
+	},
+	{
+		Name:        "to_base32",
+		BindFunc:    bindToBase32,
+		ReturnTypes: []types.TypeKind{types.STRING},
+	},
+	{
+		Name:        "to_base64",
+		BindFunc:    bindToBase64,
+		ReturnTypes: []types.TypeKind{types.STRING},
+	},
+	{
+		Name:        "to_code_points",
+		BindFunc:    bindToCodePoints,
+		ReturnTypes: []types.TypeKind{types.ARRAY},
+	},
+	{
+		Name:        "to_hex",
+		BindFunc:    bindToHex,
+		ReturnTypes: []types.TypeKind{types.STRING},
 	},
 	{
 		Name:        "format",

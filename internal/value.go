@@ -446,11 +446,7 @@ func (bv BytesValue) ToRat() (*big.Rat, error) {
 }
 
 func (bv BytesValue) Marshal() (string, error) {
-	v, err := bv.ToString()
-	if err != nil {
-		return "", err
-	}
-	return strconv.Quote(v), nil
+	return toBytesValueFromString(string([]byte(bv))), nil
 }
 
 func (bv BytesValue) Format(verb rune) string {
