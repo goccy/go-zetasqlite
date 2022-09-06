@@ -1263,6 +1263,47 @@ func bindToHex(args ...Value) (Value, error) {
 	return TO_HEX(b)
 }
 
+func bindTranslate(args ...Value) (Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("TRANSLATE: invalid argument num %d", len(args))
+	}
+	return TRANSLATE(args[0], args[1], args[2])
+}
+
+func bindTrim(args ...Value) (Value, error) {
+	if len(args) != 1 && len(args) != 2 {
+		return nil, fmt.Errorf("TRIM: invalid argument num %d", len(args))
+	}
+	if len(args) == 2 {
+		return TRIM(args[0], args[1])
+	}
+	return TRIM(args[0], nil)
+}
+
+func bindUnicode(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("UNICODE: invalid argument num %d", len(args))
+	}
+	if args[0] == nil {
+		return nil, nil
+	}
+	v, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return UNICODE(v)
+}
+
+func bindUpper(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("UPPER: invalid argument num %d", len(args))
+	}
+	if args[0] == nil {
+		return nil, nil
+	}
+	return UPPER(args[0])
+}
+
 func bindFormat(args ...Value) (Value, error) {
 	if len(args) == 0 {
 		return nil, fmt.Errorf("FORMAT: invalid argument num %d", len(args))

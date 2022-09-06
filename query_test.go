@@ -2061,11 +2061,37 @@ WITH example AS
 				{[]interface{}{int64(196), int64(128)}, []interface{}{int64(256)}},
 			},
 		},
-
 		{
 			name:         "to_hex",
 			query:        `SELECT TO_HEX(b'\x00\x01\x02\x03\xAA\xEE\xEF\xFF'), TO_HEX(b'foobar')`,
 			expectedRows: [][]interface{}{{"00010203aaeeefff", "666f6f626172"}},
+		},
+		{
+			name: "translate",
+			query: `
+WITH example AS (
+  SELECT 'This is a cookie' AS expression, 'sco' AS source_characters, 'zku' AS target_characters UNION ALL
+  SELECT 'A coaster' AS expression, 'co' AS source_characters, 'k' as target_characters
+) SELECT expression, source_characters, target_characters, TRANSLATE(expression, source_characters, target_characters) FROM example`,
+			expectedRows: [][]interface{}{
+				{"This is a cookie", "sco", "zku", "Thiz iz a kuukie"},
+				{"A coaster", "co", "k", "A kaster"},
+			},
+		},
+		{
+			name:         "trim",
+			query:        `SELECT TRIM('   apple   '), TRIM('***apple***', '*')`,
+			expectedRows: [][]interface{}{{"apple", "apple"}},
+		},
+		{
+			name:         "unicode",
+			query:        `SELECT UNICODE('âbcd'), UNICODE('â'), UNICODE(''), UNICODE(NULL)`,
+			expectedRows: [][]interface{}{{int64(226), int64(226), int64(0), nil}},
+		},
+		{
+			name:         "upper",
+			query:        `SELECT UPPER('foo'), UPPER('bar'), UPPER('baz')`,
+			expectedRows: [][]interface{}{{"FOO", "BAR", "BAZ"}},
 		},
 
 		// date functions

@@ -30,6 +30,8 @@ CXX=clang++
 
 # Synopsis
 
+You can pass ZetaSQL queries to Query/Exec function of database/sql package.
+
 ```go
 package main
 
@@ -47,29 +49,19 @@ func main() {
   }
   defer db.Close()
 
-  rows, err := db.Query(`
-  SELECT
-  val,
-  CASE val
-    WHEN 1 THEN 'one'
-    WHEN 2 THEN 'two'
-    WHEN 3 THEN 'three'
-    ELSE 'four'
-    END
-  FROM UNNEST([1, 2, 3, 4]) AS val`)
+  rows, err := db.Query(`SELECT * FROM UNNEST([?, ?, ?])`, 1, 2, 3)
   if err != nil {
     panic(err)
   }
+  var ids []int64
   for rows.Next() {
-    var (
-      num int64
-      text string    
-    )
-    if err := rows.Scan(&num, &text); err != nil {
-	  panic(err)
+    var id int64
+    if err := rows.Scan(&id); err != nil {
+      panic(err)
     }
-    fmt.Println("num = ", num, "text = ", text)
+    ids = append(ids, id)
   }
+  fmt.Println(ids) // [1 2 3]
 }
 ```
 
@@ -353,10 +345,10 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 - [x] TO_BASE64
 - [x] TO_CODE_POINTS
 - [x] TO_HEX
-- [ ] TRANSALTE
-- [ ] TRIM
-- [ ] UNICODE
-- [ ] UPPER
+- [x] TRANSALTE
+- [x] TRIM
+- [x] UNICODE
+- [x] UPPER
 
 ### JSON functions
 

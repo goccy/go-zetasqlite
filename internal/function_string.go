@@ -366,6 +366,130 @@ func TO_HEX(v []byte) (Value, error) {
 	return StringValue(hex.EncodeToString(v)), nil
 }
 
+func TRANSLATE(expr, source, target Value) (Value, error) {
+	switch expr.(type) {
+	case StringValue:
+		if _, ok := source.(StringValue); !ok {
+			return nil, fmt.Errorf("TRANSLATE: source characters must be STRING type")
+		}
+		if _, ok := target.(StringValue); !ok {
+			return nil, fmt.Errorf("TRANSLATE: target characters must be STRING type")
+		}
+		e, err := expr.ToString()
+		if err != nil {
+			return nil, err
+		}
+		s, err := source.ToString()
+		if err != nil {
+			return nil, err
+		}
+		t, err := target.ToString()
+		if err != nil {
+			return nil, err
+		}
+		evaluatedByte := map[byte]struct{}{}
+		for i := 0; i < len(s); i++ {
+			if _, exists := evaluatedByte[s[i]]; exists {
+				return nil, fmt.Errorf("TRANSLATE: found duplicated source character: %c", s[i])
+			}
+			if len(t) > i {
+				e = strings.ReplaceAll(e, string(s[i]), string(t[i]))
+			} else {
+				e = strings.ReplaceAll(e, string(s[i]), "")
+			}
+			evaluatedByte[s[i]] = struct{}{}
+		}
+		return StringValue(e), nil
+	case BytesValue:
+		if _, ok := source.(BytesValue); !ok {
+			return nil, fmt.Errorf("TRANSLATE: source characters must be BYTES type")
+		}
+		if _, ok := target.(BytesValue); !ok {
+			return nil, fmt.Errorf("TRANSLATE: target characters must be BYTES type")
+		}
+		e, err := expr.ToBytes()
+		if err != nil {
+			return nil, err
+		}
+		s, err := source.ToBytes()
+		if err != nil {
+			return nil, err
+		}
+		t, err := target.ToBytes()
+		if err != nil {
+			return nil, err
+		}
+		evaluatedByte := map[byte]struct{}{}
+		for i := 0; i < len(s); i++ {
+			if _, exists := evaluatedByte[s[i]]; exists {
+				return nil, fmt.Errorf("TRANSLATE: found duplicated source character: %c", s[i])
+			}
+			if len(t) > i {
+				e = bytes.ReplaceAll(e, []byte{s[i]}, []byte{t[i]})
+			} else {
+				e = bytes.ReplaceAll(e, []byte{s[i]}, []byte{})
+			}
+			evaluatedByte[s[i]] = struct{}{}
+		}
+		return BytesValue(e), nil
+	}
+	return nil, fmt.Errorf("TRANSLATE: expression type is must be STRING or BYTES type")
+}
+
+func TRIM(v, cutsetV Value) (Value, error) {
+	var cutset string
+	if cutsetV == nil {
+		cutset = " "
+	} else {
+		b, err := cutsetV.ToBytes()
+		if err != nil {
+			return nil, err
+		}
+		cutset = string(b)
+	}
+	switch v.(type) {
+	case StringValue:
+		s, err := v.ToString()
+		if err != nil {
+			return nil, err
+		}
+		return StringValue(strings.Trim(s, cutset)), nil
+	case BytesValue:
+		b, err := v.ToBytes()
+		if err != nil {
+			return nil, err
+		}
+		return BytesValue(bytes.Trim(b, cutset)), nil
+	}
+	return nil, fmt.Errorf("TRIM: expression type is must be STRING or BYTES type")
+}
+
+func UNICODE(v string) (Value, error) {
+	runes := []rune(v)
+	if len(runes) == 0 {
+		return IntValue(0), nil
+	}
+	return IntValue(runes[0]), nil
+}
+
+func UPPER(v Value) (Value, error) {
+	switch v.(type) {
+	case StringValue:
+		s, err := v.ToString()
+		if err != nil {
+			return nil, err
+		}
+		return StringValue(strings.ToUpper(s)), nil
+	case BytesValue:
+		b, err := v.ToBytes()
+		if err != nil {
+			return nil, err
+		}
+		return BytesValue(bytes.ToUpper(b)), nil
+	}
+	return nil, fmt.Errorf("UPPER: value type is must be STRING or BYTES type")
+}
+
 func FORMAT(format string, args ...Value) (Value, error) {
 	formatted := make([]rune, 0, len(format))
 	text := []rune(format)

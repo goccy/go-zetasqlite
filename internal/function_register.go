@@ -633,6 +633,26 @@ var normalFuncs = []*FuncInfo{
 		ReturnTypes: []types.TypeKind{types.STRING},
 	},
 	{
+		Name:        "translate",
+		BindFunc:    bindTranslate,
+		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
+	},
+	{
+		Name:        "trim",
+		BindFunc:    bindTrim,
+		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
+	},
+	{
+		Name:        "unicode",
+		BindFunc:    bindUnicode,
+		ReturnTypes: []types.TypeKind{types.INT64},
+	},
+	{
+		Name:        "upper",
+		BindFunc:    bindUpper,
+		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
+	},
+	{
 		Name:        "format",
 		BindFunc:    bindFormat,
 		ReturnTypes: []types.TypeKind{types.STRING},
