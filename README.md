@@ -321,8 +321,8 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 - [x] LTRIM
 - [x] NORMALIZE
 - [x] NORMALIZE_AND_CASEFOLD
-- [ ] OCTET_LENGTH
-- [ ] REGEXP_CONTAINS
+- [x] OCTET_LENGTH
+- [x] REGEXP_CONTAINS
 - [ ] REGEXP_EXTRACT
 - [ ] REGEXP_EXTRACT_ALL
 - [ ] REGEXP_INSTR

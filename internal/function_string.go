@@ -7,6 +7,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math"
+	"regexp"
+	"strconv"
 	"strings"
 
 	"golang.org/x/text/unicode/norm"
@@ -467,6 +469,19 @@ func NORMALIZE_AND_CASEFOLD(v, mode string) (Value, error) {
 		return StringValue(norm.NFKD.String(v)), nil
 	}
 	return nil, fmt.Errorf("unexpected normalize mode %s", mode)
+}
+
+func REGEXP_CONTAINS(value, expr string) (Value, error) {
+	// if regexp literal has escape characters, it must be unescaped before compile.
+	e, err := strconv.Unquote(`"` + expr + `"`)
+	if err != nil {
+		e = expr
+	}
+	re, err := regexp.Compile(e)
+	if err != nil {
+		return nil, err
+	}
+	return BoolValue(re.MatchString(value)), nil
 }
 
 func STARTS_WITH(value, starts Value) (Value, error) {

@@ -638,6 +638,11 @@ var normalFuncs = []*FuncInfo{
 		ReturnTypes: []types.TypeKind{types.STRING},
 	},
 	{
+		Name:        "regexp_contains",
+		BindFunc:    bindRegexpContains,
+		ReturnTypes: []types.TypeKind{types.BOOL},
+	},
+	{
 		Name:        "starts_with",
 		BindFunc:    bindStartsWith,
 		ReturnTypes: []types.TypeKind{types.BOOL},

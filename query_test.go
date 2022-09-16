@@ -2096,6 +2096,38 @@ FROM Strings`,
 			},
 		},
 		{
+			name: "octet_length",
+			query: `
+WITH example AS (SELECT 'абвгд' AS characters, b'абвгд' AS bytes)
+SELECT characters, OCTET_LENGTH(characters), bytes, OCTET_LENGTH(bytes) FROM example`,
+			expectedRows: [][]interface{}{{"абвгд", int64(10), "0LDQsdCy0LPQtA==", int64(10)}},
+		},
+		{
+			name: "regexp_contains",
+			query: `
+SELECT email, REGEXP_CONTAINS(email, r'@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+')
+ FROM (SELECT ['foo@example.com', 'bar@example.org', 'www.example.net'] AS addresses),
+ UNNEST(addresses) AS email`,
+			expectedRows: [][]interface{}{{"foo@example.com", true}, {"bar@example.org", true}, {"www.example.net", false}},
+		},
+		{
+			name: "regexp_contains2",
+			query: `
+SELECT email,
+  REGEXP_CONTAINS(email, r'^([\w.+-]+@foo\.com|[\w.+-]+@bar\.org)$'),
+  REGEXP_CONTAINS(email, r'^[\w.+-]+@foo\.com|[\w.+-]+@bar\.org$')
+FROM
+  (SELECT ['a@foo.com', 'a@foo.computer', 'b@bar.org', '!b@bar.org', 'c@buz.net'] AS addresses),
+  UNNEST(addresses) AS email`,
+			expectedRows: [][]interface{}{
+				{"a@foo.com", true, true},
+				{"a@foo.computer", false, true},
+				{"b@bar.org", true, true},
+				{"!b@bar.org", false, true},
+				{"c@buz.net", false, false},
+			},
+		},
+		{
 			name:         "starts_with",
 			query:        `SELECT STARTS_WITH('foo', 'b'), STARTS_WITH('bar', 'b'), STARTS_WITH('baz', 'b')`,
 			expectedRows: [][]interface{}{{false, true, true}},

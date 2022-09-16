@@ -1297,6 +1297,21 @@ func bindNormalizeAndCasefold(args ...Value) (Value, error) {
 	return NORMALIZE_AND_CASEFOLD(v, mode)
 }
 
+func bindRegexpContains(args ...Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("REGEXP_CONTAINS: invalid argument num %d", len(args))
+	}
+	v, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	regexp, err := args[1].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return REGEXP_CONTAINS(v, regexp)
+}
+
 func bindStartsWith(args ...Value) (Value, error) {
 	if len(args) != 2 {
 		return nil, fmt.Errorf("STARTS_WITH: invalid argument num %d", len(args))
