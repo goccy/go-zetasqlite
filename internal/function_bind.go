@@ -1088,6 +1088,27 @@ func bindConcat(args ...Value) (Value, error) {
 	return CONCAT(args...)
 }
 
+func bindEndsWith(args ...Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("ENDS_WITH: invalid argument num %d", len(args))
+	}
+	return ENDS_WITH(args[0], args[1])
+}
+
+func bindFormat(args ...Value) (Value, error) {
+	if len(args) == 0 {
+		return nil, fmt.Errorf("FORMAT: invalid argument num %d", len(args))
+	}
+	format, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	if len(args) > 1 {
+		return FORMAT(format, args[1:]...)
+	}
+	return FORMAT(format)
+}
+
 func bindFromBase32(args ...Value) (Value, error) {
 	if len(args) != 1 {
 		return nil, fmt.Errorf("FROM_BASE32: invalid argument num %d", len(args))
@@ -1223,6 +1244,39 @@ func bindLtrim(args ...Value) (Value, error) {
 	return LTRIM(args[0], cutset)
 }
 
+func bindStartsWith(args ...Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("STARTS_WITH: invalid argument num %d", len(args))
+	}
+	return STARTS_WITH(args[0], args[1])
+}
+
+func bindStrpos(args ...Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("STRPOS: invalid argument num %d", len(args))
+	}
+	return STRPOS(args[0], args[1])
+}
+
+func bindSubstr(args ...Value) (Value, error) {
+	if len(args) != 2 && len(args) != 3 {
+		return nil, fmt.Errorf("SUBSTR: invalid argument num %d", len(args))
+	}
+	pos, err := args[1].ToInt64()
+	if err != nil {
+		return nil, err
+	}
+	var length *int64
+	if len(args) == 3 {
+		v, err := args[2].ToInt64()
+		if err != nil {
+			return nil, err
+		}
+		length = &v
+	}
+	return SUBSTR(args[0], pos, length)
+}
+
 func bindToBase32(args ...Value) (Value, error) {
 	if len(args) != 1 {
 		return nil, fmt.Errorf("TO_BASE32: invalid argument num %d", len(args))
@@ -1302,20 +1356,6 @@ func bindUpper(args ...Value) (Value, error) {
 		return nil, nil
 	}
 	return UPPER(args[0])
-}
-
-func bindFormat(args ...Value) (Value, error) {
-	if len(args) == 0 {
-		return nil, fmt.Errorf("FORMAT: invalid argument num %d", len(args))
-	}
-	format, err := args[0].ToString()
-	if err != nil {
-		return nil, err
-	}
-	if len(args) > 1 {
-		return FORMAT(format, args[1:]...)
-	}
-	return FORMAT(format)
 }
 
 func bindToJson(args ...Value) (Value, error) {

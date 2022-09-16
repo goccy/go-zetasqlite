@@ -1923,6 +1923,11 @@ SELECT characters, CHARACTER_LENGTH(characters) FROM example`,
 			expectedRows: [][]interface{}{{"T.P. Bar", "Summer 1923"}},
 		},
 		{
+			name:         "ends_with",
+			query:        `SELECT ENDS_WITH('apple', 'e'), ENDS_WITH('banana', 'e'), ENDS_WITH('orange', 'e')`,
+			expectedRows: [][]interface{}{{true, false, true}},
+		},
+		{
 			name:         "from_base32",
 			query:        `SELECT FROM_BASE32('MFRGGZDF74======')`,
 			expectedRows: [][]interface{}{{"YWJjZGX/"}},
@@ -2024,6 +2029,26 @@ WITH example AS
 			name:         "ltrim",
 			query:        `SELECT LTRIM('   apple   '), LTRIM('***apple***', '*')`,
 			expectedRows: [][]interface{}{{"apple   ", "apple***"}},
+		},
+		{
+			name:         "starts_with",
+			query:        `SELECT STARTS_WITH('foo', 'b'), STARTS_WITH('bar', 'b'), STARTS_WITH('baz', 'b')`,
+			expectedRows: [][]interface{}{{false, true, true}},
+		},
+		{
+			name:         "strpos",
+			query:        `SELECT STRPOS('foo@example.com', '@'), STRPOS('foobar@example.com', '@'), STRPOS('foobarbaz@example.com', '@'), STRPOS('quxexample.com', '@')`,
+			expectedRows: [][]interface{}{{int64(4), int64(7), int64(10), int64(0)}},
+		},
+		{
+			name:         "substr",
+			query:        `SELECT SUBSTR('apple', 2), SUBSTR('apple', 2, 2), SUBSTR('apple', -2), SUBSTR('apple', 1, 123), SUBSTR('apple', 123)`,
+			expectedRows: [][]interface{}{{"pple", "pp", "le", "apple", ""}},
+		},
+		{
+			name:         "substring",
+			query:        `SELECT SUBSTRING('apple', 2), SUBSTRING('apple', 2, 2), SUBSTRING('apple', -2), SUBSTRING('apple', 1, 123), SUBSTRING('apple', 123)`,
+			expectedRows: [][]interface{}{{"pple", "pp", "le", "apple", ""}},
 		},
 		{
 			name:         "to_base32",

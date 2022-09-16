@@ -79,6 +79,60 @@ func CONCAT(args ...Value) (Value, error) {
 	return nil, fmt.Errorf("CONCAT: argument type must be STRING or BYTES")
 }
 
+func ENDS_WITH(value, ends Value) (Value, error) {
+	switch value.(type) {
+	case StringValue:
+		s, err := value.ToString()
+		if err != nil {
+			return nil, err
+		}
+		e, err := ends.ToString()
+		if err != nil {
+			return nil, err
+		}
+		return BoolValue(strings.HasSuffix(s, e)), nil
+	case BytesValue:
+		b, err := value.ToBytes()
+		if err != nil {
+			return nil, err
+		}
+		e, err := ends.ToBytes()
+		if err != nil {
+			return nil, err
+		}
+		return BoolValue(bytes.HasSuffix(b, e)), nil
+	}
+	return nil, fmt.Errorf("ENDS_WITH: argument type must be STRING or BYTES")
+}
+
+func FORMAT(format string, args ...Value) (Value, error) {
+	formatted := make([]rune, 0, len(format))
+	text := []rune(format)
+	var argIdx int
+	for i := 0; i < len(text); i++ {
+		switch text[i] {
+		case '%':
+			i++
+			if i >= len(text) {
+				break
+			}
+			switch text[i] {
+			case '%':
+				formatted = append(formatted, '%', '%')
+			case 'T', 't':
+				if argIdx >= len(args) {
+					return nil, fmt.Errorf("invalid format: %s", format)
+				}
+				formatted = append(formatted, []rune(args[argIdx].Format(text[i]))...)
+				argIdx++
+			}
+		default:
+			formatted = append(formatted, text[i])
+		}
+	}
+	return StringValue(string(formatted)), nil
+}
+
 func FROM_BASE32(v string) (Value, error) {
 	b, err := base32.StdEncoding.DecodeString(v)
 	if err != nil {
@@ -328,6 +382,126 @@ func LTRIM(v Value, cutset string) (Value, error) {
 	return nil, fmt.Errorf("LTRIM: value type is must be STRING or BYTES type")
 }
 
+func STARTS_WITH(value, starts Value) (Value, error) {
+	switch value.(type) {
+	case StringValue:
+		v, err := value.ToString()
+		if err != nil {
+			return nil, err
+		}
+		s, err := starts.ToString()
+		if err != nil {
+			return nil, err
+		}
+		return BoolValue(strings.HasPrefix(v, s)), nil
+	case BytesValue:
+		v, err := value.ToBytes()
+		if err != nil {
+			return nil, err
+		}
+		s, err := starts.ToBytes()
+		if err != nil {
+			return nil, err
+		}
+		return BoolValue(bytes.HasPrefix(v, s)), nil
+	}
+	return nil, fmt.Errorf("ENDS_WITH: argument type must be STRING or BYTES")
+}
+
+func STRPOS(value, search Value) (Value, error) {
+	switch value.(type) {
+	case StringValue:
+		v, err := value.ToString()
+		if err != nil {
+			return nil, err
+		}
+		s, err := search.ToString()
+		if err != nil {
+			return nil, err
+		}
+		return IntValue(strings.Index(v, s) + 1), nil
+	case BytesValue:
+		v, err := value.ToBytes()
+		if err != nil {
+			return nil, err
+		}
+		s, err := search.ToBytes()
+		if err != nil {
+			return nil, err
+		}
+		return IntValue(bytes.Index(v, s) + 1), nil
+	}
+	return nil, fmt.Errorf("STRPOS: argument type must be STRING or BYTES")
+}
+
+func substrPos(pos int64, strlen int64) int64 {
+	if pos == 0 || pos < -strlen {
+		return 0
+	}
+	if pos > strlen {
+		return strlen
+	}
+	if pos > 0 {
+		return pos - 1
+	}
+	// pos is negative number
+	return strlen + pos
+}
+
+func substrLen(length *int64, strlen int64) (int64, error) {
+	if length == nil {
+		return strlen, nil
+	}
+	if *length < 0 {
+		return 0, fmt.Errorf("SUBSTR: length must be positive number")
+	}
+	if *length > strlen {
+		return strlen, nil
+	}
+	return *length, nil
+}
+
+func SUBSTR(value Value, pos int64, length *int64) (Value, error) {
+	switch value.(type) {
+	case StringValue:
+		v, err := value.ToString()
+		if err != nil {
+			return nil, err
+		}
+		runes := []rune(v)
+		runesLen := int64(len(runes))
+		actualPos := substrPos(pos, runesLen)
+		actualLen, err := substrLen(length, runesLen)
+		if err != nil {
+			return nil, err
+		}
+		startIdx := actualPos
+		endIdx := actualPos + actualLen
+		if endIdx > runesLen {
+			endIdx = runesLen
+		}
+		return StringValue(v[startIdx:endIdx]), nil
+	case BytesValue:
+		v, err := value.ToBytes()
+		if err != nil {
+			return nil, err
+		}
+		vLen := int64(len(v))
+		actualPos := substrPos(pos, vLen)
+		actualLen, err := substrLen(length, vLen)
+		if err != nil {
+			return nil, err
+		}
+		startIdx := actualPos
+		endIdx := actualPos + actualLen
+		if endIdx > vLen {
+			endIdx = vLen
+		}
+		return BytesValue(v[startIdx:endIdx]), nil
+	}
+	return nil, fmt.Errorf("STRPOS: argument type must be STRING or BYTES")
+}
+
 func TO_BASE32(v []byte) (Value, error) {
 	return StringValue(base32.StdEncoding.EncodeToString(v)), nil
 }
@@ -488,32 +662,4 @@ func UPPER(v Value) (Value, error) {
 		return BytesValue(bytes.ToUpper(b)), nil
 	}
 	return nil, fmt.Errorf("UPPER: value type is must be STRING or BYTES type")
-}
-
-func FORMAT(format string, args ...Value) (Value, error) {
-	formatted := make([]rune, 0, len(format))
-	text := []rune(format)
-	var argIdx int
-	for i := 0; i < len(text); i++ {
-		switch text[i] {
-		case '%':
-			i++
-			if i >= len(text) {
-				break
-			}
-			switch text[i] {
-			case '%':
-				formatted = append(formatted, '%', '%')
-			case 'T', 't':
-				if argIdx >= len(args) {
-					return nil, fmt.Errorf("invalid format: %s", format)
-				}
-				formatted = append(formatted, []rune(args[argIdx].Format(text[i]))...)
-				argIdx++
-			}
-		default:
-			formatted = append(formatted, text[i])
-		}
-	}
-	return StringValue(string(formatted)), nil
 }

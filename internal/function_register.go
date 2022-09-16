@@ -568,6 +568,16 @@ var normalFuncs = []*FuncInfo{
 		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
 	},
 	{
+		Name:        "ends_with",
+		BindFunc:    bindEndsWith,
+		ReturnTypes: []types.TypeKind{types.BOOL},
+	},
+	{
+		Name:        "format",
+		BindFunc:    bindFormat,
+		ReturnTypes: []types.TypeKind{types.STRING},
+	},
+	{
 		Name:        "from_base32",
 		BindFunc:    bindFromBase32,
 		ReturnTypes: []types.TypeKind{types.BYTES},
@@ -613,6 +623,21 @@ var normalFuncs = []*FuncInfo{
 		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
 	},
 	{
+		Name:        "starts_with",
+		BindFunc:    bindStartsWith,
+		ReturnTypes: []types.TypeKind{types.BOOL},
+	},
+	{
+		Name:        "strpos",
+		BindFunc:    bindStrpos,
+		ReturnTypes: []types.TypeKind{types.INT64},
+	},
+	{
+		Name:        "substr",
+		BindFunc:    bindSubstr,
+		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
+	},
+	{
 		Name:        "to_base32",
 		BindFunc:    bindToBase32,
 		ReturnTypes: []types.TypeKind{types.STRING},
@@ -651,11 +676,6 @@ var normalFuncs = []*FuncInfo{
 		Name:        "upper",
 		BindFunc:    bindUpper,
 		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
-	},
-	{
-		Name:        "format",
-		BindFunc:    bindFormat,
-		ReturnTypes: []types.TypeKind{types.STRING},
 	},
 
 	// json functions

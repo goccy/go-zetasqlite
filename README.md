@@ -307,7 +307,7 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 - [ ] COLLATE
 - [x] CONCAT
 - [ ] CONTAINS_SUBSTR
-- [ ] ENDS_WITH
+- [x] ENDS_WITH
 - [x] FORMAT
 - [x] FROM_BASE32
 - [x] FROM_BASE64
@@ -337,10 +337,10 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 - [ ] SAFE_CONVERT_BYTES_TO_STRING
 - [ ] SOUNDEX
 - [ ] SPLIT
-- [ ] STARTS_WITH
-- [ ] STRPOS
-- [ ] SUBSTR
-- [ ] SUBSTRING
+- [x] STARTS_WITH
+- [x] STRPOS
+- [x] SUBSTR
+- [x] SUBSTRING
 - [x] TO_BASE32
 - [x] TO_BASE64
 - [x] TO_CODE_POINTS
