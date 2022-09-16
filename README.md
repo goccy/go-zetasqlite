@@ -316,11 +316,11 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 - [x] INSTR
 - [x] LEFT
 - [x] LENGTH
-- [ ] LPAD
+- [x] LPAD
 - [x] LOWER
 - [x] LTRIM
-- [ ] NORMALIZE
-- [ ] NORMALIZE_AND_CASEFOLD
+- [x] NORMALIZE
+- [x] NORMALIZE_AND_CASEFOLD
 - [ ] OCTET_LENGTH
 - [ ] REGEXP_CONTAINS
 - [ ] REGEXP_EXTRACT

@@ -2051,6 +2051,51 @@ WITH example AS
 			expectedRows: [][]interface{}{{"apple   ", "apple***"}},
 		},
 		{
+			name:         "normalize",
+			query:        `SELECT a, b, a = b FROM (SELECT NORMALIZE('\u00ea') as a, NORMALIZE('\u0065\u0302') as b)`,
+			expectedRows: [][]interface{}{{"ê", "ê", true}},
+		},
+		{
+			name: "normalize with nfkc",
+			query: `
+WITH EquivalentNames AS (
+  SELECT name
+  FROM UNNEST([
+      'Jane\u2004Doe',
+      'John\u2004Smith',
+      'Jane\u2005Doe',
+      'Jane\u2006Doe',
+      'John Smith']) AS name
+) SELECT NORMALIZE(name, NFKC) AS normalized_name, COUNT(*) AS name_count FROM EquivalentNames GROUP BY 1`,
+			expectedRows: [][]interface{}{
+				{"Jane Doe", int64(3)},
+				{"John Smith", int64(2)},
+			},
+		},
+		{
+			name:         "normalize_and_casefold",
+			query:        `SELECT a, b, NORMALIZE(a) = NORMALIZE(b), NORMALIZE_AND_CASEFOLD(a) = NORMALIZE_AND_CASEFOLD(b) FROM (SELECT 'The red barn' AS a, 'The Red Barn' AS b)`,
+			expectedRows: [][]interface{}{{"The red barn", "The Red Barn", false, true}},
+		},
+		{
+			name: "normalize_and_casefold with params",
+			query: `
+WITH Strings AS (
+  SELECT '\u2168' AS a, 'IX' AS b UNION ALL
+  SELECT '\u0041\u030A', '\u00C5'
+)
+SELECT a, b,
+  NORMALIZE_AND_CASEFOLD(a, NFD)=NORMALIZE_AND_CASEFOLD(b, NFD) AS nfd,
+  NORMALIZE_AND_CASEFOLD(a, NFC)=NORMALIZE_AND_CASEFOLD(b, NFC) AS nfc,
+  NORMALIZE_AND_CASEFOLD(a, NFKD)=NORMALIZE_AND_CASEFOLD(b, NFKD) AS nkfd,
+  NORMALIZE_AND_CASEFOLD(a, NFKC)=NORMALIZE_AND_CASEFOLD(b, NFKC) AS nkfc
+FROM Strings`,
+			expectedRows: [][]interface{}{
+				{"Ⅸ", "IX", false, false, true, true},
+				{"Å", "Å", true, true, true, true},
+			},
+		},
+		{
 			name:         "starts_with",
 			query:        `SELECT STARTS_WITH('foo', 'b'), STARTS_WITH('bar', 'b'), STARTS_WITH('baz', 'b')`,
 			expectedRows: [][]interface{}{{false, true, true}},

@@ -16,3 +16,5 @@ require github.com/dgryski/go-farm v0.0.0-20200201041132-a6ae2369ad13
 require github.com/google/uuid v1.3.0
 
 require gonum.org/v1/gonum v0.11.0
+
+require golang.org/x/text v0.3.7

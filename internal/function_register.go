@@ -628,6 +628,16 @@ var normalFuncs = []*FuncInfo{
 		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
 	},
 	{
+		Name:        "normalize",
+		BindFunc:    bindNormalize,
+		ReturnTypes: []types.TypeKind{types.STRING},
+	},
+	{
+		Name:        "normalize_and_casefold",
+		BindFunc:    bindNormalizeAndCasefold,
+		ReturnTypes: []types.TypeKind{types.STRING},
+	},
+	{
 		Name:        "starts_with",
 		BindFunc:    bindStartsWith,
 		ReturnTypes: []types.TypeKind{types.BOOL},

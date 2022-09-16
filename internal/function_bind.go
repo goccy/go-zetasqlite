@@ -1259,6 +1259,44 @@ func bindLtrim(args ...Value) (Value, error) {
 	return LTRIM(args[0], cutset)
 }
 
+func bindNormalize(args ...Value) (Value, error) {
+	if len(args) != 1 && len(args) != 2 {
+		return nil, fmt.Errorf("NORMALIZE: invalid argument num %d", len(args))
+	}
+	mode := "NFC"
+	if len(args) == 2 {
+		v, err := args[1].ToString()
+		if err != nil {
+			return nil, err
+		}
+		mode = v
+	}
+	v, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return NORMALIZE(v, mode)
+}
+
+func bindNormalizeAndCasefold(args ...Value) (Value, error) {
+	if len(args) != 1 && len(args) != 2 {
+		return nil, fmt.Errorf("NORMALIZE_AND_CASEFOLD: invalid argument num %d", len(args))
+	}
+	mode := "NFC"
+	if len(args) == 2 {
+		v, err := args[1].ToString()
+		if err != nil {
+			return nil, err
+		}
+		mode = v
+	}
+	v, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return NORMALIZE_AND_CASEFOLD(v, mode)
+}
+
 func bindStartsWith(args ...Value) (Value, error) {
 	if len(args) != 2 {
 		return nil, fmt.Errorf("STARTS_WITH: invalid argument num %d", len(args))

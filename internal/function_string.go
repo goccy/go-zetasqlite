@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"math"
 	"strings"
+
+	"golang.org/x/text/unicode/norm"
 )
 
 func ASCII(v string) (Value, error) {
@@ -436,6 +438,35 @@ func LTRIM(v Value, cutset string) (Value, error) {
 		return BytesValue(bytes.TrimLeft(b, cutset)), nil
 	}
 	return nil, fmt.Errorf("LTRIM: value type is must be STRING or BYTES type")
+}
+
+func NORMALIZE(v, mode string) (Value, error) {
+	switch mode {
+	case "NFC":
+		return StringValue(norm.NFC.String(v)), nil
+	case "NFD":
+		return StringValue(norm.NFD.String(v)), nil
+	case "NFKC":
+		return StringValue(norm.NFKC.String(v)), nil
+	case "NFKD":
+		return StringValue(norm.NFKD.String(v)), nil
+	}
+	return nil, fmt.Errorf("unexpected normalize mode %s", mode)
+}
+
+func NORMALIZE_AND_CASEFOLD(v, mode string) (Value, error) {
+	v = strings.ToLower(v)
+	switch mode {
+	case "NFC":
+		return StringValue(norm.NFC.String(v)), nil
+	case "NFD":
+		return StringValue(norm.NFD.String(v)), nil
+	case "NFKC":
+		return StringValue(norm.NFKC.String(v)), nil
+	case "NFKD":
+		return StringValue(norm.NFKD.String(v)), nil
+	}
+	return nil, fmt.Errorf("unexpected normalize mode %s", mode)
 }
 
 func STARTS_WITH(value, starts Value) (Value, error) {
