@@ -99,7 +99,7 @@ var normalFuncs = []*FuncInfo{
 		BindFunc: bindStructField,
 		ReturnTypes: []types.TypeKind{
 			types.INT64, types.DOUBLE, types.BOOL,
-			types.STRING, types.ARRAY, types.STRUCT,
+			types.STRING, types.BYTES, types.ARRAY, types.STRUCT,
 			types.DATE, types.TIME, types.TIMESTAMP,
 		},
 	},
@@ -611,6 +611,11 @@ var normalFuncs = []*FuncInfo{
 		Name:        "length",
 		BindFunc:    bindLength,
 		ReturnTypes: []types.TypeKind{types.INT64},
+	},
+	{
+		Name:        "lpad",
+		BindFunc:    bindLpad,
+		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
 	},
 	{
 		Name:        "lower",

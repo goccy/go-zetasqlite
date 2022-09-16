@@ -346,6 +346,62 @@ func LENGTH(v Value) (Value, error) {
 	return nil, fmt.Errorf("LENGTH: value type is must be STRING or BYTES type")
 }
 
+func LPAD(originalValue Value, returnLength int64, pattern Value) (Value, error) {
+	switch originalValue.(type) {
+	case StringValue:
+		s, err := originalValue.ToString()
+		if err != nil {
+			return nil, err
+		}
+		runes := []rune(s)
+		if len(runes) >= int(returnLength) {
+			return StringValue(string(runes[:returnLength])), nil
+		}
+		remainLen := int(returnLength) - len(runes)
+		var pat []rune
+		if pattern == nil {
+			pat = []rune(strings.Repeat(" ", remainLen))
+		} else {
+			p, err := pattern.ToString()
+			if err != nil {
+				return nil, err
+			}
+			pat = []rune(p)
+			if remainLen-len(pat) > 0 {
+				// needs to repeat pattern
+				repeatNum := ((remainLen - len(pat)) / len(pat)) + 2
+				pat = []rune(strings.Repeat(string(pat), repeatNum))
+			}
+		}
+		return StringValue(string(pat[:remainLen]) + s), nil
+	case BytesValue:
+		b, err := originalValue.ToBytes()
+		if err != nil {
+			return nil, err
+		}
+		if len(b) >= int(returnLength) {
+			return BytesValue(b[:returnLength]), nil
+		}
+		remainLen := int(returnLength) - len(b)
+		var pat []byte
+		if pattern == nil {
+			pat = bytes.Repeat([]byte{' '}, remainLen)
+		} else {
+			p, err := pattern.ToBytes()
+			if err != nil {
+				return nil, err
+			}
+			if remainLen-len(p) > 0 {
+				// needs to repeat pattern
+				repeatNum := ((remainLen - len(p)) / len(p)) + 2
+				pat = bytes.Repeat(p, repeatNum)
+			}
+		}
+		return BytesValue(append(pat[:remainLen], b...)), nil
+	}
+	return nil, fmt.Errorf("LPAD: original value type is must be STRING or BYTES type")
+}
+
 func LOWER(v Value) (Value, error) {
 	switch v.(type) {
 	case StringValue:

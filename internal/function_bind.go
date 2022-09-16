@@ -115,7 +115,7 @@ func bindBytesFunc(fn BindFunction) SQLiteFunction {
 		if ret == nil {
 			return nil, nil
 		}
-		return ret.ToString()
+		return ret.Marshal()
 	}
 }
 
@@ -1220,6 +1220,21 @@ func bindLength(args ...Value) (Value, error) {
 		return IntValue(0), nil
 	}
 	return LENGTH(args[0])
+}
+
+func bindLpad(args ...Value) (Value, error) {
+	if len(args) != 2 && len(args) != 3 {
+		return nil, fmt.Errorf("LPAD: invalid argument num %d", len(args))
+	}
+	var pattern Value
+	if len(args) == 3 {
+		pattern = args[2]
+	}
+	length, err := args[1].ToInt64()
+	if err != nil {
+		return nil, err
+	}
+	return LPAD(args[0], length, pattern)
 }
 
 func bindLower(args ...Value) (Value, error) {

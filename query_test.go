@@ -2021,6 +2021,26 @@ WITH example AS
 			expectedRows: [][]interface{}{{int64(5), int64(10)}},
 		},
 		{
+			name:         "lpad string without pattern",
+			query:        `SELECT LPAD(t, len) FROM UNNEST([STRUCT('abc' AS t, 5 AS len),('abc', 2),('例子', 4)])`,
+			expectedRows: [][]interface{}{{"  abc"}, {"ab"}, {"  例子"}},
+		},
+		{
+			name:         "lpad string with pattern",
+			query:        `SELECT LPAD(t, len, pattern) FROM UNNEST([STRUCT('abc' AS t, 8 AS len, 'def' AS pattern),('abc', 5, '-'),('例子', 5, '中文')])`,
+			expectedRows: [][]interface{}{{"defdeabc"}, {"--abc"}, {"中文中例子"}},
+		},
+		{
+			name:         "lpad bytes without pattern",
+			query:        `SELECT LPAD(t, len) FROM UNNEST([STRUCT(b'abc' AS t, 5 AS len),(b'abc', 2),(b'\xab\xcd\xef', 4)])`,
+			expectedRows: [][]interface{}{{"ICBhYmM="}, {"YWI="}, {"IKvN7w=="}},
+		},
+		{
+			name:         "lpad bytes with pattern",
+			query:        `SELECT LPAD(t, len, pattern) FROM UNNEST([STRUCT(b'abc' AS t, 8 AS len, b'def' AS pattern),(b'abc', 5, b'-'),(b'\xab\xcd\xef', 5, b'\x00')])`,
+			expectedRows: [][]interface{}{{"ZGVmZGVhYmM="}, {"LS1hYmM="}, {"AACrze8="}},
+		},
+		{
 			name:         "lower",
 			query:        `SELECT LOWER('FOO'), LOWER('BAR'), LOWER('BAZ')`,
 			expectedRows: [][]interface{}{{"foo", "bar", "baz"}},
