@@ -533,6 +533,38 @@ func REGEXP_EXTRACT(value Value, expr string, position, occurrence int64) (Value
 	return nil, fmt.Errorf("REGEXP_EXTRACT: value argument must be STRING or BYTES")
 }
 
+func REGEXP_EXTRACT_ALL(value Value, expr string) (Value, error) {
+	re, err := compileRegexp(expr)
+	if err != nil {
+		return nil, err
+	}
+	switch value.(type) {
+	case StringValue:
+		v, err := value.ToString()
+		if err != nil {
+			return nil, err
+		}
+		matches := re.FindAllStringSubmatch(v, -1)
+		ret := &ArrayValue{}
+		for _, match := range matches {
+			ret.values = append(ret.values, StringValue(match[len(match)-1]))
+		}
+		return ret, nil
+	case BytesValue:
+		v, err := value.ToBytes()
+		if err != nil {
+			return nil, err
+		}
+		matches := re.FindAllSubmatch(v, -1)
+		ret := &ArrayValue{}
+		for _, match := range matches {
+			ret.values = append(ret.values, BytesValue(match[len(match)-1]))
+		}
+		return ret, nil
+	}
+	return nil, fmt.Errorf("REGEXP_EXTRACT_ALL: value argument must be STRING or BYTES")
+}
+
 func STARTS_WITH(value, starts Value) (Value, error) {
 	switch value.(type) {
 	case StringValue:

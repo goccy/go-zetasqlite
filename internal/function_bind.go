@@ -1336,6 +1336,14 @@ func bindRegexpExtract(args ...Value) (Value, error) {
 	return REGEXP_EXTRACT(args[0], regexp, pos, occurrence)
 }
 
+func bindRegexpExtractAll(args ...Value) (Value, error) {
+	regexp, err := args[1].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return REGEXP_EXTRACT_ALL(args[0], regexp)
+}
+
 func bindStartsWith(args ...Value) (Value, error) {
 	if len(args) != 2 {
 		return nil, fmt.Errorf("STARTS_WITH: invalid argument num %d", len(args))
