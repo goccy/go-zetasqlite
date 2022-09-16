@@ -471,17 +471,66 @@ func NORMALIZE_AND_CASEFOLD(v, mode string) (Value, error) {
 	return nil, fmt.Errorf("unexpected normalize mode %s", mode)
 }
 
-func REGEXP_CONTAINS(value, expr string) (Value, error) {
+func compileRegexp(expr string) (*regexp.Regexp, error) {
 	// if regexp literal has escape characters, it must be unescaped before compile.
 	e, err := strconv.Unquote(`"` + expr + `"`)
 	if err != nil {
 		e = expr
 	}
-	re, err := regexp.Compile(e)
+	return regexp.Compile(e)
+}
+
+func REGEXP_CONTAINS(value, expr string) (Value, error) {
+	re, err := compileRegexp(expr)
 	if err != nil {
 		return nil, err
 	}
 	return BoolValue(re.MatchString(value)), nil
+}
+
+func REGEXP_EXTRACT(value Value, expr string, position, occurrence int64) (Value, error) {
+	if position <= 0 {
+		return nil, fmt.Errorf("REGEXP_EXTRACT: unexpected position number. position must be positive number")
+	}
+	if occurrence <= 0 {
+		return nil, fmt.Errorf("REGEXP_EXTRACT: unexpected occurrence number. occurrence must be positive number")
+	}
+	re, err := compileRegexp(expr)
+	if err != nil {
+		return nil, err
+	}
+	pos := int(position) - 1
+	switch value.(type) {
+	case StringValue:
+		v, err := value.ToString()
+		if err != nil {
+			return nil, err
+		}
+		if pos >= len([]rune(v)) {
+			return nil, nil
+		}
+		matches := re.FindAllStringSubmatch(v[pos:], int(occurrence))
+		if len(matches) < int(occurrence) {
+			return nil, nil
+		}
+		match := matches[occurrence-1]
+		return StringValue(match[len(match)-1]), nil
+	case BytesValue:
+		v, err := value.ToBytes()
+		if err != nil {
+			return nil, err
+		}
+		if pos >= len(v) {
+			return nil, nil
+		}
+		matches := re.FindAllSubmatch(v[pos:], int(occurrence))
+		if len(matches) < int(occurrence) {
+			return nil, nil
+		}
+		match := matches[occurrence-1]
+		return BytesValue(match[len(match)-1]), nil
+	}
+	return nil, fmt.Errorf("REGEXP_EXTRACT: value argument must be STRING or BYTES")
 }
 
 func STARTS_WITH(value, starts Value) (Value, error) {

@@ -323,7 +323,7 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 - [x] NORMALIZE_AND_CASEFOLD
 - [x] OCTET_LENGTH
 - [x] REGEXP_CONTAINS
-- [ ] REGEXP_EXTRACT
+- [x] REGEXP_EXTRACT
 - [ ] REGEXP_EXTRACT_ALL
 - [ ] REGEXP_INSTR
 - [ ] REGEXP_REPLACE

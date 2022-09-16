@@ -2128,6 +2128,53 @@ FROM
 			},
 		},
 		{
+			name: "regexp_extract",
+			query: `
+WITH email_addresses AS (
+ SELECT 'foo@example.com' as email UNION ALL SELECT 'bar@example.org' as email UNION ALL SELECT 'baz@example.net' as email
+) SELECT REGEXP_EXTRACT(email, r'^[a-zA-Z0-9_.+-]+') FROM email_addresses`,
+			expectedRows: [][]interface{}{{"foo"}, {"bar"}, {"baz"}},
+		},
+		{
+			name: "regexp_extract with capture",
+			query: `
+WITH email_addresses AS (
+  SELECT 'foo@example.com' as email UNION ALL SELECT 'bar@example.org' as email UNION ALL SELECT 'baz@example.net' as email
+) SELECT REGEXP_EXTRACT(email, r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.([a-zA-Z0-9-.]+$)') FROM email_addresses`,
+			expectedRows: [][]interface{}{{"com"}, {"org"}, {"net"}},
+		},
+		{
+			name: "regexp_extract with position and occurrence",
+			query: `
+WITH example AS
+ (
+   SELECT 'Hello Helloo and Hellooo' AS value, 'H?ello+' AS regex, 1 as position, 1 AS occurrence UNION ALL
+   SELECT 'Hello Helloo and Hellooo', 'H?ello+', 1, 2 UNION ALL
+   SELECT 'Hello Helloo and Hellooo', 'H?ello+', 1, 3 UNION ALL
+   SELECT 'Hello Helloo and Hellooo', 'H?ello+', 1, 4 UNION ALL
+   SELECT 'Hello Helloo and Hellooo', 'H?ello+', 2, 1 UNION ALL
+   SELECT 'Hello Helloo and Hellooo', 'H?ello+', 3, 1 UNION ALL
+   SELECT 'Hello Helloo and Hellooo', 'H?ello+', 3, 2 UNION ALL
+   SELECT 'Hello Helloo and Hellooo', 'H?ello+', 3, 3 UNION ALL
+   SELECT 'Hello Helloo and Hellooo', 'H?ello+', 20, 1 UNION ALL
+   SELECT 'cats&dogs&rabbits' ,'\\w+&', 1, 2 UNION ALL
+   SELECT 'cats&dogs&rabbits', '\\w+&', 2, 3
+) SELECT value, regex, position, occurrence, REGEXP_EXTRACT(value, regex, position, occurrence) FROM example`,
+			expectedRows: [][]interface{}{
+				{"Hello Helloo and Hellooo", "H?ello+", int64(1), int64(1), "Hello"},
+				{"Hello Helloo and Hellooo", "H?ello+", int64(1), int64(2), "Helloo"},
+				{"Hello Helloo and Hellooo", "H?ello+", int64(1), int64(3), "Hellooo"},
+				{"Hello Helloo and Hellooo", "H?ello+", int64(1), int64(4), nil},
+				{"Hello Helloo and Hellooo", "H?ello+", int64(2), int64(1), "ello"},
+				{"Hello Helloo and Hellooo", "H?ello+", int64(3), int64(1), "Helloo"},
+				{"Hello Helloo and Hellooo", "H?ello+", int64(3), int64(2), "Hellooo"},
+				{"Hello Helloo and Hellooo", "H?ello+", int64(3), int64(3), nil},
+				{"Hello Helloo and Hellooo", "H?ello+", int64(20), int64(1), nil},
+				{"cats&dogs&rabbits", `\\w+&`, int64(1), int64(2), "dogs&"},
+				{"cats&dogs&rabbits", `\\w+&`, int64(2), int64(3), nil},
+			},
+		},
+		{
 			name:         "starts_with",
 			query:        `SELECT STARTS_WITH('foo', 'b'), STARTS_WITH('bar', 'b'), STARTS_WITH('baz', 'b')`,
 			expectedRows: [][]interface{}{{false, true, true}},
