@@ -1374,6 +1374,10 @@ func bindRegexpInstr(args ...Value) (Value, error) {
 	return REGEXP_INSTR(args[0], args[1], pos, occurrence, occurrencePos)
 }
 
+func bindRegexpReplace(args ...Value) (Value, error) {
+	return REGEXP_REPLACE(args[0], args[1], args[2])
+}
+
 func bindStartsWith(args ...Value) (Value, error) {
 	if len(args) != 2 {
 		return nil, fmt.Errorf("STARTS_WITH: invalid argument num %d", len(args))

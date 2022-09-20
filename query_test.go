@@ -2238,6 +2238,28 @@ WITH example AS (
 			},
 		},
 		{
+			name: "regexp_replace",
+			query: `
+WITH markdown AS (
+  SELECT '# Heading' as heading UNION ALL
+  SELECT '# Another heading' as heading
+) SELECT REGEXP_REPLACE(heading, r'^# ([a-zA-Z0-9\s]+$)', '<h1>\\1</h1>') FROM markdown`,
+			expectedRows: [][]interface{}{
+				{"<h1>Heading</h1>"},
+				{"<h1>Another heading</h1>"},
+			},
+		},
+		{
+			name: "regexp_substr",
+			query: `
+WITH example AS (
+  SELECT 'Hello World Helloo' AS value, 'H?ello+' AS regex, 1 AS position, 1 AS occurrence
+) SELECT value, regex, position, occurrence, REGEXP_SUBSTR(value, regex, position, occurrence) FROM example`,
+			expectedRows: [][]interface{}{
+				{"Hello World Helloo", "H?ello+", int64(1), int64(1), "Hello"},
+			},
+		},
+		{
 			name:         "starts_with",
 			query:        `SELECT STARTS_WITH('foo', 'b'), STARTS_WITH('bar', 'b'), STARTS_WITH('baz', 'b')`,
 			expectedRows: [][]interface{}{{false, true, true}},

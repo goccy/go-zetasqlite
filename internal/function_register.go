@@ -658,6 +658,11 @@ var normalFuncs = []*FuncInfo{
 		ReturnTypes: []types.TypeKind{types.INT64},
 	},
 	{
+		Name:        "regexp_replace",
+		BindFunc:    bindRegexpReplace,
+		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
+	},
+	{
 		Name:        "starts_with",
 		BindFunc:    bindStartsWith,
 		ReturnTypes: []types.TypeKind{types.BOOL},

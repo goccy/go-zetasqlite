@@ -628,6 +628,80 @@ func REGEXP_INSTR(sourceValue, exprValue Value, position, occurrence, occurrence
 	return nil, fmt.Errorf("REGEXP_INSTR: source value must be STRING or BYTES")
 }
 
+func normalizeReplacement(repl string) string {
+	repl, _ = strconv.Unquote(`"` + repl + `"`)
+	var normalized []byte
+	for i := 0; i < len(repl); i++ {
+		switch repl[i] {
+		case '\\':
+			i++
+			var tmp []byte
+			switch repl[i] {
+			case '1', '2', '3', '4', '5', '6', '7', '8', '9':
+				tmp = []byte{'$', '{', repl[i]}
+				for j := i + 1; j < len(repl); j++ {
+					switch repl[j] {
+					case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+						tmp = append(tmp, repl[j])
+						continue
+					}
+					tmp = append(tmp, '}')
+					i = j - 1
+					break
+				}
+			default:
+				tmp = []byte{'\\', repl[i]}
+			}
+			normalized = append(normalized, tmp...)
+		default:
+			normalized = append(normalized, repl[i])
+		}
+	}
+	return string(normalized)
+}
+
+func REGEXP_REPLACE(value, exprValue, replacementValue Value) (Value, error) {
+	switch value.(type) {
+	case StringValue:
+		v, err := value.ToString()
+		if err != nil {
+			return nil, err
+		}
+		expr, err := exprValue.ToString()
+		if err != nil {
+			return nil, err
+		}
+		replacement, err := replacementValue.ToString()
+		if err != nil {
+			return nil, err
+		}
+		re, err := compileRegexp(expr)
+		if err != nil {
+			return nil, err
+		}
+		return StringValue(re.ReplaceAllString(v, normalizeReplacement(replacement))), nil
+	case BytesValue:
+		v, err := value.ToBytes()
+		if err != nil {
+			return nil, err
+		}
+		expr, err := exprValue.ToBytes()
+		if err != nil {
+			return nil, err
+		}
+		replacement, err := replacementValue.ToBytes()
+		if err != nil {
+			return nil, err
+		}
+		re, err := compileRegexp(string(expr))
+		if err != nil {
+			return nil, err
+		}
+		return BytesValue(re.ReplaceAll(v, []byte(normalizeReplacement(string(replacement))))), nil
+	}
+	return nil, fmt.Errorf("REGEXP_REPLACE: value must be STRING or BYTES")
+}
+
 func STARTS_WITH(value, starts Value) (Value, error) {
 	switch value.(type) {
 	case StringValue:
