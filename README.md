@@ -325,7 +325,7 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 - [x] REGEXP_CONTAINS
 - [x] REGEXP_EXTRACT
 - [x] REGEXP_EXTRACT_ALL
-- [ ] REGEXP_INSTR
+- [x] REGEXP_INSTR
 - [ ] REGEXP_REPLACE
 - [ ] REGEXP_SUBSTR
 - [ ] REPLACE

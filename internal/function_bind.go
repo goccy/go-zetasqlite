@@ -1344,6 +1344,36 @@ func bindRegexpExtractAll(args ...Value) (Value, error) {
 	return REGEXP_EXTRACT_ALL(args[0], regexp)
 }
 
+func bindRegexpInstr(args ...Value) (Value, error) {
+	var (
+		pos           int64 = 1
+		occurrence    int64 = 1
+		occurrencePos int64 = 0
+	)
+	if len(args) > 2 {
+		p, err := args[2].ToInt64()
+		if err != nil {
+			return nil, err
+		}
+		pos = p
+	}
+	if len(args) > 3 {
+		o, err := args[3].ToInt64()
+		if err != nil {
+			return nil, err
+		}
+		occurrence = o
+	}
+	if len(args) > 4 {
+		p, err := args[4].ToInt64()
+		if err != nil {
+			return nil, err
+		}
+		occurrencePos = p
+	}
+	return REGEXP_INSTR(args[0], args[1], pos, occurrence, occurrencePos)
+}
+
 func bindStartsWith(args ...Value) (Value, error) {
 	if len(args) != 2 {
 		return nil, fmt.Errorf("STARTS_WITH: invalid argument num %d", len(args))

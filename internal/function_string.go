@@ -565,6 +565,69 @@ func REGEXP_EXTRACT_ALL(value Value, expr string) (Value, error) {
 	return nil, fmt.Errorf("REGEXP_EXTRACT_ALL: value argument must be STRING or BYTES")
 }
 
+func REGEXP_INSTR(sourceValue, exprValue Value, position, occurrence, occurrencePos int64) (Value, error) {
+	if position <= 0 {
+		return nil, fmt.Errorf("REGEXP_INSTR: unexpected position number. position must be positive number")
+	}
+	if occurrence <= 0 {
+		return nil, fmt.Errorf("REGEXP_INSTR: unexpected occurrence number. occurrence must be positive number")
+	}
+	pos := int(position) - 1
+	switch sourceValue.(type) {
+	case StringValue:
+		source, err := sourceValue.ToString()
+		if err != nil {
+			return nil, err
+		}
+		expr, err := exprValue.ToString()
+		if err != nil {
+			return nil, err
+		}
+		re, err := compileRegexp(expr)
+		if err != nil {
+			return nil, err
+		}
+		if pos >= len([]rune(source)) {
+			return IntValue(0), nil
+		}
+		matches := re.FindAllStringSubmatchIndex(source[pos:], int(occurrence))
+		if len(matches) < int(occurrence) {
+			return IntValue(0), nil
+		}
+		match := matches[occurrence-1]
+		if len(match) <= int(occurrencePos) {
+			return IntValue(0), nil
+		}
+		return IntValue(pos + match[occurrencePos] + 1), nil
+	case BytesValue:
+		source, err := sourceValue.ToBytes()
+		if err != nil {
+			return nil, err
+		}
+		expr, err := exprValue.ToBytes()
+		if err != nil {
+			return nil, err
+		}
+		re, err := compileRegexp(string(expr))
+		if err != nil {
+			return nil, err
+		}
+		if pos >= len(source) {
+			return IntValue(0), nil
+		}
+		matches := re.FindAllSubmatchIndex(source[pos:], int(occurrence))
+		if len(matches) < int(occurrence) {
+			return IntValue(0), nil
+		}
+		match := matches[occurrence-1]
+		if len(match) <= int(occurrencePos) {
+			return IntValue(0), nil
+		}
+		return IntValue(pos + match[occurrencePos] + 1), nil
+	}
+	return nil, fmt.Errorf("REGEXP_INSTR: source value must be STRING or BYTES")
+}
+
 func STARTS_WITH(value, starts Value) (Value, error) {
 	switch value.(type) {
 	case StringValue:

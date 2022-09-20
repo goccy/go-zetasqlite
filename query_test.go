@@ -2175,6 +2175,69 @@ WITH example AS
 			},
 		},
 		{
+			name:         "regexp_extract_all",
+			query:        "WITH code_markdown AS (SELECT 'Try `function(x)` or `function(y)`' as code) SELECT REGEXP_EXTRACT_ALL(code, '`(.+?)`') FROM code_markdown",
+			expectedRows: [][]interface{}{{[]interface{}{"function(x)", "function(y)"}}},
+		},
+		{
+			name: "regexp_instr",
+			query: `
+WITH example AS (
+  SELECT 'ab@gmail.com' AS source_value, '@[^.]*' AS regexp UNION ALL
+  SELECT 'ab@mail.com', '@[^.]*' UNION ALL
+  SELECT 'abc@gmail.com', '@[^.]*' UNION ALL
+  SELECT 'abc.com', '@[^.]*'
+) SELECT source_value, regexp, REGEXP_INSTR(source_value, regexp) FROM example`,
+			expectedRows: [][]interface{}{
+				{"ab@gmail.com", "@[^.]*", int64(3)},
+				{"ab@mail.com", "@[^.]*", int64(3)},
+				{"abc@gmail.com", "@[^.]*", int64(4)},
+				{"abc.com", "@[^.]*", int64(0)},
+			},
+		},
+		{
+			name: "regexp_instr with position",
+			query: `
+WITH example AS (
+  SELECT 'a@gmail.com b@gmail.com' AS source_value, '@[^.]*' AS regexp, 1 AS position UNION ALL
+  SELECT 'a@gmail.com b@gmail.com', '@[^.]*', 2 UNION ALL
+  SELECT 'a@gmail.com b@gmail.com', '@[^.]*', 3 UNION ALL
+  SELECT 'a@gmail.com b@gmail.com', '@[^.]*', 4
+) SELECT source_value, regexp, position, REGEXP_INSTR(source_value, regexp, position) FROM example`,
+			expectedRows: [][]interface{}{
+				{"a@gmail.com b@gmail.com", "@[^.]*", int64(1), int64(2)},
+				{"a@gmail.com b@gmail.com", "@[^.]*", int64(2), int64(2)},
+				{"a@gmail.com b@gmail.com", "@[^.]*", int64(3), int64(14)},
+				{"a@gmail.com b@gmail.com", "@[^.]*", int64(4), int64(14)},
+			},
+		},
+		{
+			name: "regexp_instr with occurrence",
+			query: `
+WITH example AS (
+  SELECT 'a@gmail.com b@gmail.com c@gmail.com' AS source_value, '@[^.]*' AS regexp, 1 AS position, 1 AS occurrence UNION ALL
+  SELECT 'a@gmail.com b@gmail.com c@gmail.com', '@[^.]*', 1, 2 UNION ALL
+  SELECT 'a@gmail.com b@gmail.com c@gmail.com', '@[^.]*', 1, 3
+) SELECT source_value, regexp, position, occurrence, REGEXP_INSTR(source_value, regexp, position, occurrence) FROM example`,
+			expectedRows: [][]interface{}{
+				{"a@gmail.com b@gmail.com c@gmail.com", "@[^.]*", int64(1), int64(1), int64(2)},
+				{"a@gmail.com b@gmail.com c@gmail.com", "@[^.]*", int64(1), int64(2), int64(14)},
+				{"a@gmail.com b@gmail.com c@gmail.com", "@[^.]*", int64(1), int64(3), int64(26)},
+			},
+		},
+		{
+			name: "regexp_instr with occurrence position",
+			query: `
+WITH example AS (
+  SELECT 'a@gmail.com' AS source_value, '@[^.]*' AS regexp, 1 AS position, 1 AS occurrence, 0 AS o_position UNION ALL
+  SELECT 'a@gmail.com', '@[^.]*', 1, 1, 1
+) SELECT source_value, regexp, position, occurrence, o_position, REGEXP_INSTR(source_value, regexp, position, occurrence, o_position) FROM example`,
+			expectedRows: [][]interface{}{
+				{"a@gmail.com", "@[^.]*", int64(1), int64(1), int64(0), int64(2)},
+				{"a@gmail.com", "@[^.]*", int64(1), int64(1), int64(1), int64(8)},
+			},
+		},
+		{
 			name:         "starts_with",
 			query:        `SELECT STARTS_WITH('foo', 'b'), STARTS_WITH('bar', 'b'), STARTS_WITH('baz', 'b')`,
 			expectedRows: [][]interface{}{{false, true, true}},
