@@ -115,7 +115,7 @@ func bindBytesFunc(fn BindFunction) SQLiteFunction {
 		if ret == nil {
 			return nil, nil
 		}
-		return ret.ToString()
+		return ret.Marshal()
 	}
 }
 
@@ -769,13 +769,6 @@ func bindGenerateUUID(args ...Value) (Value, error) {
 	return GENERATE_UUID()
 }
 
-func bindConcat(args ...Value) (Value, error) {
-	if len(args) < 2 {
-		return nil, fmt.Errorf("CONCAT: invalid argument num %d", len(args))
-	}
-	return CONCAT(args...)
-}
-
 func bindLike(args ...Value) (Value, error) {
 	if len(args) != 2 {
 		return nil, fmt.Errorf("LIKE: invalid argument num %d", len(args))
@@ -881,13 +874,6 @@ func bindNullIf(args ...Value) (Value, error) {
 	return NULLIF(args[0], args[1])
 }
 
-func bindLength(args ...Value) (Value, error) {
-	if len(args) != 1 {
-		return nil, fmt.Errorf("LENGTH: invalid argument num %d", len(args))
-	}
-	return LENGTH(args[0])
-}
-
 func bindCast(args ...Value) (Value, error) {
 	if len(args) != 1 {
 		return nil, fmt.Errorf("CAST: invalid argument num %d", len(args))
@@ -920,7 +906,7 @@ func bindFarmFingerprint(args ...Value) (Value, error) {
 	if existsNull(args) {
 		return nil, nil
 	}
-	v, err := args[0].ToString()
+	v, err := args[0].ToBytes()
 	if err != nil {
 		return nil, err
 	}
@@ -934,7 +920,7 @@ func bindMD5(args ...Value) (Value, error) {
 	if existsNull(args) {
 		return nil, nil
 	}
-	v, err := args[0].ToString()
+	v, err := args[0].ToBytes()
 	if err != nil {
 		return nil, err
 	}
@@ -948,7 +934,7 @@ func bindSha1(args ...Value) (Value, error) {
 	if existsNull(args) {
 		return nil, nil
 	}
-	v, err := args[0].ToString()
+	v, err := args[0].ToBytes()
 	if err != nil {
 		return nil, err
 	}
@@ -962,7 +948,7 @@ func bindSha256(args ...Value) (Value, error) {
 	if existsNull(args) {
 		return nil, nil
 	}
-	v, err := args[0].ToString()
+	v, err := args[0].ToBytes()
 	if err != nil {
 		return nil, err
 	}
@@ -976,7 +962,7 @@ func bindSha512(args ...Value) (Value, error) {
 	if existsNull(args) {
 		return nil, nil
 	}
-	v, err := args[0].ToString()
+	v, err := args[0].ToBytes()
 	if err != nil {
 		return nil, err
 	}
@@ -985,6 +971,139 @@ func bindSha512(args ...Value) (Value, error) {
 
 func timeFromUnixNano(unixNano int64) time.Time {
 	return time.Unix(0, unixNano)
+}
+
+func bindAscii(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("ASCII: invalid argument num %d", len(args))
+	}
+	if args[0] == nil {
+		return nil, nil
+	}
+	ascii, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	if ascii == "" {
+		return IntValue(0), nil
+	}
+	return ASCII(ascii)
+}
+
+func bindByteLength(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("BYTE_LENGTH: invalid argument num %d", len(args))
+	}
+	if args[0] == nil {
+		return nil, nil
+	}
+	v, err := args[0].ToBytes()
+	if err != nil {
+		return nil, err
+	}
+	return BYTE_LENGTH(v)
+}
+
+func bindCharLength(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("CHAR_LENGTH: invalid argument num %d", len(args))
+	}
+	if args[0] == nil {
+		return nil, nil
+	}
+	v, err := args[0].ToBytes()
+	if err != nil {
+		return nil, err
+	}
+	return CHAR_LENGTH(v)
+}
+
+func bindChr(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("CHR: invalid argument num %d", len(args))
+	}
+	if args[0] == nil {
+		return nil, nil
+	}
+	v, err := args[0].ToInt64()
+	if err != nil {
+		return nil, err
+	}
+	return CHR(v)
+}
+
+func bindCodePointsToBytes(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("CODE_POINTS_TO_BYTES: invalid argument num %d", len(args))
+	}
+	if args[0] == nil {
+		return nil, nil
+	}
+	v, err := args[0].ToArray()
+	if err != nil {
+		return nil, err
+	}
+	return CODE_POINTS_TO_BYTES(v)
+}
+
+func bindCodePointsToString(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("CODE_POINTS_TO_STRING: invalid argument num %d", len(args))
+	}
+	if args[0] == nil {
+		return nil, nil
+	}
+	v, err := args[0].ToArray()
+	if err != nil {
+		return nil, err
+	}
+	return CODE_POINTS_TO_STRING(v)
+}
+
+func bindCollate(args ...Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("COLLATE: invalid argument num %d", len(args))
+	}
+	if args[0] == nil {
+		return nil, nil
+	}
+	if args[1] == nil {
+		return nil, fmt.Errorf("COLLATE: collation_specification must be string literal")
+	}
+	value, err := args[0].ToString()
+	if err != nil {
+		return nil, fmt.Errorf("COLLATE: value must be string: %w", err)
+	}
+	spec, err := args[1].ToString()
+	if err != nil {
+		return nil, fmt.Errorf("COLLATE: collation_specification must be string literal: %w", err)
+	}
+	return COLLATE(value, spec)
+}
+
+func bindConcat(args ...Value) (Value, error) {
+	if len(args) < 2 {
+		return nil, fmt.Errorf("CONCAT: invalid argument num %d", len(args))
+	}
+	return CONCAT(args...)
+}
+
+func bindContainsSubstr(args ...Value) (Value, error) {
+	if args[1] == nil {
+		return nil, fmt.Errorf("CONTAINS_SUBSTR: search literal must be not null")
+	}
+	search, err := args[1].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return CONTAINS_SUBSTR(args[0], search)
+}
+
+func bindEndsWith(args ...Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("ENDS_WITH: invalid argument num %d", len(args))
+	}
+	return ENDS_WITH(args[0], args[1])
 }
 
 func bindFormat(args ...Value) (Value, error) {
@@ -996,9 +1115,494 @@ func bindFormat(args ...Value) (Value, error) {
 		return nil, err
 	}
 	if len(args) > 1 {
+		if args[1] == nil {
+			return nil, nil
+		}
 		return FORMAT(format, args[1:]...)
 	}
 	return FORMAT(format)
+}
+
+func bindFromBase32(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("FROM_BASE32: invalid argument num %d", len(args))
+	}
+	v, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return FROM_BASE32(v)
+}
+
+func bindFromBase64(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("FROM_BASE64: invalid argument num %d", len(args))
+	}
+	v, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return FROM_BASE64(v)
+}
+
+func bindFromHex(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("FROM_HEX: invalid argument num %d", len(args))
+	}
+	v, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return FROM_HEX(v)
+}
+
+func bindInitcap(args ...Value) (Value, error) {
+	if len(args) != 1 && len(args) != 2 {
+		return nil, fmt.Errorf("INITCAP: invalid argument num %d", len(args))
+	}
+	if args[0] == nil {
+		return nil, nil
+	}
+	var delimiters []rune
+	if len(args) == 2 {
+		if args[1] == nil {
+			return nil, nil
+		}
+		v, err := args[1].ToString()
+		if err != nil {
+			return nil, err
+		}
+		delimiters = []rune{}
+		for _, vv := range v {
+			delimiters = append(delimiters, vv)
+		}
+	}
+	value, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return INITCAP(value, delimiters)
+}
+
+func bindInstr(args ...Value) (Value, error) {
+	if len(args) != 2 && len(args) != 3 && len(args) != 4 {
+		return nil, fmt.Errorf("INSTR: invalid argument num %d", len(args))
+	}
+	if args[0] == nil {
+		return nil, nil
+	}
+	if args[1] == nil {
+		return nil, nil
+	}
+	var (
+		position   int64 = 0
+		occurrence int64 = 1
+	)
+	if len(args) >= 3 {
+		pos, err := args[2].ToInt64()
+		if err != nil {
+			return nil, err
+		}
+		position = pos
+	}
+	if len(args) == 4 {
+		occur, err := args[3].ToInt64()
+		if err != nil {
+			return nil, err
+		}
+		occurrence = occur
+	}
+	return INSTR(args[0], args[1], position, occurrence)
+}
+
+func bindLeft(args ...Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("LEFT: invalid argument num %d", len(args))
+	}
+	length, err := args[1].ToInt64()
+	if err != nil {
+		return nil, err
+	}
+	return LEFT(args[0], length)
+}
+
+func bindLength(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("LENGTH: invalid argument num %d", len(args))
+	}
+	if args[0] == nil {
+		return IntValue(0), nil
+	}
+	return LENGTH(args[0])
+}
+
+func bindLpad(args ...Value) (Value, error) {
+	if len(args) != 2 && len(args) != 3 {
+		return nil, fmt.Errorf("LPAD: invalid argument num %d", len(args))
+	}
+	var pattern Value
+	if len(args) == 3 {
+		pattern = args[2]
+	}
+	length, err := args[1].ToInt64()
+	if err != nil {
+		return nil, err
+	}
+	return LPAD(args[0], length, pattern)
+}
+
+func bindLower(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("LOWER: invalid argument num %d", len(args))
+	}
+	return LOWER(args[0])
+}
+
+func bindLtrim(args ...Value) (Value, error) {
+	if len(args) != 1 && len(args) != 2 {
+		return nil, fmt.Errorf("LTRIM: invalid argument num %d", len(args))
+	}
+	cutset := " "
+	if len(args) == 2 {
+		v, err := args[1].ToString()
+		if err != nil {
+			return nil, err
+		}
+		cutset = v
+	}
+	return LTRIM(args[0], cutset)
+}
+
+func bindNormalize(args ...Value) (Value, error) {
+	if len(args) != 1 && len(args) != 2 {
+		return nil, fmt.Errorf("NORMALIZE: invalid argument num %d", len(args))
+	}
+	mode := "NFC"
+	if len(args) == 2 {
+		v, err := args[1].ToString()
+		if err != nil {
+			return nil, err
+		}
+		mode = v
+	}
+	v, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return NORMALIZE(v, mode)
+}
+
+func bindNormalizeAndCasefold(args ...Value) (Value, error) {
+	if len(args) != 1 && len(args) != 2 {
+		return nil, fmt.Errorf("NORMALIZE_AND_CASEFOLD: invalid argument num %d", len(args))
+	}
+	mode := "NFC"
+	if len(args) == 2 {
+		v, err := args[1].ToString()
+		if err != nil {
+			return nil, err
+		}
+		mode = v
+	}
+	v, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return NORMALIZE_AND_CASEFOLD(v, mode)
+}
+
+func bindRegexpContains(args ...Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("REGEXP_CONTAINS: invalid argument num %d", len(args))
+	}
+	v, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	regexp, err := args[1].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return REGEXP_CONTAINS(v, regexp)
+}
+
+func bindRegexpExtract(args ...Value) (Value, error) {
+	regexp, err := args[1].ToString()
+	if err != nil {
+		return nil, err
+	}
+	var pos int64 = 1
+	if len(args) > 2 {
+		p, err := args[2].ToInt64()
+		if err != nil {
+			return nil, err
+		}
+		pos = p
+	}
+	var occurrence int64 = 1
+	if len(args) > 3 {
+		o, err := args[3].ToInt64()
+		if err != nil {
+			return nil, err
+		}
+		occurrence = o
+	}
+	return REGEXP_EXTRACT(args[0], regexp, pos, occurrence)
+}
+
+func bindRegexpExtractAll(args ...Value) (Value, error) {
+	regexp, err := args[1].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return REGEXP_EXTRACT_ALL(args[0], regexp)
+}
+
+func bindRegexpInstr(args ...Value) (Value, error) {
+	var (
+		pos           int64 = 1
+		occurrence    int64 = 1
+		occurrencePos int64 = 0
+	)
+	if len(args) > 2 {
+		p, err := args[2].ToInt64()
+		if err != nil {
+			return nil, err
+		}
+		pos = p
+	}
+	if len(args) > 3 {
+		o, err := args[3].ToInt64()
+		if err != nil {
+			return nil, err
+		}
+		occurrence = o
+	}
+	if len(args) > 4 {
+		p, err := args[4].ToInt64()
+		if err != nil {
+			return nil, err
+		}
+		occurrencePos = p
+	}
+	return REGEXP_INSTR(args[0], args[1], pos, occurrence, occurrencePos)
+}
+
+func bindRegexpReplace(args ...Value) (Value, error) {
+	return REGEXP_REPLACE(args[0], args[1], args[2])
+}
+
+func bindReplace(args ...Value) (Value, error) {
+	if existsNull(args) {
+		return nil, nil
+	}
+	return REPLACE(args[0], args[1], args[2])
+}
+
+func bindRepeat(args ...Value) (Value, error) {
+	if existsNull(args) {
+		return nil, nil
+	}
+	repetitions, err := args[1].ToInt64()
+	if err != nil {
+		return nil, err
+	}
+	return REPEAT(args[0], repetitions)
+}
+
+func bindReverse(args ...Value) (Value, error) {
+	if existsNull(args) {
+		return nil, nil
+	}
+	return REVERSE(args[0])
+}
+
+func bindRight(args ...Value) (Value, error) {
+	if existsNull(args) {
+		return nil, nil
+	}
+	length, err := args[1].ToInt64()
+	if err != nil {
+		return nil, err
+	}
+	return RIGHT(args[0], length)
+}
+
+func bindRpad(args ...Value) (Value, error) {
+	if existsNull(args) {
+		return nil, nil
+	}
+	length, err := args[1].ToInt64()
+	if err != nil {
+		return nil, err
+	}
+	var pat Value
+	if len(args) > 2 {
+		pat = args[2]
+	}
+	return RPAD(args[0], length, pat)
+}
+
+func bindRtrim(args ...Value) (Value, error) {
+	if existsNull(args) {
+		return nil, nil
+	}
+	var cutset string = " "
+	if len(args) > 1 {
+		v, err := args[1].ToString()
+		if err != nil {
+			return nil, err
+		}
+		cutset = v
+	}
+	return RTRIM(args[0], cutset)
+}
+
+func bindSafeConvertBytesToString(args ...Value) (Value, error) {
+	if existsNull(args) {
+		return nil, nil
+	}
+	v, err := args[0].ToBytes()
+	if err != nil {
+		return nil, err
+	}
+	return SAFE_CONVERT_BYTES_TO_STRING(v)
+}
+
+func bindSoundex(args ...Value) (Value, error) {
+	if existsNull(args) {
+		return nil, nil
+	}
+	v, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return SOUNDEX(v)
+}
+
+func bindSplit(args ...Value) (Value, error) {
+	if existsNull(args) {
+		return nil, nil
+	}
+	var delim Value
+	if len(args) > 1 {
+		delim = args[1]
+	}
+	return SPLIT(args[0], delim)
+}
+
+func bindStartsWith(args ...Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("STARTS_WITH: invalid argument num %d", len(args))
+	}
+	return STARTS_WITH(args[0], args[1])
+}
+
+func bindStrpos(args ...Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("STRPOS: invalid argument num %d", len(args))
+	}
+	return STRPOS(args[0], args[1])
+}
+
+func bindSubstr(args ...Value) (Value, error) {
+	if len(args) != 2 && len(args) != 3 {
+		return nil, fmt.Errorf("SUBSTR: invalid argument num %d", len(args))
+	}
+	pos, err := args[1].ToInt64()
+	if err != nil {
+		return nil, err
+	}
+	var length *int64
+	if len(args) == 3 {
+		v, err := args[2].ToInt64()
+		if err != nil {
+			return nil, err
+		}
+		length = &v
+	}
+	return SUBSTR(args[0], pos, length)
+}
+
+func bindToBase32(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("TO_BASE32: invalid argument num %d", len(args))
+	}
+	b, err := args[0].ToBytes()
+	if err != nil {
+		return nil, err
+	}
+	return TO_BASE32(b)
+}
+
+func bindToBase64(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("TO_BASE64: invalid argument num %d", len(args))
+	}
+	b, err := args[0].ToBytes()
+	if err != nil {
+		return nil, err
+	}
+	return TO_BASE64(b)
+}
+
+func bindToCodePoints(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("TO_CODE_POINTS: invalid argument num %d", len(args))
+	}
+	return TO_CODE_POINTS(args[0])
+}
+
+func bindToHex(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("TO_HEX: invalid argument num %d", len(args))
+	}
+	b, err := args[0].ToBytes()
+	if err != nil {
+		return nil, err
+	}
+	return TO_HEX(b)
+}
+
+func bindTranslate(args ...Value) (Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("TRANSLATE: invalid argument num %d", len(args))
+	}
+	return TRANSLATE(args[0], args[1], args[2])
+}
+
+func bindTrim(args ...Value) (Value, error) {
+	if len(args) != 1 && len(args) != 2 {
+		return nil, fmt.Errorf("TRIM: invalid argument num %d", len(args))
+	}
+	if len(args) == 2 {
+		return TRIM(args[0], args[1])
+	}
+	return TRIM(args[0], nil)
+}
+
+func bindUnicode(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("UNICODE: invalid argument num %d", len(args))
+	}
+	if args[0] == nil {
+		return nil, nil
+	}
+	v, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return UNICODE(v)
+}
+
+func bindUpper(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("UPPER: invalid argument num %d", len(args))
+	}
+	if args[0] == nil {
+		return nil, nil
+	}
+	return UPPER(args[0])
 }
 
 func bindToJson(args ...Value) (Value, error) {

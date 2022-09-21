@@ -229,7 +229,7 @@ func (a *Analyzer) AnalyzeIterator(ctx context.Context, conn *Conn, query string
 	}
 	stmts, err := a.parseScript(query)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse statements: %w", err)
 	}
 	resultStmts := make([]*Statement, 0, len(stmts))
 	fullNamePathMap, err := a.getFullNamePathMap(stmts)

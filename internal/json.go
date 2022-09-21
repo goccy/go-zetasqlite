@@ -15,6 +15,8 @@ func JSONFromZetaSQLValue(v types.Value) string {
 		return "null"
 	}
 	switch v.Type().Kind() {
+	case types.BYTES:
+		return toBytesValueFromString(value)
 	case types.DATE:
 		return toDateValueFromString(value)
 	case types.DATETIME:
@@ -43,6 +45,11 @@ func jsonFromZetaSQLValue(v types.Value) string {
 		return "null"
 	}
 	switch v.Type().Kind() {
+	case types.BYTES:
+		// use a workaround because ToBytes doesn't work with certain values.
+		b := v.SQLLiteral(0)
+		s, _ := strconv.Unquote(b[1:])
+		return s
 	case types.DATE:
 		return toDateValueFromInt64(v.ToInt64())
 	case types.DATETIME:

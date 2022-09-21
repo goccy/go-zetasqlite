@@ -31,6 +31,7 @@ type Value interface {
 	LTE(Value) (bool, error)
 	ToInt64() (int64, error)
 	ToString() (string, error)
+	ToBytes() ([]byte, error)
 	ToFloat64() (float64, error)
 	ToBool() (bool, error)
 	ToArray() (*ArrayValue, error)
@@ -126,6 +127,10 @@ func (iv IntValue) ToInt64() (int64, error) {
 
 func (iv IntValue) ToString() (string, error) {
 	return fmt.Sprint(iv), nil
+}
+
+func (iv IntValue) ToBytes() ([]byte, error) {
+	return []byte(fmt.Sprint(iv)), nil
 }
 
 func (iv IntValue) ToFloat64() (float64, error) {
@@ -250,6 +255,10 @@ func (sv StringValue) ToString() (string, error) {
 	return string(sv), nil
 }
 
+func (sv StringValue) ToBytes() ([]byte, error) {
+	return []byte(string(sv)), nil
+}
+
 func (sv StringValue) ToFloat64() (float64, error) {
 	if sv == "" {
 		return 0, nil
@@ -312,6 +321,147 @@ func (sv StringValue) Format(verb rune) string {
 
 func (sv StringValue) Interface() interface{} {
 	return string(sv)
+}
+
+type BytesValue []byte
+
+func (bv BytesValue) Add(v Value) (Value, error) {
+	v2, err := v.ToBytes()
+	if err != nil {
+		return nil, err
+	}
+	return BytesValue(append([]byte(bv), v2...)), nil
+}
+
+func (bv BytesValue) Sub(v Value) (Value, error) {
+	return nil, fmt.Errorf("sub operation is unsupported for bytes %v", bv)
+}
+
+func (bv BytesValue) Mul(v Value) (Value, error) {
+	return nil, fmt.Errorf("mul operation is unsupported for bytes %v", bv)
+}
+
+func (bv BytesValue) Div(v Value) (Value, error) {
+	return nil, fmt.Errorf("div operation is unsupported for bytes %v", bv)
+}
+
+func (bv BytesValue) EQ(v Value) (bool, error) {
+	v2, err := v.ToBytes()
+	if err != nil {
+		return false, fmt.Errorf("failed to convert %v to bytes", v)
+	}
+	return bytes.Equal([]byte(bv), v2), nil
+}
+
+func (bv BytesValue) GT(v Value) (bool, error) {
+	v2, err := v.ToBytes()
+	if err != nil {
+		return false, fmt.Errorf("failed to convert %v to bytes", v)
+	}
+	return string(bv) > string(v2), nil
+}
+
+func (bv BytesValue) GTE(v Value) (bool, error) {
+	v2, err := v.ToBytes()
+	if err != nil {
+		return false, fmt.Errorf("failed to convert %v to bytes", v)
+	}
+	return string(bv) >= string(v2), nil
+}
+
+func (bv BytesValue) LT(v Value) (bool, error) {
+	v2, err := v.ToBytes()
+	if err != nil {
+		return false, fmt.Errorf("failed to convert %v to bytes", v)
+	}
+	return string(bv) < string(v2), nil
+}
+
+func (bv BytesValue) LTE(v Value) (bool, error) {
+	v2, err := v.ToBytes()
+	if err != nil {
+		return false, fmt.Errorf("failed to convert %v to bytes", v)
+	}
+	return string(bv) <= string(v2), nil
+}
+
+func (bv BytesValue) ToInt64() (int64, error) {
+	if len(bv) == 0 {
+		return 0, nil
+	}
+	return strconv.ParseInt(string(bv), 10, 64)
+}
+
+func (bv BytesValue) ToString() (string, error) {
+	return base64.StdEncoding.EncodeToString([]byte(bv)), nil
+}
+
+func (bv BytesValue) ToBytes() ([]byte, error) {
+	return []byte(bv), nil
+}
+
+func (bv BytesValue) ToFloat64() (float64, error) {
+	if len(bv) == 0 {
+		return 0, nil
+	}
+	return strconv.ParseFloat(string(bv), 64)
+}
+
+func (bv BytesValue) ToBool() (bool, error) {
+	if len(bv) == 0 {
+		return false, nil
+	}
+	return strconv.ParseBool(string(bv))
+}
+
+func (bv BytesValue) ToArray() (*ArrayValue, error) {
+	return nil, fmt.Errorf("failed to convert array from bytes: %v", bv)
+}
+
+func (bv BytesValue) ToStruct() (*StructValue, error) {
+	return nil, fmt.Errorf("failed to convert struct from bytes: %v", bv)
+}
+
+func (bv BytesValue) ToJSON() (string, error) {
+	v, err := bv.ToString()
+	if err != nil {
+		return "", err
+	}
+	return strconv.Quote(v), nil
+}
+
+func (bv BytesValue) ToTime() (time.Time, error) {
+	v := string(bv)
+	switch {
+	case isDate(v):
+		return parseDate(v)
+	}
+	return time.Time{}, fmt.Errorf("failed to convert time.Time from bytes", bv)
+}
+
+func (bv BytesValue) ToRat() (*big.Rat, error) {
+	r := new(big.Rat)
+	r.SetString(string(bv))
+	return r, nil
+}
+
+func (bv BytesValue) Marshal() (string, error) {
+	return toBytesValueFromString(string([]byte(bv))), nil
+}
+
+func (bv BytesValue) Format(verb rune) string {
+	v, _ := bv.ToString()
+	switch verb {
+	case 't':
+		return v
+	case 'T':
+		return strconv.Quote(v)
+	}
+	return v
+}
+
+func (bv BytesValue) Interface() interface{} {
+	return []byte(bv)
 }
 
 type FloatValue float64
@@ -397,6 +547,10 @@ func (fv FloatValue) ToInt64() (int64, error) {
 
 func (fv FloatValue) ToString() (string, error) {
 	return fmt.Sprint(fv), nil
+}
+
+func (fv FloatValue) ToBytes() ([]byte, error) {
+	return []byte(fmt.Sprint(fv)), nil
 }
 
 func (fv FloatValue) ToFloat64() (float64, error) {
@@ -543,6 +697,10 @@ func (nv *NumericValue) ToString() (string, error) {
 	return (*big.Rat)(nv).RatString(), nil
 }
 
+func (nv *NumericValue) ToBytes() ([]byte, error) {
+	return []byte((*big.Rat)(nv).RatString()), nil
+}
+
 func (nv *NumericValue) ToFloat64() (float64, error) {
 	f, _ := (*big.Rat)(nv).Float64()
 	return f, nil
@@ -648,6 +806,10 @@ func (bv BoolValue) ToString() (string, error) {
 	return fmt.Sprint(bv), nil
 }
 
+func (bv BoolValue) ToBytes() ([]byte, error) {
+	return []byte(fmt.Sprint(bv)), nil
+}
+
 func (bv BoolValue) ToFloat64() (float64, error) {
 	if bv {
 		return 1, nil
@@ -741,6 +903,14 @@ func (jv JsonValue) ToInt64() (int64, error) {
 
 func (jv JsonValue) ToString() (string, error) {
 	return toJsonValueFromString(string(jv))
+}
+
+func (jv JsonValue) ToBytes() ([]byte, error) {
+	v, err := toJsonValueFromString(string(jv))
+	if err != nil {
+		return nil, err
+	}
+	return []byte(v), nil
 }
 
 func (jv JsonValue) ToFloat64() (float64, error) {
@@ -962,6 +1132,14 @@ func (av *ArrayValue) ToString() (string, error) {
 	return av.Marshal()
 }
 
+func (av *ArrayValue) ToBytes() ([]byte, error) {
+	v, err := av.Marshal()
+	if err != nil {
+		return nil, err
+	}
+	return []byte(v), nil
+}
+
 func (av *ArrayValue) ToFloat64() (float64, error) {
 	return 0, fmt.Errorf("failed to convert float64 from array %v", av)
 }
@@ -1172,6 +1350,14 @@ func (sv *StructValue) ToString() (string, error) {
 	return sv.Marshal()
 }
 
+func (sv *StructValue) ToBytes() ([]byte, error) {
+	v, err := sv.Marshal()
+	if err != nil {
+		return nil, err
+	}
+	return []byte(v), nil
+}
+
 func (sv *StructValue) ToFloat64() (float64, error) {
 	return 0, fmt.Errorf("failed to convert float64 from struct %v", sv)
 }
@@ -1353,6 +1539,14 @@ func (d DateValue) ToString() (string, error) {
 	return toDateValueFromString(json), nil
 }
 
+func (d DateValue) ToBytes() ([]byte, error) {
+	json, err := d.ToJSON()
+	if err != nil {
+		return nil, err
+	}
+	return []byte(toDateValueFromString(json)), nil
+}
+
 func (d DateValue) ToFloat64() (float64, error) {
 	return float64(time.Time(d).Unix()), nil
 }
@@ -1484,6 +1678,14 @@ func (d DatetimeValue) ToString() (string, error) {
 	return toDatetimeValueFromString(json), nil
 }
 
+func (d DatetimeValue) ToBytes() ([]byte, error) {
+	json, err := d.ToJSON()
+	if err != nil {
+		return nil, err
+	}
+	return []byte(toDatetimeValueFromString(json)), nil
+}
+
 func (d DatetimeValue) ToFloat64() (float64, error) {
 	return float64(time.Time(d).Unix()), nil
 }
@@ -1613,6 +1815,14 @@ func (d TimeValue) ToString() (string, error) {
 		return "", err
 	}
 	return toTimeValueFromString(json), nil
+}
+
+func (d TimeValue) ToBytes() ([]byte, error) {
+	json, err := d.ToJSON()
+	if err != nil {
+		return nil, err
+	}
+	return []byte(toTimeValueFromString(json)), nil
 }
 
 func (d TimeValue) ToFloat64() (float64, error) {
@@ -1765,6 +1975,18 @@ func (d TimestampValue) ToString() (string, error) {
 	return toTimestampValueFromString(json)
 }
 
+func (d TimestampValue) ToBytes() ([]byte, error) {
+	json, err := d.ToJSON()
+	if err != nil {
+		return nil, err
+	}
+	v, err := toTimestampValueFromString(json)
+	if err != nil {
+		return nil, err
+	}
+	return []byte(v), nil
+}
+
 func (d TimestampValue) ToFloat64() (float64, error) {
 	return float64(time.Time(d).Unix()), nil
 }
@@ -1908,6 +2130,14 @@ func (v *SafeValue) ToString() (string, error) {
 	return ret, nil
 }
 
+func (v *SafeValue) ToBytes() ([]byte, error) {
+	ret, err := v.value.ToBytes()
+	if err != nil {
+		return nil, nil
+	}
+	return ret, nil
+}
+
 func (v *SafeValue) ToFloat64() (float64, error) {
 	ret, err := v.value.ToFloat64()
 	if err != nil {
@@ -1983,6 +2213,7 @@ func (v *SafeValue) Interface() interface{} {
 const (
 	ArrayValueHeader     = "zetasqlitearray:"
 	StructValueHeader    = "zetasqlitestruct:"
+	BytesValueHeader     = "zetasqlitebytes:"
 	NumericValueHeader   = "zetasqlitenumeric:"
 	DateValueHeader      = "zetasqlitedate:"
 	DatetimeValueHeader  = "zetasqlitedatetime:"
@@ -2027,6 +2258,8 @@ func ValueOf(v interface{}) (Value, error) {
 			return ArrayValueOf(vv)
 		case isStructValue(vv):
 			return StructValueOf(vv)
+		case isBytesValue(vv):
+			return BytesValueOf(vv)
 		case isNumericValue(vv):
 			return NumericValueOf(vv)
 		case isDateValue(vv):
@@ -2071,6 +2304,16 @@ func isStructValue(v string) bool {
 		return strings.HasPrefix(v[1:], StructValueHeader)
 	}
 	return strings.HasPrefix(v, StructValueHeader)
+}
+
+func isBytesValue(v string) bool {
+	if len(v) < len(BytesValueHeader) {
+		return false
+	}
+	if v[0] == '"' {
+		return strings.HasPrefix(v[1:], BytesValueHeader)
+	}
+	return strings.HasPrefix(v, BytesValueHeader)
 }
 
 func isNumericValue(v string) bool {
@@ -2131,6 +2374,14 @@ func isJsonValue(v string) bool {
 		return strings.HasPrefix(v[1:], JsonValueHeader)
 	}
 	return strings.HasPrefix(v, JsonValueHeader)
+}
+
+func BytesValueOf(v string) (Value, error) {
+	bytes, err := bytesValueFromEncodedString(v)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get bytes value from encoded string: %w", err)
+	}
+	return BytesValue(bytes), nil
 }
 
 func NumericValueOf(v string) (Value, error) {
@@ -2261,6 +2512,25 @@ func toArrayValueFromJSONString(json string) string {
 			base64.StdEncoding.EncodeToString([]byte(json)),
 		),
 	)
+}
+
+func bytesValueFromEncodedString(v string) ([]byte, error) {
+	if len(v) == 0 {
+		return nil, nil
+	}
+	if v[0] == '"' {
+		unquoted, err := strconv.Unquote(v)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unquote value %q: %w", v, err)
+		}
+		v = unquoted
+	}
+	content := v[len(BytesValueHeader):]
+	decoded, err := base64.StdEncoding.DecodeString(content)
+	if err != nil {
+		return nil, err
+	}
+	return decoded, nil
 }
 
 func numericValueFromEncodedString(v string) (*big.Rat, error) {
@@ -2411,6 +2681,16 @@ func toStructValueFromJSONString(json string) string {
 			"%s%s",
 			StructValueHeader,
 			base64.StdEncoding.EncodeToString([]byte(json)),
+		),
+	)
+}
+
+func toBytesValueFromString(s string) string {
+	return strconv.Quote(
+		fmt.Sprintf(
+			"%s%s",
+			BytesValueHeader,
+			base64.StdEncoding.EncodeToString([]byte(s)),
 		),
 	)
 }
@@ -2747,11 +3027,7 @@ func encodeValueWithType(v interface{}, t types.Type) (interface{}, error) {
 		if err != nil {
 			return nil, err
 		}
-		s, err := vv.ToString()
-		if err != nil {
-			return nil, err
-		}
-		return base64.StdEncoding.EncodeToString([]byte(s)), nil
+		return vv.ToString()
 	case types.DATE:
 		text, ok := v.(string)
 		if !ok {

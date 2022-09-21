@@ -202,7 +202,13 @@ func (r *Rows) assignInterfaceValue(src Value, dst reflect.Value, typ *Type) err
 			return err
 		}
 		dst.Set(reflect.ValueOf(f64))
-	case types.BYTES, types.STRING:
+	case types.BYTES:
+		s, err := src.ToString()
+		if err != nil {
+			return err
+		}
+		dst.Set(reflect.ValueOf(s))
+	case types.STRING:
 		s, err := src.ToString()
 		if err != nil {
 			return err

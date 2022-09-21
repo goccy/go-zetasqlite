@@ -99,7 +99,7 @@ var normalFuncs = []*FuncInfo{
 		BindFunc: bindStructField,
 		ReturnTypes: []types.TypeKind{
 			types.INT64, types.DOUBLE, types.BOOL,
-			types.STRING, types.ARRAY, types.STRUCT,
+			types.STRING, types.BYTES, types.ARRAY, types.STRUCT,
 			types.DATE, types.TIME, types.TIMESTAMP,
 		},
 	},
@@ -373,12 +373,6 @@ var normalFuncs = []*FuncInfo{
 		BindFunc:    bindUnixMicros,
 		ReturnTypes: []types.TypeKind{types.INT64},
 	},
-
-	{
-		Name:        "concat",
-		BindFunc:    bindConcat,
-		ReturnTypes: []types.TypeKind{types.STRING},
-	},
 	{
 		Name:        "like",
 		BindFunc:    bindLike,
@@ -484,7 +478,7 @@ var normalFuncs = []*FuncInfo{
 		Name:     "cast",
 		BindFunc: bindCast,
 		ReturnTypes: []types.TypeKind{
-			types.INT64, types.DOUBLE, types.BOOL, types.STRING,
+			types.INT64, types.DOUBLE, types.BOOL, types.STRING, types.BYTES,
 			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
 			types.ARRAY, types.STRUCT,
 		},
@@ -499,7 +493,7 @@ var normalFuncs = []*FuncInfo{
 		Name:     "safe_cast",
 		BindFunc: bindCast,
 		ReturnTypes: []types.TypeKind{
-			types.INT64, types.DOUBLE, types.BOOL, types.STRING,
+			types.INT64, types.DOUBLE, types.BOOL, types.STRING, types.BYTES,
 			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
 			types.ARRAY, types.STRUCT,
 		},
@@ -534,9 +528,244 @@ var normalFuncs = []*FuncInfo{
 
 	// string functions
 	{
+		Name:        "ascii",
+		BindFunc:    bindAscii,
+		ReturnTypes: []types.TypeKind{types.INT64},
+	},
+	{
+		Name:        "byte_length",
+		BindFunc:    bindByteLength,
+		ReturnTypes: []types.TypeKind{types.INT64},
+	},
+	{
+		Name:        "char_length",
+		BindFunc:    bindCharLength,
+		ReturnTypes: []types.TypeKind{types.INT64},
+	},
+	{
+		Name:        "chr",
+		BindFunc:    bindChr,
+		ReturnTypes: []types.TypeKind{types.STRING},
+	},
+	{
+		Name:        "code_points_to_bytes",
+		BindFunc:    bindCodePointsToBytes,
+		ReturnTypes: []types.TypeKind{types.BYTES},
+	},
+	{
+		Name:        "code_points_to_string",
+		BindFunc:    bindCodePointsToString,
+		ReturnTypes: []types.TypeKind{types.STRING},
+	},
+	{
+		Name:        "collate",
+		BindFunc:    bindCollate,
+		ReturnTypes: []types.TypeKind{types.STRING},
+	},
+	{
+		Name:        "concat",
+		BindFunc:    bindConcat,
+		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
+	},
+	{
+		Name:        "contains_substr",
+		BindFunc:    bindContainsSubstr,
+		ReturnTypes: []types.TypeKind{types.BOOL},
+	},
+	{
+		Name:        "ends_with",
+		BindFunc:    bindEndsWith,
+		ReturnTypes: []types.TypeKind{types.BOOL},
+	},
+	{
 		Name:        "format",
 		BindFunc:    bindFormat,
 		ReturnTypes: []types.TypeKind{types.STRING},
+	},
+	{
+		Name:        "from_base32",
+		BindFunc:    bindFromBase32,
+		ReturnTypes: []types.TypeKind{types.BYTES},
+	},
+	{
+		Name:        "from_base64",
+		BindFunc:    bindFromBase64,
+		ReturnTypes: []types.TypeKind{types.BYTES},
+	},
+	{
+		Name:        "from_hex",
+		BindFunc:    bindFromHex,
+		ReturnTypes: []types.TypeKind{types.BYTES},
+	},
+	{
+		Name:        "initcap",
+		BindFunc:    bindInitcap,
+		ReturnTypes: []types.TypeKind{types.STRING},
+	},
+	{
+		Name:        "instr",
+		BindFunc:    bindInstr,
+		ReturnTypes: []types.TypeKind{types.INT64},
+	},
+	{
+		Name:        "left",
+		BindFunc:    bindLeft,
+		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
+	},
+	{
+		Name:        "length",
+		BindFunc:    bindLength,
+		ReturnTypes: []types.TypeKind{types.INT64},
+	},
+	{
+		Name:        "lpad",
+		BindFunc:    bindLpad,
+		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
+	},
+	{
+		Name:        "lower",
+		BindFunc:    bindLower,
+		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
+	},
+	{
+		Name:        "ltrim",
+		BindFunc:    bindLtrim,
+		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
+	},
+	{
+		Name:        "normalize",
+		BindFunc:    bindNormalize,
+		ReturnTypes: []types.TypeKind{types.STRING},
+	},
+	{
+		Name:        "normalize_and_casefold",
+		BindFunc:    bindNormalizeAndCasefold,
+		ReturnTypes: []types.TypeKind{types.STRING},
+	},
+	{
+		Name:        "regexp_contains",
+		BindFunc:    bindRegexpContains,
+		ReturnTypes: []types.TypeKind{types.BOOL},
+	},
+	{
+		Name:        "regexp_extract",
+		BindFunc:    bindRegexpExtract,
+		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
+	},
+	{
+		Name:        "regexp_extract_all",
+		BindFunc:    bindRegexpExtractAll,
+		ReturnTypes: []types.TypeKind{types.ARRAY},
+	},
+	{
+		Name:        "regexp_instr",
+		BindFunc:    bindRegexpInstr,
+		ReturnTypes: []types.TypeKind{types.INT64},
+	},
+	{
+		Name:        "regexp_replace",
+		BindFunc:    bindRegexpReplace,
+		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
+	},
+	{
+		Name:        "replace",
+		BindFunc:    bindReplace,
+		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
+	},
+	{
+		Name:        "repeat",
+		BindFunc:    bindRepeat,
+		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
+	},
+	{
+		Name:        "reverse",
+		BindFunc:    bindReverse,
+		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
+	},
+	{
+		Name:        "right",
+		BindFunc:    bindRight,
+		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
+	},
+	{
+		Name:        "rpad",
+		BindFunc:    bindRpad,
+		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
+	},
+	{
+		Name:        "rtrim",
+		BindFunc:    bindRtrim,
+		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
+	},
+	{
+		Name:        "safe_convert_bytes_to_string",
+		BindFunc:    bindSafeConvertBytesToString,
+		ReturnTypes: []types.TypeKind{types.STRING},
+	},
+	{
+		Name:        "soundex",
+		BindFunc:    bindSoundex,
+		ReturnTypes: []types.TypeKind{types.STRING},
+	},
+	{
+		Name:        "split",
+		BindFunc:    bindSplit,
+		ReturnTypes: []types.TypeKind{types.ARRAY},
+	},
+	{
+		Name:        "starts_with",
+		BindFunc:    bindStartsWith,
+		ReturnTypes: []types.TypeKind{types.BOOL},
+	},
+	{
+		Name:        "strpos",
+		BindFunc:    bindStrpos,
+		ReturnTypes: []types.TypeKind{types.INT64},
+	},
+	{
+		Name:        "substr",
+		BindFunc:    bindSubstr,
+		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
+	},
+	{
+		Name:        "to_base32",
+		BindFunc:    bindToBase32,
+		ReturnTypes: []types.TypeKind{types.STRING},
+	},
+	{
+		Name:        "to_base64",
+		BindFunc:    bindToBase64,
+		ReturnTypes: []types.TypeKind{types.STRING},
+	},
+	{
+		Name:        "to_code_points",
+		BindFunc:    bindToCodePoints,
+		ReturnTypes: []types.TypeKind{types.ARRAY},
+	},
+	{
+		Name:        "to_hex",
+		BindFunc:    bindToHex,
+		ReturnTypes: []types.TypeKind{types.STRING},
+	},
+	{
+		Name:        "translate",
+		BindFunc:    bindTranslate,
+		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
+	},
+	{
+		Name:        "trim",
+		BindFunc:    bindTrim,
+		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
+	},
+	{
+		Name:        "unicode",
+		BindFunc:    bindUnicode,
+		ReturnTypes: []types.TypeKind{types.INT64},
+	},
+	{
+		Name:        "upper",
+		BindFunc:    bindUpper,
+		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
 	},
 
 	// json functions

@@ -1867,6 +1867,755 @@ WITH example AS (
 			expectedRows: [][]interface{}{{"LHT9F+2v2A6ER7DUZ0HuJDt+t03SFJoKsbkkb7MDgvJ+hT2FhXGeDmfL2g2qj1FnEGRhXWRa4nrLFb+xRH9Fmw=="}},
 		},
 
+		// string functions
+		{
+			name:         "ascii",
+			query:        `SELECT ASCII('abcd'), ASCII('a'), ASCII(''), ASCII(NULL)`,
+			expectedRows: [][]interface{}{{int64(97), int64(97), int64(0), nil}},
+		},
+		{
+			name: "byte_length",
+			query: `
+WITH example AS (SELECT 'абвгд' AS characters, b'абвгд' AS bytes)
+SELECT characters, BYTE_LENGTH(characters), bytes, BYTE_LENGTH(bytes) FROM example`,
+			expectedRows: [][]interface{}{{"абвгд", int64(10), "0LDQsdCy0LPQtA==", int64(10)}},
+		},
+		{
+			name: "char_length",
+			query: `
+WITH example AS (SELECT 'абвгд' AS characters)
+SELECT characters, CHAR_LENGTH(characters) FROM example`,
+			expectedRows: [][]interface{}{{"абвгд", int64(5)}},
+		},
+		{
+			name: "character_length",
+			query: `
+WITH example AS (SELECT 'абвгд' AS characters)
+SELECT characters, CHARACTER_LENGTH(characters) FROM example`,
+			expectedRows: [][]interface{}{{"абвгд", int64(5)}},
+		},
+		{
+			name:         "chr",
+			query:        `SELECT CHR(65), CHR(255), CHR(513), CHR(1024), CHR(97), CHR(0xF9B5), CHR(0), CHR(NULL)`,
+			expectedRows: [][]interface{}{{"A", "ÿ", "ȁ", "Ѐ", "a", "例", "", nil}},
+		},
+		{
+			name:         "code_points_to_bytes",
+			query:        `SELECT CODE_POINTS_TO_BYTES([65, 98, 67, 100])`,
+			expectedRows: [][]interface{}{{"QWJDZA=="}},
+		},
+		{
+			name:         "code_points_to_string",
+			query:        `SELECT CODE_POINTS_TO_STRING([65, 255, 513, 1024]), CODE_POINTS_TO_STRING([97, 0, 0xF9B5]), CODE_POINTS_TO_STRING([65, 255, NULL, 1024])`,
+			expectedRows: [][]interface{}{{"AÿȁЀ", "a例", nil}},
+		},
+		// TODO: currently collate function is unsupported.
+		//{
+		//	name: "collate",
+		//	query: `
+		//WITH Words AS (
+		//  SELECT COLLATE('a', 'und:ci') AS char1, COLLATE('Z', 'und:ci') AS char2
+		//) SELECT (Words.char1 < Words.char2) FROM Words`,
+		//	expectedRows: [][]interface{}{{true}},
+		//},
+		{
+			name:         "concat",
+			query:        `SELECT CONCAT('T.P.', ' ', 'Bar'), CONCAT('Summer', ' ', 1923)`,
+			expectedRows: [][]interface{}{{"T.P. Bar", "Summer 1923"}},
+		},
+		// TODO: currently unsupported CONTAINS_SUBSTR function because ZetaSQL library doesn't support it.
+		//{
+		//	name:         "contains_substr true",
+		//	query:        `SELECT CONTAINS_SUBSTR('the blue house', 'Blue house')`,
+		//	expectedRows: [][]interface{}{{true}},
+		//},
+		//{
+		//	name:         "contains_substr false",
+		//	query:        `SELECT CONTAINS_SUBSTR('the red house', 'blue')`,
+		//	expectedRows: [][]interface{}{{false}},
+		//},
+		//{
+		//	name:         "contains_substr normalize",
+		//	query:        `SELECT '\u2168 day' AS a, 'IX' AS b, CONTAINS_SUBSTR('\u2168', 'IX')`,
+		//	expectedRows: [][]interface{}{{"Ⅸ day", "IX", true}},
+		//},
+		//{
+		//	name:         "contains_substr struct_field",
+		//	query:        `SELECT CONTAINS_SUBSTR((23, 35, 41), '35')`,
+		//	expectedRows: [][]interface{}{{true}},
+		//},
+		//{
+		//	name:         "contains_substr recursive",
+		//	query:        `SELECT CONTAINS_SUBSTR(('abc', ['def', 'ghi', 'jkl'], 'mno'), 'jk')`,
+		//	expectedRows: [][]interface{}{{true}},
+		//},
+		//{
+		//	name:         "contains_substr struct with null",
+		//	query:        `SELECT CONTAINS_SUBSTR((23, NULL, 41), '41')`,
+		//	expectedRows: [][]interface{}{{true}},
+		//},
+		//{
+		//	name:         "contains_substr struct with null2",
+		//	query:        `SELECT CONTAINS_SUBSTR((23, NULL, 41), '35')`,
+		//	expectedRows: [][]interface{}{{nil}},
+		//},
+		//{
+		//	name:        "contains_substr nil",
+		//	query:       `SELECT CONTAINS_SUBSTR('hello', NULL)`,
+		//	expectedErr: true,
+		//},
+		//{
+		//	name: "contains_substr for table all rows",
+		//	query: `
+		//WITH Recipes AS (
+		//  SELECT 'Blueberry pancakes' as Breakfast, 'Egg salad sandwich' as Lunch, 'Potato dumplings' as Dinner UNION ALL
+		//  SELECT 'Potato pancakes', 'Toasted cheese sandwich', 'Beef stroganoff' UNION ALL
+		//  SELECT 'Ham scramble', 'Steak avocado salad', 'Tomato pasta' UNION ALL
+		//  SELECT 'Avocado toast', 'Tomato soup', 'Blueberry salmon' UNION ALL
+		//  SELECT 'Corned beef hash', 'Lentil potato soup', 'Glazed ham'
+		//) SELECT * FROM Recipes WHERE CONTAINS_SUBSTR(Recipes, 'toast')`,
+		//	expectedRows: [][]interface{}{
+		//	{"Potato pancakes", "Toasted cheese sandwich", "Beef stroganoff"},
+		//	{"Avocado toast", "Tomato soup", "Blueberry samon"},
+		//	},
+		//	},
+		//{
+		//	name: "contains_substr for table specified rows",
+		//	query: `
+		//WITH Recipes AS (
+		//  SELECT 'Blueberry pancakes' as Breakfast, 'Egg salad sandwich' as Lunch, 'Potato dumplings' as Dinner UNION ALL
+		//  SELECT 'Potato pancakes', 'Toasted cheese sandwich', 'Beef stroganoff' UNION ALL
+		//  SELECT 'Ham scramble', 'Steak avocado salad', 'Tomato pasta' UNION ALL
+		//  SELECT 'Avocado toast', 'Tomato soup', 'Blueberry salmon' UNION ALL
+		//  SELECT 'Corned beef hash', 'Lentil potato soup', 'Glazed ham'
+		//) SELECT * FROM Recipes WHERE CONTAINS_SUBSTR((Lunch, Dinner), 'potato')`,
+		//	expectedRows: [][]interface{}{
+		//		{"Bluberry pancakes", "Egg salad sandwich", "Potato dumplings"},
+		//		{"Corned beef hash", "Lentil potato soup", "Glazed ham"},
+		//	},
+		//},
+		//{
+		//	name: "contains_substr for table except",
+		//	query: `
+		//WITH Recipes AS (
+		//  SELECT 'Blueberry pancakes' as Breakfast, 'Egg salad sandwich' as Lunch, 'Potato dumplings' as Dinner UNION ALL
+		//  SELECT 'Potato pancakes', 'Toasted cheese sandwich', 'Beef stroganoff' UNION ALL
+		//  SELECT 'Ham scramble', 'Steak avocado salad', 'Tomato pasta' UNION ALL
+		//  SELECT 'Avocado toast', 'Tomato soup', 'Blueberry salmon' UNION ALL
+		//  SELECT 'Corned beef hash', 'Lentil potato soup', 'Glazed ham'
+		//) SELECT * FROM Recipes WHERE CONTAINS_SUBSTR((SELECT AS STRUCT Recipes.* EXCEPT (Lunch, Dinner)), 'potato')`,
+		//	expectedRows: [][]interface{}{
+		//		{"Potato pancakes", "Toasted cheese sandwich", "Beef stroganoff"},
+		//	},
+		//},
+		{
+			name:         "ends_with",
+			query:        `SELECT ENDS_WITH('apple', 'e'), ENDS_WITH('banana', 'e'), ENDS_WITH('orange', 'e')`,
+			expectedRows: [][]interface{}{{true, false, true}},
+		},
+		{
+			name:         "from_base32",
+			query:        `SELECT FROM_BASE32('MFRGGZDF74======')`,
+			expectedRows: [][]interface{}{{"YWJjZGX/"}},
+		},
+		{
+			name:         "from_base64",
+			query:        `SELECT FROM_BASE64('/+A=')`,
+			expectedRows: [][]interface{}{{"/+A="}},
+		},
+		{
+			name:         "from_hex",
+			query:        `SELECT FROM_HEX('00010203aaeeefff'), FROM_HEX('0AF'), FROM_HEX('666f6f626172')`,
+			expectedRows: [][]interface{}{{"AAECA6ru7/8=", "AK8=", "Zm9vYmFy"}},
+		},
+		{
+			name: "initcap",
+			query: `
+WITH example AS
+(
+  SELECT 'Hello World-everyone!' AS value UNION ALL
+  SELECT 'tHe dog BARKS loudly+friendly' AS value UNION ALL
+  SELECT 'apples&oranges;&pears' AS value UNION ALL
+  SELECT 'καθίσματα ταινιών' AS value
+)
+SELECT value, INITCAP(value) AS initcap_value FROM example`,
+			expectedRows: [][]interface{}{
+				{"Hello World-everyone!", "Hello World-Everyone!"},
+				{"tHe dog BARKS loudly+friendly", "The Dog Barks Loudly+Friendly"},
+				{"apples&oranges;&pears", "Apples&Oranges;&Pears"},
+				{"καθίσματα ταινιών", "Καθίσματα Ταινιών"},
+			},
+		},
+		{
+			name: "initcap with delimiters",
+			query: `
+WITH example AS
+(
+  SELECT 'hello WORLD!' AS value, '' AS delimiters UNION ALL
+  SELECT 'καθίσματα ταιντιώ@ν' AS value, 'τ@' AS delimiters UNION ALL
+  SELECT 'Apples1oranges2pears' AS value, '12' AS delimiters UNION ALL
+  SELECT 'tHisEisEaESentence' AS value, 'E' AS delimiters
+)
+SELECT value, delimiters, INITCAP(value, delimiters) AS initcap_value FROM example`,
+			expectedRows: [][]interface{}{
+				{"hello WORLD!", "", "Hello world!"},
+				{"καθίσματα ταιντιώ@ν", "τ@", "ΚαθίσματΑ τΑιντΙώ@Ν"},
+				{"Apples1oranges2pears", "12", "Apples1Oranges2Pears"},
+				{"tHisEisEaESentence", "E", "ThisEIsEAESentence"},
+			},
+		},
+		{
+			name: "instr",
+			query: `
+WITH example AS
+(
+ SELECT 'banana' as source_value, 'an' as search_value, 1 as position, 1 as occurrence UNION ALL
+ SELECT 'banana' as source_value, 'an' as search_value, 1 as position, 2 as occurrence UNION ALL
+ SELECT 'banana' as source_value, 'an' as search_value, 1 as position, 3 as occurrence UNION ALL
+ SELECT 'banana' as source_value, 'an' as search_value, 3 as position, 1 as occurrence UNION ALL
+ SELECT 'banana' as source_value, 'an' as search_value, -1 as position, 1 as occurrence UNION ALL
+ SELECT 'banana' as source_value, 'an' as search_value, -3 as position, 1 as occurrence UNION ALL
+ SELECT 'banana' as source_value, 'ann' as search_value, 1 as position, 1 as occurrence UNION ALL
+ SELECT 'helloooo' as source_value, 'oo' as search_value, 1 as position, 1 as occurrence UNION ALL
+ SELECT 'helloooo' as source_value, 'oo' as search_value, 1 as position, 2 as occurrence
+) SELECT source_value, search_value, position, occurrence, INSTR(source_value, search_value, position, occurrence) FROM example`,
+			expectedRows: [][]interface{}{
+				{"banana", "an", int64(1), int64(1), int64(2)},
+				{"banana", "an", int64(1), int64(2), int64(4)},
+				{"banana", "an", int64(1), int64(3), int64(0)},
+				{"banana", "an", int64(3), int64(1), int64(4)},
+				{"banana", "an", int64(-1), int64(1), int64(4)},
+				{"banana", "an", int64(-3), int64(1), int64(4)},
+				{"banana", "ann", int64(1), int64(1), int64(0)},
+				{"helloooo", "oo", int64(1), int64(1), int64(5)},
+				{"helloooo", "oo", int64(1), int64(2), int64(6)},
+			},
+		},
+		{
+			name:         "left with string value",
+			query:        `SELECT LEFT('apple', 3), LEFT('banana', 3), LEFT('абвгд', 3)`,
+			expectedRows: [][]interface{}{{"app", "ban", "абв"}},
+		},
+		{
+			name:         "left with bytes value",
+			query:        `SELECT LEFT(b'apple', 3), LEFT(b'banana', 3), LEFT(b'\xab\xcd\xef\xaa\xbb', 3)`,
+			expectedRows: [][]interface{}{{"YXBw", "YmFu", "q83v"}},
+		},
+		{
+			name:         "length",
+			query:        `SELECT LENGTH('абвгд'), LENGTH(CAST('абвгд' AS BYTES))`,
+			expectedRows: [][]interface{}{{int64(5), int64(10)}},
+		},
+		{
+			name:         "lpad string without pattern",
+			query:        `SELECT LPAD(t, len) FROM UNNEST([STRUCT('abc' AS t, 5 AS len),('abc', 2),('例子', 4)])`,
+			expectedRows: [][]interface{}{{"  abc"}, {"ab"}, {"  例子"}},
+		},
+		{
+			name:         "lpad string with pattern",
+			query:        `SELECT LPAD(t, len, pattern) FROM UNNEST([STRUCT('abc' AS t, 8 AS len, 'def' AS pattern),('abc', 5, '-'),('例子', 5, '中文')])`,
+			expectedRows: [][]interface{}{{"defdeabc"}, {"--abc"}, {"中文中例子"}},
+		},
+		{
+			name:         "lpad bytes without pattern",
+			query:        `SELECT LPAD(t, len) FROM UNNEST([STRUCT(b'abc' AS t, 5 AS len),(b'abc', 2),(b'\xab\xcd\xef', 4)])`,
+			expectedRows: [][]interface{}{{"ICBhYmM="}, {"YWI="}, {"IKvN7w=="}},
+		},
+		{
+			name:         "lpad bytes with pattern",
+			query:        `SELECT LPAD(t, len, pattern) FROM UNNEST([STRUCT(b'abc' AS t, 8 AS len, b'def' AS pattern),(b'abc', 5, b'-'),(b'\xab\xcd\xef', 5, b'\x00')])`,
+			expectedRows: [][]interface{}{{"ZGVmZGVhYmM="}, {"LS1hYmM="}, {"AACrze8="}},
+		},
+		{
+			name:         "lower",
+			query:        `SELECT LOWER('FOO'), LOWER('BAR'), LOWER('BAZ')`,
+			expectedRows: [][]interface{}{{"foo", "bar", "baz"}},
+		},
+		{
+			name:         "ltrim",
+			query:        `SELECT LTRIM('   apple   '), LTRIM('***apple***', '*')`,
+			expectedRows: [][]interface{}{{"apple   ", "apple***"}},
+		},
+		{
+			name:         "normalize",
+			query:        `SELECT a, b, a = b FROM (SELECT NORMALIZE('\u00ea') as a, NORMALIZE('\u0065\u0302') as b)`,
+			expectedRows: [][]interface{}{{"ê", "ê", true}},
+		},
+		{
+			name: "normalize with nfkc",
+			query: `
+WITH EquivalentNames AS (
+  SELECT name
+  FROM UNNEST([
+      'Jane\u2004Doe',
+      'John\u2004Smith',
+      'Jane\u2005Doe',
+      'Jane\u2006Doe',
+      'John Smith']) AS name
+) SELECT NORMALIZE(name, NFKC) AS normalized_name, COUNT(*) AS name_count FROM EquivalentNames GROUP BY 1`,
+			expectedRows: [][]interface{}{
+				{"Jane Doe", int64(3)},
+				{"John Smith", int64(2)},
+			},
+		},
+		{
+			name:         "normalize_and_casefold",
+			query:        `SELECT a, b, NORMALIZE(a) = NORMALIZE(b), NORMALIZE_AND_CASEFOLD(a) = NORMALIZE_AND_CASEFOLD(b) FROM (SELECT 'The red barn' AS a, 'The Red Barn' AS b)`,
+			expectedRows: [][]interface{}{{"The red barn", "The Red Barn", false, true}},
+		},
+		{
+			name: "normalize_and_casefold with params",
+			query: `
+WITH Strings AS (
+  SELECT '\u2168' AS a, 'IX' AS b UNION ALL
+  SELECT '\u0041\u030A', '\u00C5'
+)
+SELECT a, b,
+  NORMALIZE_AND_CASEFOLD(a, NFD)=NORMALIZE_AND_CASEFOLD(b, NFD) AS nfd,
+  NORMALIZE_AND_CASEFOLD(a, NFC)=NORMALIZE_AND_CASEFOLD(b, NFC) AS nfc,
+  NORMALIZE_AND_CASEFOLD(a, NFKD)=NORMALIZE_AND_CASEFOLD(b, NFKD) AS nkfd,
+  NORMALIZE_AND_CASEFOLD(a, NFKC)=NORMALIZE_AND_CASEFOLD(b, NFKC) AS nkfc
+FROM Strings`,
+			expectedRows: [][]interface{}{
+				{"Ⅸ", "IX", false, false, true, true},
+				{"Å", "Å", true, true, true, true},
+			},
+		},
+		{
+			name: "octet_length",
+			query: `
+WITH example AS (SELECT 'абвгд' AS characters, b'абвгд' AS bytes)
+SELECT characters, OCTET_LENGTH(characters), bytes, OCTET_LENGTH(bytes) FROM example`,
+			expectedRows: [][]interface{}{{"абвгд", int64(10), "0LDQsdCy0LPQtA==", int64(10)}},
+		},
+		{
+			name: "regexp_contains",
+			query: `
+SELECT email, REGEXP_CONTAINS(email, r'@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+')
+ FROM (SELECT ['foo@example.com', 'bar@example.org', 'www.example.net'] AS addresses),
+ UNNEST(addresses) AS email`,
+			expectedRows: [][]interface{}{{"foo@example.com", true}, {"bar@example.org", true}, {"www.example.net", false}},
+		},
+		{
+			name: "regexp_contains2",
+			query: `
+SELECT email,
+  REGEXP_CONTAINS(email, r'^([\w.+-]+@foo\.com|[\w.+-]+@bar\.org)$'),
+  REGEXP_CONTAINS(email, r'^[\w.+-]+@foo\.com|[\w.+-]+@bar\.org$')
+FROM
+  (SELECT ['a@foo.com', 'a@foo.computer', 'b@bar.org', '!b@bar.org', 'c@buz.net'] AS addresses),
+  UNNEST(addresses) AS email`,
+			expectedRows: [][]interface{}{
+				{"a@foo.com", true, true},
+				{"a@foo.computer", false, true},
+				{"b@bar.org", true, true},
+				{"!b@bar.org", false, true},
+				{"c@buz.net", false, false},
+			},
+		},
+		{
+			name: "regexp_extract",
+			query: `
+WITH email_addresses AS (
+ SELECT 'foo@example.com' as email UNION ALL SELECT 'bar@example.org' as email UNION ALL SELECT 'baz@example.net' as email
+) SELECT REGEXP_EXTRACT(email, r'^[a-zA-Z0-9_.+-]+') FROM email_addresses`,
+			expectedRows: [][]interface{}{{"foo"}, {"bar"}, {"baz"}},
+		},
+		{
+			name: "regexp_extract with capture",
+			query: `
+WITH email_addresses AS (
+  SELECT 'foo@example.com' as email UNION ALL SELECT 'bar@example.org' as email UNION ALL SELECT 'baz@example.net' as email
+) SELECT REGEXP_EXTRACT(email, r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.([a-zA-Z0-9-.]+$)') FROM email_addresses`,
+			expectedRows: [][]interface{}{{"com"}, {"org"}, {"net"}},
+		},
+		{
+			name: "regexp_extract with position and occurrence",
+			query: `
+WITH example AS
+ (
+   SELECT 'Hello Helloo and Hellooo' AS value, 'H?ello+' AS regex, 1 as position, 1 AS occurrence UNION ALL
+   SELECT 'Hello Helloo and Hellooo', 'H?ello+', 1, 2 UNION ALL
+   SELECT 'Hello Helloo and Hellooo', 'H?ello+', 1, 3 UNION ALL
+   SELECT 'Hello Helloo and Hellooo', 'H?ello+', 1, 4 UNION ALL
+   SELECT 'Hello Helloo and Hellooo', 'H?ello+', 2, 1 UNION ALL
+   SELECT 'Hello Helloo and Hellooo', 'H?ello+', 3, 1 UNION ALL
+   SELECT 'Hello Helloo and Hellooo', 'H?ello+', 3, 2 UNION ALL
+   SELECT 'Hello Helloo and Hellooo', 'H?ello+', 3, 3 UNION ALL
+   SELECT 'Hello Helloo and Hellooo', 'H?ello+', 20, 1 UNION ALL
+   SELECT 'cats&dogs&rabbits' ,'\\w+&', 1, 2 UNION ALL
+   SELECT 'cats&dogs&rabbits', '\\w+&', 2, 3
+) SELECT value, regex, position, occurrence, REGEXP_EXTRACT(value, regex, position, occurrence) FROM example`,
+			expectedRows: [][]interface{}{
+				{"Hello Helloo and Hellooo", "H?ello+", int64(1), int64(1), "Hello"},
+				{"Hello Helloo and Hellooo", "H?ello+", int64(1), int64(2), "Helloo"},
+				{"Hello Helloo and Hellooo", "H?ello+", int64(1), int64(3), "Hellooo"},
+				{"Hello Helloo and Hellooo", "H?ello+", int64(1), int64(4), nil},
+				{"Hello Helloo and Hellooo", "H?ello+", int64(2), int64(1), "ello"},
+				{"Hello Helloo and Hellooo", "H?ello+", int64(3), int64(1), "Helloo"},
+				{"Hello Helloo and Hellooo", "H?ello+", int64(3), int64(2), "Hellooo"},
+				{"Hello Helloo and Hellooo", "H?ello+", int64(3), int64(3), nil},
+				{"Hello Helloo and Hellooo", "H?ello+", int64(20), int64(1), nil},
+				{"cats&dogs&rabbits", `\\w+&`, int64(1), int64(2), "dogs&"},
+				{"cats&dogs&rabbits", `\\w+&`, int64(2), int64(3), nil},
+			},
+		},
+		{
+			name:         "regexp_extract_all",
+			query:        "WITH code_markdown AS (SELECT 'Try `function(x)` or `function(y)`' as code) SELECT REGEXP_EXTRACT_ALL(code, '`(.+?)`') FROM code_markdown",
+			expectedRows: [][]interface{}{{[]interface{}{"function(x)", "function(y)"}}},
+		},
+		{
+			name: "regexp_instr",
+			query: `
+WITH example AS (
+  SELECT 'ab@gmail.com' AS source_value, '@[^.]*' AS regexp UNION ALL
+  SELECT 'ab@mail.com', '@[^.]*' UNION ALL
+  SELECT 'abc@gmail.com', '@[^.]*' UNION ALL
+  SELECT 'abc.com', '@[^.]*'
+) SELECT source_value, regexp, REGEXP_INSTR(source_value, regexp) FROM example`,
+			expectedRows: [][]interface{}{
+				{"ab@gmail.com", "@[^.]*", int64(3)},
+				{"ab@mail.com", "@[^.]*", int64(3)},
+				{"abc@gmail.com", "@[^.]*", int64(4)},
+				{"abc.com", "@[^.]*", int64(0)},
+			},
+		},
+		{
+			name: "regexp_instr with position",
+			query: `
+WITH example AS (
+  SELECT 'a@gmail.com b@gmail.com' AS source_value, '@[^.]*' AS regexp, 1 AS position UNION ALL
+  SELECT 'a@gmail.com b@gmail.com', '@[^.]*', 2 UNION ALL
+  SELECT 'a@gmail.com b@gmail.com', '@[^.]*', 3 UNION ALL
+  SELECT 'a@gmail.com b@gmail.com', '@[^.]*', 4
+) SELECT source_value, regexp, position, REGEXP_INSTR(source_value, regexp, position) FROM example`,
+			expectedRows: [][]interface{}{
+				{"a@gmail.com b@gmail.com", "@[^.]*", int64(1), int64(2)},
+				{"a@gmail.com b@gmail.com", "@[^.]*", int64(2), int64(2)},
+				{"a@gmail.com b@gmail.com", "@[^.]*", int64(3), int64(14)},
+				{"a@gmail.com b@gmail.com", "@[^.]*", int64(4), int64(14)},
+			},
+		},
+		{
+			name: "regexp_instr with occurrence",
+			query: `
+WITH example AS (
+  SELECT 'a@gmail.com b@gmail.com c@gmail.com' AS source_value, '@[^.]*' AS regexp, 1 AS position, 1 AS occurrence UNION ALL
+  SELECT 'a@gmail.com b@gmail.com c@gmail.com', '@[^.]*', 1, 2 UNION ALL
+  SELECT 'a@gmail.com b@gmail.com c@gmail.com', '@[^.]*', 1, 3
+) SELECT source_value, regexp, position, occurrence, REGEXP_INSTR(source_value, regexp, position, occurrence) FROM example`,
+			expectedRows: [][]interface{}{
+				{"a@gmail.com b@gmail.com c@gmail.com", "@[^.]*", int64(1), int64(1), int64(2)},
+				{"a@gmail.com b@gmail.com c@gmail.com", "@[^.]*", int64(1), int64(2), int64(14)},
+				{"a@gmail.com b@gmail.com c@gmail.com", "@[^.]*", int64(1), int64(3), int64(26)},
+			},
+		},
+		{
+			name: "regexp_instr with occurrence position",
+			query: `
+WITH example AS (
+  SELECT 'a@gmail.com' AS source_value, '@[^.]*' AS regexp, 1 AS position, 1 AS occurrence, 0 AS o_position UNION ALL
+  SELECT 'a@gmail.com', '@[^.]*', 1, 1, 1
+) SELECT source_value, regexp, position, occurrence, o_position, REGEXP_INSTR(source_value, regexp, position, occurrence, o_position) FROM example`,
+			expectedRows: [][]interface{}{
+				{"a@gmail.com", "@[^.]*", int64(1), int64(1), int64(0), int64(2)},
+				{"a@gmail.com", "@[^.]*", int64(1), int64(1), int64(1), int64(8)},
+			},
+		},
+		{
+			name: "regexp_replace",
+			query: `
+WITH markdown AS (
+  SELECT '# Heading' as heading UNION ALL
+  SELECT '# Another heading' as heading
+) SELECT REGEXP_REPLACE(heading, r'^# ([a-zA-Z0-9\s]+$)', '<h1>\\1</h1>') FROM markdown`,
+			expectedRows: [][]interface{}{
+				{"<h1>Heading</h1>"},
+				{"<h1>Another heading</h1>"},
+			},
+		},
+		{
+			name: "regexp_substr",
+			query: `
+WITH example AS (
+  SELECT 'Hello World Helloo' AS value, 'H?ello+' AS regex, 1 AS position, 1 AS occurrence
+) SELECT value, regex, position, occurrence, REGEXP_SUBSTR(value, regex, position, occurrence) FROM example`,
+			expectedRows: [][]interface{}{
+				{"Hello World Helloo", "H?ello+", int64(1), int64(1), "Hello"},
+			},
+		},
+		{
+			name: "replace",
+			query: `
+WITH desserts AS (
+  SELECT 'apple pie' as dessert UNION ALL
+  SELECT 'blackberry pie' as dessert UNION ALL
+  SELECT 'cherry pie' as dessert
+) SELECT REPLACE (dessert, 'pie', 'cobbler') FROM desserts`,
+			expectedRows: [][]interface{}{
+				{"apple cobbler"},
+				{"blackberry cobbler"},
+				{"cherry cobbler"},
+			},
+		},
+		{
+			name:  "repeat",
+			query: `SELECT t, n, REPEAT(t, n) FROM UNNEST([STRUCT('abc' AS t, 3 AS n),('例子', 2),('abc', null),(null, 3)])`,
+			expectedRows: [][]interface{}{
+				{"abc", int64(3), "abcabcabc"},
+				{"例子", int64(2), "例子例子"},
+				{"abc", nil, nil},
+				{nil, int64(3), nil},
+			},
+		},
+		{
+			name: "reverse",
+			query: `
+WITH example AS (
+  SELECT 'foo' AS sample_string, b'bar' AS sample_bytes UNION ALL
+  SELECT 'абвгд' AS sample_string, b'123' AS sample_bytes
+) SELECT sample_string, REVERSE(sample_string), sample_bytes, REVERSE(sample_bytes) FROM example`,
+			expectedRows: [][]interface{}{
+				{"foo", "oof", "YmFy", "cmFi"},
+				{"абвгд", "дгвба", "MTIz", "MzIx"},
+			},
+		},
+		{
+			name: "right string",
+			query: `
+WITH examples AS (
+  SELECT 'apple' as example UNION ALL
+  SELECT 'banana' as example UNION ALL
+  SELECT 'абвгд' as example
+) SELECT example, RIGHT(example, 3) FROM examples`,
+			expectedRows: [][]interface{}{
+				{"apple", "ple"},
+				{"banana", "ana"},
+				{"абвгд", "вгд"},
+			},
+		},
+		{
+			name: "right bytes",
+			query: `
+WITH examples AS (
+  SELECT b'apple' as example UNION ALL
+  SELECT b'banana' as example UNION ALL
+  SELECT b'\xab\xcd\xef\xaa\xbb' as example
+) SELECT example, RIGHT(example, 3) FROM examples`,
+			expectedRows: [][]interface{}{
+				{"YXBwbGU=", "cGxl"},
+				{"YmFuYW5h", "YW5h"},
+				{"q83vqrs=", "76q7"},
+			},
+		},
+		{
+			name:  "rpad string",
+			query: `SELECT t, len, FORMAT('%T', RPAD(t, len)) FROM UNNEST([STRUCT('abc' AS t, 5 AS len),('abc', 2),('例子', 4)])`,
+			expectedRows: [][]interface{}{
+				{"abc", int64(5), `"abc  "`},
+				{"abc", int64(2), `"ab"`},
+				{"例子", int64(4), `"例子  "`},
+			},
+		},
+		{
+			name: "rpad string with pattern",
+			query: `SELECT t, len, pattern, FORMAT('%T', RPAD(t, len, pattern)) FROM UNNEST([
+  STRUCT('abc' AS t, 8 AS len, 'def' AS pattern),
+  ('abc', 5, '-'),
+  ('例子', 5, '中文')])`,
+			expectedRows: [][]interface{}{
+				{"abc", int64(8), "def", `"abcdefde"`},
+				{"abc", int64(5), "-", `"abc--"`},
+				{"例子", int64(5), "中文", `"例子中文中"`},
+			},
+		},
+		{
+			name: "rpad bytes",
+			query: `SELECT FORMAT('%T', t) AS t, len, FORMAT('%T', RPAD(t, len)) FROM UNNEST([
+  STRUCT(b'abc' AS t, 5 AS len),
+  (b'abc', 2),
+  (b'\xab\xcd\xef', 4)])`,
+			expectedRows: [][]interface{}{
+				{`"YWJj"`, int64(5), `"YWJjICA="`},
+				{`"YWJj"`, int64(2), `"YWI="`},
+				{`"q83v"`, int64(4), `"q83vIA=="`},
+			},
+		},
+		{
+			name: "rpad bytes with pattern",
+			query: `SELECT FORMAT('%T', t) AS t, len, FORMAT('%T', pattern) AS pattern, FORMAT('%T', RPAD(t, len, pattern)) FROM UNNEST([
+  STRUCT(b'abc' AS t, 8 AS len, b'def' AS pattern),
+  (b'abc', 5, b'-'),
+  (b'\xab\xcd\xef', 5, b'\x00')])`,
+			expectedRows: [][]interface{}{
+				{`"YWJj"`, int64(8), `"ZGVm"`, `"YWJjZGVmZGU="`},
+				{`"YWJj"`, int64(5), `"LQ=="`, `"YWJjLS0="`},
+				{`"q83v"`, int64(5), `"AA=="`, `"q83vAAA="`},
+			},
+		},
+		{
+			name: "rtrim",
+			query: `
+WITH items AS (
+  SELECT '***apple***' as item UNION ALL
+  SELECT '***banana***' as item UNION ALL
+  SELECT '***orange***' as item
+) SELECT RTRIM(item, '*') FROM items`,
+			expectedRows: [][]interface{}{
+				{"***apple"},
+				{"***banana"},
+				{"***orange"},
+			},
+		},
+		{
+			name: "rtrim2",
+			query: `
+WITH items AS (
+  SELECT 'applexxx' as item UNION ALL
+  SELECT 'bananayyy' as item UNION ALL
+  SELECT 'orangezzz' as item UNION ALL
+  SELECT 'pearxyz' as item
+) SELECT RTRIM(item, 'xyz') FROM items`,
+			expectedRows: [][]interface{}{
+				{"apple"},
+				{"banana"},
+				{"orange"},
+				{"pear"},
+			},
+		},
+		{
+			name:         "safe_convert_bytes_to_string",
+			query:        `SELECT SAFE_CONVERT_BYTES_TO_STRING(b'\xc2')`,
+			expectedRows: [][]interface{}{{"�"}},
+		},
+		{
+			name: "soundex",
+			query: `
+WITH example AS (
+  SELECT 'Ashcraft' AS value UNION ALL
+  SELECT 'Raven' AS value UNION ALL
+  SELECT 'Ribbon' AS value UNION ALL
+  SELECT 'apple' AS value UNION ALL
+  SELECT 'Hello world!' AS value UNION ALL
+  SELECT '  H3##!@llo w00orld!' AS value UNION ALL
+  SELECT '#1' AS value UNION ALL
+  SELECT NULL AS value
+) SELECT value, SOUNDEX(value) FROM example`,
+			expectedRows: [][]interface{}{
+				{"Ashcraft", "A261"},
+				{"Raven", "R150"},
+				{"Ribbon", "R150"},
+				{"apple", "a140"},
+				{"Hello world!", "H464"},
+				{"  H3##!@llo w00orld!", "H464"},
+				{"#1", ""},
+				{nil, nil},
+			},
+		},
+		{
+			name: "split",
+			query: `
+WITH letters AS (
+  SELECT '' as letter_group UNION ALL
+  SELECT 'a' as letter_group UNION ALL
+  SELECT 'b c d' as letter_group
+) SELECT SPLIT(letter_group, ' ') FROM letters`,
+			expectedRows: [][]interface{}{
+				{[]interface{}{""}},
+				{[]interface{}{"a"}},
+				{[]interface{}{"b", "c", "d"}},
+			},
+		},
+		{
+			name:         "starts_with",
+			query:        `SELECT STARTS_WITH('foo', 'b'), STARTS_WITH('bar', 'b'), STARTS_WITH('baz', 'b')`,
+			expectedRows: [][]interface{}{{false, true, true}},
+		},
+		{
+			name:         "strpos",
+			query:        `SELECT STRPOS('foo@example.com', '@'), STRPOS('foobar@example.com', '@'), STRPOS('foobarbaz@example.com', '@'), STRPOS('quxexample.com', '@')`,
+			expectedRows: [][]interface{}{{int64(4), int64(7), int64(10), int64(0)}},
+		},
+		{
+			name:         "substr",
+			query:        `SELECT SUBSTR('apple', 2), SUBSTR('apple', 2, 2), SUBSTR('apple', -2), SUBSTR('apple', 1, 123), SUBSTR('apple', 123)`,
+			expectedRows: [][]interface{}{{"pple", "pp", "le", "apple", ""}},
+		},
+		{
+			name:         "substring",
+			query:        `SELECT SUBSTRING('apple', 2), SUBSTRING('apple', 2, 2), SUBSTRING('apple', -2), SUBSTRING('apple', 1, 123), SUBSTRING('apple', 123)`,
+			expectedRows: [][]interface{}{{"pple", "pp", "le", "apple", ""}},
+		},
+		{
+			name:         "to_base32",
+			query:        `SELECT TO_BASE32(b'abcde\xFF')`,
+			expectedRows: [][]interface{}{{"MFRGGZDF74======"}},
+		},
+		{
+			name:         "to_base64",
+			query:        `SELECT TO_BASE64(b'\377\340')`,
+			expectedRows: [][]interface{}{{"/+A="}},
+		},
+		{
+			name:  "to_code_points with string value",
+			query: `SELECT word, TO_CODE_POINTS(word) FROM UNNEST(['foo', 'bar', 'baz', 'giraffe', 'llama']) AS word`,
+			expectedRows: [][]interface{}{
+				{"foo", []interface{}{int64(102), int64(111), int64(111)}},
+				{"bar", []interface{}{int64(98), int64(97), int64(114)}},
+				{"baz", []interface{}{int64(98), int64(97), int64(122)}},
+				{"giraffe", []interface{}{int64(103), int64(105), int64(114), int64(97), int64(102), int64(102), int64(101)}},
+				{"llama", []interface{}{int64(108), int64(108), int64(97), int64(109), int64(97)}},
+			},
+		},
+		{
+			name:  "to_code_points with bytes value",
+			query: `SELECT word, TO_CODE_POINTS(word) FROM UNNEST([b'\x00\x01\x10\xff', b'\x66\x6f\x6f']) AS word`,
+			expectedRows: [][]interface{}{
+				{"AAEQ/w==", []interface{}{int64(0), int64(1), int64(16), int64(255)}},
+				{"Zm9v", []interface{}{int64(102), int64(111), int64(111)}},
+			},
+		},
+		{
+			name:  "to_code_points compare string and bytes",
+			query: `SELECT TO_CODE_POINTS(b'Ā'), TO_CODE_POINTS('Ā')`,
+			expectedRows: [][]interface{}{
+				{[]interface{}{int64(196), int64(128)}, []interface{}{int64(256)}},
+			},
+		},
+		{
+			name:         "to_hex",
+			query:        `SELECT TO_HEX(b'\x00\x01\x02\x03\xAA\xEE\xEF\xFF'), TO_HEX(b'foobar')`,
+			expectedRows: [][]interface{}{{"00010203aaeeefff", "666f6f626172"}},
+		},
+		{
+			name: "translate",
+			query: `
+WITH example AS (
+  SELECT 'This is a cookie' AS expression, 'sco' AS source_characters, 'zku' AS target_characters UNION ALL
+  SELECT 'A coaster' AS expression, 'co' AS source_characters, 'k' as target_characters
+) SELECT expression, source_characters, target_characters, TRANSLATE(expression, source_characters, target_characters) FROM example`,
+			expectedRows: [][]interface{}{
+				{"This is a cookie", "sco", "zku", "Thiz iz a kuukie"},
+				{"A coaster", "co", "k", "A kaster"},
+			},
+		},
+		{
+			name:         "trim",
+			query:        `SELECT TRIM('   apple   '), TRIM('***apple***', '*')`,
+			expectedRows: [][]interface{}{{"apple", "apple"}},
+		},
+		{
+			name:         "unicode",
+			query:        `SELECT UNICODE('âbcd'), UNICODE('â'), UNICODE(''), UNICODE(NULL)`,
+			expectedRows: [][]interface{}{{int64(226), int64(226), int64(0), nil}},
+		},
+		{
+			name:         "upper",
+			query:        `SELECT UPPER('foo'), UPPER('bar'), UPPER('baz')`,
+			expectedRows: [][]interface{}{{"FOO", "BAR", "BAZ"}},
+		},
+
 		// date functions
 		{
 			name:  "current_date",

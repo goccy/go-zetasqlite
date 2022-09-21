@@ -30,6 +30,8 @@ CXX=clang++
 
 # Synopsis
 
+You can pass ZetaSQL queries to Query/Exec function of database/sql package.
+
 ```go
 package main
 
@@ -47,29 +49,19 @@ func main() {
   }
   defer db.Close()
 
-  rows, err := db.Query(`
-  SELECT
-  val,
-  CASE val
-    WHEN 1 THEN 'one'
-    WHEN 2 THEN 'two'
-    WHEN 3 THEN 'three'
-    ELSE 'four'
-    END
-  FROM UNNEST([1, 2, 3, 4]) AS val`)
+  rows, err := db.Query(`SELECT * FROM UNNEST([?, ?, ?])`, 1, 2, 3)
   if err != nil {
     panic(err)
   }
+  var ids []int64
   for rows.Next() {
-    var (
-      num int64
-      text string    
-    )
-    if err := rows.Scan(&num, &text); err != nil {
-	  panic(err)
+    var id int64
+    if err := rows.Scan(&id); err != nil {
+      panic(err)
     }
-    fmt.Println("num = ", num, "text = ", text)
+    ids = append(ids, id)
   }
+  fmt.Println(ids) // [1 2 3]
 }
 ```
 
@@ -85,7 +77,7 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 - [x] FLOAT64 ( `FLOAT` )
 - [x] BOOL ( `BOOLEAN` )
 - [x] STRING
-- [ ] BYTES
+- [x] BYTES
 - [x] DATE
 - [x] TIME
 - [x] DATETIME
@@ -93,9 +85,9 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 - [ ] INTERVAL
 - [x] ARRAY
 - [x] STRUCT
-- [ ] GEOGRAPHY
 - [x] JSON
 - [x] RECORD
+- [ ] GEOGRAPHY
 
 ## Statements
 
@@ -225,7 +217,7 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 - [x] CAST AS ARRAY
 - [ ] CAST AS BIGNUMERIC
 - [x] CAST AS BOOL
-- [ ] CAST AS BYTES
+- [x] CAST AS BYTES
 - [x] CAST AS DATE
 - [x] CAST AS DATETIME
 - [x] CAST AS FLOAT64
@@ -305,58 +297,58 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 
 ### String functions
 
-- [ ] ASCII
-- [ ] BYTE_LENGTH
-- [ ] CHAR_LENGTH
-- [ ] CHARACTER_LENGTH
-- [ ] CHR
-- [ ] CODE_POINTS_TO_BYTES
-- [ ] CODE_POINTS_TO_STRING
+- [x] ASCII
+- [x] BYTE_LENGTH
+- [x] CHAR_LENGTH
+- [x] CHARACTER_LENGTH
+- [x] CHR
+- [x] CODE_POINTS_TO_BYTES
+- [x] CODE_POINTS_TO_STRING
 - [ ] COLLATE
-- [ ] CONCAT
+- [x] CONCAT
 - [ ] CONTAINS_SUBSTR
-- [ ] ENDS_WITH
+- [x] ENDS_WITH
 - [x] FORMAT
-- [ ] FROM_BASE32
-- [ ] FROM_BASE64
-- [ ] FROM_HEX
-- [ ] INITCAP
-- [ ] INSTR
-- [ ] LEFT
-- [ ] LENGTH
-- [ ] LPAD
-- [ ] LOWER
-- [ ] LTRIM
-- [ ] NORMALIZE
-- [ ] NORMALIZE_AND_CASEFOLD
-- [ ] OCTET_LENGTH
-- [ ] REGEXP_CONTAINS
-- [ ] REGEXP_EXTRACT
-- [ ] REGEXP_EXTRACT_ALL
-- [ ] REGEXP_INSTR
-- [ ] REGEXP_REPLACE
-- [ ] REGEXP_SUBSTR
-- [ ] REPLACE
-- [ ] REPEAT
-- [ ] REVERSE
-- [ ] RIGHT
-- [ ] RPAD
-- [ ] RTRIM
-- [ ] SAFE_CONVERT_BYTES_TO_STRING
-- [ ] SOUNDEX
-- [ ] SPLIT
-- [ ] STARTS_WITH
-- [ ] STRPOS
-- [ ] SUBSTR
-- [ ] SUBSTRING
-- [ ] TO_BASE32
-- [ ] TO_BASE64
-- [ ] TO_CODE_POINTS
-- [ ] TO_HEX
-- [ ] TRANSALTE
-- [ ] TRIM
-- [ ] UNICODE
-- [ ] UPPER
+- [x] FROM_BASE32
+- [x] FROM_BASE64
+- [x] FROM_HEX
+- [x] INITCAP
+- [x] INSTR
+- [x] LEFT
+- [x] LENGTH
+- [x] LPAD
+- [x] LOWER
+- [x] LTRIM
+- [x] NORMALIZE
+- [x] NORMALIZE_AND_CASEFOLD
+- [x] OCTET_LENGTH
+- [x] REGEXP_CONTAINS
+- [x] REGEXP_EXTRACT
+- [x] REGEXP_EXTRACT_ALL
+- [x] REGEXP_INSTR
+- [x] REGEXP_REPLACE
+- [x] REGEXP_SUBSTR
+- [x] REPLACE
+- [x] REPEAT
+- [x] REVERSE
+- [x] RIGHT
+- [x] RPAD
+- [x] RTRIM
+- [x] SAFE_CONVERT_BYTES_TO_STRING
+- [x] SOUNDEX
+- [x] SPLIT
+- [x] STARTS_WITH
+- [x] STRPOS
+- [x] SUBSTR
+- [x] SUBSTRING
+- [x] TO_BASE32
+- [x] TO_BASE64
+- [x] TO_CODE_POINTS
+- [x] TO_HEX
+- [x] TRANSALTE
+- [x] TRIM
+- [x] UNICODE
+- [x] UPPER
 
 ### JSON functions
 
@@ -370,8 +362,8 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 - [ ] JSON_VALUE_ARRAY
 - [ ] PARSE_JSON
 - [x] TO_JSON
-- [ ] TO_JSON_STRING
-- [ ] STRING
+- [x] TO_JSON_STRING
+- [x] STRING
 - [x] BOOL
 - [x] INT64
 - [x] FLOAT64
