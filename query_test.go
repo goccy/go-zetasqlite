@@ -1909,19 +1909,105 @@ SELECT characters, CHARACTER_LENGTH(characters) FROM example`,
 			query:        `SELECT CODE_POINTS_TO_STRING([65, 255, 513, 1024]), CODE_POINTS_TO_STRING([97, 0, 0xF9B5]), CODE_POINTS_TO_STRING([65, 255, NULL, 1024])`,
 			expectedRows: [][]interface{}{{"AÿȁЀ", "a例", nil}},
 		},
-		// TODO: currently unsupported COLLATE function
-		//		{
-		//			name: "collate",
-		//			query: `
-		//WITH Words AS (SELECT COLLATE('a', 'und:ci') AS char1, COLLATE('Z', 'und:ci') AS char2)
-		//SELECT ( Words.char1 < Words.char2 ) FROM Words`,
-		//			expectedRows: [][]interface{}{{true}},
-		//		},
+		// TODO: currently collate function is unsupported.
+		//{
+		//	name: "collate",
+		//	query: `
+		//WITH Words AS (
+		//  SELECT COLLATE('a', 'und:ci') AS char1, COLLATE('Z', 'und:ci') AS char2
+		//) SELECT (Words.char1 < Words.char2) FROM Words`,
+		//	expectedRows: [][]interface{}{{true}},
+		//},
 		{
 			name:         "concat",
 			query:        `SELECT CONCAT('T.P.', ' ', 'Bar'), CONCAT('Summer', ' ', 1923)`,
 			expectedRows: [][]interface{}{{"T.P. Bar", "Summer 1923"}},
 		},
+		// TODO: currently unsupported CONTAINS_SUBSTR function because ZetaSQL library doesn't support it.
+		//{
+		//	name:         "contains_substr true",
+		//	query:        `SELECT CONTAINS_SUBSTR('the blue house', 'Blue house')`,
+		//	expectedRows: [][]interface{}{{true}},
+		//},
+		//{
+		//	name:         "contains_substr false",
+		//	query:        `SELECT CONTAINS_SUBSTR('the red house', 'blue')`,
+		//	expectedRows: [][]interface{}{{false}},
+		//},
+		//{
+		//	name:         "contains_substr normalize",
+		//	query:        `SELECT '\u2168 day' AS a, 'IX' AS b, CONTAINS_SUBSTR('\u2168', 'IX')`,
+		//	expectedRows: [][]interface{}{{"Ⅸ day", "IX", true}},
+		//},
+		//{
+		//	name:         "contains_substr struct_field",
+		//	query:        `SELECT CONTAINS_SUBSTR((23, 35, 41), '35')`,
+		//	expectedRows: [][]interface{}{{true}},
+		//},
+		//{
+		//	name:         "contains_substr recursive",
+		//	query:        `SELECT CONTAINS_SUBSTR(('abc', ['def', 'ghi', 'jkl'], 'mno'), 'jk')`,
+		//	expectedRows: [][]interface{}{{true}},
+		//},
+		//{
+		//	name:         "contains_substr struct with null",
+		//	query:        `SELECT CONTAINS_SUBSTR((23, NULL, 41), '41')`,
+		//	expectedRows: [][]interface{}{{true}},
+		//},
+		//{
+		//	name:         "contains_substr struct with null2",
+		//	query:        `SELECT CONTAINS_SUBSTR((23, NULL, 41), '35')`,
+		//	expectedRows: [][]interface{}{{nil}},
+		//},
+		//{
+		//	name:        "contains_substr nil",
+		//	query:       `SELECT CONTAINS_SUBSTR('hello', NULL)`,
+		//	expectedErr: true,
+		//},
+		//{
+		//	name: "contains_substr for table all rows",
+		//	query: `
+		//WITH Recipes AS (
+		//  SELECT 'Blueberry pancakes' as Breakfast, 'Egg salad sandwich' as Lunch, 'Potato dumplings' as Dinner UNION ALL
+		//  SELECT 'Potato pancakes', 'Toasted cheese sandwich', 'Beef stroganoff' UNION ALL
+		//  SELECT 'Ham scramble', 'Steak avocado salad', 'Tomato pasta' UNION ALL
+		//  SELECT 'Avocado toast', 'Tomato soup', 'Blueberry salmon' UNION ALL
+		//  SELECT 'Corned beef hash', 'Lentil potato soup', 'Glazed ham'
+		//) SELECT * FROM Recipes WHERE CONTAINS_SUBSTR(Recipes, 'toast')`,
+		//	expectedRows: [][]interface{}{
+		//	{"Potato pancakes", "Toasted cheese sandwich", "Beef stroganoff"},
+		//	{"Avocado toast", "Tomato soup", "Blueberry samon"},
+		//	},
+		//	},
+		//{
+		//	name: "contains_substr for table specified rows",
+		//	query: `
+		//WITH Recipes AS (
+		//  SELECT 'Blueberry pancakes' as Breakfast, 'Egg salad sandwich' as Lunch, 'Potato dumplings' as Dinner UNION ALL
+		//  SELECT 'Potato pancakes', 'Toasted cheese sandwich', 'Beef stroganoff' UNION ALL
+		//  SELECT 'Ham scramble', 'Steak avocado salad', 'Tomato pasta' UNION ALL
+		//  SELECT 'Avocado toast', 'Tomato soup', 'Blueberry salmon' UNION ALL
+		//  SELECT 'Corned beef hash', 'Lentil potato soup', 'Glazed ham'
+		//) SELECT * FROM Recipes WHERE CONTAINS_SUBSTR((Lunch, Dinner), 'potato')`,
+		//	expectedRows: [][]interface{}{
+		//		{"Bluberry pancakes", "Egg salad sandwich", "Potato dumplings"},
+		//		{"Corned beef hash", "Lentil potato soup", "Glazed ham"},
+		//	},
+		//},
+		//{
+		//	name: "contains_substr for table except",
+		//	query: `
+		//WITH Recipes AS (
+		//  SELECT 'Blueberry pancakes' as Breakfast, 'Egg salad sandwich' as Lunch, 'Potato dumplings' as Dinner UNION ALL
+		//  SELECT 'Potato pancakes', 'Toasted cheese sandwich', 'Beef stroganoff' UNION ALL
+		//  SELECT 'Ham scramble', 'Steak avocado salad', 'Tomato pasta' UNION ALL
+		//  SELECT 'Avocado toast', 'Tomato soup', 'Blueberry salmon' UNION ALL
+		//  SELECT 'Corned beef hash', 'Lentil potato soup', 'Glazed ham'
+		//) SELECT * FROM Recipes WHERE CONTAINS_SUBSTR((SELECT AS STRUCT Recipes.* EXCEPT (Lunch, Dinner)), 'potato')`,
+		//	expectedRows: [][]interface{}{
+		//		{"Potato pancakes", "Toasted cheese sandwich", "Beef stroganoff"},
+		//	},
+		//},
 		{
 			name:         "ends_with",
 			query:        `SELECT ENDS_WITH('apple', 'e'), ENDS_WITH('banana', 'e'), ENDS_WITH('orange', 'e')`,
@@ -2257,6 +2343,188 @@ WITH example AS (
 ) SELECT value, regex, position, occurrence, REGEXP_SUBSTR(value, regex, position, occurrence) FROM example`,
 			expectedRows: [][]interface{}{
 				{"Hello World Helloo", "H?ello+", int64(1), int64(1), "Hello"},
+			},
+		},
+		{
+			name: "replace",
+			query: `
+WITH desserts AS (
+  SELECT 'apple pie' as dessert UNION ALL
+  SELECT 'blackberry pie' as dessert UNION ALL
+  SELECT 'cherry pie' as dessert
+) SELECT REPLACE (dessert, 'pie', 'cobbler') FROM desserts`,
+			expectedRows: [][]interface{}{
+				{"apple cobbler"},
+				{"blackberry cobbler"},
+				{"cherry cobbler"},
+			},
+		},
+		{
+			name:  "repeat",
+			query: `SELECT t, n, REPEAT(t, n) FROM UNNEST([STRUCT('abc' AS t, 3 AS n),('例子', 2),('abc', null),(null, 3)])`,
+			expectedRows: [][]interface{}{
+				{"abc", int64(3), "abcabcabc"},
+				{"例子", int64(2), "例子例子"},
+				{"abc", nil, nil},
+				{nil, int64(3), nil},
+			},
+		},
+		{
+			name: "reverse",
+			query: `
+WITH example AS (
+  SELECT 'foo' AS sample_string, b'bar' AS sample_bytes UNION ALL
+  SELECT 'абвгд' AS sample_string, b'123' AS sample_bytes
+) SELECT sample_string, REVERSE(sample_string), sample_bytes, REVERSE(sample_bytes) FROM example`,
+			expectedRows: [][]interface{}{
+				{"foo", "oof", "YmFy", "cmFi"},
+				{"абвгд", "дгвба", "MTIz", "MzIx"},
+			},
+		},
+		{
+			name: "right string",
+			query: `
+WITH examples AS (
+  SELECT 'apple' as example UNION ALL
+  SELECT 'banana' as example UNION ALL
+  SELECT 'абвгд' as example
+) SELECT example, RIGHT(example, 3) FROM examples`,
+			expectedRows: [][]interface{}{
+				{"apple", "ple"},
+				{"banana", "ana"},
+				{"абвгд", "вгд"},
+			},
+		},
+		{
+			name: "right bytes",
+			query: `
+WITH examples AS (
+  SELECT b'apple' as example UNION ALL
+  SELECT b'banana' as example UNION ALL
+  SELECT b'\xab\xcd\xef\xaa\xbb' as example
+) SELECT example, RIGHT(example, 3) FROM examples`,
+			expectedRows: [][]interface{}{
+				{"YXBwbGU=", "cGxl"},
+				{"YmFuYW5h", "YW5h"},
+				{"q83vqrs=", "76q7"},
+			},
+		},
+		{
+			name:  "rpad string",
+			query: `SELECT t, len, FORMAT('%T', RPAD(t, len)) FROM UNNEST([STRUCT('abc' AS t, 5 AS len),('abc', 2),('例子', 4)])`,
+			expectedRows: [][]interface{}{
+				{"abc", int64(5), `"abc  "`},
+				{"abc", int64(2), `"ab"`},
+				{"例子", int64(4), `"例子  "`},
+			},
+		},
+		{
+			name: "rpad string with pattern",
+			query: `SELECT t, len, pattern, FORMAT('%T', RPAD(t, len, pattern)) FROM UNNEST([
+  STRUCT('abc' AS t, 8 AS len, 'def' AS pattern),
+  ('abc', 5, '-'),
+  ('例子', 5, '中文')])`,
+			expectedRows: [][]interface{}{
+				{"abc", int64(8), "def", `"abcdefde"`},
+				{"abc", int64(5), "-", `"abc--"`},
+				{"例子", int64(5), "中文", `"例子中文中"`},
+			},
+		},
+		{
+			name: "rpad bytes",
+			query: `SELECT FORMAT('%T', t) AS t, len, FORMAT('%T', RPAD(t, len)) FROM UNNEST([
+  STRUCT(b'abc' AS t, 5 AS len),
+  (b'abc', 2),
+  (b'\xab\xcd\xef', 4)])`,
+			expectedRows: [][]interface{}{
+				{`"YWJj"`, int64(5), `"YWJjICA="`},
+				{`"YWJj"`, int64(2), `"YWI="`},
+				{`"q83v"`, int64(4), `"q83vIA=="`},
+			},
+		},
+		{
+			name: "rpad bytes with pattern",
+			query: `SELECT FORMAT('%T', t) AS t, len, FORMAT('%T', pattern) AS pattern, FORMAT('%T', RPAD(t, len, pattern)) FROM UNNEST([
+  STRUCT(b'abc' AS t, 8 AS len, b'def' AS pattern),
+  (b'abc', 5, b'-'),
+  (b'\xab\xcd\xef', 5, b'\x00')])`,
+			expectedRows: [][]interface{}{
+				{`"YWJj"`, int64(8), `"ZGVm"`, `"YWJjZGVmZGU="`},
+				{`"YWJj"`, int64(5), `"LQ=="`, `"YWJjLS0="`},
+				{`"q83v"`, int64(5), `"AA=="`, `"q83vAAA="`},
+			},
+		},
+		{
+			name: "rtrim",
+			query: `
+WITH items AS (
+  SELECT '***apple***' as item UNION ALL
+  SELECT '***banana***' as item UNION ALL
+  SELECT '***orange***' as item
+) SELECT RTRIM(item, '*') FROM items`,
+			expectedRows: [][]interface{}{
+				{"***apple"},
+				{"***banana"},
+				{"***orange"},
+			},
+		},
+		{
+			name: "rtrim2",
+			query: `
+WITH items AS (
+  SELECT 'applexxx' as item UNION ALL
+  SELECT 'bananayyy' as item UNION ALL
+  SELECT 'orangezzz' as item UNION ALL
+  SELECT 'pearxyz' as item
+) SELECT RTRIM(item, 'xyz') FROM items`,
+			expectedRows: [][]interface{}{
+				{"apple"},
+				{"banana"},
+				{"orange"},
+				{"pear"},
+			},
+		},
+		{
+			name:         "safe_convert_bytes_to_string",
+			query:        `SELECT SAFE_CONVERT_BYTES_TO_STRING(b'\xc2')`,
+			expectedRows: [][]interface{}{{"�"}},
+		},
+		{
+			name: "soundex",
+			query: `
+WITH example AS (
+  SELECT 'Ashcraft' AS value UNION ALL
+  SELECT 'Raven' AS value UNION ALL
+  SELECT 'Ribbon' AS value UNION ALL
+  SELECT 'apple' AS value UNION ALL
+  SELECT 'Hello world!' AS value UNION ALL
+  SELECT '  H3##!@llo w00orld!' AS value UNION ALL
+  SELECT '#1' AS value UNION ALL
+  SELECT NULL AS value
+) SELECT value, SOUNDEX(value) FROM example`,
+			expectedRows: [][]interface{}{
+				{"Ashcraft", "A261"},
+				{"Raven", "R150"},
+				{"Ribbon", "R150"},
+				{"apple", "a140"},
+				{"Hello world!", "H464"},
+				{"  H3##!@llo w00orld!", "H464"},
+				{"#1", ""},
+				{nil, nil},
+			},
+		},
+		{
+			name: "split",
+			query: `
+WITH letters AS (
+  SELECT '' as letter_group UNION ALL
+  SELECT 'a' as letter_group UNION ALL
+  SELECT 'b c d' as letter_group
+) SELECT SPLIT(letter_group, ' ') FROM letters`,
+			expectedRows: [][]interface{}{
+				{[]interface{}{""}},
+				{[]interface{}{"a"}},
+				{[]interface{}{"b", "c", "d"}},
 			},
 		},
 		{

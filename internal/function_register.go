@@ -568,6 +568,11 @@ var normalFuncs = []*FuncInfo{
 		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
 	},
 	{
+		Name:        "contains_substr",
+		BindFunc:    bindContainsSubstr,
+		ReturnTypes: []types.TypeKind{types.BOOL},
+	},
+	{
 		Name:        "ends_with",
 		BindFunc:    bindEndsWith,
 		ReturnTypes: []types.TypeKind{types.BOOL},
@@ -661,6 +666,51 @@ var normalFuncs = []*FuncInfo{
 		Name:        "regexp_replace",
 		BindFunc:    bindRegexpReplace,
 		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
+	},
+	{
+		Name:        "replace",
+		BindFunc:    bindReplace,
+		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
+	},
+	{
+		Name:        "repeat",
+		BindFunc:    bindRepeat,
+		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
+	},
+	{
+		Name:        "reverse",
+		BindFunc:    bindReverse,
+		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
+	},
+	{
+		Name:        "right",
+		BindFunc:    bindRight,
+		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
+	},
+	{
+		Name:        "rpad",
+		BindFunc:    bindRpad,
+		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
+	},
+	{
+		Name:        "rtrim",
+		BindFunc:    bindRtrim,
+		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
+	},
+	{
+		Name:        "safe_convert_bytes_to_string",
+		BindFunc:    bindSafeConvertBytesToString,
+		ReturnTypes: []types.TypeKind{types.STRING},
+	},
+	{
+		Name:        "soundex",
+		BindFunc:    bindSoundex,
+		ReturnTypes: []types.TypeKind{types.STRING},
+	},
+	{
+		Name:        "split",
+		BindFunc:    bindSplit,
+		ReturnTypes: []types.TypeKind{types.ARRAY},
 	},
 	{
 		Name:        "starts_with",

@@ -1088,6 +1088,17 @@ func bindConcat(args ...Value) (Value, error) {
 	return CONCAT(args...)
 }
 
+func bindContainsSubstr(args ...Value) (Value, error) {
+	if args[1] == nil {
+		return nil, fmt.Errorf("CONTAINS_SUBSTR: search literal must be not null")
+	}
+	search, err := args[1].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return CONTAINS_SUBSTR(args[0], search)
+}
+
 func bindEndsWith(args ...Value) (Value, error) {
 	if len(args) != 2 {
 		return nil, fmt.Errorf("ENDS_WITH: invalid argument num %d", len(args))
@@ -1104,6 +1115,9 @@ func bindFormat(args ...Value) (Value, error) {
 		return nil, err
 	}
 	if len(args) > 1 {
+		if args[1] == nil {
+			return nil, nil
+		}
 		return FORMAT(format, args[1:]...)
 	}
 	return FORMAT(format)
@@ -1376,6 +1390,105 @@ func bindRegexpInstr(args ...Value) (Value, error) {
 
 func bindRegexpReplace(args ...Value) (Value, error) {
 	return REGEXP_REPLACE(args[0], args[1], args[2])
+}
+
+func bindReplace(args ...Value) (Value, error) {
+	if existsNull(args) {
+		return nil, nil
+	}
+	return REPLACE(args[0], args[1], args[2])
+}
+
+func bindRepeat(args ...Value) (Value, error) {
+	if existsNull(args) {
+		return nil, nil
+	}
+	repetitions, err := args[1].ToInt64()
+	if err != nil {
+		return nil, err
+	}
+	return REPEAT(args[0], repetitions)
+}
+
+func bindReverse(args ...Value) (Value, error) {
+	if existsNull(args) {
+		return nil, nil
+	}
+	return REVERSE(args[0])
+}
+
+func bindRight(args ...Value) (Value, error) {
+	if existsNull(args) {
+		return nil, nil
+	}
+	length, err := args[1].ToInt64()
+	if err != nil {
+		return nil, err
+	}
+	return RIGHT(args[0], length)
+}
+
+func bindRpad(args ...Value) (Value, error) {
+	if existsNull(args) {
+		return nil, nil
+	}
+	length, err := args[1].ToInt64()
+	if err != nil {
+		return nil, err
+	}
+	var pat Value
+	if len(args) > 2 {
+		pat = args[2]
+	}
+	return RPAD(args[0], length, pat)
+}
+
+func bindRtrim(args ...Value) (Value, error) {
+	if existsNull(args) {
+		return nil, nil
+	}
+	var cutset string = " "
+	if len(args) > 1 {
+		v, err := args[1].ToString()
+		if err != nil {
+			return nil, err
+		}
+		cutset = v
+	}
+	return RTRIM(args[0], cutset)
+}
+
+func bindSafeConvertBytesToString(args ...Value) (Value, error) {
+	if existsNull(args) {
+		return nil, nil
+	}
+	v, err := args[0].ToBytes()
+	if err != nil {
+		return nil, err
+	}
+	return SAFE_CONVERT_BYTES_TO_STRING(v)
+}
+
+func bindSoundex(args ...Value) (Value, error) {
+	if existsNull(args) {
+		return nil, nil
+	}
+	v, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return SOUNDEX(v)
+}
+
+func bindSplit(args ...Value) (Value, error) {
+	if existsNull(args) {
+		return nil, nil
+	}
+	var delim Value
+	if len(args) > 1 {
+		delim = args[1]
+	}
+	return SPLIT(args[0], delim)
 }
 
 func bindStartsWith(args ...Value) (Value, error) {

@@ -10,7 +10,11 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
+	"golang.org/x/text/collate"
+	"golang.org/x/text/language"
 	"golang.org/x/text/unicode/norm"
 )
 
@@ -60,8 +64,23 @@ func CODE_POINTS_TO_STRING(v *ArrayValue) (Value, error) {
 	return StringValue(string(runes)), nil
 }
 
-// TODO: currently unsupported COLLATE function
 func COLLATE(v, spec string) (Value, error) {
+	splitted := strings.Split(spec, ":")
+	if len(splitted) != 2 {
+		return nil, fmt.Errorf("COLLATE: unexpected spec literal %s", spec)
+	}
+	tag := language.Make(splitted[0])
+	var opt collate.Option
+	switch splitted[1] {
+	case "ci": // case insensitive
+		opt = collate.IgnoreCase
+	default:
+		return nil, fmt.Errorf("COLLATE: unsupported collation attribute %s", splitted[1])
+	}
+	var buf collate.Buffer
+	key := collate.New(tag, opt).KeyFromString(&buf, v)
+	// TODO: need to add key to string as collate information.
+	_ = key
 	return StringValue(v), nil
 }
 
@@ -81,6 +100,10 @@ func CONCAT(args ...Value) (Value, error) {
 		return BytesValue(ret), nil
 	}
 	return nil, fmt.Errorf("CONCAT: argument type must be STRING or BYTES")
+}
+
+func CONTAINS_SUBSTR(exprValue Value, search string) (Value, error) {
+	return nil, nil
 }
 
 func ENDS_WITH(value, ends Value) (Value, error) {
@@ -700,6 +723,290 @@ func REGEXP_REPLACE(value, exprValue, replacementValue Value) (Value, error) {
 		return BytesValue(re.ReplaceAll(v, []byte(normalizeReplacement(string(replacement))))), nil
 	}
 	return nil, fmt.Errorf("REGEXP_REPLACE: value must be STRING or BYTES")
+}
+
+func REPLACE(originalValue, fromValue, toValue Value) (Value, error) {
+	switch originalValue.(type) {
+	case StringValue:
+		v, err := originalValue.ToString()
+		if err != nil {
+			return nil, err
+		}
+		from, err := fromValue.ToString()
+		if err != nil {
+			return nil, err
+		}
+		to, err := toValue.ToString()
+		if err != nil {
+			return nil, err
+		}
+		return StringValue(strings.ReplaceAll(v, from, to)), nil
+	case BytesValue:
+		v, err := originalValue.ToBytes()
+		if err != nil {
+			return nil, err
+		}
+		from, err := fromValue.ToBytes()
+		if err != nil {
+			return nil, err
+		}
+		to, err := toValue.ToBytes()
+		if err != nil {
+			return nil, err
+		}
+		return BytesValue(bytes.ReplaceAll(v, from, to)), nil
+	}
+	return nil, fmt.Errorf("REPLACE: originalValue must be STRING or BYTES")
+}
+
+func REPEAT(originalValue Value, repetitions int64) (Value, error) {
+	switch originalValue.(type) {
+	case StringValue:
+		v, err := originalValue.ToString()
+		if err != nil {
+			return nil, err
+		}
+		return StringValue(strings.Repeat(v, int(repetitions))), nil
+	case BytesValue:
+		v, err := originalValue.ToBytes()
+		if err != nil {
+			return nil, err
+		}
+		return BytesValue(bytes.Repeat(v, int(repetitions))), nil
+	}
+	return nil, fmt.Errorf("REPEAT: originalValue must be STRING or BYTES")
+}
+
+func REVERSE(value Value) (Value, error) {
+	switch value.(type) {
+	case StringValue:
+		v, err := value.ToString()
+		if err != nil {
+			return nil, err
+		}
+		runes := []rune(v)
+		for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
+			runes[i], runes[j] = runes[j], runes[i]
+		}
+		return StringValue(string(runes)), nil
+	case BytesValue:
+		v, err := value.ToBytes()
+		if err != nil {
+			return nil, err
+		}
+		ret := make([]byte, 0, len(v))
+		for i := len(v) - 1; i >= 0; i-- {
+			ret = append(ret, v[i])
+		}
+		return BytesValue(ret), nil
+	}
+	return nil, fmt.Errorf("REVERSE: value must be STRING or BYTES")
+}
+
+func RIGHT(value Value, length int64) (Value, error) {
+	if length < 0 {
+		return nil, fmt.Errorf("RIGHT: unexpected length value. length must be positive number")
+	}
+	switch value.(type) {
+	case StringValue:
+		v, err := value.ToString()
+		if err != nil {
+			return nil, err
+		}
+		runes := []rune(v)
+		if len(runes) <= int(length) {
+			return value, nil
+		}
+		return StringValue(string(runes[len(runes)-int(length):])), nil
+	case BytesValue:
+		v, err := value.ToBytes()
+		if err != nil {
+			return nil, err
+		}
+		if len(v) <= int(length) {
+			return value, nil
+		}
+		return BytesValue(v[len(v)-int(length):]), nil
+	}
+	return nil, fmt.Errorf("RIGHT: value must be STRING or BYTES")
+}
+
+func RPAD(originalValue Value, returnLength int64, pattern Value) (Value, error) {
+	if returnLength < 0 {
+		return nil, fmt.Errorf("RPAD: unexpected returnLength value. returnLength must be positive number")
+	}
+	switch originalValue.(type) {
+	case StringValue:
+		v, err := originalValue.ToString()
+		if err != nil {
+			return nil, err
+		}
+		runes := []rune(v)
+		if len(runes) >= int(returnLength) {
+			return StringValue(string(runes[:returnLength])), nil
+		}
+		remainLen := int(returnLength) - len(runes)
+		var pat []rune
+		if pattern == nil {
+			pat = []rune(strings.Repeat(" ", remainLen))
+		} else {
+			p, err := pattern.ToString()
+			if err != nil {
+				return nil, err
+			}
+			pat = []rune(p)
+			if remainLen-len(pat) > 0 {
+				// needs to repeat pattern
+				repeatNum := ((remainLen - len(pat)) / len(pat)) + 2
+				pat = []rune(strings.Repeat(string(pat), repeatNum))
+			}
+		}
+		return StringValue(v + string(pat[:remainLen])), nil
+	case BytesValue:
+		v, err := originalValue.ToBytes()
+		if err != nil {
+			return nil, err
+		}
+		if len(v) >= int(returnLength) {
+			return BytesValue(v[:returnLength]), nil
+		}
+		remainLen := int(returnLength) - len(v)
+		var pat []byte
+		if pattern == nil {
+			pat = bytes.Repeat([]byte{' '}, remainLen)
+		} else {
+			p, err := pattern.ToBytes()
+			if err != nil {
+				return nil, err
+			}
+			if remainLen-len(p) > 0 {
+				// needs to repeat pattern
+				repeatNum := ((remainLen - len(p)) / len(p)) + 2
+				pat = bytes.Repeat(p, repeatNum)
+			}
+		}
+		return BytesValue(append(v, pat[:remainLen]...)), nil
+	}
+	return nil, fmt.Errorf("RPAD: originalValue must be STRING or BYTES")
+}
+
+func RTRIM(value Value, cutset string) (Value, error) {
+	switch value.(type) {
+	case StringValue:
+		v, err := value.ToString()
+		if err != nil {
+			return nil, err
+		}
+		return StringValue(strings.TrimRight(v, cutset)), nil
+	case BytesValue:
+		v, err := value.ToBytes()
+		if err != nil {
+			return nil, err
+		}
+		return BytesValue(bytes.TrimRight(v, cutset)), nil
+	}
+	return nil, fmt.Errorf("RTRIM: value1 must be STRING or BYTES")
+}
+
+func SAFE_CONVERT_BYTES_TO_STRING(value []byte) (Value, error) {
+	var ret []rune
+	for len(value) > 0 {
+		r, size := utf8.DecodeRune(value)
+		ret = append(ret, r)
+		value = value[size:]
+	}
+	return StringValue(string(ret)), nil
+}
+
+var soundexMap = map[byte]byte{
+	'A': '0', 'B': '1', 'C': '2', 'D': '3',
+	'E': '0', 'F': '1', 'G': '2', 'H': '0',
+	'I': '0', 'J': '2', 'K': '2', 'L': '4',
+	'M': '5', 'N': '5', 'O': '0', 'P': '1',
+	'Q': '2', 'R': '6', 'S': '2', 'T': '3',
+	'U': '0', 'V': '1', 'W': '0', 'X': '2',
+	'Y': '0', 'Z': '2',
+}
+
+func SOUNDEX(value string) (Value, error) {
+	var (
+		soundex      = [4]byte{' ', '0', '0', '0'}
+		prevCode     byte
+		soundexPoint int
+	)
+	runes := []rune(value)
+	for i := 0; i < len(runes); i++ {
+		r := runes[i]
+		if !unicode.IsLetter(r) {
+			continue
+		}
+		b := []byte(string(r))
+		if len(b) != 1 {
+			continue
+		}
+		c := bytes.ToUpper(b)[0]
+		code := soundexMap[c]
+		if soundexPoint == 0 {
+			soundex[soundexPoint] = b[0]
+			prevCode = code
+			soundexPoint++
+			continue
+		}
+		if code == prevCode || code == '0' {
+			continue
+		}
+		soundex[soundexPoint] = code
+		prevCode = code
+		soundexPoint++
+		if soundexPoint == 4 {
+			break
+		}
+	}
+	if soundexPoint == 0 {
+		return StringValue(""), nil
+	}
+	return StringValue(string(soundex[:])), nil
+}
+
+func SPLIT(value, delimValue Value) (Value, error) {
+	switch value.(type) {
+	case StringValue:
+		v, err := value.ToString()
+		if err != nil {
+			return nil, err
+		}
+		var delim string = ","
+		if delimValue != nil {
+			v, err := delimValue.ToString()
+			if err != nil {
+				return nil, err
+			}
+			delim = v
+		}
+		ret := &ArrayValue{}
+		for _, splitted := range strings.Split(v, delim) {
+			ret.values = append(ret.values, StringValue(splitted))
+		}
+		return ret, nil
+	case BytesValue:
+		v, err := value.ToBytes()
+		if err != nil {
+			return nil, err
+		}
+		if delimValue == nil {
+			return nil, fmt.Errorf("SPLIT: delimiter must be specified for bytes value")
+		}
+		delim, err := delimValue.ToBytes()
+		if err != nil {
+			return nil, err
+		}
+		ret := &ArrayValue{}
+		for _, splitted := range bytes.Split(v, delim) {
+			ret.values = append(ret.values, BytesValue(splitted))
+		}
+		return ret, nil
+	}
+	return nil, fmt.Errorf("SPLIT: value must be STRING or BYTES")
 }
 
 func STARTS_WITH(value, starts Value) (Value, error) {

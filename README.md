@@ -328,15 +328,15 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 - [x] REGEXP_INSTR
 - [x] REGEXP_REPLACE
 - [x] REGEXP_SUBSTR
-- [ ] REPLACE
-- [ ] REPEAT
-- [ ] REVERSE
-- [ ] RIGHT
-- [ ] RPAD
-- [ ] RTRIM
-- [ ] SAFE_CONVERT_BYTES_TO_STRING
-- [ ] SOUNDEX
-- [ ] SPLIT
+- [x] REPLACE
+- [x] REPEAT
+- [x] REVERSE
+- [x] RIGHT
+- [x] RPAD
+- [x] RTRIM
+- [x] SAFE_CONVERT_BYTES_TO_STRING
+- [x] SOUNDEX
+- [x] SPLIT
 - [x] STARTS_WITH
 - [x] STRPOS
 - [x] SUBSTR
