@@ -3,31 +3,26 @@ package internal
 import (
 	"fmt"
 	"time"
-
-	"github.com/goccy/go-zetasql/types"
 )
 
 type SQLiteFunction func(...interface{}) (interface{}, error)
 type BindFunction func(...Value) (Value, error)
-type AggregateBindFunction func(ReturnValueConverter) func() *Aggregator
-type WindowBindFunction func(ReturnValueConverter) func() *WindowAggregator
+type AggregateBindFunction func() func() *Aggregator
+type WindowBindFunction func() func() *WindowAggregator
 
 type FuncInfo struct {
-	Name        string
-	BindFunc    BindFunction
-	ReturnTypes []types.TypeKind
+	Name     string
+	BindFunc BindFunction
 }
 
 type AggregateFuncInfo struct {
-	Name        string
-	BindFunc    AggregateBindFunction
-	ReturnTypes []types.TypeKind
+	Name     string
+	BindFunc AggregateBindFunction
 }
 
 type WindowFuncInfo struct {
-	Name        string
-	BindFunc    WindowBindFunction
-	ReturnTypes []types.TypeKind
+	Name     string
+	BindFunc WindowBindFunction
 }
 
 func existsNull(args []Value) bool {
@@ -40,345 +35,26 @@ func existsNull(args []Value) bool {
 }
 
 func convertArgs(args ...interface{}) ([]Value, error) {
+	dec := new(ValueDecoder)
 	values := make([]Value, 0, len(args))
 	for _, arg := range args {
-		v, err := ValueOf(arg)
+		if arg == nil {
+			values = append(values, nil)
+			continue
+		}
+		value, err := dec.Decode(arg.(string))
 		if err != nil {
 			return nil, err
 		}
-		values = append(values, v)
+		values = append(values, value)
 	}
 	return values, nil
-}
-
-func bindIntFunc(fn BindFunction) SQLiteFunction {
-	return func(args ...interface{}) (interface{}, error) {
-		values, err := convertArgs(args...)
-		if err != nil {
-			return nil, err
-		}
-		ret, err := fn(values...)
-		if err != nil {
-			return nil, err
-		}
-		if ret == nil {
-			return nil, nil
-		}
-		return ret.ToInt64()
-	}
-}
-
-func bindFloatFunc(fn BindFunction) SQLiteFunction {
-	return func(args ...interface{}) (interface{}, error) {
-		values, err := convertArgs(args...)
-		if err != nil {
-			return nil, err
-		}
-		ret, err := fn(values...)
-		if err != nil {
-			return nil, err
-		}
-		if ret == nil {
-			return nil, nil
-		}
-		return ret.ToFloat64()
-	}
-}
-
-func bindStringFunc(fn BindFunction) SQLiteFunction {
-	return func(args ...interface{}) (interface{}, error) {
-		values, err := convertArgs(args...)
-		if err != nil {
-			return nil, err
-		}
-		ret, err := fn(values...)
-		if err != nil {
-			return nil, err
-		}
-		if ret == nil {
-			return nil, nil
-		}
-		return ret.ToString()
-	}
-}
-
-func bindBytesFunc(fn BindFunction) SQLiteFunction {
-	return func(args ...interface{}) (interface{}, error) {
-		values, err := convertArgs(args...)
-		if err != nil {
-			return nil, err
-		}
-		ret, err := fn(values...)
-		if err != nil {
-			return nil, err
-		}
-		if ret == nil {
-			return nil, nil
-		}
-		return ret.Marshal()
-	}
-}
-
-func bindBoolFunc(fn BindFunction) SQLiteFunction {
-	return func(args ...interface{}) (interface{}, error) {
-		values, err := convertArgs(args...)
-		if err != nil {
-			return nil, err
-		}
-		ret, err := fn(values...)
-		if err != nil {
-			return nil, err
-		}
-		if ret == nil {
-			return nil, nil
-		}
-		return ret.ToBool()
-	}
-}
-
-func bindDateFunc(fn BindFunction) SQLiteFunction {
-	return func(args ...interface{}) (interface{}, error) {
-		values, err := convertArgs(args...)
-		if err != nil {
-			return nil, err
-		}
-		ret, err := fn(values...)
-		if err != nil {
-			return nil, err
-		}
-		if ret == nil {
-			return nil, nil
-		}
-		return ret.ToString()
-	}
-}
-
-func bindDatetimeFunc(fn BindFunction) SQLiteFunction {
-	return func(args ...interface{}) (interface{}, error) {
-		values, err := convertArgs(args...)
-		if err != nil {
-			return nil, err
-		}
-		ret, err := fn(values...)
-		if err != nil {
-			return nil, err
-		}
-		if ret == nil {
-			return nil, nil
-		}
-		return ret.ToString()
-	}
-}
-
-func bindTimeFunc(fn BindFunction) SQLiteFunction {
-	return func(args ...interface{}) (interface{}, error) {
-		values, err := convertArgs(args...)
-		if err != nil {
-			return nil, err
-		}
-		ret, err := fn(values...)
-		if err != nil {
-			return nil, err
-		}
-		if ret == nil {
-			return nil, nil
-		}
-		return ret.ToString()
-	}
-}
-
-func bindTimestampFunc(fn BindFunction) SQLiteFunction {
-	return func(args ...interface{}) (interface{}, error) {
-		values, err := convertArgs(args...)
-		if err != nil {
-			return nil, err
-		}
-		ret, err := fn(values...)
-		if err != nil {
-			return nil, err
-		}
-		if ret == nil {
-			return nil, nil
-		}
-		return ret.ToString()
-	}
-}
-
-func bindJsonFunc(fn BindFunction) SQLiteFunction {
-	return func(args ...interface{}) (interface{}, error) {
-		values, err := convertArgs(args...)
-		if err != nil {
-			return nil, err
-		}
-		ret, err := fn(values...)
-		if err != nil {
-			return nil, err
-		}
-		if ret == nil {
-			return nil, nil
-		}
-		return ret.ToString()
-	}
-}
-
-func bindArrayFunc(fn BindFunction) SQLiteFunction {
-	return func(args ...interface{}) (interface{}, error) {
-		values, err := convertArgs(args...)
-		if err != nil {
-			return nil, err
-		}
-		ret, err := fn(values...)
-		if err != nil {
-			return nil, err
-		}
-		if ret == nil {
-			return nil, nil
-		}
-		return ret.ToString()
-	}
-}
-
-func bindStructFunc(fn BindFunction) SQLiteFunction {
-	return func(args ...interface{}) (interface{}, error) {
-		values, err := convertArgs(args...)
-		if err != nil {
-			return nil, err
-		}
-		ret, err := fn(values...)
-		if err != nil {
-			return nil, err
-		}
-		if ret == nil {
-			return nil, nil
-		}
-		return ret.ToString()
-	}
-}
-
-type ReturnValueConverter func(Value) (interface{}, error)
-
-var (
-	intValueConverter = func(v Value) (interface{}, error) {
-		if v == nil {
-			return nil, nil
-		}
-		return v.ToInt64()
-	}
-	floatValueConverter = func(v Value) (interface{}, error) {
-		if v == nil {
-			return nil, nil
-		}
-		return v.ToFloat64()
-	}
-	stringValueConverter = func(v Value) (interface{}, error) {
-		if v == nil {
-			return nil, nil
-		}
-		return v.ToString()
-	}
-	boolValueConverter = func(v Value) (interface{}, error) {
-		if v == nil {
-			return nil, nil
-		}
-		return v.ToBool()
-	}
-	dateValueConverter = func(v Value) (interface{}, error) {
-		if v == nil {
-			return nil, nil
-		}
-		return v.ToString()
-	}
-	datetimeValueConverter = func(v Value) (interface{}, error) {
-		if v == nil {
-			return nil, nil
-		}
-		return v.ToString()
-	}
-	timeValueConverter = func(v Value) (interface{}, error) {
-		if v == nil {
-			return nil, nil
-		}
-		return v.ToString()
-	}
-	timestampValueConverter = func(v Value) (interface{}, error) {
-		if v == nil {
-			return nil, nil
-		}
-		return v.ToString()
-	}
-	jsonValueConverter = func(v Value) (interface{}, error) {
-		if v == nil {
-			return nil, nil
-		}
-		return v.ToString()
-	}
-	arrayValueConverter = func(v Value) (interface{}, error) {
-		if v == nil {
-			return nil, nil
-		}
-		return v.ToString()
-	}
-	structValueConverter = func(v Value) (interface{}, error) {
-		if v == nil {
-			return nil, nil
-		}
-		return v.ToString()
-	}
-)
-
-func bindAggregateIntFunc(bindFunc func(ReturnValueConverter) func() *Aggregator) func() *Aggregator {
-	return bindFunc(intValueConverter)
-}
-
-func bindAggregateFloatFunc(bindFunc func(ReturnValueConverter) func() *Aggregator) func() *Aggregator {
-	return bindFunc(floatValueConverter)
-}
-
-func bindAggregateStringFunc(bindFunc func(ReturnValueConverter) func() *Aggregator) func() *Aggregator {
-	return bindFunc(stringValueConverter)
-}
-
-func bindAggregateBytesFunc(bindFunc func(ReturnValueConverter) func() *Aggregator) func() *Aggregator {
-	return bindFunc(stringValueConverter)
-}
-
-func bindAggregateBoolFunc(bindFunc func(ReturnValueConverter) func() *Aggregator) func() *Aggregator {
-	return bindFunc(boolValueConverter)
-}
-
-func bindAggregateDateFunc(bindFunc func(ReturnValueConverter) func() *Aggregator) func() *Aggregator {
-	return bindFunc(dateValueConverter)
-}
-
-func bindAggregateDatetimeFunc(bindFunc func(ReturnValueConverter) func() *Aggregator) func() *Aggregator {
-	return bindFunc(datetimeValueConverter)
-}
-
-func bindAggregateTimeFunc(bindFunc func(ReturnValueConverter) func() *Aggregator) func() *Aggregator {
-	return bindFunc(timeValueConverter)
-}
-
-func bindAggregateTimestampFunc(bindFunc func(ReturnValueConverter) func() *Aggregator) func() *Aggregator {
-	return bindFunc(timestampValueConverter)
-}
-
-func bindAggregateJsonFunc(bindFunc func(ReturnValueConverter) func() *Aggregator) func() *Aggregator {
-	return bindFunc(jsonValueConverter)
-}
-
-func bindAggregateArrayFunc(bindFunc func(ReturnValueConverter) func() *Aggregator) func() *Aggregator {
-	return bindFunc(arrayValueConverter)
-}
-
-func bindAggregateStructFunc(bindFunc func(ReturnValueConverter) func() *Aggregator) func() *Aggregator {
-	return bindFunc(structValueConverter)
 }
 
 type Aggregator struct {
 	distinctMap map[string]struct{}
 	step        func([]Value, *AggregatorOption) error
 	done        func() (Value, error)
-	converter   ReturnValueConverter
 }
 
 func (a *Aggregator) Step(stepArgs ...interface{}) error {
@@ -428,67 +104,20 @@ func (a *Aggregator) Done() (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	return a.converter(ret)
+	if ret == nil {
+		return nil, nil
+	}
+	return new(ValueEncoder).EncodeFromValue(ret)
 }
 
 func newAggregator(
 	step func([]Value, *AggregatorOption) error,
-	done func() (Value, error),
-	converter ReturnValueConverter) *Aggregator {
+	done func() (Value, error)) *Aggregator {
 	return &Aggregator{
 		distinctMap: map[string]struct{}{},
 		step:        step,
 		done:        done,
-		converter:   converter,
 	}
-}
-
-func bindWindowIntFunc(bindFunc func(ReturnValueConverter) func() *WindowAggregator) func() *WindowAggregator {
-	return bindFunc(intValueConverter)
-}
-
-func bindWindowFloatFunc(bindFunc func(ReturnValueConverter) func() *WindowAggregator) func() *WindowAggregator {
-	return bindFunc(floatValueConverter)
-}
-
-func bindWindowStringFunc(bindFunc func(ReturnValueConverter) func() *WindowAggregator) func() *WindowAggregator {
-	return bindFunc(stringValueConverter)
-}
-
-func bindWindowBytesFunc(bindFunc func(ReturnValueConverter) func() *WindowAggregator) func() *WindowAggregator {
-	return bindFunc(stringValueConverter)
-}
-
-func bindWindowBoolFunc(bindFunc func(ReturnValueConverter) func() *WindowAggregator) func() *WindowAggregator {
-	return bindFunc(boolValueConverter)
-}
-
-func bindWindowDateFunc(bindFunc func(ReturnValueConverter) func() *WindowAggregator) func() *WindowAggregator {
-	return bindFunc(dateValueConverter)
-}
-
-func bindWindowDatetimeFunc(bindFunc func(ReturnValueConverter) func() *WindowAggregator) func() *WindowAggregator {
-	return bindFunc(datetimeValueConverter)
-}
-
-func bindWindowTimeFunc(bindFunc func(ReturnValueConverter) func() *WindowAggregator) func() *WindowAggregator {
-	return bindFunc(timeValueConverter)
-}
-
-func bindWindowTimestampFunc(bindFunc func(ReturnValueConverter) func() *WindowAggregator) func() *WindowAggregator {
-	return bindFunc(timestampValueConverter)
-}
-
-func bindWindowJsonFunc(bindFunc func(ReturnValueConverter) func() *WindowAggregator) func() *WindowAggregator {
-	return bindFunc(jsonValueConverter)
-}
-
-func bindWindowArrayFunc(bindFunc func(ReturnValueConverter) func() *WindowAggregator) func() *WindowAggregator {
-	return bindFunc(arrayValueConverter)
-}
-
-func bindWindowStructFunc(bindFunc func(ReturnValueConverter) func() *WindowAggregator) func() *WindowAggregator {
-	return bindFunc(structValueConverter)
 }
 
 type WindowAggregator struct {
@@ -496,7 +125,6 @@ type WindowAggregator struct {
 	agg         *WindowFuncAggregatedStatus
 	step        func([]Value, *AggregatorOption, *WindowFuncStatus, *WindowFuncAggregatedStatus) error
 	done        func(*WindowFuncAggregatedStatus) (Value, error)
-	converter   ReturnValueConverter
 }
 
 func (a *WindowAggregator) Step(stepArgs ...interface{}) error {
@@ -543,19 +171,20 @@ func (a *WindowAggregator) Done() (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	return a.converter(ret)
+	if ret == nil {
+		return nil, nil
+	}
+	return new(ValueEncoder).EncodeFromValue(ret)
 }
 
 func newWindowAggregator(
 	step func([]Value, *AggregatorOption, *WindowFuncStatus, *WindowFuncAggregatedStatus) error,
-	done func(*WindowFuncAggregatedStatus) (Value, error),
-	converter ReturnValueConverter) *WindowAggregator {
+	done func(*WindowFuncAggregatedStatus) (Value, error)) *WindowAggregator {
 	return &WindowAggregator{
 		distinctMap: map[string]struct{}{},
 		agg:         newWindowFuncAggregatedStatus(),
 		step:        step,
 		done:        done,
-		converter:   converter,
 	}
 }
 
@@ -3007,7 +2636,7 @@ func bindWindowOrderBy(args ...Value) (Value, error) {
 	return WINDOW_ORDER_BY(args[0], isAsc)
 }
 
-func bindArrayAgg(converter ReturnValueConverter) func() *Aggregator {
+func bindArrayAgg() func() *Aggregator {
 	return func() *Aggregator {
 		fn := &ARRAY_AGG{}
 		return newAggregator(
@@ -3020,12 +2649,11 @@ func bindArrayAgg(converter ReturnValueConverter) func() *Aggregator {
 			func() (Value, error) {
 				return fn.Done()
 			},
-			converter,
 		)
 	}
 }
 
-func bindArrayConcatAgg(converter ReturnValueConverter) func() *Aggregator {
+func bindArrayConcatAgg() func() *Aggregator {
 	return func() *Aggregator {
 		fn := &ARRAY_CONCAT_AGG{}
 		return newAggregator(
@@ -3045,12 +2673,11 @@ func bindArrayConcatAgg(converter ReturnValueConverter) func() *Aggregator {
 			func() (Value, error) {
 				return fn.Done()
 			},
-			converter,
 		)
 	}
 }
 
-func bindSum(converter ReturnValueConverter) func() *Aggregator {
+func bindSum() func() *Aggregator {
 	return func() *Aggregator {
 		fn := &SUM{}
 		return newAggregator(
@@ -3063,12 +2690,11 @@ func bindSum(converter ReturnValueConverter) func() *Aggregator {
 			func() (Value, error) {
 				return fn.Done()
 			},
-			converter,
 		)
 	}
 }
 
-func bindAvg(converter ReturnValueConverter) func() *Aggregator {
+func bindAvg() func() *Aggregator {
 	return func() *Aggregator {
 		fn := &AVG{}
 		return newAggregator(
@@ -3081,12 +2707,11 @@ func bindAvg(converter ReturnValueConverter) func() *Aggregator {
 			func() (Value, error) {
 				return fn.Done()
 			},
-			converter,
 		)
 	}
 }
 
-func bindCount(converter ReturnValueConverter) func() *Aggregator {
+func bindCount() func() *Aggregator {
 	return func() *Aggregator {
 		fn := &COUNT{}
 		return newAggregator(
@@ -3099,12 +2724,11 @@ func bindCount(converter ReturnValueConverter) func() *Aggregator {
 			func() (Value, error) {
 				return fn.Done()
 			},
-			converter,
 		)
 	}
 }
 
-func bindCountStar(converter ReturnValueConverter) func() *Aggregator {
+func bindCountStar() func() *Aggregator {
 	return func() *Aggregator {
 		fn := &COUNT_STAR{}
 		return newAggregator(
@@ -3117,12 +2741,11 @@ func bindCountStar(converter ReturnValueConverter) func() *Aggregator {
 			func() (Value, error) {
 				return fn.Done()
 			},
-			converter,
 		)
 	}
 }
 
-func bindBitAndAgg(converter ReturnValueConverter) func() *Aggregator {
+func bindBitAndAgg() func() *Aggregator {
 	return func() *Aggregator {
 		fn := &BIT_AND_AGG{IntValue(-1)}
 		return newAggregator(
@@ -3135,12 +2758,11 @@ func bindBitAndAgg(converter ReturnValueConverter) func() *Aggregator {
 			func() (Value, error) {
 				return fn.Done()
 			},
-			converter,
 		)
 	}
 }
 
-func bindBitOrAgg(converter ReturnValueConverter) func() *Aggregator {
+func bindBitOrAgg() func() *Aggregator {
 	return func() *Aggregator {
 		fn := &BIT_OR_AGG{-1}
 		return newAggregator(
@@ -3153,12 +2775,11 @@ func bindBitOrAgg(converter ReturnValueConverter) func() *Aggregator {
 			func() (Value, error) {
 				return fn.Done()
 			},
-			converter,
 		)
 	}
 }
 
-func bindBitXorAgg(converter ReturnValueConverter) func() *Aggregator {
+func bindBitXorAgg() func() *Aggregator {
 	return func() *Aggregator {
 		fn := &BIT_XOR_AGG{1}
 		return newAggregator(
@@ -3171,12 +2792,11 @@ func bindBitXorAgg(converter ReturnValueConverter) func() *Aggregator {
 			func() (Value, error) {
 				return fn.Done()
 			},
-			converter,
 		)
 	}
 }
 
-func bindCountIf(converter ReturnValueConverter) func() *Aggregator {
+func bindCountIf() func() *Aggregator {
 	return func() *Aggregator {
 		fn := &COUNTIF{}
 		return newAggregator(
@@ -3189,12 +2809,11 @@ func bindCountIf(converter ReturnValueConverter) func() *Aggregator {
 			func() (Value, error) {
 				return fn.Done()
 			},
-			converter,
 		)
 	}
 }
 
-func bindLogicalAnd(converter ReturnValueConverter) func() *Aggregator {
+func bindLogicalAnd() func() *Aggregator {
 	return func() *Aggregator {
 		fn := &LOGICAL_AND{true}
 		return newAggregator(
@@ -3207,12 +2826,11 @@ func bindLogicalAnd(converter ReturnValueConverter) func() *Aggregator {
 			func() (Value, error) {
 				return fn.Done()
 			},
-			converter,
 		)
 	}
 }
 
-func bindLogicalOr(converter ReturnValueConverter) func() *Aggregator {
+func bindLogicalOr() func() *Aggregator {
 	return func() *Aggregator {
 		fn := &LOGICAL_OR{}
 		return newAggregator(
@@ -3225,12 +2843,11 @@ func bindLogicalOr(converter ReturnValueConverter) func() *Aggregator {
 			func() (Value, error) {
 				return fn.Done()
 			},
-			converter,
 		)
 	}
 }
 
-func bindMax(converter ReturnValueConverter) func() *Aggregator {
+func bindMax() func() *Aggregator {
 	return func() *Aggregator {
 		fn := &MAX{}
 		return newAggregator(
@@ -3243,12 +2860,11 @@ func bindMax(converter ReturnValueConverter) func() *Aggregator {
 			func() (Value, error) {
 				return fn.Done()
 			},
-			converter,
 		)
 	}
 }
 
-func bindMin(converter ReturnValueConverter) func() *Aggregator {
+func bindMin() func() *Aggregator {
 	return func() *Aggregator {
 		fn := &MIN{}
 		return newAggregator(
@@ -3261,12 +2877,11 @@ func bindMin(converter ReturnValueConverter) func() *Aggregator {
 			func() (Value, error) {
 				return fn.Done()
 			},
-			converter,
 		)
 	}
 }
 
-func bindStringAgg(converter ReturnValueConverter) func() *Aggregator {
+func bindStringAgg() func() *Aggregator {
 	return func() *Aggregator {
 		fn := &STRING_AGG{}
 		return newAggregator(
@@ -3286,12 +2901,11 @@ func bindStringAgg(converter ReturnValueConverter) func() *Aggregator {
 			func() (Value, error) {
 				return fn.Done()
 			},
-			converter,
 		)
 	}
 }
 
-func bindArray(converter ReturnValueConverter) func() *Aggregator {
+func bindArray() func() *Aggregator {
 	return func() *Aggregator {
 		fn := &ARRAY{}
 		return newAggregator(
@@ -3304,12 +2918,11 @@ func bindArray(converter ReturnValueConverter) func() *Aggregator {
 			func() (Value, error) {
 				return fn.Done()
 			},
-			converter,
 		)
 	}
 }
 
-func bindWindowSum(converter ReturnValueConverter) func() *WindowAggregator {
+func bindWindowSum() func() *WindowAggregator {
 	return func() *WindowAggregator {
 		fn := &WINDOW_SUM{}
 		return newWindowAggregator(
@@ -3322,12 +2935,11 @@ func bindWindowSum(converter ReturnValueConverter) func() *WindowAggregator {
 			func(agg *WindowFuncAggregatedStatus) (Value, error) {
 				return fn.Done(agg)
 			},
-			converter,
 		)
 	}
 }
 
-func bindWindowMax(converter ReturnValueConverter) func() *WindowAggregator {
+func bindWindowMax() func() *WindowAggregator {
 	return func() *WindowAggregator {
 		fn := &WINDOW_MAX{}
 		return newWindowAggregator(
@@ -3340,12 +2952,11 @@ func bindWindowMax(converter ReturnValueConverter) func() *WindowAggregator {
 			func(agg *WindowFuncAggregatedStatus) (Value, error) {
 				return fn.Done(agg)
 			},
-			converter,
 		)
 	}
 }
 
-func bindWindowMin(converter ReturnValueConverter) func() *WindowAggregator {
+func bindWindowMin() func() *WindowAggregator {
 	return func() *WindowAggregator {
 		fn := &WINDOW_MIN{}
 		return newWindowAggregator(
@@ -3358,12 +2969,11 @@ func bindWindowMin(converter ReturnValueConverter) func() *WindowAggregator {
 			func(agg *WindowFuncAggregatedStatus) (Value, error) {
 				return fn.Done(agg)
 			},
-			converter,
 		)
 	}
 }
 
-func bindWindowCount(converter ReturnValueConverter) func() *WindowAggregator {
+func bindWindowCount() func() *WindowAggregator {
 	return func() *WindowAggregator {
 		fn := &WINDOW_COUNT{}
 		return newWindowAggregator(
@@ -3376,12 +2986,11 @@ func bindWindowCount(converter ReturnValueConverter) func() *WindowAggregator {
 			func(agg *WindowFuncAggregatedStatus) (Value, error) {
 				return fn.Done(agg)
 			},
-			converter,
 		)
 	}
 }
 
-func bindWindowCountStar(converter ReturnValueConverter) func() *WindowAggregator {
+func bindWindowCountStar() func() *WindowAggregator {
 	return func() *WindowAggregator {
 		fn := &WINDOW_COUNT_STAR{}
 		return newWindowAggregator(
@@ -3394,12 +3003,11 @@ func bindWindowCountStar(converter ReturnValueConverter) func() *WindowAggregato
 			func(agg *WindowFuncAggregatedStatus) (Value, error) {
 				return fn.Done(agg)
 			},
-			converter,
 		)
 	}
 }
 
-func bindWindowAvg(converter ReturnValueConverter) func() *WindowAggregator {
+func bindWindowAvg() func() *WindowAggregator {
 	return func() *WindowAggregator {
 		fn := &WINDOW_AVG{}
 		return newWindowAggregator(
@@ -3412,12 +3020,11 @@ func bindWindowAvg(converter ReturnValueConverter) func() *WindowAggregator {
 			func(agg *WindowFuncAggregatedStatus) (Value, error) {
 				return fn.Done(agg)
 			},
-			converter,
 		)
 	}
 }
 
-func bindWindowFirstValue(converter ReturnValueConverter) func() *WindowAggregator {
+func bindWindowFirstValue() func() *WindowAggregator {
 	return func() *WindowAggregator {
 		fn := &WINDOW_FIRST_VALUE{}
 		return newWindowAggregator(
@@ -3430,12 +3037,11 @@ func bindWindowFirstValue(converter ReturnValueConverter) func() *WindowAggregat
 			func(agg *WindowFuncAggregatedStatus) (Value, error) {
 				return fn.Done(agg)
 			},
-			converter,
 		)
 	}
 }
 
-func bindWindowLastValue(converter ReturnValueConverter) func() *WindowAggregator {
+func bindWindowLastValue() func() *WindowAggregator {
 	return func() *WindowAggregator {
 		fn := &WINDOW_LAST_VALUE{}
 		return newWindowAggregator(
@@ -3448,12 +3054,11 @@ func bindWindowLastValue(converter ReturnValueConverter) func() *WindowAggregato
 			func(agg *WindowFuncAggregatedStatus) (Value, error) {
 				return fn.Done(agg)
 			},
-			converter,
 		)
 	}
 }
 
-func bindWindowLag(converter ReturnValueConverter) func() *WindowAggregator {
+func bindWindowLag() func() *WindowAggregator {
 	return func() *WindowAggregator {
 		fn := &WINDOW_LAG{}
 		return newWindowAggregator(
@@ -3481,12 +3086,11 @@ func bindWindowLag(converter ReturnValueConverter) func() *WindowAggregator {
 			func(agg *WindowFuncAggregatedStatus) (Value, error) {
 				return fn.Done(agg)
 			},
-			converter,
 		)
 	}
 }
 
-func bindWindowRank(converter ReturnValueConverter) func() *WindowAggregator {
+func bindWindowRank() func() *WindowAggregator {
 	return func() *WindowAggregator {
 		fn := &WINDOW_RANK{}
 		return newWindowAggregator(
@@ -3499,12 +3103,11 @@ func bindWindowRank(converter ReturnValueConverter) func() *WindowAggregator {
 			func(agg *WindowFuncAggregatedStatus) (Value, error) {
 				return fn.Done(agg)
 			},
-			converter,
 		)
 	}
 }
 
-func bindWindowDenseRank(converter ReturnValueConverter) func() *WindowAggregator {
+func bindWindowDenseRank() func() *WindowAggregator {
 	return func() *WindowAggregator {
 		fn := &WINDOW_DENSE_RANK{}
 		return newWindowAggregator(
@@ -3517,12 +3120,11 @@ func bindWindowDenseRank(converter ReturnValueConverter) func() *WindowAggregato
 			func(agg *WindowFuncAggregatedStatus) (Value, error) {
 				return fn.Done(agg)
 			},
-			converter,
 		)
 	}
 }
 
-func bindWindowRowNumber(converter ReturnValueConverter) func() *WindowAggregator {
+func bindWindowRowNumber() func() *WindowAggregator {
 	return func() *WindowAggregator {
 		fn := &WINDOW_ROW_NUMBER{}
 		return newWindowAggregator(
@@ -3535,12 +3137,11 @@ func bindWindowRowNumber(converter ReturnValueConverter) func() *WindowAggregato
 			func(agg *WindowFuncAggregatedStatus) (Value, error) {
 				return fn.Done(agg)
 			},
-			converter,
 		)
 	}
 }
 
-func bindWindowCorr(converter ReturnValueConverter) func() *WindowAggregator {
+func bindWindowCorr() func() *WindowAggregator {
 	return func() *WindowAggregator {
 		fn := &WINDOW_CORR{}
 		return newWindowAggregator(
@@ -3553,12 +3154,11 @@ func bindWindowCorr(converter ReturnValueConverter) func() *WindowAggregator {
 			func(agg *WindowFuncAggregatedStatus) (Value, error) {
 				return fn.Done(agg)
 			},
-			converter,
 		)
 	}
 }
 
-func bindWindowCovarPop(converter ReturnValueConverter) func() *WindowAggregator {
+func bindWindowCovarPop() func() *WindowAggregator {
 	return func() *WindowAggregator {
 		fn := &WINDOW_COVAR_POP{}
 		return newWindowAggregator(
@@ -3571,12 +3171,11 @@ func bindWindowCovarPop(converter ReturnValueConverter) func() *WindowAggregator
 			func(agg *WindowFuncAggregatedStatus) (Value, error) {
 				return fn.Done(agg)
 			},
-			converter,
 		)
 	}
 }
 
-func bindWindowCovarSamp(converter ReturnValueConverter) func() *WindowAggregator {
+func bindWindowCovarSamp() func() *WindowAggregator {
 	return func() *WindowAggregator {
 		fn := &WINDOW_COVAR_SAMP{}
 		return newWindowAggregator(
@@ -3589,12 +3188,11 @@ func bindWindowCovarSamp(converter ReturnValueConverter) func() *WindowAggregato
 			func(agg *WindowFuncAggregatedStatus) (Value, error) {
 				return fn.Done(agg)
 			},
-			converter,
 		)
 	}
 }
 
-func bindWindowStdDevPop(converter ReturnValueConverter) func() *WindowAggregator {
+func bindWindowStdDevPop() func() *WindowAggregator {
 	return func() *WindowAggregator {
 		fn := &WINDOW_STDDEV_POP{}
 		return newWindowAggregator(
@@ -3607,12 +3205,11 @@ func bindWindowStdDevPop(converter ReturnValueConverter) func() *WindowAggregato
 			func(agg *WindowFuncAggregatedStatus) (Value, error) {
 				return fn.Done(agg)
 			},
-			converter,
 		)
 	}
 }
 
-func bindWindowStdDevSamp(converter ReturnValueConverter) func() *WindowAggregator {
+func bindWindowStdDevSamp() func() *WindowAggregator {
 	return func() *WindowAggregator {
 		fn := &WINDOW_STDDEV_SAMP{}
 		return newWindowAggregator(
@@ -3625,12 +3222,11 @@ func bindWindowStdDevSamp(converter ReturnValueConverter) func() *WindowAggregat
 			func(agg *WindowFuncAggregatedStatus) (Value, error) {
 				return fn.Done(agg)
 			},
-			converter,
 		)
 	}
 }
 
-func bindWindowStdDev(converter ReturnValueConverter) func() *WindowAggregator {
+func bindWindowStdDev() func() *WindowAggregator {
 	return func() *WindowAggregator {
 		fn := &WINDOW_STDDEV_SAMP{}
 		return newWindowAggregator(
@@ -3643,12 +3239,11 @@ func bindWindowStdDev(converter ReturnValueConverter) func() *WindowAggregator {
 			func(agg *WindowFuncAggregatedStatus) (Value, error) {
 				return fn.Done(agg)
 			},
-			converter,
 		)
 	}
 }
 
-func bindWindowVarPop(converter ReturnValueConverter) func() *WindowAggregator {
+func bindWindowVarPop() func() *WindowAggregator {
 	return func() *WindowAggregator {
 		fn := &WINDOW_VAR_POP{}
 		return newWindowAggregator(
@@ -3661,12 +3256,11 @@ func bindWindowVarPop(converter ReturnValueConverter) func() *WindowAggregator {
 			func(agg *WindowFuncAggregatedStatus) (Value, error) {
 				return fn.Done(agg)
 			},
-			converter,
 		)
 	}
 }
 
-func bindWindowVarSamp(converter ReturnValueConverter) func() *WindowAggregator {
+func bindWindowVarSamp() func() *WindowAggregator {
 	return func() *WindowAggregator {
 		fn := &WINDOW_VAR_SAMP{}
 		return newWindowAggregator(
@@ -3679,12 +3273,11 @@ func bindWindowVarSamp(converter ReturnValueConverter) func() *WindowAggregator 
 			func(agg *WindowFuncAggregatedStatus) (Value, error) {
 				return fn.Done(agg)
 			},
-			converter,
 		)
 	}
 }
 
-func bindWindowVariance(converter ReturnValueConverter) func() *WindowAggregator {
+func bindWindowVariance() func() *WindowAggregator {
 	return func() *WindowAggregator {
 		fn := &WINDOW_VAR_SAMP{}
 		return newWindowAggregator(
@@ -3697,7 +3290,6 @@ func bindWindowVariance(converter ReturnValueConverter) func() *WindowAggregator
 			func(agg *WindowFuncAggregatedStatus) (Value, error) {
 				return fn.Done(agg)
 			},
-			converter,
 		)
 	}
 }

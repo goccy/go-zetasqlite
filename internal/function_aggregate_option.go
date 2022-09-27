@@ -87,7 +87,7 @@ func (a *AggregateOrderBy) UnmarshalJSON(b []byte) error {
 	if err := json.Unmarshal(b, &v); err != nil {
 		return err
 	}
-	value, err := ValueOf(v.Value)
+	value, err := new(ValueEncoder).ValueFromGoValue(v.Value)
 	if err != nil {
 		return err
 	}

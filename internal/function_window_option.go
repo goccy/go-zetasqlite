@@ -61,7 +61,7 @@ func (o *WindowFuncOption) UnmarshalJSON(b []byte) error {
 		}
 		o.Value = value.Value
 	case WindowFuncOptionPartition:
-		value, err := ValueOf(v.Value)
+		value, err := new(ValueEncoder).ValueFromGoValue(v.Value)
 		if err != nil {
 			return fmt.Errorf("failed to convert %v to Value: %w", v.Value, err)
 		}
@@ -269,7 +269,7 @@ func (w *WindowOrderBy) UnmarshalJSON(b []byte) error {
 	if err := json.Unmarshal(b, &v); err != nil {
 		return err
 	}
-	value, err := ValueOf(v.Value)
+	value, err := new(ValueEncoder).ValueFromGoValue(v.Value)
 	if err != nil {
 		return err
 	}
