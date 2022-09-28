@@ -172,11 +172,7 @@ func (n *LiteralNode) FormatSQL(ctx context.Context) (string, error) {
 	if n.node == nil {
 		return "", nil
 	}
-	lit, err := new(ValueEncoder).EncodeFromZetaSQLValue(n.node.Value())
-	if err != nil {
-		return "", err
-	}
-	return string(lit), nil
+	return LiteralFromZetaSQLValue(n.node.Value())
 }
 
 func (n *ParameterNode) FormatSQL(ctx context.Context) (string, error) {
@@ -397,15 +393,13 @@ func (n *CastNode) FormatSQL(ctx context.Context) (string, error) {
 	if n.node == nil {
 		return "", nil
 	}
-	typeSuffix := strings.ToLower(n.node.Type().TypeName(0))
+	fromTypeKind := n.node.Expr().Type().Kind()
+	toTypeKind := n.node.Type().Kind()
 	expr, err := newNode(n.node.Expr()).FormatSQL(ctx)
 	if err != nil {
 		return "", err
 	}
-	if typeSuffix == "string" && n.node.Expr().Type().Kind() == types.BOOL {
-		return fmt.Sprintf("zetasqlite_castbool(%s)", expr), nil
-	}
-	return fmt.Sprintf("zetasqlite_cast(%s)", expr), nil
+	return fmt.Sprintf("zetasqlite_cast(%s, %d, %d)", expr, fromTypeKind, toTypeKind), nil
 }
 
 func (n *MakeStructNode) FormatSQL(ctx context.Context) (string, error) {
@@ -418,7 +412,11 @@ func (n *MakeStructNode) FormatSQL(ctx context.Context) (string, error) {
 	args := make([]string, 0, fieldNum*2)
 	for i := 0; i < fieldNum; i++ {
 		fieldName := typ.Field(i).Name()
-		args = append(args, fmt.Sprintf("'%s'", fieldName))
+		key, err := LiteralFromValue(StringValue(fieldName))
+		if err != nil {
+			return "", err
+		}
+		args = append(args, key)
 		field, err := newNode(fields[i]).FormatSQL(ctx)
 		if err != nil {
 			return "", err
@@ -737,7 +735,16 @@ func (n *AggregateScanNode) FormatSQL(ctx context.Context) (string, error) {
 				}
 			}
 			columnPatterns = append(columnPatterns, groupBySetColumnPattern)
-			groupByColumnPatterns = append(groupByColumnPatterns, groupBySetColumns)
+			/*
+				annotatedGroupBySetColumns := make([]string, 0, len(groupBySetColumns))
+				for _, column := range groupBySetColumns {
+					annotatedGroupBySetColumns = append(
+						annotatedGroupBySetColumns,
+						fmt.Sprintf("zetasqlite_group_by(%s)", column),
+					)
+				}
+			*/
+			groupByColumnPatterns = append(groupByColumnPatterns, groupBySetColumns) // annotatedGroupBySetColumns)
 		}
 		stmts := []string{}
 		for i := 0; i < len(columnPatterns); i++ {
@@ -755,15 +762,31 @@ func (n *AggregateScanNode) FormatSQL(ctx context.Context) (string, error) {
 				stmts = append(stmts, fmt.Sprintf("SELECT %s FROM %s %s", formattedColumns, input, groupBy))
 			}
 		}
+		groupByWithCollates := make([]string, 0, len(groupByColumns))
+		for _, groupByColumn := range groupByColumns {
+			groupByWithCollates = append(
+				groupByWithCollates,
+				fmt.Sprintf("%s COLLATE zetasqlite_collate", groupByColumn),
+			)
+		}
 		return fmt.Sprintf(
 			"%s ORDER BY %s",
 			strings.Join(stmts, " UNION ALL "),
-			strings.Join(groupByColumns, ","),
+			strings.Join(groupByWithCollates, ","),
 		), nil
 	}
 	var groupBy string
 	if len(groupByColumns) > 0 {
-		groupBy = fmt.Sprintf("GROUP BY %s", strings.Join(groupByColumns, ","))
+		/*
+			annotatedGroupByColumns := make([]string, 0, len(groupByColumns))
+			for _, groupByColumn := range groupByColumns {
+				annotatedGroupByColumns = append(
+					annotatedGroupByColumns,
+					fmt.Sprintf("zetasqlite_group_by(%s)", groupByColumn),
+				)
+			}
+		*/
+		groupBy = fmt.Sprintf("GROUP BY %s", strings.Join(groupByColumns, ",")) // strings.Join(annotatedGroupByColumns, ","))
 	}
 	formattedColumns := strings.Join(columns, ",")
 	switch getInputPattern(input) {
@@ -875,9 +898,9 @@ func (n *OrderByScanNode) FormatSQL(ctx context.Context) (string, error) {
 			)
 		}
 		if item.IsDescending() {
-			orderByColumns = append(orderByColumns, fmt.Sprintf("`%s` DESC", colName))
+			orderByColumns = append(orderByColumns, fmt.Sprintf("`%s` COLLATE zetasqlite_collate DESC", colName))
 		} else {
-			orderByColumns = append(orderByColumns, fmt.Sprintf("`%s`", colName))
+			orderByColumns = append(orderByColumns, fmt.Sprintf("`%s` COLLATE zetasqlite_collate", colName))
 		}
 	}
 	formattedInput, err := formatInput(input)
@@ -1041,12 +1064,12 @@ func (n *AnalyticScanNode) FormatSQL(ctx context.Context) (string, error) {
 		if col.isAsc {
 			orderColumnFormattedNames = append(
 				orderColumnFormattedNames,
-				col.column,
+				fmt.Sprintf("%s COLLATE zetasqlite_collate", col.column),
 			)
 		} else {
 			orderColumnFormattedNames = append(
 				orderColumnFormattedNames,
-				fmt.Sprintf("%s DESC", col.column),
+				fmt.Sprintf("%s COLLATE zetasqlite_collate DESC", col.column),
 			)
 		}
 	}

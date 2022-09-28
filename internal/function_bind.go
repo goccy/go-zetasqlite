@@ -35,14 +35,9 @@ func existsNull(args []Value) bool {
 }
 
 func convertArgs(args ...interface{}) ([]Value, error) {
-	dec := new(ValueDecoder)
 	values := make([]Value, 0, len(args))
 	for _, arg := range args {
-		if arg == nil {
-			values = append(values, nil)
-			continue
-		}
-		value, err := dec.Decode(arg.(string))
+		value, err := DecodeValue(arg)
 		if err != nil {
 			return nil, err
 		}
@@ -58,11 +53,11 @@ type Aggregator struct {
 }
 
 func (a *Aggregator) Step(stepArgs ...interface{}) error {
-	args, opt, err := parseAggregateOptions(stepArgs...)
+	values, err := convertArgs(stepArgs...)
 	if err != nil {
 		return err
 	}
-	values, err := convertArgs(args...)
+	values, opt, err := parseAggregateOptions(values...)
 	if err != nil {
 		return err
 	}
@@ -104,10 +99,7 @@ func (a *Aggregator) Done() (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	if ret == nil {
-		return nil, nil
-	}
-	return new(ValueEncoder).EncodeFromValue(ret)
+	return EncodeValue(ret)
 }
 
 func newAggregator(
@@ -128,15 +120,15 @@ type WindowAggregator struct {
 }
 
 func (a *WindowAggregator) Step(stepArgs ...interface{}) error {
-	args, opt, err := parseAggregateOptions(stepArgs...)
+	values, err := convertArgs(stepArgs...)
 	if err != nil {
 		return err
 	}
-	newArgs, windowOpt, err := parseWindowOptions(args...)
+	values, opt, err := parseAggregateOptions(values...)
 	if err != nil {
 		return err
 	}
-	values, err := convertArgs(newArgs...)
+	values, windowOpt, err := parseWindowOptions(values...)
 	if err != nil {
 		return err
 	}
@@ -171,10 +163,7 @@ func (a *WindowAggregator) Done() (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	if ret == nil {
-		return nil, nil
-	}
-	return new(ValueEncoder).EncodeFromValue(ret)
+	return EncodeValue(ret)
 }
 
 func newWindowAggregator(
@@ -504,28 +493,37 @@ func bindNullIf(args ...Value) (Value, error) {
 }
 
 func bindCast(args ...Value) (Value, error) {
-	if len(args) != 1 {
+	if len(args) != 3 {
 		return nil, fmt.Errorf("CAST: invalid argument num %d", len(args))
 	}
-	return args[0], nil
-}
-
-func bindCastBoolString(args ...Value) (Value, error) {
-	if len(args) != 1 {
-		return nil, fmt.Errorf("CAST: invalid argument num %d", len(args))
-	}
-	b, err := args[0].ToBool()
+	fromTypeKind, err := args[1].ToInt64()
 	if err != nil {
 		return nil, err
 	}
-	return StringValue(fmt.Sprintf("%t", b)), nil
+	toTypeKind, err := args[2].ToInt64()
+	if err != nil {
+		return nil, err
+	}
+	return CAST(args[0], fromTypeKind, toTypeKind)
 }
 
 func bindSafeCast(args ...Value) (Value, error) {
-	if len(args) != 1 {
+	if len(args) != 3 {
 		return nil, fmt.Errorf("SAFE_CAST: invalid argument num %d", len(args))
 	}
-	return &SafeValue{value: args[0]}, nil
+	fromTypeKind, err := args[1].ToInt64()
+	if err != nil {
+		return nil, err
+	}
+	toTypeKind, err := args[2].ToInt64()
+	if err != nil {
+		return nil, err
+	}
+	casted, err := CAST(args[0], fromTypeKind, toTypeKind)
+	if err != nil {
+		return &SafeValue{value: args[0]}, nil
+	}
+	return &SafeValue{value: casted}, nil
 }
 
 func bindFarmFingerprint(args ...Value) (Value, error) {
@@ -2417,20 +2415,6 @@ func bindUnixMicros(args ...Value) (Value, error) {
 		return nil, err
 	}
 	return UNIX_MICROS(t)
-}
-
-func bindDecodeArray(args ...Value) (Value, error) {
-	if len(args) != 1 {
-		return nil, fmt.Errorf("DECODE_ARRAY: invalid argument num %d", len(args))
-	}
-	if existsNull(args) {
-		return nil, nil
-	}
-	s, err := args[0].ToString()
-	if err != nil {
-		return nil, err
-	}
-	return DECODE_ARRAY(s)
 }
 
 func bindArrayConcat(args ...Value) (Value, error) {

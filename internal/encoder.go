@@ -6,18 +6,76 @@ import (
 	"math/big"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/goccy/go-json"
 	"github.com/goccy/go-zetasql/types"
 )
 
-type ValueEncoder struct {
+func EncodeValue(v Value) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
+	switch v.(type) {
+	case IntValue:
+		return v.ToInt64()
+	case FloatValue:
+		return v.ToFloat64()
+	case BoolValue:
+		return v.ToBool()
+	}
+	format, err := v.ToValueFormat()
+	if err != nil {
+		return nil, err
+	}
+	b, err := json.Marshal(format)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode value: %w", err)
+	}
+	return base64.StdEncoding.EncodeToString(b), nil
 }
 
-func (e *ValueEncoder) EncodeFromValue(v Value) (string, error) {
+func EncodeFromGoValue(t types.Type, v interface{}) (interface{}, error) {
+	value, err := ValueFromGoValue(v)
+	if err != nil {
+		return "", err
+	}
+	casted, err := CastValue(t, value)
+	if err != nil {
+		return "", err
+	}
+	return EncodeValue(casted)
+}
+
+func LiteralFromValue(v Value) (string, error) {
 	if v == nil {
 		return "null", nil
+	}
+	switch v.(type) {
+	case IntValue:
+		i64, err := v.ToInt64()
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprint(i64), nil
+	case FloatValue:
+		f64, err := v.ToFloat64()
+		if err != nil {
+			return "", err
+		}
+		value := strconv.FormatFloat(f64, 'g', -1, 64)
+		if !strings.Contains(value, ".") && !strings.Contains(value, "e") {
+			// append x.0 suffix to keep float value context
+			value = fmt.Sprintf("%s.0", value)
+		}
+		return value, nil
+	case BoolValue:
+		b, err := v.ToBool()
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprint(b), nil
 	}
 	format, err := v.ToValueFormat()
 	if err != nil {
@@ -27,68 +85,55 @@ func (e *ValueEncoder) EncodeFromValue(v Value) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to encode value: %w", err)
 	}
-	encoded := base64.StdEncoding.EncodeToString(b)
-	return fmt.Sprintf(`"%s"`, encoded), nil
+	return fmt.Sprintf(`"%s"`, base64.StdEncoding.EncodeToString(b)), nil
 }
 
-func (e *ValueEncoder) EncodeFromZetaSQLValue(v types.Value) (string, error) {
-	value, err := e.ValueFromZetaSQLValue(v)
+func LiteralFromZetaSQLValue(v types.Value) (string, error) {
+	value, err := ValueFromZetaSQLValue(v)
 	if err != nil {
 		return "", err
 	}
-	return e.EncodeFromValue(value)
+	return LiteralFromValue(value)
 }
 
-func (e *ValueEncoder) EncodeFromGoValue(t types.Type, v interface{}) (string, error) {
-	value, err := e.ValueFromGoValue(v)
-	if err != nil {
-		return "", err
-	}
-	casted, err := e.CastValue(t, value)
-	if err != nil {
-		return "", err
-	}
-	return e.EncodeFromValue(casted)
-}
-
-func (e *ValueEncoder) ValueFromZetaSQLValue(v types.Value) (Value, error) {
+func ValueFromZetaSQLValue(v types.Value) (Value, error) {
 	if v.IsNull() {
 		return nil, nil
 	}
 	switch v.Type().Kind() {
-	case types.INT32, types.INT64, types.UINT32, types.UINT64, types.ENUM:
-		return e.intValueFromLiteral(v.SQLLiteral(0))
+	case types.INT32, types.INT64, types.UINT32, types.UINT64:
+		return intValueFromLiteral(v.SQLLiteral(0))
 	case types.BOOL:
-		return e.boolValueFromLiteral(v.SQLLiteral(0))
+		return boolValueFromLiteral(v.SQLLiteral(0))
 	case types.FLOAT, types.DOUBLE:
-		return e.floatValueFromLiteral(v.SQLLiteral(0))
-	case types.STRING:
-		return e.stringValueFromLiteral(v.SQLLiteral(0))
+		return floatValueFromLiteral(v.SQLLiteral(0))
+	case types.STRING, types.ENUM:
+		return stringValueFromLiteral(v.SQLLiteral(0))
 	case types.BYTES:
-		return e.bytesValueFromLiteral(v.SQLLiteral(0))
+		return bytesValueFromLiteral(v.SQLLiteral(0))
 	case types.DATE:
-		return e.dateValueFromLiteral(v.ToInt64())
+		return dateValueFromLiteral(v.ToInt64())
 	case types.DATETIME:
-		return e.datetimeValueFromLiteral(v.ToPacked64DatetimeMicros())
+		return datetimeValueFromLiteral(v.ToPacked64DatetimeMicros())
 	case types.TIME:
-		return e.timeValueFromLiteral(v.ToPacked64TimeMicros())
+		return timeValueFromLiteral(v.ToPacked64TimeMicros())
 	case types.TIMESTAMP:
-		return e.timestampValueFromLiteral(v.ToTime())
+		return timestampValueFromLiteral(v.ToTime())
 	case types.NUMERIC, types.BIG_NUMERIC:
-		return e.numericValueFromLiteral(v.SQLLiteral(0))
+		return numericValueFromLiteral(v.SQLLiteral(0))
 	case types.INTERVAL:
-		return e.intervalValueFromLiteral(v.SQLLiteral(0))
+		return intervalValueFromLiteral(v.SQLLiteral(0))
 	case types.JSON:
-		return e.jsonValueFromLiteral(v.JSONString())
+		return jsonValueFromLiteral(v.JSONString())
 	case types.ARRAY:
-		return e.arrayValueFromLiteral(v)
+		return arrayValueFromLiteral(v)
 	case types.STRUCT:
-		return e.structValueFromLiteral(v)
+		return structValueFromLiteral(v)
 	}
 	return nil, fmt.Errorf("unsupported literal type: %s", v.Type().Kind())
 }
 
-func (e *ValueEncoder) intValueFromLiteral(lit string) (IntValue, error) {
+func intValueFromLiteral(lit string) (IntValue, error) {
 	v, err := strconv.ParseInt(lit, 10, 64)
 	if err != nil {
 		return 0, err
@@ -96,7 +141,7 @@ func (e *ValueEncoder) intValueFromLiteral(lit string) (IntValue, error) {
 	return IntValue(v), nil
 }
 
-func (e *ValueEncoder) boolValueFromLiteral(lit string) (BoolValue, error) {
+func boolValueFromLiteral(lit string) (BoolValue, error) {
 	v, err := strconv.ParseBool(lit)
 	if err != nil {
 		return false, err
@@ -104,7 +149,7 @@ func (e *ValueEncoder) boolValueFromLiteral(lit string) (BoolValue, error) {
 	return BoolValue(v), nil
 }
 
-func (e *ValueEncoder) floatValueFromLiteral(lit string) (FloatValue, error) {
+func floatValueFromLiteral(lit string) (FloatValue, error) {
 	v, err := strconv.ParseFloat(lit, 64)
 	if err != nil {
 		return 0, err
@@ -112,11 +157,15 @@ func (e *ValueEncoder) floatValueFromLiteral(lit string) (FloatValue, error) {
 	return FloatValue(v), nil
 }
 
-func (e *ValueEncoder) stringValueFromLiteral(lit string) (StringValue, error) {
-	return StringValue(lit), nil
+func stringValueFromLiteral(lit string) (StringValue, error) {
+	v, err := strconv.Unquote(lit)
+	if err != nil {
+		return "", err
+	}
+	return StringValue(v), nil
 }
 
-func (e *ValueEncoder) bytesValueFromLiteral(lit string) (BytesValue, error) {
+func bytesValueFromLiteral(lit string) (BytesValue, error) {
 	// use a workaround because ToBytes doesn't work with certain values.
 	unquoted, err := strconv.Unquote(lit[1:])
 	if err != nil {
@@ -125,7 +174,7 @@ func (e *ValueEncoder) bytesValueFromLiteral(lit string) (BytesValue, error) {
 	return BytesValue(unquoted), nil
 }
 
-func (e *ValueEncoder) dateValueFromLiteral(days int64) (DateValue, error) {
+func dateValueFromLiteral(days int64) (DateValue, error) {
 	t := time.Unix(int64(time.Duration(days)*24*time.Hour/time.Second), 0)
 	return DateValue(t), nil
 }
@@ -146,7 +195,7 @@ const (
 	yearMask         = 0x3FFF << yearShift
 )
 
-func (e *ValueEncoder) datetimeValueFromLiteral(bit int64) (DatetimeValue, error) {
+func datetimeValueFromLiteral(bit int64) (DatetimeValue, error) {
 	b := bit >> 20
 	year := (b & yearMask) >> yearShift
 	month := (b & monthMask) >> monthShift
@@ -166,7 +215,7 @@ func (e *ValueEncoder) datetimeValueFromLiteral(bit int64) (DatetimeValue, error
 	return DatetimeValue(t), nil
 }
 
-func (e *ValueEncoder) timeValueFromLiteral(bit int64) (TimeValue, error) {
+func timeValueFromLiteral(bit int64) (TimeValue, error) {
 	b := bit >> 20
 	hour := (b & hourMask) >> hourShift
 	min := (b & minMask) >> minShift
@@ -175,29 +224,29 @@ func (e *ValueEncoder) timeValueFromLiteral(bit int64) (TimeValue, error) {
 	return TimeValue(t), nil
 }
 
-func (e *ValueEncoder) timestampValueFromLiteral(t time.Time) (TimestampValue, error) {
+func timestampValueFromLiteral(t time.Time) (TimestampValue, error) {
 	return TimestampValue(t), nil
 }
 
-func (e *ValueEncoder) numericValueFromLiteral(lit string) (*NumericValue, error) {
+func numericValueFromLiteral(lit string) (*NumericValue, error) {
 	r := new(big.Rat)
 	r.SetString(lit)
 	return (*NumericValue)(r), nil
 }
 
-func (e *ValueEncoder) jsonValueFromLiteral(lit string) (JsonValue, error) {
+func jsonValueFromLiteral(lit string) (JsonValue, error) {
 	return JsonValue(lit), nil
 }
 
-func (e *ValueEncoder) intervalValueFromLiteral(lit string) (IntervalValue, error) {
+func intervalValueFromLiteral(lit string) (IntervalValue, error) {
 	return "", fmt.Errorf("currently unsupported INTERVAL literal")
 }
 
-func (e *ValueEncoder) arrayValueFromLiteral(v types.Value) (*ArrayValue, error) {
+func arrayValueFromLiteral(v types.Value) (*ArrayValue, error) {
 	ret := &ArrayValue{}
 	for i := 0; i < v.NumElements(); i++ {
 		elem := v.Element(i)
-		value, err := e.ValueFromZetaSQLValue(elem)
+		value, err := ValueFromZetaSQLValue(elem)
 		if err != nil {
 			return nil, err
 		}
@@ -206,7 +255,7 @@ func (e *ValueEncoder) arrayValueFromLiteral(v types.Value) (*ArrayValue, error)
 	return ret, nil
 }
 
-func (e *ValueEncoder) structValueFromLiteral(v types.Value) (*StructValue, error) {
+func structValueFromLiteral(v types.Value) (*StructValue, error) {
 	ret := &StructValue{
 		m: map[string]Value{},
 	}
@@ -214,7 +263,7 @@ func (e *ValueEncoder) structValueFromLiteral(v types.Value) (*StructValue, erro
 	for i := 0; i < v.NumFields(); i++ {
 		field := v.Field(i)
 		name := structType.Field(i).Name()
-		value, err := e.ValueFromZetaSQLValue(field)
+		value, err := ValueFromZetaSQLValue(field)
 		if err != nil {
 			return nil, err
 		}
@@ -225,12 +274,12 @@ func (e *ValueEncoder) structValueFromLiteral(v types.Value) (*StructValue, erro
 	return ret, nil
 }
 
-func (e *ValueEncoder) CastValue(t types.Type, v Value) (Value, error) {
+func CastValue(t types.Type, v Value) (Value, error) {
 	if v == nil {
 		return nil, nil
 	}
 	switch t.Kind() {
-	case types.INT32, types.INT64, types.UINT32, types.UINT64, types.ENUM:
+	case types.INT32, types.INT64, types.UINT32, types.UINT64:
 		i64, err := v.ToInt64()
 		if err != nil {
 			return nil, err
@@ -248,7 +297,7 @@ func (e *ValueEncoder) CastValue(t types.Type, v Value) (Value, error) {
 			return nil, err
 		}
 		return FloatValue(f64), nil
-	case types.STRING:
+	case types.STRING, types.ENUM:
 		s, err := v.ToString()
 		if err != nil {
 			return nil, err
@@ -294,7 +343,7 @@ func (e *ValueEncoder) CastValue(t types.Type, v Value) (Value, error) {
 		elemType := t.AsArray().ElementType()
 		ret := &ArrayValue{}
 		for _, value := range array.values {
-			casted, err := e.CastValue(elemType, value)
+			casted, err := CastValue(elemType, value)
 			if err != nil {
 				return nil, err
 			}
@@ -321,7 +370,7 @@ func (e *ValueEncoder) CastValue(t types.Type, v Value) (Value, error) {
 			if !exists {
 				return nil, fmt.Errorf("failed to find struct field value: %s", key)
 			}
-			casted, err := e.CastValue(typ.Field(i).Type(), value)
+			casted, err := CastValue(typ.Field(i).Type(), value)
 			if err != nil {
 				return nil, err
 			}
@@ -346,7 +395,7 @@ func (e *ValueEncoder) CastValue(t types.Type, v Value) (Value, error) {
 	return nil, fmt.Errorf("unsupported cast %s value", t.Kind())
 }
 
-func (e *ValueEncoder) ValueFromGoValue(v interface{}) (Value, error) {
+func ValueFromGoValue(v interface{}) (Value, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -356,10 +405,10 @@ func (e *ValueEncoder) ValueFromGoValue(v interface{}) (Value, error) {
 			return nil, nil
 		}
 	}
-	return e.ValueFromGoReflectValue(rv)
+	return ValueFromGoReflectValue(rv)
 }
 
-func (e *ValueEncoder) ValueFromGoReflectValue(v reflect.Value) (Value, error) {
+func ValueFromGoReflectValue(v reflect.Value) (Value, error) {
 	kind := v.Type().Kind()
 	switch kind {
 	case reflect.Int, reflect.Int16, reflect.Int32, reflect.Int64:
@@ -375,7 +424,7 @@ func (e *ValueEncoder) ValueFromGoReflectValue(v reflect.Value) (Value, error) {
 	case reflect.Slice, reflect.Array:
 		ret := &ArrayValue{}
 		for i := 0; i < v.Len(); i++ {
-			elem, err := e.ValueFromGoReflectValue(v.Index(i))
+			elem, err := ValueFromGoReflectValue(v.Index(i))
 			if err != nil {
 				return nil, err
 			}
@@ -386,7 +435,7 @@ func (e *ValueEncoder) ValueFromGoReflectValue(v reflect.Value) (Value, error) {
 		ret := &StructValue{m: map[string]Value{}}
 		iter := v.MapRange()
 		for iter.Next() {
-			key, err := e.ValueFromGoReflectValue(iter.Key())
+			key, err := ValueFromGoReflectValue(iter.Key())
 			if err != nil {
 				return nil, err
 			}
@@ -394,7 +443,7 @@ func (e *ValueEncoder) ValueFromGoReflectValue(v reflect.Value) (Value, error) {
 			if err != nil {
 				return nil, err
 			}
-			value, err := e.ValueFromGoReflectValue(iter.Value())
+			value, err := ValueFromGoReflectValue(iter.Value())
 			if err != nil {
 				return nil, err
 			}
@@ -412,7 +461,7 @@ func (e *ValueEncoder) ValueFromGoReflectValue(v reflect.Value) (Value, error) {
 		typ := v.Type()
 		for i := 0; i < v.NumField(); i++ {
 			key := typ.Field(i).Name
-			value, err := e.ValueFromGoReflectValue(v.Field(i))
+			value, err := ValueFromGoReflectValue(v.Field(i))
 			if err != nil {
 				return nil, err
 			}
@@ -422,7 +471,7 @@ func (e *ValueEncoder) ValueFromGoReflectValue(v reflect.Value) (Value, error) {
 		}
 		return ret, nil
 	case reflect.Ptr:
-		return e.ValueFromGoReflectValue(v.Elem())
+		return ValueFromGoReflectValue(v.Elem())
 	}
 	return nil, fmt.Errorf("cannot convert %s type to zetasqlite value type", kind)
 }

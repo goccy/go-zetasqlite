@@ -484,14 +484,6 @@ func NULLIF(expr, exprToMatch Value) (Value, error) {
 	return expr, nil
 }
 
-func DECODE_ARRAY(v string) (Value, error) {
-	value, err := new(ValueDecoder).Decode(v)
-	if err != nil {
-		return nil, err
-	}
-	return value, nil
-}
-
 func MAKE_ARRAY(args ...Value) (Value, error) {
 	return &ArrayValue{values: args}, nil
 }

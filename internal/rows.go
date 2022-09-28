@@ -84,7 +84,7 @@ func (r *Rows) assignValue(src interface{}, dst reflect.Value, typ *Type) error 
 		dst.Set(reflect.New(dst.Type()).Elem())
 		return nil
 	}
-	value, err := new(ValueEncoder).ValueFromGoValue(src)
+	value, err := DecodeValue(src)
 	if err != nil {
 		return err
 	}

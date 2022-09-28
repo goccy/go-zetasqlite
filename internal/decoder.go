@@ -4,24 +4,35 @@ import (
 	"encoding/base64"
 	"fmt"
 	"math/big"
-	"strconv"
+	"reflect"
 	"time"
 
 	"github.com/goccy/go-json"
 )
 
-type ValueDecoder struct {
-}
-
-func (d *ValueDecoder) Decode(v string) (Value, error) {
-	if len(v) > 0 && v[0] == '"' {
-		unquoted, err := strconv.Unquote(v)
-		if err != nil {
-			return nil, fmt.Errorf("failed to unquote for value: %w", err)
-		}
-		v = unquoted
+func DecodeValue(v interface{}) (Value, error) {
+	if v == nil {
+		return nil, nil
 	}
-	decoded, err := base64.StdEncoding.DecodeString(v)
+	rv := reflect.ValueOf(v)
+	if _, ok := v.([]byte); ok {
+		if rv.IsNil() {
+			return nil, nil
+		}
+	}
+	switch vv := v.(type) {
+	case int64:
+		return IntValue(vv), nil
+	case float64:
+		return FloatValue(vv), nil
+	case bool:
+		return BoolValue(vv), nil
+	}
+	s, ok := v.(string)
+	if !ok {
+		return nil, fmt.Errorf("unexpected value type: %T", v)
+	}
+	decoded, err := base64.StdEncoding.DecodeString(s)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode value: %w", err)
 	}
@@ -29,45 +40,23 @@ func (d *ValueDecoder) Decode(v string) (Value, error) {
 	if err := json.Unmarshal(decoded, &format); err != nil {
 		return nil, fmt.Errorf("failed to get value format: %w", err)
 	}
-	return d.DecodeFromValueFormat(&format)
+	return DecodeFromValueFormat(&format)
 }
 
-func (d *ValueDecoder) DecodeFromValueFormat(format *ValueFormat) (Value, error) {
+func DecodeFromValueFormat(format *ValueFormat) (Value, error) {
 	switch format.Header {
-	case IntValueType:
-		i64, err := strconv.ParseInt(format.Body, 10, 64)
-		if err != nil {
-			return nil, err
-		}
-		return IntValue(i64), nil
 	case StringValueType:
-		decoded, err := base64.StdEncoding.DecodeString(format.Body)
-		if err != nil {
-			return nil, err
-		}
-		return StringValue(decoded), nil
+		return StringValue(format.Body), nil
 	case BytesValueType:
 		decoded, err := base64.StdEncoding.DecodeString(format.Body)
 		if err != nil {
 			return nil, err
 		}
 		return BytesValue(decoded), nil
-	case FloatValueType:
-		f64, err := strconv.ParseFloat(format.Body, 64)
-		if err != nil {
-			return nil, err
-		}
-		return FloatValue(f64), nil
 	case NumericValueType:
 		r := new(big.Rat)
 		r.SetString(format.Body)
 		return (*NumericValue)(r), nil
-	case BoolValueType:
-		b, err := strconv.ParseBool(format.Body)
-		if err != nil {
-			return nil, err
-		}
-		return BoolValue(b), nil
 	case DateValueType:
 		t, err := parseDate(format.Body)
 		if err != nil {
@@ -97,15 +86,15 @@ func (d *ValueDecoder) DecodeFromValueFormat(format *ValueFormat) (Value, error)
 	case JsonValueType:
 		return JsonValue(format.Body), nil
 	case ArrayValueType:
-		var arr []*ValueFormat
+		var arr []interface{}
 		if err := json.Unmarshal([]byte(format.Body), &arr); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to decode array body: %w", err)
 		}
 		ret := &ArrayValue{
 			values: make([]Value, 0, len(arr)),
 		}
 		for _, elem := range arr {
-			value, err := d.DecodeFromValueFormat(elem)
+			value, err := DecodeValue(elem)
 			if err != nil {
 				return nil, err
 			}
@@ -119,8 +108,8 @@ func (d *ValueDecoder) DecodeFromValueFormat(format *ValueFormat) (Value, error)
 		}
 		m := map[string]Value{}
 		values := make([]Value, 0, len(codec.Values))
-		for i, format := range codec.Values {
-			value, err := d.DecodeFromValueFormat(format)
+		for i, data := range codec.Values {
+			value, err := DecodeValue(data)
 			if err != nil {
 				return nil, err
 			}

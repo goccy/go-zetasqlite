@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/goccy/go-json"
 	"github.com/mattn/go-sqlite3"
 )
 
@@ -356,11 +357,6 @@ var normalFuncs = []*FuncInfo{
 		Name:     "cast",
 		BindFunc: bindCast,
 	},
-	{
-		Name:     "castbool",
-		BindFunc: bindCastBoolString,
-	},
-
 	{
 		Name:     "safe_cast",
 		BindFunc: bindCast,
@@ -775,12 +771,6 @@ var normalFuncs = []*FuncInfo{
 		BindFunc: bindRangeBucket,
 	},
 
-	// encoded array to json array helper func
-	{
-		Name:     "decode_array",
-		BindFunc: bindDecodeArray,
-	},
-
 	// array functions
 	{
 		Name:     "array_concat",
@@ -1068,6 +1058,46 @@ func RegisterFunctions(conn *sqlite3.SQLiteConn) error {
 		return onceErr
 	}
 
+	if err := conn.RegisterFunc("zetasqlite_decode_array", func(v interface{}) (string, error) {
+		decoded, err := DecodeValue(v)
+		if err != nil {
+			return "", err
+		}
+		array, err := decoded.ToArray()
+		if err != nil {
+			return "", err
+		}
+		encodedValues := make([]interface{}, 0, len(array.values))
+		for _, value := range array.values {
+			v, err := EncodeValue(value)
+			if err != nil {
+				return "", err
+			}
+			encodedValues = append(encodedValues, v)
+		}
+		b, err := json.Marshal(encodedValues)
+		if err != nil {
+			return "", err
+		}
+		return string(b), err
+	}, true); err != nil {
+		return fmt.Errorf("failed to register decode_array function: %w", err)
+	}
+	if err := conn.RegisterCollation("zetasqlite_collate", func(a, b string) int {
+		va, _ := DecodeValue(a)
+		vb, _ := DecodeValue(b)
+		eq, _ := va.EQ(vb)
+		if eq {
+			return 0
+		}
+		cond, _ := va.GT(vb)
+		if cond {
+			return 1
+		}
+		return -1
+	}); err != nil {
+		return fmt.Errorf("failed to register collate function: %w", err)
+	}
 	for _, values := range normalFuncMap {
 		for _, v := range values {
 			if err := conn.RegisterFunc(v.Name, v.Func, true); err != nil {
@@ -1104,10 +1134,7 @@ func setupNormalFuncMap(info *FuncInfo) error {
 			if err != nil {
 				return nil, err
 			}
-			if ret == nil {
-				return nil, nil
-			}
-			return new(ValueEncoder).EncodeFromValue(ret)
+			return EncodeValue(ret)
 		},
 	})
 	return nil

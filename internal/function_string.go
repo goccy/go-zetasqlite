@@ -8,11 +8,11 @@ import (
 	"fmt"
 	"math"
 	"regexp"
-	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/goccy/go-zetasql/types"
 	"golang.org/x/text/collate"
 	"golang.org/x/text/language"
 	"golang.org/x/text/unicode/norm"
@@ -26,11 +26,24 @@ func BYTE_LENGTH(v []byte) (Value, error) {
 	return IntValue(len(v)), nil
 }
 
+func CAST(expr Value, fromTypeKind, toTypeKind int64) (Value, error) {
+	fromType := types.TypeFromKind(types.TypeKind(fromTypeKind))
+	toType := types.TypeFromKind(types.TypeKind(toTypeKind))
+	from, err := CastValue(fromType, expr)
+	if err != nil {
+		return nil, err
+	}
+	return CastValue(toType, from)
+}
+
 func CHAR_LENGTH(v []byte) (Value, error) {
 	return IntValue(len([]rune(string(v)))), nil
 }
 
 func CHR(v int64) (Value, error) {
+	if v == 0 {
+		return StringValue(""), nil
+	}
 	return StringValue(string(rune(v))), nil
 }
 
@@ -495,12 +508,15 @@ func NORMALIZE_AND_CASEFOLD(v, mode string) (Value, error) {
 }
 
 func compileRegexp(expr string) (*regexp.Regexp, error) {
-	// if regexp literal has escape characters, it must be unescaped before compile.
-	e, err := strconv.Unquote(`"` + expr + `"`)
-	if err != nil {
-		e = expr
-	}
-	return regexp.Compile(e)
+	/*
+		fmt.Println("expr = ", expr)
+		// if regexp literal has escape characters, it must be unescaped before compile.
+		e, err := strconv.Unquote(`"` + expr + `"`)
+		if err != nil {
+			e = expr
+		}
+	*/
+	return regexp.Compile(expr)
 }
 
 func REGEXP_CONTAINS(value, expr string) (Value, error) {
@@ -652,7 +668,6 @@ func REGEXP_INSTR(sourceValue, exprValue Value, position, occurrence, occurrence
 }
 
 func normalizeReplacement(repl string) string {
-	repl, _ = strconv.Unquote(`"` + repl + `"`)
 	var normalized []byte
 	for i := 0; i < len(repl); i++ {
 		switch repl[i] {

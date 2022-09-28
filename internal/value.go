@@ -476,7 +476,7 @@ func (bv BytesValue) ToRat() (*big.Rat, error) {
 func (bv BytesValue) ToValueFormat() (*ValueFormat, error) {
 	return &ValueFormat{
 		Header: BytesValueType,
-		Body:   string(bv),
+		Body:   base64.StdEncoding.EncodeToString([]byte(bv)),
 	}, nil
 }
 
@@ -1174,7 +1174,7 @@ func (av *ArrayValue) ToString() (string, error) {
 			elems = append(elems, "null")
 			continue
 		}
-		elem, err := v.ToString()
+		elem, err := v.ToJSON()
 		if err != nil {
 			return "", err
 		}
@@ -1220,17 +1220,17 @@ func (av *ArrayValue) ToRat() (*big.Rat, error) {
 }
 
 func (av *ArrayValue) ToValueFormat() (*ValueFormat, error) {
-	values := make([]*ValueFormat, 0, len(av.values))
+	values := make([]interface{}, 0, len(av.values))
 	for _, v := range av.values {
 		if v == nil {
 			values = append(values, nil)
 			continue
 		}
-		format, err := v.ToValueFormat()
+		value, err := EncodeValue(v)
 		if err != nil {
 			return nil, err
 		}
-		values = append(values, format)
+		values = append(values, value)
 	}
 	body, err := json.Marshal(values)
 	if err != nil {
@@ -1404,7 +1404,7 @@ func (sv *StructValue) ToString() (string, error) {
 			)
 			continue
 		}
-		v, err := value.ToString()
+		v, err := value.ToJSON()
 		if err != nil {
 			return "", err
 		}
@@ -1453,18 +1453,18 @@ func (sv *StructValue) ToRat() (*big.Rat, error) {
 }
 
 type StructValueCodec struct {
-	Keys   []string       `json:"keys"`
-	Values []*ValueFormat `json:"values"`
+	Keys   []string      `json:"keys"`
+	Values []interface{} `json:"values"`
 }
 
 func (sv *StructValue) ToValueFormat() (*ValueFormat, error) {
-	values := make([]*ValueFormat, 0, len(sv.values))
+	values := make([]interface{}, 0, len(sv.values))
 	for _, v := range sv.values {
-		format, err := v.ToValueFormat()
+		value, err := EncodeValue(v)
 		if err != nil {
 			return nil, err
 		}
-		values = append(values, format)
+		values = append(values, value)
 	}
 	body, err := json.Marshal(&StructValueCodec{
 		Keys:   sv.keys,
@@ -2486,7 +2486,7 @@ func EncodeNamedValues(v []driver.NamedValue, params []*ast.ParameterNode) ([]sq
 }
 
 func encodeNamedValue(v driver.NamedValue, param *ast.ParameterNode) (sql.NamedArg, error) {
-	value, err := new(ValueEncoder).EncodeFromGoValue(param.Type(), v.Value)
+	value, err := EncodeFromGoValue(param.Type(), v.Value)
 	if err != nil {
 		return sql.NamedArg{}, err
 	}
@@ -2503,10 +2503,9 @@ func encodeValues(v []interface{}, params []*ast.ParameterNode) ([]interface{}, 
 			len(v), len(params),
 		)
 	}
-	enc := new(ValueEncoder)
 	ret := make([]interface{}, 0, len(v))
 	for idx, vv := range v {
-		value, err := enc.EncodeFromGoValue(params[idx].Type(), vv)
+		value, err := EncodeFromGoValue(params[idx].Type(), vv)
 		if err != nil {
 			return nil, err
 		}

@@ -61,7 +61,7 @@ func (o *WindowFuncOption) UnmarshalJSON(b []byte) error {
 		}
 		o.Value = value.Value
 	case WindowFuncOptionPartition:
-		value, err := new(ValueEncoder).ValueFromGoValue(v.Value)
+		value, err := ValueFromGoValue(v.Value)
 		if err != nil {
 			return fmt.Errorf("failed to convert %v to Value: %w", v.Value, err)
 		}
@@ -110,7 +110,7 @@ func getWindowFrameUnitOptionFuncSQL(frameUnit ast.FrameUnit) string {
 	case ast.FrameUnitRange:
 		typ = WindowFrameUnitRange
 	}
-	return fmt.Sprintf("zetasqlite_window_frame_unit_string(%d)", typ)
+	return fmt.Sprintf("zetasqlite_window_frame_unit(%d)", typ)
 }
 
 func toWindowBoundaryType(boundaryType ast.BoundaryType) WindowBoundaryType {
@@ -134,7 +134,7 @@ func getWindowBoundaryStartOptionFuncSQL(boundaryType ast.BoundaryType, offset s
 	if offset == "" {
 		offset = "0"
 	}
-	return fmt.Sprintf("zetasqlite_window_boundary_start_string(%d, %s)", typ, offset)
+	return fmt.Sprintf("zetasqlite_window_boundary_start(%d, %s)", typ, offset)
 }
 
 func getWindowBoundaryEndOptionFuncSQL(boundaryType ast.BoundaryType, offset string) string {
@@ -142,19 +142,19 @@ func getWindowBoundaryEndOptionFuncSQL(boundaryType ast.BoundaryType, offset str
 	if offset == "" {
 		offset = "0"
 	}
-	return fmt.Sprintf("zetasqlite_window_boundary_end_string(%d, %s)", typ, offset)
+	return fmt.Sprintf("zetasqlite_window_boundary_end(%d, %s)", typ, offset)
 }
 
 func getWindowPartitionOptionFuncSQL(column string) string {
-	return fmt.Sprintf("zetasqlite_window_partition_string(%s)", column)
+	return fmt.Sprintf("zetasqlite_window_partition(%s)", column)
 }
 
 func getWindowRowIDOptionFuncSQL() string {
-	return "zetasqlite_window_rowid_string(`row_id`)"
+	return "zetasqlite_window_rowid(`row_id`)"
 }
 
 func getWindowOrderByOptionFuncSQL(column string, isAsc bool) string {
-	return fmt.Sprintf("zetasqlite_window_order_by_string(%s, %t)", column, isAsc)
+	return fmt.Sprintf("zetasqlite_window_order_by(%s, %t)", column, isAsc)
 }
 
 func WINDOW_FRAME_UNIT(frameUnit int64) (Value, error) {
@@ -269,7 +269,7 @@ func (w *WindowOrderBy) UnmarshalJSON(b []byte) error {
 	if err := json.Unmarshal(b, &v); err != nil {
 		return err
 	}
-	value, err := new(ValueEncoder).ValueFromGoValue(v.Value)
+	value, err := ValueFromGoValue(v.Value)
 	if err != nil {
 		return err
 	}
@@ -366,14 +366,18 @@ func (s *WindowFuncStatus) Partition() (string, error) {
 	return strings.Join(partitions, "_"), nil
 }
 
-func parseWindowOptions(args ...interface{}) ([]interface{}, *WindowFuncStatus, error) {
+func parseWindowOptions(args ...Value) ([]Value, *WindowFuncStatus, error) {
 	var (
-		filteredArgs []interface{}
+		filteredArgs []Value
 		opt          *WindowFuncStatus = &WindowFuncStatus{}
 	)
 	for _, arg := range args {
-		text, ok := arg.(string)
-		if !ok {
+		if arg == nil {
+			filteredArgs = append(filteredArgs, nil)
+			continue
+		}
+		text, err := arg.ToString()
+		if err != nil {
 			filteredArgs = append(filteredArgs, arg)
 			continue
 		}
