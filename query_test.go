@@ -2154,8 +2154,8 @@ WITH EquivalentNames AS (
       'John Smith']) AS name
 ) SELECT NORMALIZE(name, NFKC) AS normalized_name, COUNT(*) AS name_count FROM EquivalentNames GROUP BY 1`,
 			expectedRows: [][]interface{}{
-				{"John Smith", int64(2)},
 				{"Jane Doe", int64(3)},
+				{"John Smith", int64(2)},
 			},
 		},
 		{

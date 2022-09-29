@@ -735,16 +735,14 @@ func (n *AggregateScanNode) FormatSQL(ctx context.Context) (string, error) {
 				}
 			}
 			columnPatterns = append(columnPatterns, groupBySetColumnPattern)
-			/*
-				annotatedGroupBySetColumns := make([]string, 0, len(groupBySetColumns))
-				for _, column := range groupBySetColumns {
-					annotatedGroupBySetColumns = append(
-						annotatedGroupBySetColumns,
-						fmt.Sprintf("zetasqlite_group_by(%s)", column),
-					)
-				}
-			*/
-			groupByColumnPatterns = append(groupByColumnPatterns, groupBySetColumns) // annotatedGroupBySetColumns)
+			annotatedGroupBySetColumns := make([]string, 0, len(groupBySetColumns))
+			for _, column := range groupBySetColumns {
+				annotatedGroupBySetColumns = append(
+					annotatedGroupBySetColumns,
+					fmt.Sprintf("zetasqlite_group_by(%s)", column),
+				)
+			}
+			groupByColumnPatterns = append(groupByColumnPatterns, annotatedGroupBySetColumns)
 		}
 		stmts := []string{}
 		for i := 0; i < len(columnPatterns); i++ {
@@ -777,16 +775,14 @@ func (n *AggregateScanNode) FormatSQL(ctx context.Context) (string, error) {
 	}
 	var groupBy string
 	if len(groupByColumns) > 0 {
-		/*
-			annotatedGroupByColumns := make([]string, 0, len(groupByColumns))
-			for _, groupByColumn := range groupByColumns {
-				annotatedGroupByColumns = append(
-					annotatedGroupByColumns,
-					fmt.Sprintf("zetasqlite_group_by(%s)", groupByColumn),
-				)
-			}
-		*/
-		groupBy = fmt.Sprintf("GROUP BY %s", strings.Join(groupByColumns, ",")) // strings.Join(annotatedGroupByColumns, ","))
+		annotatedGroupByColumns := make([]string, 0, len(groupByColumns))
+		for _, groupByColumn := range groupByColumns {
+			annotatedGroupByColumns = append(
+				annotatedGroupByColumns,
+				fmt.Sprintf("zetasqlite_group_by(%s)", groupByColumn),
+			)
+		}
+		groupBy = fmt.Sprintf("GROUP BY %s", strings.Join(annotatedGroupByColumns, ","))
 	}
 	formattedColumns := strings.Join(columns, ",")
 	switch getInputPattern(input) {

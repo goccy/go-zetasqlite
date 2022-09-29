@@ -1083,6 +1083,17 @@ func RegisterFunctions(conn *sqlite3.SQLiteConn) error {
 	}, true); err != nil {
 		return fmt.Errorf("failed to register decode_array function: %w", err)
 	}
+
+	if err := conn.RegisterFunc("zetasqlite_group_by", func(v interface{}) (interface{}, error) {
+		decoded, err := DecodeValue(v)
+		if err != nil {
+			return "", err
+		}
+		return decoded.Interface(), nil
+	}, true); err != nil {
+		return fmt.Errorf("failed to register group_by function: %w", err)
+	}
+
 	if err := conn.RegisterCollation("zetasqlite_collate", func(a, b string) int {
 		va, _ := DecodeValue(a)
 		vb, _ := DecodeValue(b)
