@@ -118,7 +118,7 @@ func (s *DMLStmt) Exec(args []driver.Value) (driver.Result, error) {
 	for _, arg := range args {
 		values = append(values, arg)
 	}
-	newArgs, err := encodeValues(values, s.args)
+	newArgs, err := EncodeGoValues(values, s.args)
 	if err != nil {
 		return nil, err
 	}
@@ -191,7 +191,7 @@ func (s *QueryStmt) Query(args []driver.Value) (driver.Rows, error) {
 	for _, arg := range args {
 		values = append(values, arg)
 	}
-	newArgs, err := encodeValues(values, s.args)
+	newArgs, err := EncodeGoValues(values, s.args)
 	if err != nil {
 		return nil, err
 	}

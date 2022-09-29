@@ -45,7 +45,7 @@ func EQ(a, b Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ValueOf(cond)
+	return BoolValue(cond), nil
 }
 
 func NOT_EQ(a, b Value) (Value, error) {
@@ -56,7 +56,7 @@ func NOT_EQ(a, b Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ValueOf(!cond)
+	return BoolValue(!cond), nil
 }
 
 func GT(a, b Value) (Value, error) {
@@ -67,7 +67,7 @@ func GT(a, b Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ValueOf(cond)
+	return BoolValue(cond), nil
 }
 
 func GTE(a, b Value) (Value, error) {
@@ -78,7 +78,7 @@ func GTE(a, b Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ValueOf(cond)
+	return BoolValue(cond), nil
 }
 
 func LT(a, b Value) (Value, error) {
@@ -89,7 +89,7 @@ func LT(a, b Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ValueOf(cond)
+	return BoolValue(cond), nil
 }
 
 func LTE(a, b Value) (Value, error) {
@@ -100,7 +100,7 @@ func LTE(a, b Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ValueOf(cond)
+	return BoolValue(cond), nil
 }
 
 func BIT_NOT(a Value) (Value, error) {
@@ -111,7 +111,7 @@ func BIT_NOT(a Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ValueOf(^v)
+	return IntValue(^v), nil
 }
 
 func BIT_LEFT_SHIFT(a, b Value) (Value, error) {
@@ -126,7 +126,7 @@ func BIT_LEFT_SHIFT(a, b Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ValueOf(va << vb)
+	return IntValue(va << vb), nil
 }
 
 func BIT_RIGHT_SHIFT(a, b Value) (Value, error) {
@@ -141,7 +141,7 @@ func BIT_RIGHT_SHIFT(a, b Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ValueOf(va >> vb)
+	return IntValue(va >> vb), nil
 }
 
 func BIT_AND(a, b Value) (Value, error) {
@@ -156,7 +156,7 @@ func BIT_AND(a, b Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ValueOf(va & vb)
+	return IntValue(va & vb), nil
 }
 
 func BIT_OR(a, b Value) (Value, error) {
@@ -171,7 +171,7 @@ func BIT_OR(a, b Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ValueOf(va | vb)
+	return IntValue(va | vb), nil
 }
 
 func BIT_XOR(a, b Value) (Value, error) {
@@ -186,7 +186,7 @@ func BIT_XOR(a, b Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ValueOf(va ^ vb)
+	return IntValue(va ^ vb), nil
 }
 
 func ARRAY_IN(a, b Value) (Value, error) {
@@ -198,7 +198,7 @@ func ARRAY_IN(a, b Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ValueOf(cond)
+	return BoolValue(cond), nil
 }
 
 func STRUCT_FIELD(v Value, idx int) (Value, error) {
@@ -266,7 +266,7 @@ func LIKE(a, b Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ValueOf(re.MatchString(va))
+	return BoolValue(re.MatchString(va)), nil
 }
 
 func BETWEEN(target, start, end Value) (Value, error) {
@@ -295,14 +295,14 @@ func IN(a Value, values ...Value) (Value, error) {
 			return nil, err
 		}
 		if cond {
-			return ValueOf(true)
+			return BoolValue(true), nil
 		}
 	}
-	return ValueOf(false)
+	return BoolValue(false), nil
 }
 
 func IS_NULL(a Value) (Value, error) {
-	return ValueOf(a == nil)
+	return BoolValue(a == nil), nil
 }
 
 func IS_TRUE(a Value) (Value, error) {
@@ -313,7 +313,7 @@ func IS_TRUE(a Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ValueOf(b)
+	return BoolValue(b), nil
 }
 
 func IS_FALSE(a Value) (Value, error) {
@@ -324,7 +324,7 @@ func IS_FALSE(a Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ValueOf(!b)
+	return BoolValue(!b), nil
 }
 
 func NOT(a Value) (Value, error) {
@@ -482,14 +482,6 @@ func NULLIF(expr, exprToMatch Value) (Value, error) {
 		return nil, nil
 	}
 	return expr, nil
-}
-
-func DECODE_ARRAY(v string) (Value, error) {
-	json, err := jsonArrayFromEncodedString(v)
-	if err != nil {
-		return nil, err
-	}
-	return StringValue(json), nil
 }
 
 func MAKE_ARRAY(args ...Value) (Value, error) {

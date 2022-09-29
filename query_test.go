@@ -1826,6 +1826,11 @@ SELECT item FROM Produce WHERE Produce.category = 'vegetable' QUALIFY RANK() OVE
 			expectedErr: true,
 		},
 		{
+			name:         "safe cast",
+			query:        `SELECT SAFE_CAST(x AS STRING) FROM UNNEST([1, 2, 3]) AS x`,
+			expectedRows: [][]interface{}{{"1"}, {"2"}, {"3"}},
+		},
+		{
 			name:         "safe cast for invalid cast",
 			query:        `SELECT SAFE_CAST("apple" AS INT64) AS not_a_number`,
 			expectedRows: [][]interface{}{{nil}},
@@ -2256,8 +2261,8 @@ WITH example AS
 				{"Hello Helloo and Hellooo", "H?ello+", int64(3), int64(2), "Hellooo"},
 				{"Hello Helloo and Hellooo", "H?ello+", int64(3), int64(3), nil},
 				{"Hello Helloo and Hellooo", "H?ello+", int64(20), int64(1), nil},
-				{"cats&dogs&rabbits", `\\w+&`, int64(1), int64(2), "dogs&"},
-				{"cats&dogs&rabbits", `\\w+&`, int64(2), int64(3), nil},
+				{"cats&dogs&rabbits", `\w+&`, int64(1), int64(2), "dogs&"},
+				{"cats&dogs&rabbits", `\w+&`, int64(2), int64(3), nil},
 			},
 		},
 		{

@@ -87,7 +87,7 @@ func (a *AggregateOrderBy) UnmarshalJSON(b []byte) error {
 	if err := json.Unmarshal(b, &v); err != nil {
 		return err
 	}
-	value, err := ValueOf(v.Value)
+	value, err := ValueFromGoValue(v.Value)
 	if err != nil {
 		return err
 	}
@@ -114,14 +114,18 @@ type AggregatorOption struct {
 	OrderBy     []*AggregateOrderBy
 }
 
-func parseAggregateOptions(args ...interface{}) ([]interface{}, *AggregatorOption, error) {
+func parseAggregateOptions(args ...Value) ([]Value, *AggregatorOption, error) {
 	var (
-		filteredArgs []interface{}
+		filteredArgs []Value
 		opt          = &AggregatorOption{}
 	)
 	for _, arg := range args {
-		text, ok := arg.(string)
-		if !ok {
+		if arg == nil {
+			filteredArgs = append(filteredArgs, nil)
+			continue
+		}
+		text, err := arg.ToString()
+		if err != nil {
 			filteredArgs = append(filteredArgs, arg)
 			continue
 		}

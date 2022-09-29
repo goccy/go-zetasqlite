@@ -488,5 +488,5 @@ func (f *STRING_AGG) Done() (Value, error) {
 		}
 		values = append(values, text)
 	}
-	return ValueOf(strings.Join(values, f.delim))
+	return StringValue(strings.Join(values, f.delim)), nil
 }

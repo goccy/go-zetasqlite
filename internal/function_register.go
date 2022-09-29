@@ -4,1331 +4,283 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/goccy/go-zetasql/types"
+	"github.com/goccy/go-json"
 	"github.com/mattn/go-sqlite3"
 )
 
 var normalFuncs = []*FuncInfo{
-	{
-		Name:        "add",
-		BindFunc:    bindAdd,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE, types.DATE},
-	},
-	{
-		Name:        "subtract",
-		BindFunc:    bindSub,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE, types.DATE},
-	},
-	{
-		Name:        "multiply",
-		BindFunc:    bindMul,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
-	},
-	{
-		Name:        "divide",
-		BindFunc:    bindOpDiv,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
-	},
-	{
-		Name:        "equal",
-		BindFunc:    bindEqual,
-		ReturnTypes: []types.TypeKind{types.BOOL},
-	},
-	{
-		Name:        "not_equal",
-		BindFunc:    bindNotEqual,
-		ReturnTypes: []types.TypeKind{types.BOOL},
-	},
-	{
-		Name:        "greater",
-		BindFunc:    bindGreater,
-		ReturnTypes: []types.TypeKind{types.BOOL},
-	},
-	{
-		Name:        "greater_or_equal",
-		BindFunc:    bindGreaterOrEqual,
-		ReturnTypes: []types.TypeKind{types.BOOL},
-	},
-	{
-		Name:        "less",
-		BindFunc:    bindLess,
-		ReturnTypes: []types.TypeKind{types.BOOL},
-	},
-	{
-		Name:        "less_or_equal",
-		BindFunc:    bindLessOrEqual,
-		ReturnTypes: []types.TypeKind{types.BOOL},
-	},
-	{
-		Name:        "bitwise_not",
-		BindFunc:    bindBitNot,
-		ReturnTypes: []types.TypeKind{types.INT64},
-	},
-	{
-		Name:        "bitwise_left_shift",
-		BindFunc:    bindBitLeftShift,
-		ReturnTypes: []types.TypeKind{types.INT64},
-	},
-	{
-		Name:        "bitwise_right_shift",
-		BindFunc:    bindBitRightShift,
-		ReturnTypes: []types.TypeKind{types.INT64},
-	},
-	{
-		Name:        "bitwise_and",
-		BindFunc:    bindBitAnd,
-		ReturnTypes: []types.TypeKind{types.INT64},
-	},
-	{
-		Name:        "bitwise_or",
-		BindFunc:    bindBitOr,
-		ReturnTypes: []types.TypeKind{types.INT64},
-	},
-	{
-		Name:        "bitwise_xor",
-		BindFunc:    bindBitXor,
-		ReturnTypes: []types.TypeKind{types.INT64},
-	},
-	{
-		Name:        "in_array",
-		BindFunc:    bindInArray,
-		ReturnTypes: []types.TypeKind{types.BOOL},
-	},
-	{
-		Name:     "get_struct_field",
-		BindFunc: bindStructField,
-		ReturnTypes: []types.TypeKind{
-			types.INT64, types.DOUBLE, types.BOOL,
-			types.STRING, types.BYTES, types.ARRAY, types.STRUCT,
-			types.DATE, types.TIME, types.TIMESTAMP,
-		},
-	},
-	{
-		Name:     "array_at_offset",
-		BindFunc: bindArrayAtOffset,
-		ReturnTypes: []types.TypeKind{
-			types.INT64, types.DOUBLE, types.STRING,
-			types.BOOL, types.STRUCT,
-		},
-	},
-	{
-		Name:     "array_at_ordinal",
-		BindFunc: bindArrayAtOrdinal,
-		ReturnTypes: []types.TypeKind{
-			types.INT64, types.DOUBLE, types.STRING,
-			types.BOOL, types.STRUCT,
-		},
-	},
-	{
-		Name:     "safe_array_at_offset",
-		BindFunc: bindSafeArrayAtOffset,
-		ReturnTypes: []types.TypeKind{
-			types.INT64, types.DOUBLE, types.STRING,
-			types.BOOL, types.STRUCT,
-		},
-	},
-	{
-		Name:     "safe_array_at_ordinal",
-		BindFunc: bindSafeArrayAtOrdinal,
-		ReturnTypes: []types.TypeKind{
-			types.INT64, types.DOUBLE, types.STRING,
-			types.BOOL, types.STRUCT,
-		},
-	},
-	{
-		Name:        "is_distinct_from",
-		BindFunc:    bindIsDistinctFrom,
-		ReturnTypes: []types.TypeKind{types.BOOL},
-	},
-	{
-		Name:        "is_not_distinct_from",
-		BindFunc:    bindIsNotDistinctFrom,
-		ReturnTypes: []types.TypeKind{types.BOOL},
-	},
-	{
-		Name:        "generate_uuid",
-		BindFunc:    bindGenerateUUID,
-		ReturnTypes: []types.TypeKind{types.STRING},
-	},
+	{Name: "add", BindFunc: bindAdd},
+	{Name: "subtract", BindFunc: bindSub},
+	{Name: "multiply", BindFunc: bindMul},
+	{Name: "divide", BindFunc: bindOpDiv},
+	{Name: "equal", BindFunc: bindEqual},
+	{Name: "not_equal", BindFunc: bindNotEqual},
+	{Name: "greater", BindFunc: bindGreater},
+	{Name: "greater_or_equal", BindFunc: bindGreaterOrEqual},
+	{Name: "less", BindFunc: bindLess},
+	{Name: "less_or_equal", BindFunc: bindLessOrEqual},
+	{Name: "bitwise_not", BindFunc: bindBitNot},
+	{Name: "bitwise_left_shift", BindFunc: bindBitLeftShift},
+	{Name: "bitwise_right_shift", BindFunc: bindBitRightShift},
+	{Name: "bitwise_and", BindFunc: bindBitAnd},
+	{Name: "bitwise_or", BindFunc: bindBitOr},
+	{Name: "bitwise_xor", BindFunc: bindBitXor},
+	{Name: "in_array", BindFunc: bindInArray},
+	{Name: "get_struct_field", BindFunc: bindStructField},
+	{Name: "array_at_offset", BindFunc: bindArrayAtOffset},
+	{Name: "array_at_ordinal", BindFunc: bindArrayAtOrdinal},
+	{Name: "safe_array_at_offset", BindFunc: bindSafeArrayAtOffset},
+	{Name: "safe_array_at_ordinal", BindFunc: bindSafeArrayAtOrdinal},
+	{Name: "is_distinct_from", BindFunc: bindIsDistinctFrom},
+	{Name: "is_not_distinct_from", BindFunc: bindIsNotDistinctFrom},
+	{Name: "generate_uuid", BindFunc: bindGenerateUUID},
 
 	// date functions
-	{
-		Name:        "current_date",
-		BindFunc:    bindCurrentDate,
-		ReturnTypes: []types.TypeKind{types.DATE},
-	},
-	{
-		Name:        "extract",
-		BindFunc:    bindExtract,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DATE, types.DATETIME, types.TIME},
-	},
-	{
-		Name:        "date",
-		BindFunc:    bindDate,
-		ReturnTypes: []types.TypeKind{types.DATE},
-	},
-	{
-		Name:        "date_add",
-		BindFunc:    bindDateAdd,
-		ReturnTypes: []types.TypeKind{types.DATE},
-	},
-	{
-		Name:        "date_sub",
-		BindFunc:    bindDateSub,
-		ReturnTypes: []types.TypeKind{types.DATE},
-	},
-	{
-		Name:        "date_diff",
-		BindFunc:    bindDateDiff,
-		ReturnTypes: []types.TypeKind{types.INT64},
-	},
-	{
-		Name:        "date_trunc",
-		BindFunc:    bindDateTrunc,
-		ReturnTypes: []types.TypeKind{types.DATE},
-	},
-	{
-		Name:        "date_from_unix_date",
-		BindFunc:    bindDateFromUnixDate,
-		ReturnTypes: []types.TypeKind{types.DATE},
-	},
-	{
-		Name:        "format_date",
-		BindFunc:    bindFormatDate,
-		ReturnTypes: []types.TypeKind{types.STRING},
-	},
-	{
-		Name:        "last_day",
-		BindFunc:    bindLastDay,
-		ReturnTypes: []types.TypeKind{types.DATE, types.DATETIME},
-	},
-	{
-		Name:        "parse_date",
-		BindFunc:    bindParseDate,
-		ReturnTypes: []types.TypeKind{types.DATE},
-	},
-	{
-		Name:        "unix_date",
-		BindFunc:    bindUnixDate,
-		ReturnTypes: []types.TypeKind{types.INT64},
-	},
+	{Name: "current_date", BindFunc: bindCurrentDate},
+	{Name: "extract", BindFunc: bindExtract},
+	{Name: "date", BindFunc: bindDate},
+	{Name: "date_add", BindFunc: bindDateAdd},
+	{Name: "date_sub", BindFunc: bindDateSub},
+	{Name: "date_diff", BindFunc: bindDateDiff},
+	{Name: "date_trunc", BindFunc: bindDateTrunc},
+	{Name: "date_from_unix_date", BindFunc: bindDateFromUnixDate},
+	{Name: "format_date", BindFunc: bindFormatDate},
+	{Name: "last_day", BindFunc: bindLastDay},
+	{Name: "parse_date", BindFunc: bindParseDate},
+	{Name: "unix_date", BindFunc: bindUnixDate},
 
 	// datetime functions
-	{
-		Name:        "current_datetime",
-		BindFunc:    bindCurrentDatetime,
-		ReturnTypes: []types.TypeKind{types.DATETIME},
-	},
-	{
-		Name:        "datetime",
-		BindFunc:    bindDatetime,
-		ReturnTypes: []types.TypeKind{types.DATETIME},
-	},
-	{
-		Name:        "datetime_add",
-		BindFunc:    bindDatetimeAdd,
-		ReturnTypes: []types.TypeKind{types.DATETIME},
-	},
-	{
-		Name:        "datetime_sub",
-		BindFunc:    bindDatetimeSub,
-		ReturnTypes: []types.TypeKind{types.DATETIME},
-	},
-	{
-		Name:        "datetime_diff",
-		BindFunc:    bindDatetimeDiff,
-		ReturnTypes: []types.TypeKind{types.INT64},
-	},
-	{
-		Name:        "datetime_trunc",
-		BindFunc:    bindDatetimeTrunc,
-		ReturnTypes: []types.TypeKind{types.DATETIME},
-	},
-	{
-		Name:        "format_datetime",
-		BindFunc:    bindFormatDatetime,
-		ReturnTypes: []types.TypeKind{types.STRING},
-	},
-	{
-		Name:        "parse_datetime",
-		BindFunc:    bindParseDatetime,
-		ReturnTypes: []types.TypeKind{types.DATETIME},
-	},
+	{Name: "current_datetime", BindFunc: bindCurrentDatetime},
+	{Name: "datetime", BindFunc: bindDatetime},
+	{Name: "datetime_add", BindFunc: bindDatetimeAdd},
+	{Name: "datetime_sub", BindFunc: bindDatetimeSub},
+	{Name: "datetime_diff", BindFunc: bindDatetimeDiff},
+	{Name: "datetime_trunc", BindFunc: bindDatetimeTrunc},
+	{Name: "format_datetime", BindFunc: bindFormatDatetime},
+	{Name: "parse_datetime", BindFunc: bindParseDatetime},
 
 	// time functions
-	{
-		Name:        "current_time",
-		BindFunc:    bindCurrentTime,
-		ReturnTypes: []types.TypeKind{types.TIME},
-	},
-	{
-		Name:        "time",
-		BindFunc:    bindTime,
-		ReturnTypes: []types.TypeKind{types.TIME},
-	},
-	{
-		Name:        "time_add",
-		BindFunc:    bindTimeAdd,
-		ReturnTypes: []types.TypeKind{types.TIME},
-	},
-	{
-		Name:        "time_sub",
-		BindFunc:    bindTimeSub,
-		ReturnTypes: []types.TypeKind{types.TIME},
-	},
-	{
-		Name:        "time_diff",
-		BindFunc:    bindTimeDiff,
-		ReturnTypes: []types.TypeKind{types.INT64},
-	},
-	{
-		Name:        "time_trunc",
-		BindFunc:    bindTimeTrunc,
-		ReturnTypes: []types.TypeKind{types.TIME},
-	},
-	{
-		Name:        "format_time",
-		BindFunc:    bindFormatTime,
-		ReturnTypes: []types.TypeKind{types.STRING},
-	},
-	{
-		Name:        "parse_time",
-		BindFunc:    bindParseTime,
-		ReturnTypes: []types.TypeKind{types.TIME},
-	},
+	{Name: "current_time", BindFunc: bindCurrentTime},
+	{Name: "time", BindFunc: bindTime},
+	{Name: "time_add", BindFunc: bindTimeAdd},
+	{Name: "time_sub", BindFunc: bindTimeSub},
+	{Name: "time_diff", BindFunc: bindTimeDiff},
+	{Name: "time_trunc", BindFunc: bindTimeTrunc},
+	{Name: "format_time", BindFunc: bindFormatTime},
+	{Name: "parse_time", BindFunc: bindParseTime},
 
 	// timestamp functions
-	{
-		Name:        "current_timestamp",
-		BindFunc:    bindCurrentTimestamp,
-		ReturnTypes: []types.TypeKind{types.TIMESTAMP},
-	},
-	{
-		Name:        "string",
-		BindFunc:    bindString,
-		ReturnTypes: []types.TypeKind{types.STRING},
-	},
-	{
-		Name:        "timestamp",
-		BindFunc:    bindTimestamp,
-		ReturnTypes: []types.TypeKind{types.TIMESTAMP},
-	},
-	{
-		Name:        "timestamp_add",
-		BindFunc:    bindTimestampAdd,
-		ReturnTypes: []types.TypeKind{types.TIMESTAMP},
-	},
-	{
-		Name:        "timestamp_sub",
-		BindFunc:    bindTimestampSub,
-		ReturnTypes: []types.TypeKind{types.TIMESTAMP},
-	},
-	{
-		Name:        "timestamp_diff",
-		BindFunc:    bindTimestampDiff,
-		ReturnTypes: []types.TypeKind{types.INT64},
-	},
-	{
-		Name:        "timestamp_trunc",
-		BindFunc:    bindTimestampTrunc,
-		ReturnTypes: []types.TypeKind{types.TIMESTAMP},
-	},
-	{
-		Name:        "format_timestamp",
-		BindFunc:    bindFormatTimestamp,
-		ReturnTypes: []types.TypeKind{types.STRING},
-	},
-	{
-		Name:        "parse_timestamp",
-		BindFunc:    bindParseTimestamp,
-		ReturnTypes: []types.TypeKind{types.TIMESTAMP},
-	},
-	{
-		Name:        "timestamp_seconds",
-		BindFunc:    bindTimestampSeconds,
-		ReturnTypes: []types.TypeKind{types.TIMESTAMP},
-	},
-	{
-		Name:        "timestamp_millis",
-		BindFunc:    bindTimestampMillis,
-		ReturnTypes: []types.TypeKind{types.TIMESTAMP},
-	},
-	{
-		Name:        "timestamp_micros",
-		BindFunc:    bindTimestampMicros,
-		ReturnTypes: []types.TypeKind{types.TIMESTAMP},
-	},
-	{
-		Name:        "unix_seconds",
-		BindFunc:    bindUnixSeconds,
-		ReturnTypes: []types.TypeKind{types.INT64},
-	},
-	{
-		Name:        "unix_millis",
-		BindFunc:    bindUnixMillis,
-		ReturnTypes: []types.TypeKind{types.INT64},
-	},
-	{
-		Name:        "unix_micros",
-		BindFunc:    bindUnixMicros,
-		ReturnTypes: []types.TypeKind{types.INT64},
-	},
-	{
-		Name:        "like",
-		BindFunc:    bindLike,
-		ReturnTypes: []types.TypeKind{types.BOOL},
-	},
-	{
-		Name:        "between",
-		BindFunc:    bindBetween,
-		ReturnTypes: []types.TypeKind{types.BOOL},
-	},
-	{
-		Name:        "in",
-		BindFunc:    bindIn,
-		ReturnTypes: []types.TypeKind{types.BOOL},
-	},
-	{
-		Name:        "is_null",
-		BindFunc:    bindIsNull,
-		ReturnTypes: []types.TypeKind{types.BOOL},
-	},
-	{
-		Name:        "is_true",
-		BindFunc:    bindIsTrue,
-		ReturnTypes: []types.TypeKind{types.BOOL},
-	},
-	{
-		Name:        "is_false",
-		BindFunc:    bindIsFalse,
-		ReturnTypes: []types.TypeKind{types.BOOL},
-	},
-	{
-		Name:        "not",
-		BindFunc:    bindNot,
-		ReturnTypes: []types.TypeKind{types.BOOL},
-	},
-	{
-		Name:        "and",
-		BindFunc:    bindAnd,
-		ReturnTypes: []types.TypeKind{types.BOOL},
-	},
-	{
-		Name:        "or",
-		BindFunc:    bindOr,
-		ReturnTypes: []types.TypeKind{types.BOOL},
-	},
-	{
-		Name:     "case_with_value",
-		BindFunc: bindCaseWithValue,
-		ReturnTypes: []types.TypeKind{
-			types.INT64, types.DOUBLE, types.STRING, types.BOOL,
-			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
-		},
-	},
-	{
-		Name:     "case_no_value",
-		BindFunc: bindCaseNoValue,
-		ReturnTypes: []types.TypeKind{
-			types.INT64, types.DOUBLE, types.STRING, types.BOOL,
-			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
-		},
-	},
-	{
-		Name:     "coalesce",
-		BindFunc: bindCoalesce,
-		ReturnTypes: []types.TypeKind{
-			types.INT64, types.DOUBLE, types.STRING, types.BOOL,
-			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
-		},
-	},
-	{
-		Name:     "if",
-		BindFunc: bindIf,
-		ReturnTypes: []types.TypeKind{
-			types.INT64, types.DOUBLE, types.STRING, types.BOOL,
-			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
-			types.ARRAY, types.STRUCT,
-		},
-	},
-	{
-		Name:     "ifnull",
-		BindFunc: bindIfNull,
-		ReturnTypes: []types.TypeKind{
-			types.INT64, types.DOUBLE, types.STRING, types.BOOL,
-			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
-			types.ARRAY, types.STRUCT,
-		},
-	},
-	{
-		Name:     "nullif",
-		BindFunc: bindNullIf,
-		ReturnTypes: []types.TypeKind{
-			types.INT64, types.DOUBLE, types.STRING, types.BOOL,
-			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
-			types.ARRAY, types.STRUCT,
-		},
-	},
-	{
-		Name:        "length",
-		BindFunc:    bindLength,
-		ReturnTypes: []types.TypeKind{types.INT64},
-	},
-	{
-		Name:     "cast",
-		BindFunc: bindCast,
-		ReturnTypes: []types.TypeKind{
-			types.INT64, types.DOUBLE, types.BOOL, types.STRING, types.BYTES,
-			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
-			types.ARRAY, types.STRUCT,
-		},
-	},
-	{
-		Name:        "castbool",
-		BindFunc:    bindCastBoolString,
-		ReturnTypes: []types.TypeKind{types.STRING},
-	},
-
-	{
-		Name:     "safe_cast",
-		BindFunc: bindCast,
-		ReturnTypes: []types.TypeKind{
-			types.INT64, types.DOUBLE, types.BOOL, types.STRING, types.BYTES,
-			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
-			types.ARRAY, types.STRUCT,
-		},
-	},
+	{Name: "current_timestamp", BindFunc: bindCurrentTimestamp},
+	{Name: "string", BindFunc: bindString},
+	{Name: "timestamp", BindFunc: bindTimestamp},
+	{Name: "timestamp_add", BindFunc: bindTimestampAdd},
+	{Name: "timestamp_sub", BindFunc: bindTimestampSub},
+	{Name: "timestamp_diff", BindFunc: bindTimestampDiff},
+	{Name: "timestamp_trunc", BindFunc: bindTimestampTrunc},
+	{Name: "format_timestamp", BindFunc: bindFormatTimestamp},
+	{Name: "parse_timestamp", BindFunc: bindParseTimestamp},
+	{Name: "timestamp_seconds", BindFunc: bindTimestampSeconds},
+	{Name: "timestamp_millis", BindFunc: bindTimestampMillis},
+	{Name: "timestamp_micros", BindFunc: bindTimestampMicros},
+	{Name: "unix_seconds", BindFunc: bindUnixSeconds},
+	{Name: "unix_millis", BindFunc: bindUnixMillis},
+	{Name: "unix_micros", BindFunc: bindUnixMicros},
+	{Name: "like", BindFunc: bindLike},
+	{Name: "between", BindFunc: bindBetween},
+	{Name: "in", BindFunc: bindIn},
+	{Name: "is_null", BindFunc: bindIsNull},
+	{Name: "is_true", BindFunc: bindIsTrue},
+	{Name: "is_false", BindFunc: bindIsFalse},
+	{Name: "not", BindFunc: bindNot},
+	{Name: "and", BindFunc: bindAnd},
+	{Name: "or", BindFunc: bindOr},
+	{Name: "case_with_value", BindFunc: bindCaseWithValue},
+	{Name: "case_no_value", BindFunc: bindCaseNoValue},
+	{Name: "coalesce", BindFunc: bindCoalesce},
+	{Name: "if", BindFunc: bindIf},
+	{Name: "ifnull", BindFunc: bindIfNull},
+	{Name: "nullif", BindFunc: bindNullIf},
+	{Name: "length", BindFunc: bindLength},
+	{Name: "cast", BindFunc: bindCast},
 
 	// hash functions
-	{
-		Name:        "farm_fingerprint",
-		BindFunc:    bindFarmFingerprint,
-		ReturnTypes: []types.TypeKind{types.INT64},
-	},
-	{
-		Name:        "md5",
-		BindFunc:    bindMD5,
-		ReturnTypes: []types.TypeKind{types.BYTES},
-	},
-	{
-		Name:        "sha1",
-		BindFunc:    bindSha1,
-		ReturnTypes: []types.TypeKind{types.BYTES},
-	},
-	{
-		Name:        "sha256",
-		BindFunc:    bindSha256,
-		ReturnTypes: []types.TypeKind{types.BYTES},
-	},
-	{
-		Name:        "sha512",
-		BindFunc:    bindSha512,
-		ReturnTypes: []types.TypeKind{types.BYTES},
-	},
+	{Name: "farm_fingerprint", BindFunc: bindFarmFingerprint},
+	{Name: "md5", BindFunc: bindMD5},
+	{Name: "sha1", BindFunc: bindSha1},
+	{Name: "sha256", BindFunc: bindSha256},
+	{Name: "sha512", BindFunc: bindSha512},
 
 	// string functions
-	{
-		Name:        "ascii",
-		BindFunc:    bindAscii,
-		ReturnTypes: []types.TypeKind{types.INT64},
-	},
-	{
-		Name:        "byte_length",
-		BindFunc:    bindByteLength,
-		ReturnTypes: []types.TypeKind{types.INT64},
-	},
-	{
-		Name:        "char_length",
-		BindFunc:    bindCharLength,
-		ReturnTypes: []types.TypeKind{types.INT64},
-	},
-	{
-		Name:        "chr",
-		BindFunc:    bindChr,
-		ReturnTypes: []types.TypeKind{types.STRING},
-	},
-	{
-		Name:        "code_points_to_bytes",
-		BindFunc:    bindCodePointsToBytes,
-		ReturnTypes: []types.TypeKind{types.BYTES},
-	},
-	{
-		Name:        "code_points_to_string",
-		BindFunc:    bindCodePointsToString,
-		ReturnTypes: []types.TypeKind{types.STRING},
-	},
-	{
-		Name:        "collate",
-		BindFunc:    bindCollate,
-		ReturnTypes: []types.TypeKind{types.STRING},
-	},
-	{
-		Name:        "concat",
-		BindFunc:    bindConcat,
-		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
-	},
-	{
-		Name:        "contains_substr",
-		BindFunc:    bindContainsSubstr,
-		ReturnTypes: []types.TypeKind{types.BOOL},
-	},
-	{
-		Name:        "ends_with",
-		BindFunc:    bindEndsWith,
-		ReturnTypes: []types.TypeKind{types.BOOL},
-	},
-	{
-		Name:        "format",
-		BindFunc:    bindFormat,
-		ReturnTypes: []types.TypeKind{types.STRING},
-	},
-	{
-		Name:        "from_base32",
-		BindFunc:    bindFromBase32,
-		ReturnTypes: []types.TypeKind{types.BYTES},
-	},
-	{
-		Name:        "from_base64",
-		BindFunc:    bindFromBase64,
-		ReturnTypes: []types.TypeKind{types.BYTES},
-	},
-	{
-		Name:        "from_hex",
-		BindFunc:    bindFromHex,
-		ReturnTypes: []types.TypeKind{types.BYTES},
-	},
-	{
-		Name:        "initcap",
-		BindFunc:    bindInitcap,
-		ReturnTypes: []types.TypeKind{types.STRING},
-	},
-	{
-		Name:        "instr",
-		BindFunc:    bindInstr,
-		ReturnTypes: []types.TypeKind{types.INT64},
-	},
-	{
-		Name:        "left",
-		BindFunc:    bindLeft,
-		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
-	},
-	{
-		Name:        "length",
-		BindFunc:    bindLength,
-		ReturnTypes: []types.TypeKind{types.INT64},
-	},
-	{
-		Name:        "lpad",
-		BindFunc:    bindLpad,
-		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
-	},
-	{
-		Name:        "lower",
-		BindFunc:    bindLower,
-		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
-	},
-	{
-		Name:        "ltrim",
-		BindFunc:    bindLtrim,
-		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
-	},
-	{
-		Name:        "normalize",
-		BindFunc:    bindNormalize,
-		ReturnTypes: []types.TypeKind{types.STRING},
-	},
-	{
-		Name:        "normalize_and_casefold",
-		BindFunc:    bindNormalizeAndCasefold,
-		ReturnTypes: []types.TypeKind{types.STRING},
-	},
-	{
-		Name:        "regexp_contains",
-		BindFunc:    bindRegexpContains,
-		ReturnTypes: []types.TypeKind{types.BOOL},
-	},
-	{
-		Name:        "regexp_extract",
-		BindFunc:    bindRegexpExtract,
-		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
-	},
-	{
-		Name:        "regexp_extract_all",
-		BindFunc:    bindRegexpExtractAll,
-		ReturnTypes: []types.TypeKind{types.ARRAY},
-	},
-	{
-		Name:        "regexp_instr",
-		BindFunc:    bindRegexpInstr,
-		ReturnTypes: []types.TypeKind{types.INT64},
-	},
-	{
-		Name:        "regexp_replace",
-		BindFunc:    bindRegexpReplace,
-		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
-	},
-	{
-		Name:        "replace",
-		BindFunc:    bindReplace,
-		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
-	},
-	{
-		Name:        "repeat",
-		BindFunc:    bindRepeat,
-		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
-	},
-	{
-		Name:        "reverse",
-		BindFunc:    bindReverse,
-		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
-	},
-	{
-		Name:        "right",
-		BindFunc:    bindRight,
-		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
-	},
-	{
-		Name:        "rpad",
-		BindFunc:    bindRpad,
-		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
-	},
-	{
-		Name:        "rtrim",
-		BindFunc:    bindRtrim,
-		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
-	},
-	{
-		Name:        "safe_convert_bytes_to_string",
-		BindFunc:    bindSafeConvertBytesToString,
-		ReturnTypes: []types.TypeKind{types.STRING},
-	},
-	{
-		Name:        "soundex",
-		BindFunc:    bindSoundex,
-		ReturnTypes: []types.TypeKind{types.STRING},
-	},
-	{
-		Name:        "split",
-		BindFunc:    bindSplit,
-		ReturnTypes: []types.TypeKind{types.ARRAY},
-	},
-	{
-		Name:        "starts_with",
-		BindFunc:    bindStartsWith,
-		ReturnTypes: []types.TypeKind{types.BOOL},
-	},
-	{
-		Name:        "strpos",
-		BindFunc:    bindStrpos,
-		ReturnTypes: []types.TypeKind{types.INT64},
-	},
-	{
-		Name:        "substr",
-		BindFunc:    bindSubstr,
-		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
-	},
-	{
-		Name:        "to_base32",
-		BindFunc:    bindToBase32,
-		ReturnTypes: []types.TypeKind{types.STRING},
-	},
-	{
-		Name:        "to_base64",
-		BindFunc:    bindToBase64,
-		ReturnTypes: []types.TypeKind{types.STRING},
-	},
-	{
-		Name:        "to_code_points",
-		BindFunc:    bindToCodePoints,
-		ReturnTypes: []types.TypeKind{types.ARRAY},
-	},
-	{
-		Name:        "to_hex",
-		BindFunc:    bindToHex,
-		ReturnTypes: []types.TypeKind{types.STRING},
-	},
-	{
-		Name:        "translate",
-		BindFunc:    bindTranslate,
-		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
-	},
-	{
-		Name:        "trim",
-		BindFunc:    bindTrim,
-		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
-	},
-	{
-		Name:        "unicode",
-		BindFunc:    bindUnicode,
-		ReturnTypes: []types.TypeKind{types.INT64},
-	},
-	{
-		Name:        "upper",
-		BindFunc:    bindUpper,
-		ReturnTypes: []types.TypeKind{types.STRING, types.BYTES},
-	},
+	{Name: "ascii", BindFunc: bindAscii},
+	{Name: "byte_length", BindFunc: bindByteLength},
+	{Name: "char_length", BindFunc: bindCharLength},
+	{Name: "chr", BindFunc: bindChr},
+	{Name: "code_points_to_bytes", BindFunc: bindCodePointsToBytes},
+	{Name: "code_points_to_string", BindFunc: bindCodePointsToString},
+	{Name: "collate", BindFunc: bindCollate},
+	{Name: "concat", BindFunc: bindConcat},
+	{Name: "contains_substr", BindFunc: bindContainsSubstr},
+	{Name: "ends_with", BindFunc: bindEndsWith},
+	{Name: "format", BindFunc: bindFormat},
+	{Name: "from_base32", BindFunc: bindFromBase32},
+	{Name: "from_base64", BindFunc: bindFromBase64},
+	{Name: "from_hex", BindFunc: bindFromHex},
+	{Name: "initcap", BindFunc: bindInitcap},
+	{Name: "instr", BindFunc: bindInstr},
+	{Name: "left", BindFunc: bindLeft},
+	{Name: "length", BindFunc: bindLength},
+	{Name: "lpad", BindFunc: bindLpad},
+	{Name: "lower", BindFunc: bindLower},
+	{Name: "ltrim", BindFunc: bindLtrim},
+	{Name: "normalize", BindFunc: bindNormalize},
+	{Name: "normalize_and_casefold", BindFunc: bindNormalizeAndCasefold},
+	{Name: "regexp_contains", BindFunc: bindRegexpContains},
+	{Name: "regexp_extract", BindFunc: bindRegexpExtract},
+	{Name: "regexp_extract_all", BindFunc: bindRegexpExtractAll},
+	{Name: "regexp_instr", BindFunc: bindRegexpInstr},
+	{Name: "regexp_replace", BindFunc: bindRegexpReplace},
+	{Name: "replace", BindFunc: bindReplace},
+	{Name: "repeat", BindFunc: bindRepeat},
+	{Name: "reverse", BindFunc: bindReverse},
+	{Name: "right", BindFunc: bindRight},
+	{Name: "rpad", BindFunc: bindRpad},
+	{Name: "rtrim", BindFunc: bindRtrim},
+	{Name: "safe_convert_bytes_to_string", BindFunc: bindSafeConvertBytesToString},
+	{Name: "soundex", BindFunc: bindSoundex},
+	{Name: "split", BindFunc: bindSplit},
+	{Name: "starts_with", BindFunc: bindStartsWith},
+	{Name: "strpos", BindFunc: bindStrpos},
+	{Name: "substr", BindFunc: bindSubstr},
+	{Name: "to_base32", BindFunc: bindToBase32},
+	{Name: "to_base64", BindFunc: bindToBase64},
+	{Name: "to_code_points", BindFunc: bindToCodePoints},
+	{Name: "to_hex", BindFunc: bindToHex},
+	{Name: "translate", BindFunc: bindTranslate},
+	{Name: "trim", BindFunc: bindTrim},
+	{Name: "unicode", BindFunc: bindUnicode},
+	{Name: "upper", BindFunc: bindUpper},
 
 	// json functions
-	{
-		Name:        "to_json",
-		BindFunc:    bindToJson,
-		ReturnTypes: []types.TypeKind{types.JSON},
-	},
-	{
-		Name:        "to_json_string",
-		BindFunc:    bindToJsonString,
-		ReturnTypes: []types.TypeKind{types.STRING},
-	},
-	{
-		Name:        "bool",
-		BindFunc:    bindBool,
-		ReturnTypes: []types.TypeKind{types.BOOL},
-	},
-	{
-		Name:        "int64",
-		BindFunc:    bindInt64,
-		ReturnTypes: []types.TypeKind{types.INT64},
-	},
-	{
-		Name:        "double",
-		BindFunc:    bindDouble,
-		ReturnTypes: []types.TypeKind{types.DOUBLE},
-	},
-	{
-		Name:        "json_type",
-		BindFunc:    bindJsonType,
-		ReturnTypes: []types.TypeKind{types.STRING},
-	},
+	{Name: "to_json", BindFunc: bindToJson},
+	{Name: "to_json_string", BindFunc: bindToJsonString},
+	{Name: "bool", BindFunc: bindBool},
+	{Name: "int64", BindFunc: bindInt64},
+	{Name: "double", BindFunc: bindDouble},
+	{Name: "json_type", BindFunc: bindJsonType},
 
 	// math functions
 
-	{
-		Name:        "abs",
-		BindFunc:    bindAbs,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
-	},
-	{
-		Name:        "sign",
-		BindFunc:    bindSign,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
-	},
-	{
-		Name:        "is_inf",
-		BindFunc:    bindIsInf,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
-	},
-	{
-		Name:        "is_nan",
-		BindFunc:    bindIsNaN,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
-	},
-	{
-		Name:        "ieee_divide",
-		BindFunc:    bindIEEEDivide,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
-	},
-	{
-		Name:        "rand",
-		BindFunc:    bindRand,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
-	},
-	{
-		Name:        "sqrt",
-		BindFunc:    bindSqrt,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
-	},
-	{
-		Name:        "pow",
-		BindFunc:    bindPow,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
-	},
-	{
-		Name:        "power",
-		BindFunc:    bindPow,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
-	},
-	{
-		Name:        "exp",
-		BindFunc:    bindExp,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
-	},
-	{
-		Name:        "ln",
-		BindFunc:    bindLn,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
-	},
-	{
-		Name:        "log",
-		BindFunc:    bindLog,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
-	},
-	{
-		Name:        "log10",
-		BindFunc:    bindLog10,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
-	},
-	{
-		Name:        "greatest",
-		BindFunc:    bindGreatest,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
-	},
-	{
-		Name:        "least",
-		BindFunc:    bindLeast,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
-	},
-	{
-		Name:        "div",
-		BindFunc:    bindDiv,
-		ReturnTypes: []types.TypeKind{types.INT64},
-	},
-	{
-		Name:        "safe_divide",
-		BindFunc:    bindSafeDivide,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
-	},
-	{
-		Name:        "safe_multiply",
-		BindFunc:    bindSafeMultiply,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
-	},
-	{
-		Name:        "safe_negate",
-		BindFunc:    bindSafeNegate,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
-	},
-	{
-		Name:        "safe_add",
-		BindFunc:    bindSafeAdd,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
-	},
-	{
-		Name:        "safe_subtract",
-		BindFunc:    bindSafeSubtract,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
-	},
-	{
-		Name:        "mod",
-		BindFunc:    bindMod,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
-	},
-	{
-		Name:        "round",
-		BindFunc:    bindRound,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
-	},
-	{
-		Name:        "trunc",
-		BindFunc:    bindTrunc,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
-	},
-	{
-		Name:        "ceil",
-		BindFunc:    bindCeil,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
-	},
-	{
-		Name:        "ceiling",
-		BindFunc:    bindCeil,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
-	},
-	{
-		Name:        "floor",
-		BindFunc:    bindFloor,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
-	},
-	{
-		Name:        "cos",
-		BindFunc:    bindCos,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
-	},
-	{
-		Name:        "cosh",
-		BindFunc:    bindCosh,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
-	},
-	{
-		Name:        "acos",
-		BindFunc:    bindAcos,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
-	},
-	{
-		Name:        "acosh",
-		BindFunc:    bindAcosh,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
-	},
-	{
-		Name:        "sin",
-		BindFunc:    bindSin,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
-	},
-	{
-		Name:        "sinh",
-		BindFunc:    bindSinh,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
-	},
-	{
-		Name:        "asin",
-		BindFunc:    bindAsin,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
-	},
-	{
-		Name:        "asinh",
-		BindFunc:    bindAsinh,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
-	},
-	{
-		Name:        "tan",
-		BindFunc:    bindTan,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
-	},
-	{
-		Name:        "tanh",
-		BindFunc:    bindTanh,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
-	},
-	{
-		Name:        "atan",
-		BindFunc:    bindAtan,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
-	},
-	{
-		Name:        "atanh",
-		BindFunc:    bindAtanh,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
-	},
-	{
-		Name:        "atan2",
-		BindFunc:    bindAtan2,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
-	},
-	{
-		Name:        "range_bucket",
-		BindFunc:    bindRangeBucket,
-		ReturnTypes: []types.TypeKind{types.INT64},
-	},
-
-	// encoded array to json array helper func
-	{
-		Name:        "decode_array",
-		BindFunc:    bindDecodeArray,
-		ReturnTypes: []types.TypeKind{types.STRING},
-	},
+	{Name: "abs", BindFunc: bindAbs},
+	{Name: "sign", BindFunc: bindSign},
+	{Name: "is_inf", BindFunc: bindIsInf},
+	{Name: "is_nan", BindFunc: bindIsNaN},
+	{Name: "ieee_divide", BindFunc: bindIEEEDivide},
+	{Name: "rand", BindFunc: bindRand},
+	{Name: "sqrt", BindFunc: bindSqrt},
+	{Name: "pow", BindFunc: bindPow},
+	{Name: "power", BindFunc: bindPow},
+	{Name: "exp", BindFunc: bindExp},
+	{Name: "ln", BindFunc: bindLn},
+	{Name: "log", BindFunc: bindLog},
+	{Name: "log10", BindFunc: bindLog10},
+	{Name: "greatest", BindFunc: bindGreatest},
+	{Name: "least", BindFunc: bindLeast},
+	{Name: "div", BindFunc: bindDiv},
+	{Name: "safe_divide", BindFunc: bindSafeDivide},
+	{Name: "safe_multiply", BindFunc: bindSafeMultiply},
+	{Name: "safe_negate", BindFunc: bindSafeNegate},
+	{Name: "safe_add", BindFunc: bindSafeAdd},
+	{Name: "safe_subtract", BindFunc: bindSafeSubtract},
+	{Name: "mod", BindFunc: bindMod},
+	{Name: "round", BindFunc: bindRound},
+	{Name: "trunc", BindFunc: bindTrunc},
+	{Name: "ceil", BindFunc: bindCeil},
+	{Name: "ceiling", BindFunc: bindCeil},
+	{Name: "floor", BindFunc: bindFloor},
+	{Name: "cos", BindFunc: bindCos},
+	{Name: "cosh", BindFunc: bindCosh},
+	{Name: "acos", BindFunc: bindAcos},
+	{Name: "acosh", BindFunc: bindAcosh},
+	{Name: "sin", BindFunc: bindSin},
+	{Name: "sinh", BindFunc: bindSinh},
+	{Name: "asin", BindFunc: bindAsin},
+	{Name: "asinh", BindFunc: bindAsinh},
+	{Name: "tan", BindFunc: bindTan},
+	{Name: "tanh", BindFunc: bindTanh},
+	{Name: "atan", BindFunc: bindAtan},
+	{Name: "atanh", BindFunc: bindAtanh},
+	{Name: "atan2", BindFunc: bindAtan2},
+	{Name: "range_bucket", BindFunc: bindRangeBucket},
 
 	// array functions
-	{
-		Name:        "array_concat",
-		BindFunc:    bindArrayConcat,
-		ReturnTypes: []types.TypeKind{types.ARRAY},
-	},
-	{
-		Name:        "array_length",
-		BindFunc:    bindArrayLength,
-		ReturnTypes: []types.TypeKind{types.INT64},
-	},
-	{
-		Name:        "array_to_string",
-		BindFunc:    bindArrayToString,
-		ReturnTypes: []types.TypeKind{types.STRING},
-	},
-	{
-		Name:        "generate_array",
-		BindFunc:    bindGenerateArray,
-		ReturnTypes: []types.TypeKind{types.ARRAY},
-	},
-	{
-		Name:        "generate_date_array",
-		BindFunc:    bindGenerateDateArray,
-		ReturnTypes: []types.TypeKind{types.ARRAY},
-	},
-	{
-		Name:        "generate_timestamp_array",
-		BindFunc:    bindGenerateTimestampArray,
-		ReturnTypes: []types.TypeKind{types.ARRAY},
-	},
-	{
-		Name:        "array_reverse",
-		BindFunc:    bindArrayReverse,
-		ReturnTypes: []types.TypeKind{types.ARRAY},
-	},
-	{
-		Name:        "make_array",
-		BindFunc:    bindMakeArray,
-		ReturnTypes: []types.TypeKind{types.ARRAY},
-	},
-	{
-		Name:        "make_struct",
-		BindFunc:    bindMakeStruct,
-		ReturnTypes: []types.TypeKind{types.STRUCT},
-	},
+	{Name: "array_concat", BindFunc: bindArrayConcat},
+	{Name: "array_length", BindFunc: bindArrayLength},
+	{Name: "array_to_string", BindFunc: bindArrayToString},
+	{Name: "generate_array", BindFunc: bindGenerateArray},
+	{Name: "generate_date_array", BindFunc: bindGenerateDateArray},
+	{Name: "generate_timestamp_array", BindFunc: bindGenerateTimestampArray},
+	{Name: "array_reverse", BindFunc: bindArrayReverse},
+	{Name: "make_array", BindFunc: bindMakeArray},
+	{Name: "make_struct", BindFunc: bindMakeStruct},
 
 	// aggregate option funcs
-	{
-		Name:        "distinct",
-		BindFunc:    bindDistinct,
-		ReturnTypes: []types.TypeKind{types.STRING},
-	},
-	{
-		Name:        "limit",
-		BindFunc:    bindLimit,
-		ReturnTypes: []types.TypeKind{types.STRING},
-	},
-	{
-		Name:        "order_by",
-		BindFunc:    bindOrderBy,
-		ReturnTypes: []types.TypeKind{types.STRING},
-	},
-	{
-		Name:        "ignore_nulls",
-		BindFunc:    bindIgnoreNulls,
-		ReturnTypes: []types.TypeKind{types.STRING},
-	},
+	{Name: "distinct", BindFunc: bindDistinct},
+	{Name: "limit", BindFunc: bindLimit},
+	{Name: "order_by", BindFunc: bindOrderBy},
+	{Name: "ignore_nulls", BindFunc: bindIgnoreNulls},
 
 	// window option funcs
-	{
-		Name:        "window_frame_unit",
-		BindFunc:    bindWindowFrameUnit,
-		ReturnTypes: []types.TypeKind{types.STRING},
-	},
-	{
-		Name:        "window_partition",
-		BindFunc:    bindWindowPartition,
-		ReturnTypes: []types.TypeKind{types.STRING},
-	},
-	{
-		Name:        "window_boundary_start",
-		BindFunc:    bindWindowBoundaryStart,
-		ReturnTypes: []types.TypeKind{types.STRING},
-	},
-	{
-		Name:        "window_boundary_end",
-		BindFunc:    bindWindowBoundaryEnd,
-		ReturnTypes: []types.TypeKind{types.STRING},
-	},
-	{
-		Name:        "window_rowid",
-		BindFunc:    bindWindowRowID,
-		ReturnTypes: []types.TypeKind{types.STRING},
-	},
-	{
-		Name:        "window_order_by",
-		BindFunc:    bindWindowOrderBy,
-		ReturnTypes: []types.TypeKind{types.STRING},
-	},
+	{Name: "window_frame_unit", BindFunc: bindWindowFrameUnit},
+	{Name: "window_partition", BindFunc: bindWindowPartition},
+	{Name: "window_boundary_start", BindFunc: bindWindowBoundaryStart},
+	{Name: "window_boundary_end", BindFunc: bindWindowBoundaryEnd},
+	{Name: "window_rowid", BindFunc: bindWindowRowID},
+	{Name: "window_order_by", BindFunc: bindWindowOrderBy},
 }
 
 var aggregateFuncs = []*AggregateFuncInfo{
-	{
-		Name:        "array_agg",
-		BindFunc:    bindArrayAgg,
-		ReturnTypes: []types.TypeKind{types.ARRAY},
-	},
-	{
-		Name:        "array_concat_agg",
-		BindFunc:    bindArrayConcatAgg,
-		ReturnTypes: []types.TypeKind{types.ARRAY},
-	},
-	{
-		Name:        "sum",
-		BindFunc:    bindSum,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
-	},
-	{
-		Name:        "avg",
-		BindFunc:    bindAvg,
-		ReturnTypes: []types.TypeKind{types.DOUBLE},
-	},
-	{
-		Name:        "count",
-		BindFunc:    bindCount,
-		ReturnTypes: []types.TypeKind{types.INT64},
-	},
-	{
-		Name:        "count_star",
-		BindFunc:    bindCountStar,
-		ReturnTypes: []types.TypeKind{types.INT64},
-	},
-	{
-		Name:        "bit_and",
-		BindFunc:    bindBitAndAgg,
-		ReturnTypes: []types.TypeKind{types.INT64},
-	},
-	{
-		Name:        "bit_or",
-		BindFunc:    bindBitOrAgg,
-		ReturnTypes: []types.TypeKind{types.INT64},
-	},
-	{
-		Name:        "bit_xor",
-		BindFunc:    bindBitXorAgg,
-		ReturnTypes: []types.TypeKind{types.INT64},
-	},
-	{
-		Name:        "countif",
-		BindFunc:    bindCountIf,
-		ReturnTypes: []types.TypeKind{types.INT64},
-	},
-	{
-		Name:        "logical_and",
-		BindFunc:    bindLogicalAnd,
-		ReturnTypes: []types.TypeKind{types.BOOL},
-	},
-	{
-		Name:        "logical_or",
-		BindFunc:    bindLogicalOr,
-		ReturnTypes: []types.TypeKind{types.BOOL},
-	},
-	{
-		Name:     "max",
-		BindFunc: bindMax,
-		ReturnTypes: []types.TypeKind{
-			types.INT64, types.DOUBLE, types.STRING, types.BOOL,
-			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
-		},
-	},
-	{
-		Name:     "min",
-		BindFunc: bindMin,
-		ReturnTypes: []types.TypeKind{
-			types.INT64, types.DOUBLE, types.STRING, types.BOOL,
-			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
-		},
-	},
-	{
-		Name:        "string_agg",
-		BindFunc:    bindStringAgg,
-		ReturnTypes: []types.TypeKind{types.STRING},
-	},
-	{
-		Name:        "array",
-		BindFunc:    bindArray,
-		ReturnTypes: []types.TypeKind{types.ARRAY},
-	},
+	{Name: "array_agg", BindFunc: bindArrayAgg},
+	{Name: "array_concat_agg", BindFunc: bindArrayConcatAgg},
+	{Name: "sum", BindFunc: bindSum},
+	{Name: "avg", BindFunc: bindAvg},
+	{Name: "count", BindFunc: bindCount},
+	{Name: "count_star", BindFunc: bindCountStar},
+	{Name: "bit_and", BindFunc: bindBitAndAgg},
+	{Name: "bit_or", BindFunc: bindBitOrAgg},
+	{Name: "bit_xor", BindFunc: bindBitXorAgg},
+	{Name: "countif", BindFunc: bindCountIf},
+	{Name: "logical_and", BindFunc: bindLogicalAnd},
+	{Name: "logical_or", BindFunc: bindLogicalOr},
+	{Name: "max", BindFunc: bindMax},
+	{Name: "min", BindFunc: bindMin},
+	{Name: "string_agg", BindFunc: bindStringAgg},
+	{Name: "array", BindFunc: bindArray},
 }
 
 var windowFuncs = []*WindowFuncInfo{
-	{
-		Name:        "sum",
-		BindFunc:    bindWindowSum,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
-	},
-	{
-		Name:     "max",
-		BindFunc: bindWindowMax,
-		ReturnTypes: []types.TypeKind{
-			types.INT64, types.DOUBLE, types.STRING, types.BOOL,
-			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
-		},
-	},
-	{
-		Name:     "min",
-		BindFunc: bindWindowMin,
-		ReturnTypes: []types.TypeKind{
-			types.INT64, types.DOUBLE, types.STRING, types.BOOL,
-			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
-		},
-	},
-	{
-		Name:        "count",
-		BindFunc:    bindWindowCount,
-		ReturnTypes: []types.TypeKind{types.INT64, types.DOUBLE},
-	},
-	{
-		Name:        "count_star",
-		BindFunc:    bindWindowCountStar,
-		ReturnTypes: []types.TypeKind{types.INT64},
-	},
-	{
-		Name:        "avg",
-		BindFunc:    bindWindowAvg,
-		ReturnTypes: []types.TypeKind{types.DOUBLE},
-	},
-	{
-		Name:     "first_value",
-		BindFunc: bindWindowFirstValue,
-		ReturnTypes: []types.TypeKind{
-			types.INT64, types.DOUBLE, types.STRING, types.BOOL,
-			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
-		},
-	},
-	{
-		Name:     "last_value",
-		BindFunc: bindWindowLastValue,
-		ReturnTypes: []types.TypeKind{
-			types.INT64, types.DOUBLE, types.STRING, types.BOOL,
-			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
-		},
-	},
-	{
-		Name:     "lag",
-		BindFunc: bindWindowLag,
-		ReturnTypes: []types.TypeKind{
-			types.INT64, types.DOUBLE, types.STRING, types.BOOL,
-			types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP,
-		},
-	},
-	{
-		Name:        "rank",
-		BindFunc:    bindWindowRank,
-		ReturnTypes: []types.TypeKind{types.INT64},
-	},
-	{
-		Name:        "dense_rank",
-		BindFunc:    bindWindowDenseRank,
-		ReturnTypes: []types.TypeKind{types.INT64},
-	},
-	{
-		Name:        "row_number",
-		BindFunc:    bindWindowRowNumber,
-		ReturnTypes: []types.TypeKind{types.INT64},
-	},
+	{Name: "sum", BindFunc: bindWindowSum},
+	{Name: "max", BindFunc: bindWindowMax},
+	{Name: "min", BindFunc: bindWindowMin},
+	{Name: "count", BindFunc: bindWindowCount},
+	{Name: "count_star", BindFunc: bindWindowCountStar},
+	{Name: "avg", BindFunc: bindWindowAvg},
+	{Name: "first_value", BindFunc: bindWindowFirstValue},
+	{Name: "last_value", BindFunc: bindWindowLastValue},
+	{Name: "lag", BindFunc: bindWindowLag},
+	{Name: "rank", BindFunc: bindWindowRank},
+	{Name: "dense_rank", BindFunc: bindWindowDenseRank},
+	{Name: "row_number", BindFunc: bindWindowRowNumber},
 
 	// statistical aggregate functions
-	{
-		Name:        "corr",
-		BindFunc:    bindWindowCorr,
-		ReturnTypes: []types.TypeKind{types.DOUBLE},
-	},
-	{
-		Name:        "covar_pop",
-		BindFunc:    bindWindowCovarPop,
-		ReturnTypes: []types.TypeKind{types.DOUBLE},
-	},
-	{
-		Name:        "covar_samp",
-		BindFunc:    bindWindowCovarSamp,
-		ReturnTypes: []types.TypeKind{types.DOUBLE},
-	},
-	{
-		Name:        "stddev_pop",
-		BindFunc:    bindWindowStdDevPop,
-		ReturnTypes: []types.TypeKind{types.DOUBLE},
-	},
-	{
-		Name:        "stddev_samp",
-		BindFunc:    bindWindowStdDevSamp,
-		ReturnTypes: []types.TypeKind{types.DOUBLE},
-	},
-	{
-		Name:        "stddev",
-		BindFunc:    bindWindowStdDev,
-		ReturnTypes: []types.TypeKind{types.DOUBLE},
-	},
-	{
-		Name:        "var_pop",
-		BindFunc:    bindWindowVarPop,
-		ReturnTypes: []types.TypeKind{types.DOUBLE},
-	},
-	{
-		Name:        "var_samp",
-		BindFunc:    bindWindowVarSamp,
-		ReturnTypes: []types.TypeKind{types.DOUBLE},
-	},
-	{
-		Name:        "variance",
-		BindFunc:    bindWindowVariance,
-		ReturnTypes: []types.TypeKind{types.DOUBLE},
-	},
+	{Name: "corr", BindFunc: bindWindowCorr},
+	{Name: "covar_pop", BindFunc: bindWindowCovarPop},
+	{Name: "covar_samp", BindFunc: bindWindowCovarSamp},
+	{Name: "stddev_pop", BindFunc: bindWindowStdDevPop},
+	{Name: "stddev_samp", BindFunc: bindWindowStdDevSamp},
+	{Name: "stddev", BindFunc: bindWindowStdDev},
+	{Name: "var_pop", BindFunc: bindWindowVarPop},
+	{Name: "var_samp", BindFunc: bindWindowVarSamp},
+	{Name: "variance", BindFunc: bindWindowVariance},
 }
 
 type NameAndFunc struct {
@@ -1379,6 +331,57 @@ func RegisterFunctions(conn *sqlite3.SQLiteConn) error {
 		return onceErr
 	}
 
+	if err := conn.RegisterFunc("zetasqlite_decode_array", func(v interface{}) (string, error) {
+		decoded, err := DecodeValue(v)
+		if err != nil {
+			return "", err
+		}
+		array, err := decoded.ToArray()
+		if err != nil {
+			return "", err
+		}
+		encodedValues := make([]interface{}, 0, len(array.values))
+		for _, value := range array.values {
+			v, err := EncodeValue(value)
+			if err != nil {
+				return "", err
+			}
+			encodedValues = append(encodedValues, v)
+		}
+		b, err := json.Marshal(encodedValues)
+		if err != nil {
+			return "", err
+		}
+		return string(b), err
+	}, true); err != nil {
+		return fmt.Errorf("failed to register decode_array function: %w", err)
+	}
+
+	if err := conn.RegisterFunc("zetasqlite_group_by", func(v interface{}) (interface{}, error) {
+		decoded, err := DecodeValue(v)
+		if err != nil {
+			return "", err
+		}
+		return decoded.Interface(), nil
+	}, true); err != nil {
+		return fmt.Errorf("failed to register group_by function: %w", err)
+	}
+
+	if err := conn.RegisterCollation("zetasqlite_collate", func(a, b string) int {
+		va, _ := DecodeValue(a)
+		vb, _ := DecodeValue(b)
+		eq, _ := va.EQ(vb)
+		if eq {
+			return 0
+		}
+		cond, _ := va.GT(vb)
+		if cond {
+			return 1
+		}
+		return -1
+	}); err != nil {
+		return fmt.Errorf("failed to register collate function: %w", err)
+	}
 	for _, values := range normalFuncMap {
 		for _, v := range values {
 			if err := conn.RegisterFunc(v.Name, v.Func, true); err != nil {
@@ -1404,163 +407,35 @@ func RegisterFunctions(conn *sqlite3.SQLiteConn) error {
 }
 
 func setupNormalFuncMap(info *FuncInfo) error {
-	for _, retType := range info.ReturnTypes {
-		var (
-			name string
-			fn   interface{}
-		)
-		switch retType {
-		case types.INT64:
-			name = fmt.Sprintf("zetasqlite_%s_int64", info.Name)
-			fn = bindIntFunc(info.BindFunc)
-		case types.DOUBLE:
-			name = fmt.Sprintf("zetasqlite_%s_double", info.Name)
-			fn = bindFloatFunc(info.BindFunc)
-		case types.STRING:
-			name = fmt.Sprintf("zetasqlite_%s_string", info.Name)
-			fn = bindStringFunc(info.BindFunc)
-		case types.BYTES:
-			name = fmt.Sprintf("zetasqlite_%s_bytes", info.Name)
-			fn = bindBytesFunc(info.BindFunc)
-		case types.BOOL:
-			name = fmt.Sprintf("zetasqlite_%s_bool", info.Name)
-			fn = bindBoolFunc(info.BindFunc)
-		case types.DATE:
-			name = fmt.Sprintf("zetasqlite_%s_date", info.Name)
-			fn = bindDateFunc(info.BindFunc)
-		case types.DATETIME:
-			name = fmt.Sprintf("zetasqlite_%s_datetime", info.Name)
-			fn = bindDatetimeFunc(info.BindFunc)
-		case types.TIME:
-			name = fmt.Sprintf("zetasqlite_%s_time", info.Name)
-			fn = bindTimeFunc(info.BindFunc)
-		case types.TIMESTAMP:
-			name = fmt.Sprintf("zetasqlite_%s_timestamp", info.Name)
-			fn = bindTimestampFunc(info.BindFunc)
-		case types.ARRAY:
-			name = fmt.Sprintf("zetasqlite_%s_array", info.Name)
-			fn = bindArrayFunc(info.BindFunc)
-		case types.STRUCT:
-			name = fmt.Sprintf("zetasqlite_%s_struct", info.Name)
-			fn = bindStructFunc(info.BindFunc)
-		case types.JSON:
-			name = fmt.Sprintf("zetasqlite_%s_json", info.Name)
-			fn = bindJsonFunc(info.BindFunc)
-		default:
-			return fmt.Errorf("unsupported return type %s for function: %s", retType, info.Name)
-		}
-		normalFuncMap[info.Name] = append(normalFuncMap[info.Name], &NameAndFunc{
-			Name: name,
-			Func: fn,
-		})
-	}
+	normalFuncMap[info.Name] = append(normalFuncMap[info.Name], &NameAndFunc{
+		Name: fmt.Sprintf("zetasqlite_%s", info.Name),
+		Func: func(args ...interface{}) (interface{}, error) {
+			values, err := convertArgs(args...)
+			if err != nil {
+				return nil, err
+			}
+			ret, err := info.BindFunc(values...)
+			if err != nil {
+				return nil, err
+			}
+			return EncodeValue(ret)
+		},
+	})
 	return nil
 }
 
 func setupAggregateFuncMap(info *AggregateFuncInfo) error {
-	for _, retType := range info.ReturnTypes {
-		var (
-			name       string
-			aggregator interface{}
-		)
-		switch retType {
-		case types.INT64:
-			name = fmt.Sprintf("zetasqlite_%s_int64", info.Name)
-			aggregator = bindAggregateIntFunc(info.BindFunc)
-		case types.DOUBLE:
-			name = fmt.Sprintf("zetasqlite_%s_double", info.Name)
-			aggregator = bindAggregateFloatFunc(info.BindFunc)
-		case types.STRING:
-			name = fmt.Sprintf("zetasqlite_%s_string", info.Name)
-			aggregator = bindAggregateStringFunc(info.BindFunc)
-		case types.BYTES:
-			name = fmt.Sprintf("zetasqlite_%s_bytes", info.Name)
-			aggregator = bindAggregateBytesFunc(info.BindFunc)
-		case types.BOOL:
-			name = fmt.Sprintf("zetasqlite_%s_bool", info.Name)
-			aggregator = bindAggregateBoolFunc(info.BindFunc)
-		case types.DATE:
-			name = fmt.Sprintf("zetasqlite_%s_date", info.Name)
-			aggregator = bindAggregateDateFunc(info.BindFunc)
-		case types.DATETIME:
-			name = fmt.Sprintf("zetasqlite_%s_datetime", info.Name)
-			aggregator = bindAggregateDatetimeFunc(info.BindFunc)
-		case types.TIME:
-			name = fmt.Sprintf("zetasqlite_%s_time", info.Name)
-			aggregator = bindAggregateTimeFunc(info.BindFunc)
-		case types.TIMESTAMP:
-			name = fmt.Sprintf("zetasqlite_%s_timestamp", info.Name)
-			aggregator = bindAggregateTimestampFunc(info.BindFunc)
-		case types.ARRAY:
-			name = fmt.Sprintf("zetasqlite_%s_array", info.Name)
-			aggregator = bindAggregateArrayFunc(info.BindFunc)
-		case types.STRUCT:
-			name = fmt.Sprintf("zetasqlite_%s_struct", info.Name)
-			aggregator = bindAggregateStructFunc(info.BindFunc)
-		case types.JSON:
-			name = fmt.Sprintf("zetasqlite_%s_json", info.Name)
-			aggregator = bindAggregateJsonFunc(info.BindFunc)
-		default:
-			return fmt.Errorf("unsupported return type %s for aggregate function: %s", retType, info.Name)
-		}
-		aggregateFuncMap[info.Name] = append(aggregateFuncMap[info.Name], &NameAndFunc{
-			Name: name,
-			Func: aggregator,
-		})
-	}
+	aggregateFuncMap[info.Name] = append(aggregateFuncMap[info.Name], &NameAndFunc{
+		Name: fmt.Sprintf("zetasqlite_%s", info.Name),
+		Func: info.BindFunc(),
+	})
 	return nil
 }
 
 func setupWindowFuncMap(info *WindowFuncInfo) error {
-	for _, retType := range info.ReturnTypes {
-		var (
-			name       string
-			aggregator interface{}
-		)
-		switch retType {
-		case types.INT64:
-			name = fmt.Sprintf("zetasqlite_window_%s_int64", info.Name)
-			aggregator = bindWindowIntFunc(info.BindFunc)
-		case types.DOUBLE:
-			name = fmt.Sprintf("zetasqlite_window_%s_double", info.Name)
-			aggregator = bindWindowFloatFunc(info.BindFunc)
-		case types.STRING:
-			name = fmt.Sprintf("zetasqlite_window_%s_string", info.Name)
-			aggregator = bindWindowStringFunc(info.BindFunc)
-		case types.BYTES:
-			name = fmt.Sprintf("zetasqlite_window_%s_bytes", info.Name)
-			aggregator = bindWindowBytesFunc(info.BindFunc)
-		case types.BOOL:
-			name = fmt.Sprintf("zetasqlite_window_%s_bool", info.Name)
-			aggregator = bindWindowBoolFunc(info.BindFunc)
-		case types.DATE:
-			name = fmt.Sprintf("zetasqlite_window_%s_date", info.Name)
-			aggregator = bindWindowDateFunc(info.BindFunc)
-		case types.DATETIME:
-			name = fmt.Sprintf("zetasqlite_window_%s_datetime", info.Name)
-			aggregator = bindWindowDatetimeFunc(info.BindFunc)
-		case types.TIME:
-			name = fmt.Sprintf("zetasqlite_window_%s_time", info.Name)
-			aggregator = bindWindowTimeFunc(info.BindFunc)
-		case types.TIMESTAMP:
-			name = fmt.Sprintf("zetasqlite_window_%s_timestamp", info.Name)
-			aggregator = bindWindowTimestampFunc(info.BindFunc)
-		case types.ARRAY:
-			name = fmt.Sprintf("zetasqlite_window_%s_array", info.Name)
-			aggregator = bindWindowArrayFunc(info.BindFunc)
-		case types.STRUCT:
-			name = fmt.Sprintf("zetasqlite_window_%s_struct", info.Name)
-			aggregator = bindWindowStructFunc(info.BindFunc)
-		case types.JSON:
-			name = fmt.Sprintf("zetasqlite_window_%s_json", info.Name)
-			aggregator = bindWindowJsonFunc(info.BindFunc)
-		default:
-			return fmt.Errorf("unsupported return type %s for window function: %s", retType, info.Name)
-		}
-		windowFuncMap[info.Name] = append(windowFuncMap[info.Name], &NameAndFunc{
-			Name: name,
-			Func: aggregator,
-		})
-	}
+	windowFuncMap[info.Name] = append(windowFuncMap[info.Name], &NameAndFunc{
+		Name: fmt.Sprintf("zetasqlite_window_%s", info.Name),
+		Func: info.BindFunc(),
+	})
 	return nil
 }

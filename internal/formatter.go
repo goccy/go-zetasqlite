@@ -125,16 +125,6 @@ func getFuncNameAndArgs(ctx context.Context, node *ast.BaseFunctionCallNode, isW
 		}
 		args = append(args, arg)
 	}
-	returnType := node.Signature().ResultType().Type()
-	var suffixName string
-	switch returnType.Kind() {
-	case types.ARRAY:
-		suffixName = "array"
-	case types.STRUCT:
-		suffixName = "struct"
-	default:
-		suffixName = strings.ToLower(returnType.TypeName(0))
-	}
 	funcName := node.Function().FullName(false)
 
 	_, existsCurrentTimeFunc := currentTimeFuncMap[funcName]
@@ -145,9 +135,9 @@ func getFuncNameAndArgs(ctx context.Context, node *ast.BaseFunctionCallNode, isW
 	fullNamePathMap := fullNamePathMapFromContext(ctx)
 	if strings.HasPrefix(funcName, "$") {
 		if isWindowFunc {
-			funcName = fmt.Sprintf("zetasqlite_window_%s_%s", funcName[1:], suffixName)
+			funcName = fmt.Sprintf("zetasqlite_window_%s", funcName[1:])
 		} else {
-			funcName = fmt.Sprintf("zetasqlite_%s_%s", funcName[1:], suffixName)
+			funcName = fmt.Sprintf("zetasqlite_%s", funcName[1:])
 		}
 	} else if existsCurrentTimeFunc {
 		if currentTime != nil {
@@ -156,13 +146,13 @@ func getFuncNameAndArgs(ctx context.Context, node *ast.BaseFunctionCallNode, isW
 				fmt.Sprint(currentTime.UnixNano()),
 			)
 		}
-		funcName = fmt.Sprintf("zetasqlite_%s_%s", funcName, suffixName)
+		funcName = fmt.Sprintf("zetasqlite_%s", funcName)
 	} else if existsNormalFunc {
-		funcName = fmt.Sprintf("zetasqlite_%s_%s", funcName, suffixName)
+		funcName = fmt.Sprintf("zetasqlite_%s", funcName)
 	} else if !isWindowFunc && existsAggregateFunc {
-		funcName = fmt.Sprintf("zetasqlite_%s_%s", funcName, suffixName)
+		funcName = fmt.Sprintf("zetasqlite_%s", funcName)
 	} else if isWindowFunc && existsWindowFunc {
-		funcName = fmt.Sprintf("zetasqlite_window_%s_%s", funcName, suffixName)
+		funcName = fmt.Sprintf("zetasqlite_window_%s", funcName)
 	} else {
 		if node.Function().IsZetaSQLBuiltin() {
 			return "", nil, fmt.Errorf("%s function is unimplemented", funcName)
@@ -182,7 +172,7 @@ func (n *LiteralNode) FormatSQL(ctx context.Context) (string, error) {
 	if n.node == nil {
 		return "", nil
 	}
-	return JSONFromZetaSQLValue(n.node.Value()), nil
+	return LiteralFromZetaSQLValue(n.node.Value())
 }
 
 func (n *ParameterNode) FormatSQL(ctx context.Context) (string, error) {
@@ -276,24 +266,24 @@ func (n *AggregateFunctionCallNode) FormatSQL(ctx context.Context) (string, erro
 		columnRef := item.ColumnRef()
 		colName := uniqueColumnName(ctx, columnRef.Column())
 		if item.IsDescending() {
-			opts = append(opts, fmt.Sprintf("zetasqlite_order_by_string(`%s`, false)", colName))
+			opts = append(opts, fmt.Sprintf("zetasqlite_order_by(`%s`, false)", colName))
 		} else {
-			opts = append(opts, fmt.Sprintf("zetasqlite_order_by_string(`%s`, true)", colName))
+			opts = append(opts, fmt.Sprintf("zetasqlite_order_by(`%s`, true)", colName))
 		}
 	}
 	if n.node.Distinct() {
-		opts = append(opts, "zetasqlite_distinct_string()")
+		opts = append(opts, "zetasqlite_distinct()")
 	}
 	if n.node.Limit() != nil {
 		limitValue, err := newNode(n.node.Limit()).FormatSQL(ctx)
 		if err != nil {
 			return "", err
 		}
-		opts = append(opts, fmt.Sprintf("zetasqlite_limit_string(%s)", limitValue))
+		opts = append(opts, fmt.Sprintf("zetasqlite_limit(%s)", limitValue))
 	}
 	switch n.node.NullHandlingModifier() {
 	case ast.IgnoreNulls:
-		opts = append(opts, "zetasqlite_ignore_nulls_string()")
+		opts = append(opts, "zetasqlite_ignore_nulls()")
 	case ast.RespectNulls:
 	}
 	args = append(args, opts...)
@@ -335,7 +325,7 @@ func (n *AnalyticFunctionCallNode) FormatSQL(ctx context.Context) (string, error
 	}
 	var opts []string
 	if n.node.Distinct() {
-		opts = append(opts, "zetasqlite_distinct_string()")
+		opts = append(opts, "zetasqlite_distinct()")
 	}
 	args = append(args, opts...)
 	for _, column := range analyticPartitionColumnNamesFromContext(ctx) {
@@ -403,15 +393,16 @@ func (n *CastNode) FormatSQL(ctx context.Context) (string, error) {
 	if n.node == nil {
 		return "", nil
 	}
-	typeSuffix := strings.ToLower(n.node.Type().TypeName(0))
+	fromTypeKind := n.node.Expr().Type().Kind()
+	toTypeKind := n.node.Type().Kind()
 	expr, err := newNode(n.node.Expr()).FormatSQL(ctx)
 	if err != nil {
 		return "", err
 	}
-	if typeSuffix == "string" && n.node.Expr().Type().Kind() == types.BOOL {
-		return fmt.Sprintf("zetasqlite_castbool_string(%s)", expr), nil
-	}
-	return fmt.Sprintf("zetasqlite_cast_%s(%s)", typeSuffix, expr), nil
+	return fmt.Sprintf(
+		"zetasqlite_cast(%s, %d, %d, %t)",
+		expr, fromTypeKind, toTypeKind, n.node.ReturnNullOnError(),
+	), nil
 }
 
 func (n *MakeStructNode) FormatSQL(ctx context.Context) (string, error) {
@@ -424,14 +415,18 @@ func (n *MakeStructNode) FormatSQL(ctx context.Context) (string, error) {
 	args := make([]string, 0, fieldNum*2)
 	for i := 0; i < fieldNum; i++ {
 		fieldName := typ.Field(i).Name()
-		args = append(args, fmt.Sprintf("'%s'", fieldName))
+		key, err := LiteralFromValue(StringValue(fieldName))
+		if err != nil {
+			return "", err
+		}
+		args = append(args, key)
 		field, err := newNode(fields[i]).FormatSQL(ctx)
 		if err != nil {
 			return "", err
 		}
 		args = append(args, field)
 	}
-	return fmt.Sprintf("zetasqlite_make_struct_struct(%s)", strings.Join(args, ",")), nil
+	return fmt.Sprintf("zetasqlite_make_struct(%s)", strings.Join(args, ",")), nil
 }
 
 func (n *MakeProtoNode) FormatSQL(ctx context.Context) (string, error) {
@@ -450,14 +445,8 @@ func (n *GetStructFieldNode) FormatSQL(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	typeSuffix := strings.ToLower(n.node.Type().TypeName(0))
-	if strings.HasPrefix(typeSuffix, "struct") {
-		typeSuffix = "struct"
-	} else if strings.HasPrefix(typeSuffix, "array") {
-		typeSuffix = "array"
-	}
 	idx := n.node.FieldIdx()
-	return fmt.Sprintf("zetasqlite_get_struct_field_%s(%s, %d)", typeSuffix, expr, idx), nil
+	return fmt.Sprintf("zetasqlite_get_struct_field(%s, %d)", expr, idx), nil
 }
 
 func (n *GetProtoFieldNode) FormatSQL(ctx context.Context) (string, error) {
@@ -501,7 +490,7 @@ func (n *SubqueryExprNode) FormatSQL(ctx context.Context) (string, error) {
 			return "", fmt.Errorf("failed to find computed column names for array subquery")
 		}
 		colName := uniqueColumnName(ctx, n.node.Subquery().ColumnList()[0])
-		return fmt.Sprintf("zetasqlite_array_array(`%s`) FROM (%s)", colName, sql), nil
+		return fmt.Sprintf("zetasqlite_array(`%s`) FROM (%s)", colName, sql), nil
 	case ast.SubqueryTypeExists:
 		return fmt.Sprintf("EXISTS (%s)", sql), nil
 	case ast.SubqueryTypeIn:
@@ -629,14 +618,14 @@ func (n *ArrayScanNode) FormatSQL(ctx context.Context) (string, error) {
 			return "", err
 		}
 		return fmt.Sprintf(
-			"SELECT *, json_each.value AS `%s` %s, json_each(zetasqlite_decode_array_string(%s))",
+			"SELECT *, json_each.value AS `%s` %s, json_each(zetasqlite_decode_array(%s))",
 			colName,
 			formattedInput,
 			arrayExpr,
 		), nil
 	}
 	return fmt.Sprintf(
-		"SELECT json_each.value AS `%s` FROM json_each(zetasqlite_decode_array_string(%s))",
+		"SELECT json_each.value AS `%s` FROM json_each(zetasqlite_decode_array(%s))",
 		colName,
 		arrayExpr,
 	), nil
@@ -749,7 +738,14 @@ func (n *AggregateScanNode) FormatSQL(ctx context.Context) (string, error) {
 				}
 			}
 			columnPatterns = append(columnPatterns, groupBySetColumnPattern)
-			groupByColumnPatterns = append(groupByColumnPatterns, groupBySetColumns)
+			annotatedGroupBySetColumns := make([]string, 0, len(groupBySetColumns))
+			for _, column := range groupBySetColumns {
+				annotatedGroupBySetColumns = append(
+					annotatedGroupBySetColumns,
+					fmt.Sprintf("zetasqlite_group_by(%s)", column),
+				)
+			}
+			groupByColumnPatterns = append(groupByColumnPatterns, annotatedGroupBySetColumns)
 		}
 		stmts := []string{}
 		for i := 0; i < len(columnPatterns); i++ {
@@ -767,15 +763,29 @@ func (n *AggregateScanNode) FormatSQL(ctx context.Context) (string, error) {
 				stmts = append(stmts, fmt.Sprintf("SELECT %s FROM %s %s", formattedColumns, input, groupBy))
 			}
 		}
+		groupByWithCollates := make([]string, 0, len(groupByColumns))
+		for _, groupByColumn := range groupByColumns {
+			groupByWithCollates = append(
+				groupByWithCollates,
+				fmt.Sprintf("%s COLLATE zetasqlite_collate", groupByColumn),
+			)
+		}
 		return fmt.Sprintf(
 			"%s ORDER BY %s",
 			strings.Join(stmts, " UNION ALL "),
-			strings.Join(groupByColumns, ","),
+			strings.Join(groupByWithCollates, ","),
 		), nil
 	}
 	var groupBy string
 	if len(groupByColumns) > 0 {
-		groupBy = fmt.Sprintf("GROUP BY %s", strings.Join(groupByColumns, ","))
+		annotatedGroupByColumns := make([]string, 0, len(groupByColumns))
+		for _, groupByColumn := range groupByColumns {
+			annotatedGroupByColumns = append(
+				annotatedGroupByColumns,
+				fmt.Sprintf("zetasqlite_group_by(%s)", groupByColumn),
+			)
+		}
+		groupBy = fmt.Sprintf("GROUP BY %s", strings.Join(annotatedGroupByColumns, ","))
 	}
 	formattedColumns := strings.Join(columns, ",")
 	switch getInputPattern(input) {
@@ -887,9 +897,9 @@ func (n *OrderByScanNode) FormatSQL(ctx context.Context) (string, error) {
 			)
 		}
 		if item.IsDescending() {
-			orderByColumns = append(orderByColumns, fmt.Sprintf("`%s` DESC", colName))
+			orderByColumns = append(orderByColumns, fmt.Sprintf("`%s` COLLATE zetasqlite_collate DESC", colName))
 		} else {
-			orderByColumns = append(orderByColumns, fmt.Sprintf("`%s`", colName))
+			orderByColumns = append(orderByColumns, fmt.Sprintf("`%s` COLLATE zetasqlite_collate", colName))
 		}
 	}
 	formattedInput, err := formatInput(input)
@@ -1053,12 +1063,12 @@ func (n *AnalyticScanNode) FormatSQL(ctx context.Context) (string, error) {
 		if col.isAsc {
 			orderColumnFormattedNames = append(
 				orderColumnFormattedNames,
-				col.column,
+				fmt.Sprintf("%s COLLATE zetasqlite_collate", col.column),
 			)
 		} else {
 			orderColumnFormattedNames = append(
 				orderColumnFormattedNames,
-				fmt.Sprintf("%s DESC", col.column),
+				fmt.Sprintf("%s COLLATE zetasqlite_collate DESC", col.column),
 			)
 		}
 	}
