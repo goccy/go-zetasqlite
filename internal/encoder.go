@@ -1,6 +1,8 @@
 package internal
 
 import (
+	"database/sql"
+	"database/sql/driver"
 	"encoding/base64"
 	"fmt"
 	"math/big"
@@ -10,33 +12,47 @@ import (
 	"time"
 
 	"github.com/goccy/go-json"
+	ast "github.com/goccy/go-zetasql/resolved_ast"
 	"github.com/goccy/go-zetasql/types"
 )
 
-func EncodeValue(v Value) (interface{}, error) {
-	if v == nil {
-		return nil, nil
+func EncodeNamedValues(v []driver.NamedValue, params []*ast.ParameterNode) ([]sql.NamedArg, error) {
+	if len(v) != len(params) {
+		return nil, fmt.Errorf(
+			"failed to match named values num (%d) and params num (%d)",
+			len(v), len(params),
+		)
 	}
-	switch v.(type) {
-	case IntValue:
-		return v.ToInt64()
-	case FloatValue:
-		return v.ToFloat64()
-	case BoolValue:
-		return v.ToBool()
+	ret := make([]sql.NamedArg, 0, len(v))
+	for idx, vv := range v {
+		converted, err := encodeNamedValue(vv, params[idx])
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert value from %+v: %w", vv, err)
+		}
+		ret = append(ret, converted)
 	}
-	format, err := v.ToValueFormat()
-	if err != nil {
-		return nil, err
-	}
-	b, err := json.Marshal(format)
-	if err != nil {
-		return nil, fmt.Errorf("failed to encode value: %w", err)
-	}
-	return base64.StdEncoding.EncodeToString(b), nil
+	return ret, nil
 }
 
-func EncodeFromGoValue(t types.Type, v interface{}) (interface{}, error) {
+func EncodeGoValues(v []interface{}, params []*ast.ParameterNode) ([]interface{}, error) {
+	if len(v) != len(params) {
+		return nil, fmt.Errorf(
+			"failed to match args values num (%d) and params num (%d)",
+			len(v), len(params),
+		)
+	}
+	ret := make([]interface{}, 0, len(v))
+	for idx, vv := range v {
+		value, err := EncodeGoValue(params[idx].Type(), vv)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, value)
+	}
+	return ret, nil
+}
+
+func EncodeGoValue(t types.Type, v interface{}) (interface{}, error) {
 	value, err := ValueFromGoValue(v)
 	if err != nil {
 		return "", err
@@ -48,11 +64,36 @@ func EncodeFromGoValue(t types.Type, v interface{}) (interface{}, error) {
 	return EncodeValue(casted)
 }
 
+func EncodeValue(v Value) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
+	switch vv := v.(type) {
+	case IntValue:
+		return v.ToInt64()
+	case FloatValue:
+		return v.ToFloat64()
+	case BoolValue:
+		return v.ToBool()
+	case *SafeValue:
+		return EncodeValue(vv.value)
+	}
+	layout, err := valueLayoutFromValue(v)
+	if err != nil {
+		return nil, err
+	}
+	b, err := json.Marshal(layout)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode value: %w", err)
+	}
+	return base64.StdEncoding.EncodeToString(b), nil
+}
+
 func LiteralFromValue(v Value) (string, error) {
 	if v == nil {
 		return "null", nil
 	}
-	switch v.(type) {
+	switch vv := v.(type) {
 	case IntValue:
 		i64, err := v.ToInt64()
 		if err != nil {
@@ -76,12 +117,14 @@ func LiteralFromValue(v Value) (string, error) {
 			return "", err
 		}
 		return fmt.Sprint(b), nil
+	case *SafeValue:
+		return LiteralFromValue(vv.value)
 	}
-	format, err := v.ToValueFormat()
+	layout, err := valueLayoutFromValue(v)
 	if err != nil {
 		return "", err
 	}
-	b, err := json.Marshal(format)
+	b, err := json.Marshal(layout)
 	if err != nil {
 		return "", fmt.Errorf("failed to encode value: %w", err)
 	}
@@ -396,19 +439,13 @@ func CastValue(t types.Type, v Value) (Value, error) {
 }
 
 func ValueFromGoValue(v interface{}) (Value, error) {
-	if v == nil {
+	if isNullValue(v) {
 		return nil, nil
 	}
-	rv := reflect.ValueOf(v)
-	if _, ok := v.([]byte); ok {
-		if rv.IsNil() {
-			return nil, nil
-		}
-	}
-	return ValueFromGoReflectValue(rv)
+	return valueFromGoReflectValue(reflect.ValueOf(v))
 }
 
-func ValueFromGoReflectValue(v reflect.Value) (Value, error) {
+func valueFromGoReflectValue(v reflect.Value) (Value, error) {
 	kind := v.Type().Kind()
 	switch kind {
 	case reflect.Int, reflect.Int16, reflect.Int32, reflect.Int64:
@@ -424,7 +461,7 @@ func ValueFromGoReflectValue(v reflect.Value) (Value, error) {
 	case reflect.Slice, reflect.Array:
 		ret := &ArrayValue{}
 		for i := 0; i < v.Len(); i++ {
-			elem, err := ValueFromGoReflectValue(v.Index(i))
+			elem, err := valueFromGoReflectValue(v.Index(i))
 			if err != nil {
 				return nil, err
 			}
@@ -435,7 +472,7 @@ func ValueFromGoReflectValue(v reflect.Value) (Value, error) {
 		ret := &StructValue{m: map[string]Value{}}
 		iter := v.MapRange()
 		for iter.Next() {
-			key, err := ValueFromGoReflectValue(iter.Key())
+			key, err := valueFromGoReflectValue(iter.Key())
 			if err != nil {
 				return nil, err
 			}
@@ -443,7 +480,7 @@ func ValueFromGoReflectValue(v reflect.Value) (Value, error) {
 			if err != nil {
 				return nil, err
 			}
-			value, err := ValueFromGoReflectValue(iter.Value())
+			value, err := valueFromGoReflectValue(iter.Value())
 			if err != nil {
 				return nil, err
 			}
@@ -461,7 +498,7 @@ func ValueFromGoReflectValue(v reflect.Value) (Value, error) {
 		typ := v.Type()
 		for i := 0; i < v.NumField(); i++ {
 			key := typ.Field(i).Name
-			value, err := ValueFromGoReflectValue(v.Field(i))
+			value, err := valueFromGoReflectValue(v.Field(i))
 			if err != nil {
 				return nil, err
 			}
@@ -471,7 +508,130 @@ func ValueFromGoReflectValue(v reflect.Value) (Value, error) {
 		}
 		return ret, nil
 	case reflect.Ptr:
-		return ValueFromGoReflectValue(v.Elem())
+		return valueFromGoReflectValue(v.Elem())
 	}
 	return nil, fmt.Errorf("cannot convert %s type to zetasqlite value type", kind)
+}
+
+func encodeNamedValue(v driver.NamedValue, param *ast.ParameterNode) (sql.NamedArg, error) {
+	value, err := EncodeGoValue(param.Type(), v.Value)
+	if err != nil {
+		return sql.NamedArg{}, err
+	}
+	return sql.NamedArg{
+		Name:  strings.ToLower(v.Name),
+		Value: value,
+	}, nil
+}
+
+func valueLayoutFromValue(v Value) (*ValueLayout, error) {
+	switch vv := v.(type) {
+	case StringValue:
+		return &ValueLayout{
+			Header: StringValueType,
+			Body:   string(vv),
+		}, nil
+	case BytesValue:
+		return &ValueLayout{
+			Header: BytesValueType,
+			Body:   base64.StdEncoding.EncodeToString([]byte(vv)),
+		}, nil
+	case *NumericValue:
+		b, err := (*big.Rat)(vv).MarshalText()
+		if err != nil {
+			return nil, err
+		}
+		return &ValueLayout{
+			Header: NumericValueType,
+			Body:   string(b),
+		}, nil
+	case DateValue:
+		body, err := vv.ToString()
+		if err != nil {
+			return nil, err
+		}
+		return &ValueLayout{
+			Header: DateValueType,
+			Body:   body,
+		}, nil
+	case DatetimeValue:
+		body, err := vv.ToString()
+		if err != nil {
+			return nil, err
+		}
+		return &ValueLayout{
+			Header: DatetimeValueType,
+			Body:   body,
+		}, nil
+	case TimeValue:
+		body, err := vv.ToString()
+		if err != nil {
+			return nil, err
+		}
+		return &ValueLayout{
+			Header: TimeValueType,
+			Body:   body,
+		}, nil
+	case TimestampValue:
+		body, err := vv.ToString()
+		if err != nil {
+			return nil, err
+		}
+		return &ValueLayout{
+			Header: TimestampValueType,
+			Body:   body,
+		}, nil
+	case IntervalValue:
+		return &ValueLayout{
+			Header: IntervalValueType,
+			Body:   string(vv),
+		}, nil
+	case JsonValue:
+		return &ValueLayout{
+			Header: JsonValueType,
+			Body:   string(vv),
+		}, nil
+	case *ArrayValue:
+		values := make([]interface{}, 0, len(vv.values))
+		for _, v := range vv.values {
+			if v == nil {
+				values = append(values, nil)
+				continue
+			}
+			value, err := EncodeValue(v)
+			if err != nil {
+				return nil, err
+			}
+			values = append(values, value)
+		}
+		body, err := json.Marshal(values)
+		if err != nil {
+			return nil, err
+		}
+		return &ValueLayout{
+			Header: ArrayValueType,
+			Body:   string(body),
+		}, nil
+	case *StructValue:
+		values := make([]interface{}, 0, len(vv.values))
+		for _, v := range vv.values {
+			value, err := EncodeValue(v)
+			if err != nil {
+				return nil, err
+			}
+			values = append(values, value)
+		}
+		body, err := json.Marshal(&StructValueLayout{
+			Keys:   vv.keys,
+			Values: values,
+		})
+		if err != nil {
+			return nil, err
+		}
+		return &ValueLayout{
+			Header: StructValueType,
+			Body:   string(body),
+		}, nil
+	}
+	return nil, fmt.Errorf("unexpected value type to get value layout: %T", v)
 }

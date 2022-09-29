@@ -1,6 +1,21 @@
 package internal
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
+
+func formatTimestamp(s string) (string, error) {
+	loc, err := time.LoadLocation("")
+	if err != nil {
+		return "", err
+	}
+	t, err := parseTimestamp(s, loc)
+	if err != nil {
+		return "", err
+	}
+	return t.Format(time.RFC3339Nano), nil
+}
 
 func TestTimestampValue(t *testing.T) {
 	if !timestampRe.MatchString("2022-01-01 00:00:00+00") {

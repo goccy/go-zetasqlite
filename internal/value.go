@@ -2,8 +2,6 @@ package internal
 
 import (
 	"bytes"
-	"database/sql"
-	"database/sql/driver"
 	"encoding/base64"
 	"fmt"
 	"math/big"
@@ -14,7 +12,6 @@ import (
 	"time"
 
 	"github.com/goccy/go-json"
-	ast "github.com/goccy/go-zetasql/resolved_ast"
 )
 
 type Value interface {
@@ -37,33 +34,8 @@ type Value interface {
 	ToJSON() (string, error)
 	ToTime() (time.Time, error)
 	ToRat() (*big.Rat, error)
-	ToValueFormat() (*ValueFormat, error)
 	Format(verb rune) string
 	Interface() interface{}
-}
-
-type ValueType string
-
-const (
-	IntValueType       ValueType = "int64"
-	StringValueType    ValueType = "string"
-	BytesValueType     ValueType = "bytes"
-	FloatValueType     ValueType = "float"
-	NumericValueType   ValueType = "numeric"
-	BoolValueType      ValueType = "bool"
-	JsonValueType      ValueType = "json"
-	ArrayValueType     ValueType = "array"
-	StructValueType    ValueType = "struct"
-	DateValueType      ValueType = "date"
-	DatetimeValueType  ValueType = "datetime"
-	TimeValueType      ValueType = "time"
-	TimestampValueType ValueType = "timestamp"
-	IntervalValueType  ValueType = "interval"
-)
-
-type ValueFormat struct {
-	Header ValueType `json:"header"`
-	Body   string    `json:"body"`
 }
 
 type IntValue int64
@@ -192,13 +164,6 @@ func (iv IntValue) ToRat() (*big.Rat, error) {
 	return r, nil
 }
 
-func (iv IntValue) ToValueFormat() (*ValueFormat, error) {
-	return &ValueFormat{
-		Header: IntValueType,
-		Body:   fmt.Sprint(iv),
-	}, nil
-}
-
 func (iv IntValue) Format(verb rune) string {
 	return fmt.Sprint(iv)
 }
@@ -317,9 +282,16 @@ func (sv StringValue) ToJSON() (string, error) {
 }
 
 func (sv StringValue) ToTime() (time.Time, error) {
+	raw := string(sv)
 	switch {
-	case isDate(string(sv)):
-		return parseDate(string(sv))
+	case isDate(raw):
+		return parseDate(raw)
+	case isDatetime(raw):
+		return parseDatetime(raw)
+	case isTime(raw):
+		return parseTime(raw)
+	case isTimestamp(raw):
+		return parseTimestamp(raw, time.UTC)
 	}
 	return time.Time{}, fmt.Errorf("failed to convert %s to time.Time type", sv)
 }
@@ -328,13 +300,6 @@ func (sv StringValue) ToRat() (*big.Rat, error) {
 	r := new(big.Rat)
 	r.SetString(string(sv))
 	return r, nil
-}
-
-func (sv StringValue) ToValueFormat() (*ValueFormat, error) {
-	return &ValueFormat{
-		Header: StringValueType,
-		Body:   string(sv),
-	}, nil
 }
 
 func (sv StringValue) Format(verb rune) string {
@@ -459,10 +424,16 @@ func (bv BytesValue) ToJSON() (string, error) {
 }
 
 func (bv BytesValue) ToTime() (time.Time, error) {
-	v := string(bv)
+	raw := string(bv)
 	switch {
-	case isDate(v):
-		return parseDate(v)
+	case isDate(raw):
+		return parseDate(raw)
+	case isDatetime(raw):
+		return parseDatetime(raw)
+	case isTime(raw):
+		return parseTime(raw)
+	case isTimestamp(raw):
+		return parseTimestamp(raw, time.UTC)
 	}
 	return time.Time{}, fmt.Errorf("failed to convert time.Time from bytes", bv)
 }
@@ -471,13 +442,6 @@ func (bv BytesValue) ToRat() (*big.Rat, error) {
 	r := new(big.Rat)
 	r.SetString(string(bv))
 	return r, nil
-}
-
-func (bv BytesValue) ToValueFormat() (*ValueFormat, error) {
-	return &ValueFormat{
-		Header: BytesValueType,
-		Body:   base64.StdEncoding.EncodeToString([]byte(bv)),
-	}, nil
 }
 
 func (bv BytesValue) Format(verb rune) string {
@@ -612,13 +576,6 @@ func (fv FloatValue) ToRat() (*big.Rat, error) {
 	r := new(big.Rat)
 	r.SetFloat64(float64(fv))
 	return r, nil
-}
-
-func (fv FloatValue) ToValueFormat() (*ValueFormat, error) {
-	return &ValueFormat{
-		Header: FloatValueType,
-		Body:   fmt.Sprint(fv),
-	}, nil
 }
 
 func (fv FloatValue) Format(verb rune) string {
@@ -770,17 +727,6 @@ func (nv *NumericValue) ToRat() (*big.Rat, error) {
 	return (*big.Rat)(nv), nil
 }
 
-func (nv *NumericValue) ToValueFormat() (*ValueFormat, error) {
-	b, err := (*big.Rat)(nv).MarshalText()
-	if err != nil {
-		return nil, err
-	}
-	return &ValueFormat{
-		Header: NumericValueType,
-		Body:   string(b),
-	}, nil
-}
-
 func (nv *NumericValue) Format(verb rune) string {
 	return (*big.Rat)(nv).RatString()
 }
@@ -884,13 +830,6 @@ func (bv BoolValue) ToRat() (*big.Rat, error) {
 	return r, nil
 }
 
-func (bv BoolValue) ToValueFormat() (*ValueFormat, error) {
-	return &ValueFormat{
-		Header: BoolValueType,
-		Body:   fmt.Sprint(bv),
-	}, nil
-}
-
 func (bv BoolValue) Format(verb rune) string {
 	return fmt.Sprint(bv)
 }
@@ -981,13 +920,6 @@ func (jv JsonValue) ToRat() (*big.Rat, error) {
 	r := new(big.Rat)
 	r.SetInt64(i64)
 	return r, nil
-}
-
-func (jv JsonValue) ToValueFormat() (*ValueFormat, error) {
-	return &ValueFormat{
-		Header: JsonValueType,
-		Body:   string(jv),
-	}, nil
 }
 
 func (jv JsonValue) Format(verb rune) string {
@@ -1219,29 +1151,6 @@ func (av *ArrayValue) ToRat() (*big.Rat, error) {
 	return nil, fmt.Errorf("failed to convert *big.Rat from array %v", av)
 }
 
-func (av *ArrayValue) ToValueFormat() (*ValueFormat, error) {
-	values := make([]interface{}, 0, len(av.values))
-	for _, v := range av.values {
-		if v == nil {
-			values = append(values, nil)
-			continue
-		}
-		value, err := EncodeValue(v)
-		if err != nil {
-			return nil, err
-		}
-		values = append(values, value)
-	}
-	body, err := json.Marshal(values)
-	if err != nil {
-		return nil, err
-	}
-	return &ValueFormat{
-		Header: ArrayValueType,
-		Body:   string(body),
-	}, nil
-}
-
 func (av *ArrayValue) Format(verb rune) string {
 	elems := []string{}
 	for _, v := range av.values {
@@ -1452,33 +1361,6 @@ func (sv *StructValue) ToRat() (*big.Rat, error) {
 	return nil, fmt.Errorf("failed to convert *big.Rat from struct %v", sv)
 }
 
-type StructValueCodec struct {
-	Keys   []string      `json:"keys"`
-	Values []interface{} `json:"values"`
-}
-
-func (sv *StructValue) ToValueFormat() (*ValueFormat, error) {
-	values := make([]interface{}, 0, len(sv.values))
-	for _, v := range sv.values {
-		value, err := EncodeValue(v)
-		if err != nil {
-			return nil, err
-		}
-		values = append(values, value)
-	}
-	body, err := json.Marshal(&StructValueCodec{
-		Keys:   sv.keys,
-		Values: values,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &ValueFormat{
-		Header: StructValueType,
-		Body:   string(body),
-	}, nil
-}
-
 func (sv *StructValue) Format(verb rune) string {
 	elems := []string{}
 	for _, v := range sv.values {
@@ -1626,17 +1508,6 @@ func (d DateValue) ToRat() (*big.Rat, error) {
 	return nil, fmt.Errorf("failed to convert *big.Rat from date %v", d)
 }
 
-func (d DateValue) ToValueFormat() (*ValueFormat, error) {
-	body, err := d.ToString()
-	if err != nil {
-		return nil, err
-	}
-	return &ValueFormat{
-		Header: DateValueType,
-		Body:   body,
-	}, nil
-}
-
 func (d DateValue) Format(verb rune) string {
 	formatted := time.Time(d).Format("2006-01-02")
 	switch verb {
@@ -1764,17 +1635,6 @@ func (d DatetimeValue) ToRat() (*big.Rat, error) {
 	return nil, fmt.Errorf("failed to convert *big.Rat from datetime %v", d)
 }
 
-func (d DatetimeValue) ToValueFormat() (*ValueFormat, error) {
-	body, err := d.ToString()
-	if err != nil {
-		return nil, err
-	}
-	return &ValueFormat{
-		Header: DatetimeValueType,
-		Body:   body,
-	}, nil
-}
-
 func (d DatetimeValue) Format(verb rune) string {
 	formatted := time.Time(d).Format("2006-01-02T15:04:05")
 	switch verb {
@@ -1900,17 +1760,6 @@ func (t TimeValue) ToTime() (time.Time, error) {
 
 func (t TimeValue) ToRat() (*big.Rat, error) {
 	return nil, fmt.Errorf("failed to convert *big.Rat from time %v", t)
-}
-
-func (t TimeValue) ToValueFormat() (*ValueFormat, error) {
-	body, err := t.ToString()
-	if err != nil {
-		return nil, err
-	}
-	return &ValueFormat{
-		Header: TimeValueType,
-		Body:   body,
-	}, nil
 }
 
 func (t TimeValue) Format(verb rune) string {
@@ -2059,17 +1908,6 @@ func (t TimestampValue) ToRat() (*big.Rat, error) {
 	return nil, fmt.Errorf("failed to convert *big.Rat from timestamp %v", t)
 }
 
-func (t TimestampValue) ToValueFormat() (*ValueFormat, error) {
-	body, err := t.ToString()
-	if err != nil {
-		return nil, err
-	}
-	return &ValueFormat{
-		Header: TimestampValueType,
-		Body:   body,
-	}, nil
-}
-
 func (d TimestampValue) Format(verb rune) string {
 	formatted := time.Time(d).Format(time.RFC3339)
 	switch verb {
@@ -2161,13 +1999,6 @@ func (iv IntervalValue) ToTime() (time.Time, error) {
 
 func (iv IntervalValue) ToRat() (*big.Rat, error) {
 	return nil, fmt.Errorf("unsupported numeric cast for interval value")
-}
-
-func (iv IntervalValue) ToValueFormat() (*ValueFormat, error) {
-	return &ValueFormat{
-		Header: IntervalValueType,
-		Body:   string(iv),
-	}, nil
 }
 
 func (iv IntervalValue) Format(verb rune) string {
@@ -2334,32 +2165,12 @@ func (v *SafeValue) ToRat() (*big.Rat, error) {
 	return ret, nil
 }
 
-func (v *SafeValue) ToValueFormat() (*ValueFormat, error) {
-	ret, err := v.value.ToValueFormat()
-	if err != nil {
-		return nil, nil
-	}
-	return ret, nil
-}
-
 func (v *SafeValue) Format(verb rune) string {
 	return v.value.Format(verb)
 }
 
 func (v *SafeValue) Interface() interface{} {
 	return v.value.Interface()
-}
-
-func formatTimestamp(s string) (string, error) {
-	loc, err := time.LoadLocation("")
-	if err != nil {
-		return "", err
-	}
-	t, err := parseTimestamp(s, loc)
-	if err != nil {
-		return "", err
-	}
-	return t.Format(time.RFC3339Nano), nil
 }
 
 var (
@@ -2467,49 +2278,15 @@ func parseTimestamp(timestamp string, loc *time.Location) (time.Time, error) {
 	return time.Time{}, fmt.Errorf("failed to parse timestamp. unexpected format %s", timestamp)
 }
 
-func EncodeNamedValues(v []driver.NamedValue, params []*ast.ParameterNode) ([]sql.NamedArg, error) {
-	if len(v) != len(params) {
-		return nil, fmt.Errorf(
-			"failed to match named values num (%d) and params num (%d)",
-			len(v), len(params),
-		)
+func isNullValue(v interface{}) bool {
+	if v == nil {
+		return true
 	}
-	ret := make([]sql.NamedArg, 0, len(v))
-	for idx, vv := range v {
-		converted, err := encodeNamedValue(vv, params[idx])
-		if err != nil {
-			return nil, fmt.Errorf("failed to convert value from %+v: %w", vv, err)
+	rv := reflect.ValueOf(v)
+	if _, ok := v.([]byte); ok {
+		if rv.IsNil() {
+			return true
 		}
-		ret = append(ret, converted)
 	}
-	return ret, nil
-}
-
-func encodeNamedValue(v driver.NamedValue, param *ast.ParameterNode) (sql.NamedArg, error) {
-	value, err := EncodeFromGoValue(param.Type(), v.Value)
-	if err != nil {
-		return sql.NamedArg{}, err
-	}
-	return sql.NamedArg{
-		Name:  strings.ToLower(v.Name),
-		Value: value,
-	}, nil
-}
-
-func encodeValues(v []interface{}, params []*ast.ParameterNode) ([]interface{}, error) {
-	if len(v) != len(params) {
-		return nil, fmt.Errorf(
-			"failed to match args values num (%d) and params num (%d)",
-			len(v), len(params),
-		)
-	}
-	ret := make([]interface{}, 0, len(v))
-	for idx, vv := range v {
-		value, err := EncodeFromGoValue(params[idx].Type(), vv)
-		if err != nil {
-			return nil, err
-		}
-		ret = append(ret, value)
-	}
-	return ret, nil
+	return false
 }

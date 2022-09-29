@@ -4,21 +4,14 @@ import (
 	"encoding/base64"
 	"fmt"
 	"math/big"
-	"reflect"
 	"time"
 
 	"github.com/goccy/go-json"
 )
 
 func DecodeValue(v interface{}) (Value, error) {
-	if v == nil {
+	if isNullValue(v) {
 		return nil, nil
-	}
-	rv := reflect.ValueOf(v)
-	if _, ok := v.([]byte); ok {
-		if rv.IsNil() {
-			return nil, nil
-		}
 	}
 	switch vv := v.(type) {
 	case int64:
@@ -36,58 +29,58 @@ func DecodeValue(v interface{}) (Value, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode value: %w", err)
 	}
-	var format ValueFormat
-	if err := json.Unmarshal(decoded, &format); err != nil {
-		return nil, fmt.Errorf("failed to get value format: %w", err)
+	var layout ValueLayout
+	if err := json.Unmarshal(decoded, &layout); err != nil {
+		return nil, fmt.Errorf("failed to get value layout: %w", err)
 	}
-	return DecodeFromValueFormat(&format)
+	return decodeFromValueLayout(&layout)
 }
 
-func DecodeFromValueFormat(format *ValueFormat) (Value, error) {
-	switch format.Header {
+func decodeFromValueLayout(layout *ValueLayout) (Value, error) {
+	switch layout.Header {
 	case StringValueType:
-		return StringValue(format.Body), nil
+		return StringValue(layout.Body), nil
 	case BytesValueType:
-		decoded, err := base64.StdEncoding.DecodeString(format.Body)
+		decoded, err := base64.StdEncoding.DecodeString(layout.Body)
 		if err != nil {
 			return nil, err
 		}
 		return BytesValue(decoded), nil
 	case NumericValueType:
 		r := new(big.Rat)
-		r.SetString(format.Body)
+		r.SetString(layout.Body)
 		return (*NumericValue)(r), nil
 	case DateValueType:
-		t, err := parseDate(format.Body)
+		t, err := parseDate(layout.Body)
 		if err != nil {
 			return nil, err
 		}
 		return DateValue(t), nil
 	case DatetimeValueType:
-		t, err := parseDatetime(format.Body)
+		t, err := parseDatetime(layout.Body)
 		if err != nil {
 			return nil, err
 		}
 		return DatetimeValue(t), nil
 	case TimeValueType:
-		t, err := parseTime(format.Body)
+		t, err := parseTime(layout.Body)
 		if err != nil {
 			return nil, err
 		}
 		return TimeValue(t), nil
 	case TimestampValueType:
-		t, err := parseTimestamp(format.Body, time.UTC)
+		t, err := parseTimestamp(layout.Body, time.UTC)
 		if err != nil {
 			return nil, err
 		}
 		return TimestampValue(t), nil
 	case IntervalValueType:
-		return nil, fmt.Errorf("failed to decode interval value")
+		return IntervalValue(layout.Body), nil
 	case JsonValueType:
-		return JsonValue(format.Body), nil
+		return JsonValue(layout.Body), nil
 	case ArrayValueType:
 		var arr []interface{}
-		if err := json.Unmarshal([]byte(format.Body), &arr); err != nil {
+		if err := json.Unmarshal([]byte(layout.Body), &arr); err != nil {
 			return nil, fmt.Errorf("failed to decode array body: %w", err)
 		}
 		ret := &ArrayValue{
@@ -102,25 +95,25 @@ func DecodeFromValueFormat(format *ValueFormat) (Value, error) {
 		}
 		return ret, nil
 	case StructValueType:
-		var codec StructValueCodec
-		if err := json.Unmarshal([]byte(format.Body), &codec); err != nil {
+		var structLayout StructValueLayout
+		if err := json.Unmarshal([]byte(layout.Body), &structLayout); err != nil {
 			return nil, err
 		}
 		m := map[string]Value{}
-		values := make([]Value, 0, len(codec.Values))
-		for i, data := range codec.Values {
+		values := make([]Value, 0, len(structLayout.Values))
+		for i, data := range structLayout.Values {
 			value, err := DecodeValue(data)
 			if err != nil {
 				return nil, err
 			}
-			m[codec.Keys[i]] = value
+			m[structLayout.Keys[i]] = value
 			values = append(values, value)
 		}
 		ret := &StructValue{}
-		ret.keys = codec.Keys
+		ret.keys = structLayout.Keys
 		ret.values = values
 		ret.m = m
 		return ret, nil
 	}
-	return nil, fmt.Errorf("unexpected value header: %s", format.Header)
+	return nil, fmt.Errorf("unexpected value header: %s", layout.Header)
 }
