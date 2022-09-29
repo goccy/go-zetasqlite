@@ -493,7 +493,7 @@ func bindNullIf(args ...Value) (Value, error) {
 }
 
 func bindCast(args ...Value) (Value, error) {
-	if len(args) != 3 {
+	if len(args) != 4 {
 		return nil, fmt.Errorf("CAST: invalid argument num %d", len(args))
 	}
 	fromTypeKind, err := args[1].ToInt64()
@@ -504,26 +504,11 @@ func bindCast(args ...Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return CAST(args[0], fromTypeKind, toTypeKind)
-}
-
-func bindSafeCast(args ...Value) (Value, error) {
-	if len(args) != 3 {
-		return nil, fmt.Errorf("SAFE_CAST: invalid argument num %d", len(args))
-	}
-	fromTypeKind, err := args[1].ToInt64()
+	isSafeCast, err := args[3].ToBool()
 	if err != nil {
 		return nil, err
 	}
-	toTypeKind, err := args[2].ToInt64()
-	if err != nil {
-		return nil, err
-	}
-	casted, err := CAST(args[0], fromTypeKind, toTypeKind)
-	if err != nil {
-		return &SafeValue{value: args[0]}, nil
-	}
-	return &SafeValue{value: casted}, nil
+	return CAST(args[0], fromTypeKind, toTypeKind, isSafeCast)
 }
 
 func bindFarmFingerprint(args ...Value) (Value, error) {

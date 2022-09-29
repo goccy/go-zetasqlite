@@ -102,7 +102,6 @@ var normalFuncs = []*FuncInfo{
 	{Name: "nullif", BindFunc: bindNullIf},
 	{Name: "length", BindFunc: bindLength},
 	{Name: "cast", BindFunc: bindCast},
-	{Name: "safe_cast", BindFunc: bindCast},
 
 	// hash functions
 	{Name: "farm_fingerprint", BindFunc: bindFarmFingerprint},

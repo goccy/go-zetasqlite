@@ -26,14 +26,24 @@ func BYTE_LENGTH(v []byte) (Value, error) {
 	return IntValue(len(v)), nil
 }
 
-func CAST(expr Value, fromTypeKind, toTypeKind int64) (Value, error) {
+func CAST(expr Value, fromTypeKind, toTypeKind int64, isSafeCast bool) (Value, error) {
 	fromType := types.TypeFromKind(types.TypeKind(fromTypeKind))
 	toType := types.TypeFromKind(types.TypeKind(toTypeKind))
 	from, err := CastValue(fromType, expr)
 	if err != nil {
+		if isSafeCast {
+			return nil, nil
+		}
 		return nil, err
 	}
-	return CastValue(toType, from)
+	casted, err := CastValue(toType, from)
+	if err != nil {
+		if isSafeCast {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return casted, nil
 }
 
 func CHAR_LENGTH(v []byte) (Value, error) {

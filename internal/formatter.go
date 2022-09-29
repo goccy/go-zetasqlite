@@ -399,7 +399,10 @@ func (n *CastNode) FormatSQL(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("zetasqlite_cast(%s, %d, %d)", expr, fromTypeKind, toTypeKind), nil
+	return fmt.Sprintf(
+		"zetasqlite_cast(%s, %d, %d, %t)",
+		expr, fromTypeKind, toTypeKind, n.node.ReturnNullOnError(),
+	), nil
 }
 
 func (n *MakeStructNode) FormatSQL(ctx context.Context) (string, error) {

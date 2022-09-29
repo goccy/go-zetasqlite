@@ -1826,6 +1826,11 @@ SELECT item FROM Produce WHERE Produce.category = 'vegetable' QUALIFY RANK() OVE
 			expectedErr: true,
 		},
 		{
+			name:         "safe cast",
+			query:        `SELECT SAFE_CAST(x AS STRING) FROM UNNEST([1, 2, 3]) AS x`,
+			expectedRows: [][]interface{}{{"1"}, {"2"}, {"3"}},
+		},
+		{
 			name:         "safe cast for invalid cast",
 			query:        `SELECT SAFE_CAST("apple" AS INT64) AS not_a_number`,
 			expectedRows: [][]interface{}{{nil}},
