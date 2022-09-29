@@ -517,20 +517,8 @@ func NORMALIZE_AND_CASEFOLD(v, mode string) (Value, error) {
 	return nil, fmt.Errorf("unexpected normalize mode %s", mode)
 }
 
-func compileRegexp(expr string) (*regexp.Regexp, error) {
-	/*
-		fmt.Println("expr = ", expr)
-		// if regexp literal has escape characters, it must be unescaped before compile.
-		e, err := strconv.Unquote(`"` + expr + `"`)
-		if err != nil {
-			e = expr
-		}
-	*/
-	return regexp.Compile(expr)
-}
-
 func REGEXP_CONTAINS(value, expr string) (Value, error) {
-	re, err := compileRegexp(expr)
+	re, err := regexp.Compile(expr)
 	if err != nil {
 		return nil, err
 	}
@@ -544,7 +532,7 @@ func REGEXP_EXTRACT(value Value, expr string, position, occurrence int64) (Value
 	if occurrence <= 0 {
 		return nil, fmt.Errorf("REGEXP_EXTRACT: unexpected occurrence number. occurrence must be positive number")
 	}
-	re, err := compileRegexp(expr)
+	re, err := regexp.Compile(expr)
 	if err != nil {
 		return nil, err
 	}
@@ -583,7 +571,7 @@ func REGEXP_EXTRACT(value Value, expr string, position, occurrence int64) (Value
 }
 
 func REGEXP_EXTRACT_ALL(value Value, expr string) (Value, error) {
-	re, err := compileRegexp(expr)
+	re, err := regexp.Compile(expr)
 	if err != nil {
 		return nil, err
 	}
@@ -632,7 +620,7 @@ func REGEXP_INSTR(sourceValue, exprValue Value, position, occurrence, occurrence
 		if err != nil {
 			return nil, err
 		}
-		re, err := compileRegexp(expr)
+		re, err := regexp.Compile(expr)
 		if err != nil {
 			return nil, err
 		}
@@ -657,7 +645,7 @@ func REGEXP_INSTR(sourceValue, exprValue Value, position, occurrence, occurrence
 		if err != nil {
 			return nil, err
 		}
-		re, err := compileRegexp(string(expr))
+		re, err := regexp.Compile(string(expr))
 		if err != nil {
 			return nil, err
 		}
@@ -723,7 +711,7 @@ func REGEXP_REPLACE(value, exprValue, replacementValue Value) (Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		re, err := compileRegexp(expr)
+		re, err := regexp.Compile(expr)
 		if err != nil {
 			return nil, err
 		}
@@ -741,7 +729,7 @@ func REGEXP_REPLACE(value, exprValue, replacementValue Value) (Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		re, err := compileRegexp(string(expr))
+		re, err := regexp.Compile(string(expr))
 		if err != nil {
 			return nil, err
 		}
