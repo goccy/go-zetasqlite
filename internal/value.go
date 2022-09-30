@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"cloud.google.com/go/bigquery"
 	"github.com/goccy/go-json"
 )
 
@@ -435,7 +436,7 @@ func (bv BytesValue) ToTime() (time.Time, error) {
 	case isTimestamp(raw):
 		return parseTimestamp(raw, time.UTC)
 	}
-	return time.Time{}, fmt.Errorf("failed to convert time.Time from bytes", bv)
+	return time.Time{}, fmt.Errorf("failed to convert time.Time from bytes: %s", bv)
 }
 
 func (bv BytesValue) ToRat() (*big.Rat, error) {
@@ -1399,21 +1400,53 @@ func (d DateValue) AddDateWithInterval(v int, interval string) (Value, error) {
 }
 
 func (d DateValue) Add(v Value) (Value, error) {
-	v2, err := v.ToInt64()
-	if err != nil {
-		return nil, err
+	src := time.Time(d)
+	switch vv := v.(type) {
+	case *IntervalValue:
+		return DatetimeValue(time.Date(
+			src.Year()+int(vv.Years),
+			time.Month(int(src.Month())+int(vv.Months)),
+			src.Day()+int(vv.Days),
+			src.Hour()+int(vv.Hours),
+			src.Minute()+int(vv.Minutes),
+			src.Second()+int(vv.Seconds),
+			src.Nanosecond()+int(vv.SubSecondNanos),
+			src.Location(),
+		)), nil
+	case IntValue:
+		return DateValue(time.Time(d).AddDate(0, 0, int(vv))), nil
 	}
-	duration := time.Duration(v2) * 24 * time.Hour
-	return DateValue(time.Time(d).Add(duration)), nil
+	return nil, fmt.Errorf("failed to use add operator for date and %T type", v)
 }
 
 func (d DateValue) Sub(v Value) (Value, error) {
-	v2, err := v.ToInt64()
+	src := time.Time(d)
+	switch vv := v.(type) {
+	case *IntervalValue:
+		return DatetimeValue(time.Date(
+			src.Year()-int(vv.Years),
+			time.Month(int(src.Month())-int(vv.Months)),
+			src.Day()-int(vv.Days),
+			src.Hour()-int(vv.Hours),
+			src.Minute()-int(vv.Minutes),
+			src.Second()-int(vv.Seconds),
+			src.Nanosecond()-int(vv.SubSecondNanos),
+			src.Location(),
+		)), nil
+	case IntValue:
+		return DateValue(time.Time(d).AddDate(0, 0, -int(vv))), nil
+	}
+	dst, err := v.ToTime()
 	if err != nil {
 		return nil, err
 	}
-	duration := -time.Duration(v2) * 24 * time.Hour
-	return DateValue(time.Time(d).Add(duration)), nil
+	duration := time.Time(d).Sub(dst)
+	days := duration / (24 * time.Hour)
+	return &IntervalValue{
+		IntervalValue: &bigquery.IntervalValue{
+			Days: int32(days),
+		},
+	}, nil
 }
 
 func (d DateValue) Mul(v Value) (Value, error) {
@@ -1523,24 +1556,49 @@ func (d DateValue) Interface() interface{} {
 	return time.Time(d).Format("2006-01-02")
 }
 
+const (
+	datetimeFormat = "2006-01-02T15:04:05.999999"
+)
+
 type DatetimeValue time.Time
 
 func (d DatetimeValue) Add(v Value) (Value, error) {
-	v2, err := v.ToInt64()
-	if err != nil {
-		return nil, err
+	src := time.Time(d)
+	if vv, ok := v.(*IntervalValue); ok {
+		return DatetimeValue(time.Date(
+			src.Year()+int(vv.Years),
+			time.Month(int(src.Month())+int(vv.Months)),
+			src.Day()+int(vv.Days),
+			src.Hour()+int(vv.Hours),
+			src.Minute()+int(vv.Minutes),
+			src.Second()+int(vv.Seconds),
+			src.Nanosecond()+int(vv.SubSecondNanos),
+			src.Location(),
+		)), nil
 	}
-	duration := time.Duration(v2) * 24 * time.Hour
-	return DatetimeValue(time.Time(d).Add(duration)), nil
+	return nil, fmt.Errorf("failed to use add operator for datetime and %T type", v)
 }
 
 func (d DatetimeValue) Sub(v Value) (Value, error) {
-	v2, err := v.ToInt64()
+	src := time.Time(d)
+	if vv, ok := v.(*IntervalValue); ok {
+		return DatetimeValue(time.Date(
+			src.Year()-int(vv.Years),
+			time.Month(int(src.Month())-int(vv.Months)),
+			src.Day()-int(vv.Days),
+			src.Hour()-int(vv.Hours),
+			src.Minute()-int(vv.Minutes),
+			src.Second()-int(vv.Seconds),
+			src.Nanosecond()-int(vv.SubSecondNanos),
+			src.Location(),
+		)), nil
+	}
+	dst, err := v.ToTime()
 	if err != nil {
 		return nil, err
 	}
-	duration := -time.Duration(v2) * 24 * time.Hour
-	return DateValue(time.Time(d).Add(duration)), nil
+	duration := src.Sub(dst)
+	return &IntervalValue{IntervalValue: bigquery.IntervalValueFromDuration(duration)}, nil
 }
 
 func (d DatetimeValue) Mul(v Value) (Value, error) {
@@ -1596,7 +1654,7 @@ func (d DatetimeValue) ToInt64() (int64, error) {
 }
 
 func (d DatetimeValue) ToString() (string, error) {
-	return time.Time(d).Format("2006-01-02T15:04:05"), nil
+	return time.Time(d).Format(datetimeFormat), nil
 }
 
 func (d DatetimeValue) ToBytes() ([]byte, error) {
@@ -1636,7 +1694,7 @@ func (d DatetimeValue) ToRat() (*big.Rat, error) {
 }
 
 func (d DatetimeValue) Format(verb rune) string {
-	formatted := time.Time(d).Format("2006-01-02T15:04:05")
+	formatted := time.Time(d).Format(datetimeFormat)
 	switch verb {
 	case 't':
 		return formatted
@@ -1647,27 +1705,17 @@ func (d DatetimeValue) Format(verb rune) string {
 }
 
 func (d DatetimeValue) Interface() interface{} {
-	return time.Time(d).Format("2006-01-02T15:04:05")
+	return time.Time(d).Format(datetimeFormat)
 }
 
 type TimeValue time.Time
 
 func (t TimeValue) Add(v Value) (Value, error) {
-	v2, err := v.ToInt64()
-	if err != nil {
-		return nil, err
-	}
-	duration := time.Duration(v2) * 24 * time.Hour
-	return TimeValue(time.Time(t).Add(duration)), nil
+	return nil, fmt.Errorf("add operation is unsupported for time %v", t)
 }
 
 func (t TimeValue) Sub(v Value) (Value, error) {
-	v2, err := v.ToInt64()
-	if err != nil {
-		return nil, err
-	}
-	duration := -time.Duration(v2) * 24 * time.Hour
-	return TimeValue(time.Time(t).Add(duration)), nil
+	return nil, fmt.Errorf("sub operation is unsupported for time %v", t)
 }
 
 func (t TimeValue) Mul(v Value) (Value, error) {
@@ -1799,21 +1847,42 @@ func (t TimestampValue) AddValueWithPart(v time.Duration, part string) (Value, e
 }
 
 func (t TimestampValue) Add(v Value) (Value, error) {
-	v2, err := v.ToInt64()
-	if err != nil {
-		return nil, err
+	src := time.Time(t)
+	if vv, ok := v.(*IntervalValue); ok {
+		return TimestampValue(time.Date(
+			src.Year()+int(vv.Years),
+			time.Month(int(src.Month())+int(vv.Months)),
+			src.Day()+int(vv.Days),
+			src.Hour()+int(vv.Hours),
+			src.Minute()+int(vv.Minutes),
+			src.Second()+int(vv.Seconds),
+			src.Nanosecond()+int(vv.SubSecondNanos),
+			src.Location(),
+		)), nil
 	}
-	duration := time.Duration(v2) * 24 * time.Hour
-	return TimestampValue(time.Time(t).Add(duration)), nil
+	return nil, fmt.Errorf("failed to use add operator for timestamp and %T type", v)
 }
 
 func (t TimestampValue) Sub(v Value) (Value, error) {
-	v2, err := v.ToInt64()
+	src := time.Time(t)
+	if vv, ok := v.(*IntervalValue); ok {
+		return TimestampValue(time.Date(
+			src.Year()-int(vv.Years),
+			time.Month(int(src.Month())-int(vv.Months)),
+			src.Day()-int(vv.Days),
+			src.Hour()-int(vv.Hours),
+			src.Minute()-int(vv.Minutes),
+			src.Second()-int(vv.Seconds),
+			src.Nanosecond()-int(vv.SubSecondNanos),
+			src.Location(),
+		)), nil
+	}
+	dst, err := v.ToTime()
 	if err != nil {
 		return nil, err
 	}
-	duration := -time.Duration(v2) * 24 * time.Hour
-	return TimestampValue(time.Time(t).Add(duration)), nil
+	duration := src.Sub(dst)
+	return &IntervalValue{IntervalValue: bigquery.IntervalValueFromDuration(duration)}, nil
 }
 
 func (t TimestampValue) Mul(v Value) (Value, error) {
@@ -1923,90 +1992,111 @@ func (d TimestampValue) Interface() interface{} {
 	return time.Time(d).Format(time.RFC3339)
 }
 
-type IntervalValue string
+type IntervalValue struct {
+	*bigquery.IntervalValue
+}
 
-func (iv IntervalValue) Add(v Value) (Value, error) {
+func (iv *IntervalValue) Add(v Value) (Value, error) {
 	return nil, fmt.Errorf("unsupported add operator for interval value")
 }
 
-func (iv IntervalValue) Sub(v Value) (Value, error) {
+func (iv *IntervalValue) Sub(v Value) (Value, error) {
 	return nil, fmt.Errorf("unsupported sub operator for interval value")
 }
 
-func (iv IntervalValue) Mul(v Value) (Value, error) {
+func (iv *IntervalValue) Mul(v Value) (Value, error) {
 	return nil, fmt.Errorf("unsupported mul operator for interval value")
 }
 
-func (iv IntervalValue) Div(v Value) (Value, error) {
+func (iv *IntervalValue) Div(v Value) (Value, error) {
 	return nil, fmt.Errorf("unsupported div operator for interval value")
 }
 
-func (iv IntervalValue) EQ(v Value) (bool, error) {
+func (iv *IntervalValue) EQ(v Value) (bool, error) {
 	return false, fmt.Errorf("unsupported eq operator for interval value")
 }
 
-func (iv IntervalValue) GT(v Value) (bool, error) {
+func (iv *IntervalValue) GT(v Value) (bool, error) {
 	return false, fmt.Errorf("unsupported gt operator for interval value")
 }
 
-func (iv IntervalValue) GTE(v Value) (bool, error) {
+func (iv *IntervalValue) GTE(v Value) (bool, error) {
 	return false, fmt.Errorf("unsupporte gte operator for interval value")
 }
 
-func (iv IntervalValue) LT(v Value) (bool, error) {
+func (iv *IntervalValue) LT(v Value) (bool, error) {
 	return false, fmt.Errorf("unsupported lt operator for interval value")
 }
 
-func (iv IntervalValue) LTE(v Value) (bool, error) {
+func (iv *IntervalValue) LTE(v Value) (bool, error) {
 	return false, fmt.Errorf("unsupported lte operator for interval value")
 }
 
-func (iv IntervalValue) ToInt64() (int64, error) {
+func (iv *IntervalValue) ToInt64() (int64, error) {
 	return 0, fmt.Errorf("unsupported int64 cast for interval value")
 }
 
-func (iv IntervalValue) ToString() (string, error) {
-	return "", fmt.Errorf("unsupported string cast for interval value")
+func (iv *IntervalValue) ToString() (string, error) {
+	if iv.Years == 0 && iv.Months < 0 {
+		return "-" + iv.String(), nil
+	}
+	return iv.String(), nil
 }
 
-func (iv IntervalValue) ToBytes() ([]byte, error) {
-	return nil, fmt.Errorf("unsupported bytes cast for interval value")
+func (iv *IntervalValue) ToBytes() ([]byte, error) {
+	s, err := iv.ToString()
+	if err != nil {
+		return nil, err
+	}
+	return []byte(s), nil
 }
 
-func (iv IntervalValue) ToFloat64() (float64, error) {
+func (iv *IntervalValue) ToFloat64() (float64, error) {
 	return 0, fmt.Errorf("unsupported float64 cast for interval value")
 }
 
-func (iv IntervalValue) ToBool() (bool, error) {
+func (iv *IntervalValue) ToBool() (bool, error) {
 	return false, fmt.Errorf("unsupported bool cast for interval value")
 }
 
-func (iv IntervalValue) ToArray() (*ArrayValue, error) {
+func (iv *IntervalValue) ToArray() (*ArrayValue, error) {
 	return nil, fmt.Errorf("unsupported array cast for interval value")
 }
 
-func (iv IntervalValue) ToStruct() (*StructValue, error) {
+func (iv *IntervalValue) ToStruct() (*StructValue, error) {
 	return nil, fmt.Errorf("unsupported struct cast for interval value")
 }
 
-func (iv IntervalValue) ToJSON() (string, error) {
-	return "", fmt.Errorf("unsupported json cast for interval value")
+func (iv *IntervalValue) ToJSON() (string, error) {
+	s, err := iv.ToString()
+	if err != nil {
+		return "", err
+	}
+	return strconv.Quote(s), nil
 }
 
-func (iv IntervalValue) ToTime() (time.Time, error) {
+func (iv *IntervalValue) ToTime() (time.Time, error) {
 	return time.Time{}, fmt.Errorf("unsupported time cast for interval value")
 }
 
-func (iv IntervalValue) ToRat() (*big.Rat, error) {
+func (iv *IntervalValue) ToRat() (*big.Rat, error) {
 	return nil, fmt.Errorf("unsupported numeric cast for interval value")
 }
 
-func (iv IntervalValue) Format(verb rune) string {
-	return string(iv)
+func (iv *IntervalValue) Format(verb rune) string {
+	s, err := iv.ToString()
+	if err != nil {
+		return ""
+	}
+	return s
 }
 
-func (iv IntervalValue) Interface() interface{} {
-	return string(iv)
+func (iv *IntervalValue) Interface() interface{} {
+	s, err := iv.ToString()
+	if err != nil {
+		return nil
+	}
+	return s
 }
 
 type SafeValue struct {
@@ -2207,10 +2297,10 @@ func parseDate(date string) (time.Time, error) {
 }
 
 func parseDatetime(datetime string) (time.Time, error) {
-	if t, err := time.Parse("2006-01-02T15:04:05", datetime); err == nil {
+	if t, err := time.Parse(datetimeFormat, datetime); err == nil {
 		return t, nil
 	}
-	return time.Parse("2006-01-02 15:04:05", datetime)
+	return time.Parse("2006-01-02 15:04:05.999999", datetime)
 }
 
 func parseTime(t string) (time.Time, error) {
@@ -2230,18 +2320,6 @@ func parseTimestamp(timestamp string, loc *time.Location) (time.Time, error) {
 	if t, err := time.ParseInLocation("2006-01-02T15:04:05.999999999 MST", timestamp, loc); err == nil {
 		return t, nil
 	}
-	if t, err := time.ParseInLocation("2006-01-02T15:04:05Z07:00", timestamp, loc); err == nil {
-		return t, nil
-	}
-	if t, err := time.ParseInLocation("2006-01-02T15:04:05-07:00", timestamp, loc); err == nil {
-		return t, nil
-	}
-	if t, err := time.ParseInLocation("2006-01-02T15:04:05-07", timestamp, loc); err == nil {
-		return t, nil
-	}
-	if t, err := time.ParseInLocation("2006-01-02T15:04:05 MST", timestamp, loc); err == nil {
-		return t, nil
-	}
 	if t, err := time.ParseInLocation("2006-01-02T15:04:05", timestamp, loc); err == nil {
 		return t, nil
 	}
@@ -2257,25 +2335,28 @@ func parseTimestamp(timestamp string, loc *time.Location) (time.Time, error) {
 	if t, err := time.ParseInLocation("2006-01-02 15:04:05.999999999 MST", timestamp, loc); err == nil {
 		return t, nil
 	}
-	if t, err := time.ParseInLocation("2006-01-02 15:04:05Z07:00", timestamp, loc); err == nil {
-		return t, nil
-	}
-	if t, err := time.ParseInLocation("2006-01-02 15:04:05+07:00", timestamp, loc); err == nil {
-		return t, nil
-	}
-	if t, err := time.ParseInLocation("2006-01-02 15:04:05-07", timestamp, loc); err == nil {
-		return t, nil
-	}
-	if t, err := time.ParseInLocation("2006-01-02 15:04:05 MST", timestamp, loc); err == nil {
-		return t, nil
-	}
-	if t, err := time.ParseInLocation("2006-01-02 15:04:05", timestamp, loc); err == nil {
+	if t, err := time.ParseInLocation("2006-01-02 15:04:05.999999999", timestamp, loc); err == nil {
 		return t, nil
 	}
 	if t, err := time.ParseInLocation("2006-01-02", timestamp, loc); err == nil {
 		return t, nil
 	}
 	return time.Time{}, fmt.Errorf("failed to parse timestamp. unexpected format %s", timestamp)
+}
+
+func parseInterval(v string) (*IntervalValue, error) {
+	if len(v) == 0 {
+		return nil, fmt.Errorf("interval value is empty")
+	}
+	isNegative := v[0] == '-'
+	interval, err := bigquery.ParseInterval(v)
+	if err != nil {
+		return nil, err
+	}
+	if isNegative && interval.Months > 0 {
+		interval.Months *= -1
+	}
+	return &IntervalValue{IntervalValue: interval}, nil
 }
 
 func isNullValue(v interface{}) bool {

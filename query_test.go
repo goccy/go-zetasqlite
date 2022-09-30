@@ -1204,14 +1204,6 @@ FROM finishers`,
 				{int64(1)}, {int64(0)}, {int64(-1)},
 			},
 		},
-		// INVALID_ARGUMENT: No matching signature for operator - for argument types: TIMESTAMP, TIMESTAMP. Supported signatures: INT64 - INT64; NUMERIC - NUMERIC; FLOAT64 - FLOAT64; DATE - INT64 [at 1:8]
-		//{
-		//	name:  "interval",
-		//	query: `SELECT TIMESTAMP "2021-06-01 12:34:56.789" - TIMESTAMP "2021-05-31 00:00:00" AS time_diff`,
-		//	expectedRows: [][]interface{}{
-		//		{"0-0 396 0:0:0", "0-0 0 36:34:56.789"},
-		//	},
-		//},
 
 		// array functions
 		{
@@ -2722,7 +2714,7 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			name:  "current_datetime",
 			query: `SELECT CURRENT_DATETIME()`,
 			expectedRows: [][]interface{}{
-				{now.Format("2006-01-02T15:04:05")},
+				{now.Format("2006-01-02T15:04:05.999999")},
 			},
 		},
 		{
@@ -3028,6 +3020,55 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			name:         "unix_micros",
 			query:        `SELECT UNIX_MICROS(TIMESTAMP "2008-12-25 15:30:00+00")`,
 			expectedRows: [][]interface{}{{int64(1230219000000000)}},
+		},
+
+		// interval functions
+		{
+			name:         "interval operator",
+			query:        `SELECT DATE "2020-09-22" + val FROM UNNEST([INTERVAL 1 DAY,INTERVAL -1 DAY,INTERVAL 2 YEAR,CAST('1-2 3 18:1:55' AS INTERVAL)]) as val`,
+			expectedRows: [][]interface{}{{"2020-09-23T00:00:00"}, {"2020-09-21T00:00:00"}, {"2022-09-22T00:00:00"}, {"2021-11-25T18:01:55"}},
+		},
+		{
+			name: "interval from sub operator",
+			query: `
+SELECT
+  DATE "2021-05-20" - DATE "2020-04-19",
+  DATETIME "2021-06-01 12:34:56.789" - DATETIME "2021-05-31 00:00:00",
+  TIMESTAMP "2021-06-01 12:34:56.789" - TIMESTAMP "2021-05-31 00:00:00"`,
+			expectedRows: [][]interface{}{
+				{"0-0 396 0:0:0", "0-0 0 36:34:56", "0-0 0 36:34:56.789"},
+			},
+		},
+		{
+			name:         "make interval",
+			query:        `SELECT MAKE_INTERVAL(1, 6, 15), MAKE_INTERVAL(hour => 10, second => 20), MAKE_INTERVAL(1, minute => 5, day => 2)`,
+			expectedRows: [][]interface{}{{"1-6 15 0:0:0", "0-0 0 10:0:20", "1-0 2 0:5:0"}},
+		},
+		{
+			name: "extract from interval",
+			query: `SELECT
+  EXTRACT(YEAR FROM i), EXTRACT(MONTH FROM i), EXTRACT(DAY FROM i),
+  EXTRACT(HOUR FROM i),  EXTRACT(MINUTE FROM i),  EXTRACT(SECOND FROM i),  EXTRACT(MILLISECOND FROM i),  EXTRACT(MICROSECOND FROM i)
+  FROM UNNEST([INTERVAL '1-2 3 4:5:6.789999' YEAR TO SECOND, INTERVAL '0-13 370 48:61:61' YEAR TO SECOND]) AS i`,
+			expectedRows: [][]interface{}{
+				{int64(1), int64(2), int64(3), int64(4), int64(5), int64(6), int64(789), int64(789999)},
+				{int64(1), int64(1), int64(370), int64(49), int64(2), int64(1), int64(0), int64(0)},
+			},
+		},
+		{
+			name:         "justify_days",
+			query:        `SELECT JUSTIFY_DAYS(INTERVAL 29 DAY), JUSTIFY_DAYS(INTERVAL -30 DAY), JUSTIFY_DAYS(INTERVAL 31 DAY), JUSTIFY_DAYS(INTERVAL -65 DAY), JUSTIFY_DAYS(INTERVAL 370 DAY)`,
+			expectedRows: [][]interface{}{{"0-0 29 0:0:0", "-0-1 0 0:0:0", "0-1 1 0:0:0", "-0-2 -5 0:0:0", "1-0 10 0:0:0"}},
+		},
+		{
+			name:         "justify_hours",
+			query:        `SELECT JUSTIFY_HOURS(INTERVAL 23 HOUR), JUSTIFY_HOURS(INTERVAL -24 HOUR), JUSTIFY_HOURS(INTERVAL 47 HOUR), JUSTIFY_HOURS(INTERVAL -12345 MINUTE)`,
+			expectedRows: [][]interface{}{{"0-0 0 23:0:0", "0-0 -1 0:0:0", "0-0 1 23:0:0", "0-0 -8 -13:45:0"}},
+		},
+		{
+			name:         "justify_interval",
+			query:        `SELECT JUSTIFY_INTERVAL(INTERVAL '29 49:00:00' DAY TO SECOND)`,
+			expectedRows: [][]interface{}{{"0-1 1 1:0:0"}},
 		},
 
 		// uuid functions

@@ -115,7 +115,8 @@ func (t *Type) GoReflectType() (reflect.Type, error) {
 		return reflect.TypeOf(false), nil
 	case types.FLOAT, types.DOUBLE:
 		return reflect.TypeOf(float64(0)), nil
-	case types.BYTES, types.STRING, types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP, types.JSON:
+	case types.BYTES, types.STRING, types.NUMERIC, types.BIG_NUMERIC,
+		types.DATE, types.DATETIME, types.TIME, types.TIMESTAMP, types.INTERVAL, types.JSON:
 		return reflect.TypeOf(""), nil
 	case types.ARRAY:
 		elem, err := t.ElementType.GoReflectType()

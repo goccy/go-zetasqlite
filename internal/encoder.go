@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -161,7 +162,12 @@ func ValueFromZetaSQLValue(v types.Value) (Value, error) {
 	case types.TIME:
 		return timeValueFromLiteral(v.ToPacked64TimeMicros())
 	case types.TIMESTAMP:
-		return timestampValueFromLiteral(v.ToTime())
+		nanosec, err := v.ToUnixNanos()
+		if err != nil {
+			return nil, err
+		}
+		sec := nanosec / int64(time.Second)
+		return timestampValueFromLiteral(time.Unix(sec, nanosec-sec*int64(time.Second)))
 	case types.NUMERIC, types.BIG_NUMERIC:
 		return numericValueFromLiteral(v.SQLLiteral(0))
 	case types.INTERVAL:
@@ -281,8 +287,20 @@ func jsonValueFromLiteral(lit string) (JsonValue, error) {
 	return JsonValue(lit), nil
 }
 
-func intervalValueFromLiteral(lit string) (IntervalValue, error) {
-	return "", fmt.Errorf("currently unsupported INTERVAL literal")
+var (
+	intervalLiteralPattern = regexp.MustCompile(`INTERVAL "(.+)"`)
+)
+
+func intervalValueFromLiteral(lit string) (*IntervalValue, error) {
+	matches := intervalLiteralPattern.FindAllStringSubmatch(lit, -1)
+	if len(matches) == 0 {
+		return nil, fmt.Errorf("unexpected interval literal: %s", lit)
+	}
+	if len(matches[0]) != 2 {
+		return nil, fmt.Errorf("unexpected interval literal: %s", lit)
+	}
+	intervalLit := matches[0][1]
+	return parseInterval(intervalLit)
 }
 
 func arrayValueFromLiteral(v types.Value) (*ArrayValue, error) {
@@ -377,7 +395,11 @@ func CastValue(t types.Type, v Value) (Value, error) {
 		}
 		return TimestampValue(t), nil
 	case types.INTERVAL:
-		return nil, fmt.Errorf("currently unsupported interval value: %v", v)
+		s, err := v.ToString()
+		if err != nil {
+			return nil, err
+		}
+		return parseInterval(s)
 	case types.ARRAY:
 		array, err := v.ToArray()
 		if err != nil {
@@ -581,10 +603,14 @@ func valueLayoutFromValue(v Value) (*ValueLayout, error) {
 			Header: TimestampValueType,
 			Body:   body,
 		}, nil
-	case IntervalValue:
+	case *IntervalValue:
+		s, err := vv.ToString()
+		if err != nil {
+			return nil, err
+		}
 		return &ValueLayout{
 			Header: IntervalValueType,
-			Body:   string(vv),
+			Body:   s,
 		}, nil
 	case JsonValue:
 		return &ValueLayout{
