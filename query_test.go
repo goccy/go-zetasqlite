@@ -3071,6 +3071,23 @@ SELECT
 			expectedRows: [][]interface{}{{"0-1 1 1:0:0"}},
 		},
 
+		// numeric/bignumeric
+		{
+			name:         "cast numeric and bignumeric",
+			query:        `SELECT cast('12.4E17' as NUMERIC) numeric, cast('12.4E37' as BIGNUMERIC) bignumeric`,
+			expectedRows: [][]interface{}{{"1240000000000000000", "124000000000000000000000000000000000000"}},
+		},
+		{
+			name:         "parse_numeric",
+			query:        `SELECT PARSE_NUMERIC("123.45"), PARSE_NUMERIC("12.34E27"), PARSE_NUMERIC("1.0123456789")`,
+			expectedRows: [][]interface{}{{"123.45", "12340000000000000000000000000", "1.012345679"}},
+		},
+		{
+			name:         "parse_bignumeric",
+			query:        `SELECT PARSE_BIGNUMERIC("123.45"), PARSE_BIGNUMERIC("123.456E37"), PARSE_BIGNUMERIC("1.123456789012345678901234567890123456789")`,
+			expectedRows: [][]interface{}{{"123.45", "1234560000000000000000000000000000000000", "1.12345678901234567890123456789012345679"}},
+		},
+
 		// uuid functions
 		{
 			name:         "generate_uuid",

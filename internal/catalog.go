@@ -393,8 +393,9 @@ func (c *Catalog) addTableSpec(spec *TableSpec) error {
 func (c *Catalog) addTableSpecRecursive(cat *types.SimpleCatalog, spec *TableSpec) error {
 	if len(spec.NamePath) > 1 {
 		subCatalogName := spec.NamePath[0]
-		subCatalog := newSimpleCatalog(subCatalogName)
-		if !c.existsCatalog(cat, subCatalogName) {
+		subCatalog, _ := cat.Catalog(subCatalogName)
+		if subCatalog == nil {
+			subCatalog = newSimpleCatalog(subCatalogName)
 			cat.AddCatalog(subCatalog)
 		}
 		fullTableName := strings.Join(spec.NamePath, ".")
@@ -449,8 +450,9 @@ func (c *Catalog) createSimpleTable(tableName string, spec *TableSpec) (*types.S
 func (c *Catalog) addFunctionSpecRecursive(cat *types.SimpleCatalog, spec *FunctionSpec) error {
 	if len(spec.NamePath) > 1 {
 		subCatalogName := spec.NamePath[0]
-		subCatalog := newSimpleCatalog(subCatalogName)
-		if !c.existsCatalog(cat, subCatalogName) {
+		subCatalog, _ := cat.Catalog(subCatalogName)
+		if subCatalog == nil {
+			subCatalog = newSimpleCatalog(subCatalogName)
 			cat.AddCatalog(subCatalog)
 		}
 		newNamePath := spec.NamePath[1:]
@@ -491,11 +493,6 @@ func (c *Catalog) addFunctionSpecRecursive(cat *types.SimpleCatalog, spec *Funct
 	return nil
 }
 
-func (c *Catalog) existsCatalog(cat *types.SimpleCatalog, name string) bool {
-	foundCatalog, _ := cat.Catalog(name)
-	return !c.isNilCatalog(foundCatalog)
-}
-
 func (c *Catalog) existsTable(cat *types.SimpleCatalog, name string) bool {
 	foundTable, _ := cat.FindTable([]string{name})
 	return !c.isNilTable(foundTable)
@@ -504,14 +501,6 @@ func (c *Catalog) existsTable(cat *types.SimpleCatalog, name string) bool {
 func (c *Catalog) existsFunction(cat *types.SimpleCatalog, name string) bool {
 	foundFunc, _ := cat.FindFunction([]string{name})
 	return foundFunc != nil
-}
-
-func (c *Catalog) isNilCatalog(cat types.Catalog) bool {
-	v := reflect.ValueOf(cat)
-	if !v.IsValid() {
-		return true
-	}
-	return v.IsNil()
 }
 
 func (c *Catalog) isNilTable(t types.Table) bool {

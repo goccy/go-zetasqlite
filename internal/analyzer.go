@@ -50,6 +50,8 @@ func newAnalyzerOptions() *zetasql.AnalyzerOptions {
 		zetasql.FeatureAnalyticFunctions,
 		zetasql.FeatureNamedArguments,
 		zetasql.FeatureNumericType,
+		zetasql.FeatureBignumericType,
+		zetasql.FeatureV13DecimalAlias,
 		zetasql.FeatureCreateTableNotNull,
 		zetasql.FeatureParameterizedTypes,
 		zetasql.FeatureTablesample,

@@ -277,9 +277,21 @@ func timestampValueFromLiteral(t time.Time) (TimestampValue, error) {
 	return TimestampValue(t), nil
 }
 
+var (
+	numericLiteralPattern = regexp.MustCompile(`NUMERIC "(.+)"`)
+)
+
 func numericValueFromLiteral(lit string) (*NumericValue, error) {
+	matches := numericLiteralPattern.FindAllStringSubmatch(lit, -1)
+	if len(matches) == 0 {
+		return nil, fmt.Errorf("unexpected numeric literal: %s", lit)
+	}
+	if len(matches[0]) != 2 {
+		return nil, fmt.Errorf("unexpected numeric literal: %s", lit)
+	}
+	numericLit := matches[0][1]
 	r := new(big.Rat)
-	r.SetString(lit)
+	r.SetString(numericLit)
 	return (*NumericValue)(r), nil
 }
 
@@ -416,6 +428,21 @@ func CastValue(t types.Type, v Value) (Value, error) {
 		}
 		return ret, nil
 	case types.STRUCT:
+		if array, ok := v.(*ArrayValue); ok {
+			ret := &StructValue{m: map[string]Value{}}
+			for _, value := range array.values {
+				st, err := value.ToStruct()
+				if err != nil {
+					return nil, err
+				}
+				ret.keys = append(ret.keys, st.keys...)
+				ret.values = append(ret.values, st.values...)
+				for i, k := range st.keys {
+					ret.m[k] = st.values[i]
+				}
+			}
+			return ret, nil
+		}
 		s, err := v.ToStruct()
 		if err != nil {
 			return nil, err
@@ -470,9 +497,9 @@ func ValueFromGoValue(v interface{}) (Value, error) {
 func valueFromGoReflectValue(v reflect.Value) (Value, error) {
 	kind := v.Type().Kind()
 	switch kind {
-	case reflect.Int, reflect.Int16, reflect.Int32, reflect.Int64:
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		return IntValue(v.Int()), nil
-	case reflect.Uint, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		return IntValue(int64(v.Uint())), nil
 	case reflect.Float32, reflect.Float64:
 		return FloatValue(v.Float()), nil
@@ -481,6 +508,9 @@ func valueFromGoReflectValue(v reflect.Value) (Value, error) {
 	case reflect.String:
 		return StringValue(v.String()), nil
 	case reflect.Slice, reflect.Array:
+		if v.Type().Elem().Kind() == reflect.Uint8 {
+			return BytesValue(v.Bytes()), nil
+		}
 		ret := &ArrayValue{}
 		for i := 0; i < v.Len(); i++ {
 			elem, err := valueFromGoReflectValue(v.Index(i))
@@ -531,6 +561,8 @@ func valueFromGoReflectValue(v reflect.Value) (Value, error) {
 		return ret, nil
 	case reflect.Ptr:
 		return valueFromGoReflectValue(v.Elem())
+	case reflect.Interface:
+		return valueFromGoReflectValue(reflect.ValueOf(v.Interface()))
 	}
 	return nil, fmt.Errorf("cannot convert %s type to zetasqlite value type", kind)
 }

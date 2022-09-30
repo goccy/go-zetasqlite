@@ -72,8 +72,8 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 ## Types
 
 - [x] INT64 ( `INT`, `SMALLINT`, `INTEGER`, `BIGINT`, `TINYINT`, `BYTEINT` )
-- [ ] NUMERIC ( `DECIMAL` )
-- [ ] BIGNUMERIC ( `BIGDECIMAL` )
+- [x] NUMERIC ( `DECIMAL` )
+- [x] BIGNUMERIC ( `BIGDECIMAL` )
 - [x] FLOAT64 ( `FLOAT` )
 - [x] BOOL ( `BOOLEAN` )
 - [x] STRING
@@ -215,7 +215,7 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 ### Conversion functions
 
 - [x] CAST AS ARRAY
-- [ ] CAST AS BIGNUMERIC
+- [x] CAST AS BIGNUMERIC
 - [x] CAST AS BOOL
 - [x] CAST AS BYTES
 - [x] CAST AS DATE
@@ -223,13 +223,13 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 - [x] CAST AS FLOAT64
 - [x] CAST AS INT64
 - [x] CAST AS INTERVAL
-- [ ] CAST AS NUMERIC
+- [x] CAST AS NUMERIC
 - [x] CAST AS STRING
 - [x] CAST AS STRUCT
 - [x] CAST AS TIME
 - [x] CAST AS TIMESTAMP
-- [ ] PARSE_BIGNUMERIC
-- [ ] PARSE_NUMERIC
+- [x] PARSE_BIGNUMERIC
+- [x] PARSE_NUMERIC
 - [x] SAFE_CAST
 - [ ] Format clause for CAST
 

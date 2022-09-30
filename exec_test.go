@@ -25,8 +25,23 @@ func TestExec(t *testing.T) {
 		expectedErr bool
 	}{
 		{
-			name:  "create table with all types",
-			query: `CREATE TABLE _table_a ( doubleValue DOUBLE, floatValue FLOAT )`,
+			name: "create table with all types",
+			query: `
+CREATE TABLE _table_a (
+ intValue        INT64,
+ boolValue       BOOL,
+ doubleValue     DOUBLE,
+ floatValue      FLOAT,
+ stringValue     STRING,
+ bytesValue      BYTES,
+ numericValue    NUMERIC,
+ bignumericValue BIGNUMERIC,
+ intervalValue   INTERVAL,
+ dateValue       DATE,
+ datetimeValue   DATETIME,
+ timeValue       TIME,
+ timestampValue  TIMESTAMP
+)`,
 		},
 		{
 			name: "recreate table",
