@@ -571,6 +571,22 @@ func bindJustifyInterval(args ...Value) (Value, error) {
 	return JUSTIFY_INTERVAL(interval)
 }
 
+func bindParseNumeric(args ...Value) (Value, error) {
+	numeric, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return PARSE_NUMERIC(numeric)
+}
+
+func bindParseBigNumeric(args ...Value) (Value, error) {
+	numeric, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return PARSE_NUMERIC(numeric)
+}
+
 func bindFarmFingerprint(args ...Value) (Value, error) {
 	if len(args) != 1 {
 		return nil, fmt.Errorf("FARM_FINGERPRINT: invalid argument num %d", len(args))

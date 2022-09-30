@@ -277,9 +277,21 @@ func timestampValueFromLiteral(t time.Time) (TimestampValue, error) {
 	return TimestampValue(t), nil
 }
 
+var (
+	numericLiteralPattern = regexp.MustCompile(`NUMERIC "(.+)"`)
+)
+
 func numericValueFromLiteral(lit string) (*NumericValue, error) {
+	matches := numericLiteralPattern.FindAllStringSubmatch(lit, -1)
+	if len(matches) == 0 {
+		return nil, fmt.Errorf("unexpected numeric literal: %s", lit)
+	}
+	if len(matches[0]) != 2 {
+		return nil, fmt.Errorf("unexpected numeric literal: %s", lit)
+	}
+	numericLit := matches[0][1]
 	r := new(big.Rat)
-	r.SetString(lit)
+	r.SetString(numericLit)
 	return (*NumericValue)(r), nil
 }
 

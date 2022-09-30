@@ -110,6 +110,10 @@ var normalFuncs = []*FuncInfo{
 	{Name: "justify_hours", BindFunc: bindJustifyHours},
 	{Name: "justify_interval", BindFunc: bindJustifyInterval},
 
+	// numeric/bignumeric functions
+	{Name: "parse_numeric", BindFunc: bindParseNumeric},
+	{Name: "parse_bignumeric", BindFunc: bindParseBigNumeric},
+
 	// hash functions
 	{Name: "farm_fingerprint", BindFunc: bindFarmFingerprint},
 	{Name: "md5", BindFunc: bindMD5},
