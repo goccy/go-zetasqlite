@@ -75,7 +75,7 @@ func decodeFromValueLayout(layout *ValueLayout) (Value, error) {
 		}
 		return TimestampValue(t), nil
 	case IntervalValueType:
-		return IntervalValue(layout.Body), nil
+		return parseInterval(layout.Body)
 	case JsonValueType:
 		return JsonValue(layout.Body), nil
 	case ArrayValueType:

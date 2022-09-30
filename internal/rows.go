@@ -214,6 +214,12 @@ func (r *Rows) assignInterfaceValue(src Value, dst reflect.Value, typ *Type) err
 			return err
 		}
 		dst.Set(reflect.ValueOf(s))
+	case types.NUMERIC, types.BIG_NUMERIC:
+		s, err := src.ToString()
+		if err != nil {
+			return err
+		}
+		dst.Set(reflect.ValueOf(s))
 	case types.DATE:
 		date, err := src.ToJSON()
 		if err != nil {
@@ -241,6 +247,12 @@ func (r *Rows) assignInterfaceValue(src Value, dst reflect.Value, typ *Type) err
 		sec := unixmicro / int64(time.Millisecond)
 		nsec := unixmicro - sec*int64(time.Millisecond)
 		dst.Set(reflect.ValueOf(fmt.Sprintf("%d.%d", sec, nsec)))
+	case types.INTERVAL:
+		s, err := src.ToString()
+		if err != nil {
+			return err
+		}
+		dst.Set(reflect.ValueOf(s))
 	case types.JSON:
 		json, err := src.ToJSON()
 		if err != nil {

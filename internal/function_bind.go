@@ -369,15 +369,11 @@ func bindExtract(args ...Value) (Value, error) {
 	if len(args) != 2 {
 		return nil, fmt.Errorf("EXTRACT: invalid argument num %d", len(args))
 	}
-	t, err := args[0].ToTime()
-	if err != nil {
-		return nil, err
-	}
 	part, err := args[1].ToString()
 	if err != nil {
 		return nil, err
 	}
-	return EXTRACT(t, part)
+	return EXTRACT(args[0], part)
 }
 
 func bindGenerateUUID(args ...Value) (Value, error) {
@@ -509,6 +505,70 @@ func bindCast(args ...Value) (Value, error) {
 		return nil, err
 	}
 	return CAST(args[0], fromTypeKind, toTypeKind, isSafeCast)
+}
+
+func bindInterval(args ...Value) (Value, error) {
+	value, err := args[0].ToInt64()
+	if err != nil {
+		return nil, err
+	}
+	part, err := args[1].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return INTERVAL(value, part)
+}
+
+func bindMakeInterval(args ...Value) (Value, error) {
+	year, err := args[0].ToInt64()
+	if err != nil {
+		return nil, err
+	}
+	month, err := args[1].ToInt64()
+	if err != nil {
+		return nil, err
+	}
+	day, err := args[2].ToInt64()
+	if err != nil {
+		return nil, err
+	}
+	hour, err := args[3].ToInt64()
+	if err != nil {
+		return nil, err
+	}
+	minute, err := args[4].ToInt64()
+	if err != nil {
+		return nil, err
+	}
+	second, err := args[5].ToInt64()
+	if err != nil {
+		return nil, err
+	}
+	return MAKE_INTERVAL(year, month, day, hour, minute, second)
+}
+
+func bindJustifyDays(args ...Value) (Value, error) {
+	interval, ok := args[0].(*IntervalValue)
+	if !ok {
+		return nil, fmt.Errorf("JUSTIFY_DAYS: unexpected argument type %T", args[0])
+	}
+	return JUSTIFY_DAYS(interval)
+}
+
+func bindJustifyHours(args ...Value) (Value, error) {
+	interval, ok := args[0].(*IntervalValue)
+	if !ok {
+		return nil, fmt.Errorf("JUSTIFY_HOURS: unexpected argument type %T", args[0])
+	}
+	return JUSTIFY_HOURS(interval)
+}
+
+func bindJustifyInterval(args ...Value) (Value, error) {
+	interval, ok := args[0].(*IntervalValue)
+	if !ok {
+		return nil, fmt.Errorf("JUSTIFY_INTERVAL: unexpected argument type %T", args[0])
+	}
+	return JUSTIFY_INTERVAL(interval)
 }
 
 func bindFarmFingerprint(args ...Value) (Value, error) {

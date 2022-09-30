@@ -82,7 +82,7 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 - [x] TIME
 - [x] DATETIME
 - [x] TIMESTAMP
-- [ ] INTERVAL
+- [x] INTERVAL
 - [x] ARRAY
 - [x] STRUCT
 - [x] JSON
@@ -222,7 +222,7 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 - [x] CAST AS DATETIME
 - [x] CAST AS FLOAT64
 - [x] CAST AS INT64
-- [ ] CAST AS INTERVAL
+- [x] CAST AS INTERVAL
 - [ ] CAST AS NUMERIC
 - [x] CAST AS STRING
 - [x] CAST AS STRUCT
@@ -441,11 +441,11 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 
 ### Interval functions
 
-- [ ] MAKE_INTERVAL
-- [ ] EXTRACT
-- [ ] JUSTIFY_DAYS
-- [ ] JUSTIFY_HOURS
-- [ ] JUSTIFY_INTERVAL
+- [x] MAKE_INTERVAL
+- [x] EXTRACT
+- [x] JUSTIFY_DAYS
+- [x] JUSTIFY_HOURS
+- [x] JUSTIFY_INTERVAL
 
 ### Geography functions
 
