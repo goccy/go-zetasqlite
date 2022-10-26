@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	parsed_ast "github.com/goccy/go-zetasql/ast"
 	ast "github.com/goccy/go-zetasql/resolved_ast"
-	"github.com/goccy/go-zetasql/types"
 )
 
 type Formatter interface {
@@ -31,15 +31,74 @@ func FormatPath(path []string) []string {
 	return ret
 }
 
-func getTableName(ctx context.Context, t types.Table) string {
-	fullNamePathMap := fullNamePathMapFromContext(ctx)
-	path := fullNamePathMap[t.Name()]
+func getTableName(ctx context.Context, n ast.Node) (string, error) {
+	nodeMap := nodeMapFromContext(ctx)
+	found := nodeMap.FindNodeFromResolvedNode(n)
+	if len(found) == 0 {
+		return "", fmt.Errorf("failed to find path node from table node %T", n)
+	}
+	path, err := getPathFromNode(found[0])
+	if err != nil {
+		return "", fmt.Errorf("failed to find path: %w", err)
+	}
 	return FormatName(
 		MergeNamePath(
 			namePathFromContext(ctx),
 			path,
 		),
-	)
+	), nil
+}
+
+func getFuncName(ctx context.Context, n ast.Node) (string, error) {
+	nodeMap := nodeMapFromContext(ctx)
+	found := nodeMap.FindNodeFromResolvedNode(n)
+	if len(found) == 0 {
+		return "", fmt.Errorf("failed to find path node from function node %T", n)
+	}
+	var foundCallNode *parsed_ast.FunctionCallNode
+	for _, node := range found {
+		fcallNode, ok := node.(*parsed_ast.FunctionCallNode)
+		if !ok {
+			continue
+		}
+		foundCallNode = fcallNode
+		break
+	}
+	if foundCallNode == nil {
+		return "", fmt.Errorf("failed to find function call node from %T", n)
+	}
+	path, err := getPathFromNode(foundCallNode.Function())
+	if err != nil {
+		return "", fmt.Errorf("failed to find path: %w", err)
+	}
+	return FormatName(
+		MergeNamePath(
+			namePathFromContext(ctx),
+			path,
+		),
+	), nil
+}
+
+func getPathFromNode(n parsed_ast.Node) ([]string, error) {
+	var path []string
+	switch node := n.(type) {
+	case *parsed_ast.IdentifierNode:
+		path = append(path, node.Name())
+	case *parsed_ast.PathExpressionNode:
+		for _, name := range node.Names() {
+			path = append(path, name.Name())
+		}
+	case *parsed_ast.TablePathExpressionNode:
+		switch {
+		case node.PathExpr() != nil:
+			for _, name := range node.PathExpr().Names() {
+				path = append(path, name.Name())
+			}
+		}
+	default:
+		return nil, fmt.Errorf("found unknown path node: %T", node)
+	}
+	return path, nil
 }
 
 func uniqueColumnName(ctx context.Context, col *ast.Column) string {
@@ -132,7 +191,6 @@ func getFuncNameAndArgs(ctx context.Context, node *ast.BaseFunctionCallNode, isW
 	_, existsAggregateFunc := aggregateFuncMap[funcName]
 	_, existsWindowFunc := windowFuncMap[funcName]
 	currentTime := CurrentTime(ctx)
-	fullNamePathMap := fullNamePathMapFromContext(ctx)
 	if strings.HasPrefix(funcName, "$") {
 		if isWindowFunc {
 			funcName = fmt.Sprintf("zetasqlite_window_%s", funcName[1:])
@@ -157,13 +215,11 @@ func getFuncNameAndArgs(ctx context.Context, node *ast.BaseFunctionCallNode, isW
 		if node.Function().IsZetaSQLBuiltin() {
 			return "", nil, fmt.Errorf("%s function is unimplemented", funcName)
 		}
-		path := fullNamePathMap[funcName]
-		funcName = FormatName(
-			MergeNamePath(
-				namePathFromContext(ctx),
-				path,
-			),
-		)
+		fname, err := getFuncName(ctx, node)
+		if err != nil {
+			return "", nil, err
+		}
+		funcName = fname
 	}
 	return funcName, args, nil
 }
@@ -529,7 +585,10 @@ func (n *TableScanNode) FormatSQL(ctx context.Context) (string, error) {
 	if n.node == nil {
 		return "", nil
 	}
-	tableName := getTableName(ctx, n.node.Table())
+	tableName, err := getTableName(ctx, n.node)
+	if err != nil {
+		return "", err
+	}
 	var columns []string
 	for _, col := range n.node.ColumnList() {
 		columns = append(
@@ -639,18 +698,19 @@ func (n *FilterScanNode) FormatSQL(ctx context.Context) (string, error) {
 	if n.node == nil {
 		return "", nil
 	}
-	ctx = withExistsGroupBy(ctx, &existsGroupBy{})
 	input, err := newNode(n.node.InputScan()).FormatSQL(ctx)
 	if err != nil {
 		return "", err
 	}
-	usedGroupBy := existsGroupByFromContext(ctx).exists
 	filter, err := newNode(n.node.FilterExpr()).FormatSQL(ctx)
 	if err != nil {
 		return "", err
 	}
-	if usedGroupBy {
-		return fmt.Sprintf("%s HAVING %s", input, filter), nil
+	nodeMap := nodeMapFromContext(ctx)
+	for _, node := range nodeMap.FindNodeFromResolvedNode(n.node) {
+		if _, ok := node.(*parsed_ast.HavingNode); ok {
+			return fmt.Sprintf("%s HAVING %s", input, filter), nil
+		}
 	}
 	if strings.Contains(input, "WHERE") && input[len(input)-1] != ')' {
 		// expected to qualify clause
@@ -686,12 +746,6 @@ func (n *AggregateScanNode) FormatSQL(ctx context.Context) (string, error) {
 		colName := uniqueColumnName(ctx, col.Column())
 		groupByColumns = append(groupByColumns, fmt.Sprintf("`%s`", colName))
 		groupByColumnMap[colName] = struct{}{}
-	}
-	if len(groupByColumns) != 0 {
-		existsGroupBy := existsGroupByFromContext(ctx)
-		if existsGroupBy != nil {
-			existsGroupBy.exists = true
-		}
 	}
 	columns := []string{}
 	columnMap := columnRefMap(ctx)
@@ -1455,7 +1509,10 @@ func (n *InsertStmtNode) FormatSQL(ctx context.Context) (string, error) {
 	if n == nil {
 		return "", nil
 	}
-	table := getTableName(ctx, n.node.TableScan().Table())
+	table, err := getTableName(ctx, n.node.TableScan())
+	if err != nil {
+		return "", err
+	}
 	columns := []string{}
 	for _, col := range n.node.InsertColumnList() {
 		columns = append(columns, fmt.Sprintf("`%s`", col.Name()))
@@ -1479,7 +1536,10 @@ func (n *DeleteStmtNode) FormatSQL(ctx context.Context) (string, error) {
 	if n == nil {
 		return "", nil
 	}
-	table := getTableName(ctx, n.node.TableScan().Table())
+	table, err := getTableName(ctx, n.node.TableScan())
+	if err != nil {
+		return "", err
+	}
 	where, err := newNode(n.node.WhereExpr()).FormatSQL(ctx)
 	if err != nil {
 		return "", err
@@ -1514,7 +1574,10 @@ func (n *UpdateStmtNode) FormatSQL(ctx context.Context) (string, error) {
 	if n == nil {
 		return "", nil
 	}
-	table := getTableName(ctx, n.node.TableScan().Table())
+	table, err := getTableName(ctx, n.node.TableScan())
+	if err != nil {
+		return "", err
+	}
 	updateItems := []string{}
 	for _, item := range n.node.UpdateItemList() {
 		sql, err := newNode(item).FormatSQL(ctx)
