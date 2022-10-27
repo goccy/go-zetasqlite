@@ -4,12 +4,13 @@ import (
 	"context"
 	"time"
 
+	"github.com/goccy/go-zetasql"
 	ast "github.com/goccy/go-zetasql/resolved_ast"
 )
 
 type (
 	namePathKey                     struct{}
-	fullNamePathMapKey              struct{}
+	nodeMapKey                      struct{}
 	columnRefMapKey                 struct{}
 	funcMapKey                      struct{}
 	analyticOrderColumnNamesKey     struct{}
@@ -18,7 +19,6 @@ type (
 	analyticInputScanKey            struct{}
 	arraySubqueryColumnNameKey      struct{}
 	currentTimeKey                  struct{}
-	existsGroupByKey                struct{}
 	needsTableNameForColumnKey      struct{}
 	tableNameToColumnListMapKey     struct{}
 	useColumnIDKey                  struct{}
@@ -38,16 +38,16 @@ func withNamePath(ctx context.Context, namePath []string) context.Context {
 	return context.WithValue(ctx, namePathKey{}, namePath)
 }
 
-func withFullNamePathMap(ctx context.Context, v map[string][]string) context.Context {
-	return context.WithValue(ctx, fullNamePathMapKey{}, v)
+func withNodeMap(ctx context.Context, m *zetasql.NodeMap) context.Context {
+	return context.WithValue(ctx, nodeMapKey{}, m)
 }
 
-func fullNamePathMapFromContext(ctx context.Context) map[string][]string {
-	value := ctx.Value(fullNamePathMapKey{})
+func nodeMapFromContext(ctx context.Context) *zetasql.NodeMap {
+	value := ctx.Value(nodeMapKey{})
 	if value == nil {
 		return nil
 	}
-	return value.(map[string][]string)
+	return value.(*zetasql.NodeMap)
 }
 
 func withColumnRefMap(ctx context.Context, m map[string]string) context.Context {
@@ -145,22 +145,6 @@ func arraySubqueryColumnNameFromContext(ctx context.Context) *arraySubqueryColum
 		return nil
 	}
 	return value.(*arraySubqueryColumnNames)
-}
-
-type existsGroupBy struct {
-	exists bool
-}
-
-func withExistsGroupBy(ctx context.Context, v *existsGroupBy) context.Context {
-	return context.WithValue(ctx, existsGroupByKey{}, v)
-}
-
-func existsGroupByFromContext(ctx context.Context) *existsGroupBy {
-	value := ctx.Value(existsGroupByKey{})
-	if value == nil {
-		return nil
-	}
-	return value.(*existsGroupBy)
 }
 
 func withNeedsTableNameForColumn(ctx context.Context) context.Context {

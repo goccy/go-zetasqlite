@@ -98,6 +98,7 @@ func newAnalyzerOptions() *zetasql.AnalyzerOptions {
 	opt := zetasql.NewAnalyzerOptions()
 	opt.SetAllowUndeclaredParameters(true)
 	opt.SetLanguage(langOpt)
+	opt.SetParseLocationRecordType(zetasql.ParseLocationRecordFullNodeScope)
 	return opt
 }
 
@@ -132,71 +133,6 @@ func (a *Analyzer) parseScript(query string) ([]parsed_ast.StatementNode, error)
 		}
 	}
 	return stmts, nil
-}
-
-func (a *Analyzer) getFullNamePathMap(stmts []parsed_ast.StatementNode) (map[string][]string, error) {
-	fullNamePathMap := map[string][]string{}
-	for _, stmt := range stmts {
-		parsed_ast.Walk(stmt, func(node parsed_ast.Node) error {
-			switch n := node.(type) {
-			case *parsed_ast.FunctionCallNode:
-				path := []string{}
-				for _, name := range n.Function().Names() {
-					path = append(path, name.Name())
-				}
-				if len(path) == 0 {
-					return fmt.Errorf("failed to find name path from function call node")
-				}
-				base := path[len(path)-1]
-				fullNamePathMap[base] = path
-			case *parsed_ast.TablePathExpressionNode:
-				switch {
-				case n.PathExpr() != nil:
-					path := []string{}
-					for _, name := range n.PathExpr().Names() {
-						path = append(path, name.Name())
-					}
-					if len(path) == 0 {
-						return fmt.Errorf("failed to find name path from table path expression node")
-					}
-					base := path[len(path)-1]
-					fullNamePathMap[base] = path
-				}
-			case *parsed_ast.InsertStatementNode:
-				path := []string{}
-				for _, name := range n.TargetPath().(*parsed_ast.PathExpressionNode).Names() {
-					path = append(path, name.Name())
-				}
-				if len(path) == 0 {
-					return fmt.Errorf("failed to find name path from insert statement node")
-				}
-				base := path[len(path)-1]
-				fullNamePathMap[base] = path
-			case *parsed_ast.UpdateStatementNode:
-				path := []string{}
-				for _, name := range n.TargetPath().(*parsed_ast.PathExpressionNode).Names() {
-					path = append(path, name.Name())
-				}
-				if len(path) == 0 {
-					return fmt.Errorf("failed to find name path from update statement node")
-				}
-				base := path[len(path)-1]
-				fullNamePathMap[base] = path
-			case *parsed_ast.DeleteStatementNode:
-				path := []string{}
-				for _, name := range n.TargetPath().(*parsed_ast.PathExpressionNode).Names() {
-					path = append(path, name.Name())
-				}
-				if len(path) == 0 {
-					return fmt.Errorf("failed to find name path from delete statement node")
-				}
-				base := path[len(path)-1]
-				fullNamePathMap[base] = path
-			}
-			return nil
-		})
-	}
-	return fullNamePathMap, nil
 }
 
 func (a *Analyzer) getParameterMode(stmt parsed_ast.StatementNode) (zetasql.ParameterMode, error) {
@@ -234,10 +170,6 @@ func (a *Analyzer) AnalyzeIterator(ctx context.Context, conn *Conn, query string
 		return nil, fmt.Errorf("failed to parse statements: %w", err)
 	}
 	resultStmts := make([]*Statement, 0, len(stmts))
-	fullNamePathMap, err := a.getFullNamePathMap(stmts)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get full name path map %s: %w", query, err)
-	}
 	for _, stmt := range stmts {
 		mode, err := a.getParameterMode(stmt)
 		if err != nil {
@@ -253,12 +185,11 @@ func (a *Analyzer) AnalyzeIterator(ctx context.Context, conn *Conn, query string
 		funcMap[spec.FuncName()] = spec
 	}
 	return &AnalyzerOutputIterator{
-		query:           query,
-		args:            args,
-		stmts:           resultStmts,
-		analyzer:        a,
-		funcMap:         funcMap,
-		fullNamePathMap: fullNamePathMap,
+		query:    query,
+		args:     args,
+		stmts:    resultStmts,
+		analyzer: a,
+		funcMap:  funcMap,
 	}, nil
 }
 
@@ -268,16 +199,15 @@ type Statement struct {
 }
 
 type AnalyzerOutputIterator struct {
-	query           string
-	args            []driver.NamedValue
-	analyzer        *Analyzer
-	stmts           []*Statement
-	stmtIdx         int
-	fullNamePathMap map[string][]string
-	funcMap         map[string]*FunctionSpec
-	out             *zetasql.AnalyzerOutput
-	isEnd           bool
-	err             error
+	query    string
+	args     []driver.NamedValue
+	analyzer *Analyzer
+	stmts    []*Statement
+	stmtIdx  int
+	funcMap  map[string]*FunctionSpec
+	out      *zetasql.AnalyzerOutput
+	isEnd    bool
+	err      error
 }
 
 func (it *AnalyzerOutputIterator) Next() bool {
@@ -309,10 +239,10 @@ func (it *AnalyzerOutputIterator) Analyze(ctx context.Context) (*AnalyzerOutput,
 	ctx = withNamePath(ctx, it.analyzer.namePath)
 	ctx = withColumnRefMap(ctx, map[string]string{})
 	ctx = withTableNameToColumnListMap(ctx, map[string][]*ast.Column{})
-	ctx = withFullNamePathMap(ctx, it.fullNamePathMap)
 	ctx = withFuncMap(ctx, it.funcMap)
 	ctx = withAnalyticOrderColumnNames(ctx, &analyticOrderColumnNames{})
 	stmtNode := it.out.Statement()
+	ctx = withNodeMap(ctx, zetasql.NewNodeMap(stmtNode, it.stmts[it.stmtIdx-1].stmt))
 	switch stmtNode.Kind() {
 	case ast.CreateTableStmt:
 		return it.analyzeCreateTableStmt(ctx, stmtNode.(*ast.CreateTableStmtNode))
