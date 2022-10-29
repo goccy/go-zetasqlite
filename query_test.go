@@ -3220,6 +3220,28 @@ FROM
 				{"false", "boolean"},
 			},
 		},
+
+		// subquery expr
+		{
+			name:         "subquery_expr_type_scalar",
+			query:        "SELECT (SELECT 1)",
+			expectedRows: [][]interface{}{{int64(1)}},
+		},
+		{
+			name:         "subquery_expr_type_array",
+			query:        "SELECT ARRAY(SELECT * FROM UNNEST([1, 2, 3]))",
+			expectedRows: [][]interface{}{{[]interface{}{int64(1), int64(2), int64(3)}}},
+		},
+		{
+			name:         "subquery_expr_type_in",
+			query:        "SELECT * FROM UNNEST([1, 2, 3]) AS val WHERE val IN (SELECT 1)",
+			expectedRows: [][]interface{}{{int64(1)}},
+		},
+		{
+			name:         "subquery_expr_type_exists",
+			query:        `SELECT EXISTS ( SELECT val FROM UNNEST([1, 2, 3]) AS val WHERE val = 1 )`,
+			expectedRows: [][]interface{}{{true}},
+		},
 	} {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
