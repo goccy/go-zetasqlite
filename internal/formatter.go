@@ -655,7 +655,7 @@ func (n *JoinScanNode) FormatSQL(ctx context.Context) (string, error) {
 			left, right, joinExpr,
 		), nil
 	}
-	return "", fmt.Errorf("unexpected join type %s", n.node.JoinType())
+	return "", fmt.Errorf("unexpected join type %d", n.node.JoinType())
 }
 
 func (n *ArrayScanNode) FormatSQL(ctx context.Context) (string, error) {
