@@ -1093,7 +1093,7 @@ func parseTimeFormat(formatStr, targetStr string, typ TimeFormatType) (*time.Tim
 			c = format[formatIdx]
 			info := formatPatternMap[c]
 			if info == nil {
-				return nil, fmt.Errorf("unexpected format type %%%s", c)
+				return nil, fmt.Errorf("unexpected format type %%%c", c)
 			}
 			if !info.Available(typ) {
 				return nil, fmt.Errorf("unavailable format by %s type", typ)
@@ -1131,7 +1131,7 @@ func formatTime(formatStr string, t *time.Time, typ TimeFormatType) (string, err
 			c = format[i]
 			info := formatPatternMap[c]
 			if info == nil {
-				return "", fmt.Errorf("unexpected format type %%%s", c)
+				return "", fmt.Errorf("unexpected format type %%%c", c)
 			}
 			if !info.Available(typ) {
 				return "", fmt.Errorf("unavailable format by %s type", typ)
