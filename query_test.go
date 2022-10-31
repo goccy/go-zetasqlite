@@ -3223,22 +3223,37 @@ FROM
 
 		// subquery expr
 		{
-			name:         "subquery_expr_type_scalar",
+			name:         "SubqueryExpr(subquery_type=SCALAR) at SELECT",
 			query:        "SELECT (SELECT 1)",
 			expectedRows: [][]interface{}{{int64(1)}},
 		},
 		{
-			name:         "subquery_expr_type_array",
+			name:         "SubqueryExpr(subquery_type=SCALAR) at WHERE",
+			query:        "SELECT * FROM UNNEST([1, 2, 3]) AS val WHERE val = (SELECT 1)",
+			expectedRows: [][]interface{}{{int64(1)}},
+		},
+		{
+			name:         "SubqueryExpr(subquery_type=SCALAR) at HAVING",
+			query:        "SELECT * FROM UNNEST([1, 2, 3]) AS val GROUP BY val HAVING val = (SELECT 1)",
+			expectedRows: [][]interface{}{{int64(1)}},
+		},
+		{
+			name:         "SubqueryExpr(subquery_type=SCALAR) at FunctionCall",
+			query:        "SELECT ABS((SELECT 1))",
+			expectedRows: [][]interface{}{{int64(1)}},
+		},
+		{
+			name:         "SubqueryExpr(subquery_type=ARRAY)",
 			query:        "SELECT ARRAY(SELECT * FROM UNNEST([1, 2, 3]))",
 			expectedRows: [][]interface{}{{[]interface{}{int64(1), int64(2), int64(3)}}},
 		},
 		{
-			name:         "subquery_expr_type_in",
+			name:         "SubqueryExpr(subquery_type=IN)",
 			query:        "SELECT * FROM UNNEST([1, 2, 3]) AS val WHERE val IN (SELECT 1)",
 			expectedRows: [][]interface{}{{int64(1)}},
 		},
 		{
-			name:         "subquery_expr_type_exists",
+			name:         "SubqueryExpr(subquery_type=EXISTS)",
 			query:        `SELECT EXISTS ( SELECT val FROM UNNEST([1, 2, 3]) AS val WHERE val = 1 )`,
 			expectedRows: [][]interface{}{{true}},
 		},
