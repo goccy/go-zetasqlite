@@ -541,7 +541,6 @@ func (n *SubqueryExprNode) FormatSQL(ctx context.Context) (string, error) {
 	}
 	switch n.node.SubqueryType() {
 	case ast.SubqueryTypeScalar:
-		return fmt.Sprintf("(%s)", sql), nil
 	case ast.SubqueryTypeArray:
 		if len(n.node.Subquery().ColumnList()) == 0 {
 			return "", fmt.Errorf("failed to find computed column names for array subquery")
@@ -559,7 +558,7 @@ func (n *SubqueryExprNode) FormatSQL(ctx context.Context) (string, error) {
 	case ast.SubqueryTypeLikeAny:
 	case ast.SubqueryTypeLikeAll:
 	}
-	return sql, nil
+	return fmt.Sprintf("(%s)", sql), nil
 }
 
 func (n *LetExprNode) FormatSQL(ctx context.Context) (string, error) {
