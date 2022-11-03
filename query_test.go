@@ -3220,6 +3220,43 @@ FROM
 				{"false", "boolean"},
 			},
 		},
+
+		// subquery expr
+		{
+			name:         "subquery expr with scalar type at SELECT",
+			query:        "SELECT (SELECT 1)",
+			expectedRows: [][]interface{}{{int64(1)}},
+		},
+		{
+			name:         "subquery expr with scalar type at WHERE",
+			query:        "SELECT * FROM UNNEST([1, 2, 3]) AS val WHERE val = (SELECT 1)",
+			expectedRows: [][]interface{}{{int64(1)}},
+		},
+		{
+			name:         "subquery expr with scalar type at HAVING",
+			query:        "SELECT * FROM UNNEST([1, 2, 3]) AS val GROUP BY val HAVING val = (SELECT 1)",
+			expectedRows: [][]interface{}{{int64(1)}},
+		},
+		{
+			name:         "subquery expr with scalar type at function call",
+			query:        "SELECT ABS((SELECT 1))",
+			expectedRows: [][]interface{}{{int64(1)}},
+		},
+		{
+			name:         "subquery expr with array type",
+			query:        "SELECT ARRAY(SELECT * FROM UNNEST([1, 2, 3]))",
+			expectedRows: [][]interface{}{{[]interface{}{int64(1), int64(2), int64(3)}}},
+		},
+		{
+			name:         "subquery expr with in type",
+			query:        "SELECT * FROM UNNEST([1, 2, 3]) AS val WHERE val IN (SELECT 1)",
+			expectedRows: [][]interface{}{{int64(1)}},
+		},
+		{
+			name:         "subquery expr with exists type",
+			query:        `SELECT EXISTS ( SELECT val FROM UNNEST([1, 2, 3]) AS val WHERE val = 1 )`,
+			expectedRows: [][]interface{}{{true}},
+		},
 	} {
 		test := test
 		t.Run(test.name, func(t *testing.T) {

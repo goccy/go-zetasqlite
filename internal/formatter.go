@@ -558,7 +558,7 @@ func (n *SubqueryExprNode) FormatSQL(ctx context.Context) (string, error) {
 	case ast.SubqueryTypeLikeAny:
 	case ast.SubqueryTypeLikeAll:
 	}
-	return sql, nil
+	return fmt.Sprintf("(%s)", sql), nil
 }
 
 func (n *LetExprNode) FormatSQL(ctx context.Context) (string, error) {
