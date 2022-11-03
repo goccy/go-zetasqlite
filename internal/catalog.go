@@ -48,21 +48,20 @@ DELETE FROM zetasqlite_catalog WHERE name = @name
 type CatalogSpecKind string
 
 const (
-	TableSpecKind      CatalogSpecKind = "table"
-	FunctionSpecKind   CatalogSpecKind = "function"
-	defaultCatalogName                 = "zetasqlite"
+	TableSpecKind    CatalogSpecKind = "table"
+	FunctionSpecKind CatalogSpecKind = "function"
+	catalogName                      = "zetasqlite"
 )
 
 type Catalog struct {
-	db               *sql.DB
-	lastSyncedAt     time.Time
-	mu               sync.Mutex
-	tables           []*TableSpec
-	functions        []*FunctionSpec
-	defaultCatalog   *types.SimpleCatalog
-	pathToCatalogMap map[string]*types.SimpleCatalog
-	tableMap         map[string]*TableSpec
-	funcMap          map[string]*FunctionSpec
+	db           *sql.DB
+	lastSyncedAt time.Time
+	mu           sync.Mutex
+	tables       []*TableSpec
+	functions    []*FunctionSpec
+	catalog      *types.SimpleCatalog
+	tableMap     map[string]*TableSpec
+	funcMap      map[string]*FunctionSpec
 }
 
 func newSimpleCatalog(name string) *types.SimpleCatalog {
@@ -73,31 +72,22 @@ func newSimpleCatalog(name string) *types.SimpleCatalog {
 
 func NewCatalog(db *sql.DB) *Catalog {
 	return &Catalog{
-		db:               db,
-		defaultCatalog:   newSimpleCatalog(defaultCatalogName),
-		pathToCatalogMap: map[string]*types.SimpleCatalog{},
-		tableMap:         map[string]*TableSpec{},
-		funcMap:          map[string]*FunctionSpec{},
+		db:       db,
+		catalog:  newSimpleCatalog(catalogName),
+		tableMap: map[string]*TableSpec{},
+		funcMap:  map[string]*FunctionSpec{},
 	}
 }
 
-func (c *Catalog) pathToCatalogMapKey(path []string) string {
+func (c *Catalog) formatNamePath(path []string) string {
 	return strings.Join(path, "_")
-}
-
-func (c *Catalog) getCatalog(path []string) *types.SimpleCatalog {
-	cat, exists := c.pathToCatalogMap[c.pathToCatalogMapKey(path)]
-	if !exists {
-		return c.defaultCatalog
-	}
-	return cat
 }
 
 func (c *Catalog) getFunctions(path []string) []*FunctionSpec {
 	if len(path) == 0 {
 		return c.functions
 	}
-	key := c.pathToCatalogMapKey(path)
+	key := c.formatNamePath(path)
 	specs := make([]*FunctionSpec, 0, len(c.functions))
 	for _, fn := range c.functions {
 		if len(fn.NamePath) == 1 {
@@ -105,7 +95,7 @@ func (c *Catalog) getFunctions(path []string) []*FunctionSpec {
 			specs = append(specs, fn)
 			continue
 		}
-		pathPrefixKey := c.pathToCatalogMapKey(c.trimmedLastPath(fn.NamePath))
+		pathPrefixKey := c.formatNamePath(c.trimmedLastPath(fn.NamePath))
 		if strings.Contains(pathPrefixKey, key) {
 			specs = append(specs, fn)
 		}
@@ -218,16 +208,15 @@ func (c *Catalog) deleteTableSpecByName(name string) error {
 		return fmt.Errorf("failed to find table spec from map by %s", name)
 	}
 	tables := make([]*TableSpec, 0, len(c.tables))
-	specName := strings.Join(spec.NamePath, "_")
+	specName := c.formatNamePath(spec.NamePath)
 	for _, table := range c.tables {
-		if specName == strings.Join(table.NamePath, "_") {
+		if specName == c.formatNamePath(table.NamePath) {
 			continue
 		}
 		tables = append(tables, table)
 	}
 
-	c.defaultCatalog = newSimpleCatalog(defaultCatalogName)
-	c.pathToCatalogMap = map[string]*types.SimpleCatalog{}
+	c.catalog = newSimpleCatalog(catalogName)
 	c.tables = []*TableSpec{}
 	c.tableMap = map[string]*TableSpec{}
 	for _, spec := range tables {
@@ -244,16 +233,15 @@ func (c *Catalog) deleteFunctionSpecByName(name string) error {
 		return fmt.Errorf("failed to find function spec from map by %s", name)
 	}
 	functions := make([]*FunctionSpec, 0, len(c.functions))
-	specName := strings.Join(spec.NamePath, "_")
+	specName := c.formatNamePath(spec.NamePath)
 	for _, function := range c.functions {
-		if specName == strings.Join(function.NamePath, "_") {
+		if specName == c.formatNamePath(function.NamePath) {
 			continue
 		}
 		functions = append(functions, function)
 	}
 
-	c.defaultCatalog = newSimpleCatalog(defaultCatalogName)
-	c.pathToCatalogMap = map[string]*types.SimpleCatalog{}
+	c.catalog = newSimpleCatalog(catalogName)
 	c.functions = []*FunctionSpec{}
 	c.funcMap = map[string]*FunctionSpec{}
 	for _, spec := range c.functions {
@@ -348,18 +336,7 @@ func (c *Catalog) addFunctionSpec(spec *FunctionSpec) error {
 	}
 	c.functions = append(c.functions, spec)
 	c.funcMap[funcName] = spec
-	catalogMapKey := c.pathToCatalogMapKey(c.trimmedLastPath(spec.NamePath))
-	if catalogMapKey != "" {
-		cat, exists := c.pathToCatalogMap[catalogMapKey]
-		if !exists {
-			cat = newSimpleCatalog(defaultCatalogName)
-			c.pathToCatalogMap[catalogMapKey] = cat
-		}
-		if err := c.addFunctionSpecRecursive(cat, spec); err != nil {
-			return err
-		}
-	}
-	if err := c.addFunctionSpecRecursive(c.defaultCatalog, spec); err != nil {
+	if err := c.addFunctionSpecRecursive(c.catalog, spec); err != nil {
 		return err
 	}
 	return nil
@@ -373,18 +350,7 @@ func (c *Catalog) addTableSpec(spec *TableSpec) error {
 	}
 	c.tables = append(c.tables, spec)
 	c.tableMap[tableName] = spec
-	catalogMapKey := c.pathToCatalogMapKey(c.trimmedLastPath(spec.NamePath))
-	if catalogMapKey != "" {
-		cat, exists := c.pathToCatalogMap[catalogMapKey]
-		if !exists {
-			cat = newSimpleCatalog(defaultCatalogName)
-			c.pathToCatalogMap[catalogMapKey] = cat
-		}
-		if err := c.addTableSpecRecursive(cat, spec); err != nil {
-			return err
-		}
-	}
-	if err := c.addTableSpecRecursive(c.defaultCatalog, spec); err != nil {
+	if err := c.addTableSpecRecursive(c.catalog, spec); err != nil {
 		return err
 	}
 	return nil

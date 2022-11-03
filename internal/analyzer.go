@@ -219,7 +219,7 @@ func (it *AnalyzerOutputIterator) Next() bool {
 	out, err := zetasql.AnalyzeStatementFromParserAST(
 		it.query,
 		stmt.stmt,
-		it.analyzer.catalog.getCatalog(it.analyzer.namePath),
+		it.analyzer.catalog.catalog,
 		it.analyzer.opt,
 	)
 	it.err = err
