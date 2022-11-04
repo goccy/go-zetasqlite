@@ -263,12 +263,19 @@ func newTableSpec(namePath []string, stmt *ast.CreateTableStmtNode) *TableSpec {
 }
 
 func newTableAsSelectSpec(namePath []string, query string, stmt *ast.CreateTableAsSelectStmtNode) *TableSpec {
+	var outputColumns []string
+	for _, column := range stmt.OutputColumnList() {
+		outputColumns = append(
+			outputColumns,
+			fmt.Sprintf("`%[1]s#%[2]d` AS `%[1]s`", column.Name(), column.Column().ColumnID()),
+		)
+	}
 	return &TableSpec{
 		IsTemp:     stmt.CreateScope() == ast.CreateScopeTemp,
 		NamePath:   MergeNamePath(namePath, stmt.NamePath()),
 		Columns:    newColumnsFromDef(stmt.ColumnDefinitionList()),
 		CreateMode: stmt.CreateMode(),
-		Query:      query,
+		Query:      fmt.Sprintf("SELECT %s FROM (%s)", strings.Join(outputColumns, ","), query),
 	}
 }
 
