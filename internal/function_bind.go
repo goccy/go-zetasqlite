@@ -584,7 +584,7 @@ func bindParseBigNumeric(args ...Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return PARSE_NUMERIC(numeric)
+	return PARSE_BIGNUMERIC(numeric)
 }
 
 func bindFarmFingerprint(args ...Value) (Value, error) {

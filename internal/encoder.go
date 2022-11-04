@@ -292,7 +292,10 @@ func numericValueFromLiteral(lit string) (*NumericValue, error) {
 	numericLit := matches[0][1]
 	r := new(big.Rat)
 	r.SetString(numericLit)
-	return (*NumericValue)(r), nil
+	if strings.Contains("BIGNUMERIC", lit) {
+		return &NumericValue{Rat: r, isBigNumeric: true}, nil
+	}
+	return &NumericValue{Rat: r}, nil
 }
 
 func jsonValueFromLiteral(lit string) (JsonValue, error) {
@@ -471,12 +474,18 @@ func CastValue(t types.Type, v Value) (Value, error) {
 			ret.m[key] = casted
 		}
 		return ret, nil
-	case types.NUMERIC, types.BIG_NUMERIC:
+	case types.NUMERIC:
 		r, err := v.ToRat()
 		if err != nil {
 			return nil, err
 		}
-		return (*NumericValue)(r), nil
+		return &NumericValue{Rat: r}, nil
+	case types.BIG_NUMERIC:
+		r, err := v.ToRat()
+		if err != nil {
+			return nil, err
+		}
+		return &NumericValue{Rat: r, isBigNumeric: true}, nil
 	case types.JSON:
 		j, err := v.ToJSON()
 		if err != nil {
@@ -591,9 +600,15 @@ func valueLayoutFromValue(v Value) (*ValueLayout, error) {
 			Body:   base64.StdEncoding.EncodeToString([]byte(vv)),
 		}, nil
 	case *NumericValue:
-		b, err := (*big.Rat)(vv).MarshalText()
+		b, err := vv.Rat.MarshalText()
 		if err != nil {
 			return nil, err
+		}
+		if vv.isBigNumeric {
+			return &ValueLayout{
+				Header: BigNumericValueType,
+				Body:   string(b),
+			}, nil
 		}
 		return &ValueLayout{
 			Header: NumericValueType,

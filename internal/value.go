@@ -587,37 +587,43 @@ func (fv FloatValue) Interface() interface{} {
 	return float64(fv)
 }
 
-type NumericValue big.Rat
+type NumericValue struct {
+	*big.Rat
+	isBigNumeric bool
+}
 
 func (nv *NumericValue) Add(v Value) (Value, error) {
 	z := new(big.Rat)
-	x := (*big.Rat)(nv)
+	x := nv.Rat
 	y, err := v.ToRat()
 	if err != nil {
 		return nil, err
 	}
-	return (*NumericValue)(z.Add(x, y)), nil
+	nv.Rat = z.Add(x, y)
+	return nv, nil
 }
 
 func (nv *NumericValue) Sub(v Value) (Value, error) {
 	z := new(big.Rat)
-	x := (*big.Rat)(nv)
+	x := nv.Rat
 	y, err := v.ToRat()
 	if err != nil {
 		return nil, err
 	}
 	zy := new(big.Rat)
-	return (*NumericValue)(z.Add(x, zy.Neg(y))), nil
+	nv.Rat = z.Add(x, zy.Neg(y))
+	return nv, nil
 }
 
 func (nv *NumericValue) Mul(v Value) (Value, error) {
 	z := new(big.Rat)
-	x := (*big.Rat)(nv)
+	x := nv.Rat
 	y, err := v.ToRat()
 	if err != nil {
 		return nil, err
 	}
-	return (*NumericValue)(z.Mul(x, y)), nil
+	nv.Rat = z.Mul(x, y)
+	return nv, nil
 }
 
 func (nv *NumericValue) Div(v Value) (ret Value, e error) {
@@ -627,17 +633,18 @@ func (nv *NumericValue) Div(v Value) (ret Value, e error) {
 		}
 	}()
 	z := new(big.Rat)
-	x := (*big.Rat)(nv)
+	x := nv.Rat
 	y, err := v.ToRat()
 	if err != nil {
 		return nil, err
 	}
 	zy := new(big.Rat)
-	return (*NumericValue)(z.Mul(x, zy.Inv(y))), nil
+	nv.Rat = z.Mul(x, zy.Inv(y))
+	return nv, nil
 }
 
 func (nv *NumericValue) EQ(v Value) (bool, error) {
-	x := (*big.Rat)(nv)
+	x := nv.Rat
 	y, err := v.ToRat()
 	if err != nil {
 		return false, err
@@ -646,7 +653,7 @@ func (nv *NumericValue) EQ(v Value) (bool, error) {
 }
 
 func (nv *NumericValue) GT(v Value) (bool, error) {
-	x := (*big.Rat)(nv)
+	x := nv.Rat
 	y, err := v.ToRat()
 	if err != nil {
 		return false, err
@@ -655,7 +662,7 @@ func (nv *NumericValue) GT(v Value) (bool, error) {
 }
 
 func (nv *NumericValue) GTE(v Value) (bool, error) {
-	x := (*big.Rat)(nv)
+	x := nv.Rat
 	y, err := v.ToRat()
 	if err != nil {
 		return false, err
@@ -664,7 +671,7 @@ func (nv *NumericValue) GTE(v Value) (bool, error) {
 }
 
 func (nv *NumericValue) LT(v Value) (bool, error) {
-	x := (*big.Rat)(nv)
+	x := nv.Rat
 	y, err := v.ToRat()
 	if err != nil {
 		return false, err
@@ -673,7 +680,7 @@ func (nv *NumericValue) LT(v Value) (bool, error) {
 }
 
 func (nv *NumericValue) LTE(v Value) (bool, error) {
-	x := (*big.Rat)(nv)
+	x := nv.Rat
 	y, err := v.ToRat()
 	if err != nil {
 		return false, err
@@ -682,24 +689,36 @@ func (nv *NumericValue) LTE(v Value) (bool, error) {
 }
 
 func (nv *NumericValue) ToInt64() (int64, error) {
-	return (*big.Rat)(nv).Num().Int64(), nil
+	return nv.Rat.Num().Int64(), nil
+}
+
+func (nv *NumericValue) toString() string {
+	var v string
+	if nv.isBigNumeric {
+		v = nv.Rat.FloatString(38)
+	} else {
+		v = nv.Rat.FloatString(9)
+	}
+	v = strings.TrimRight(v, "0")
+	v = strings.TrimRight(v, ".")
+	return v
 }
 
 func (nv *NumericValue) ToString() (string, error) {
-	return (*big.Rat)(nv).RatString(), nil
+	return nv.toString(), nil
 }
 
 func (nv *NumericValue) ToBytes() ([]byte, error) {
-	return []byte((*big.Rat)(nv).RatString()), nil
+	return []byte(nv.toString()), nil
 }
 
 func (nv *NumericValue) ToFloat64() (float64, error) {
-	f, _ := (*big.Rat)(nv).Float64()
+	f, _ := nv.Rat.Float64()
 	return f, nil
 }
 
 func (nv *NumericValue) ToBool() (bool, error) {
-	v := (*big.Rat)(nv).Num().Int64()
+	v := nv.Rat.Num().Int64()
 	if v == 1 {
 		return true, nil
 	} else if v == 0 {
@@ -717,7 +736,7 @@ func (nv *NumericValue) ToStruct() (*StructValue, error) {
 }
 
 func (nv *NumericValue) ToJSON() (string, error) {
-	return (*big.Rat)(nv).RatString(), nil
+	return nv.toString(), nil
 }
 
 func (nv *NumericValue) ToTime() (time.Time, error) {
@@ -725,15 +744,15 @@ func (nv *NumericValue) ToTime() (time.Time, error) {
 }
 
 func (nv *NumericValue) ToRat() (*big.Rat, error) {
-	return (*big.Rat)(nv), nil
+	return nv.Rat, nil
 }
 
 func (nv *NumericValue) Format(verb rune) string {
-	return (*big.Rat)(nv).RatString()
+	return nv.toString()
 }
 
 func (nv *NumericValue) Interface() interface{} {
-	f, _ := (*big.Rat)(nv).Float64()
+	f, _ := nv.Rat.Float64()
 	return f
 }
 
