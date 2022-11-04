@@ -49,7 +49,11 @@ func decodeFromValueLayout(layout *ValueLayout) (Value, error) {
 	case NumericValueType:
 		r := new(big.Rat)
 		r.SetString(layout.Body)
-		return (*NumericValue)(r), nil
+		return &NumericValue{Rat: r}, nil
+	case BigNumericValueType:
+		r := new(big.Rat)
+		r.SetString(layout.Body)
+		return &NumericValue{Rat: r, isBigNumeric: true}, nil
 	case DateValueType:
 		t, err := parseDate(layout.Body)
 		if err != nil {

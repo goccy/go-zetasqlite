@@ -5,9 +5,7 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"io"
-	"math/big"
 	"reflect"
-	"strings"
 	"time"
 
 	"github.com/goccy/go-json"
@@ -221,27 +219,13 @@ func (r *Rows) assignInterfaceValue(src Value, dst reflect.Value, typ *Type) err
 		if err != nil {
 			return err
 		}
-		r := new(big.Rat)
-		if _, ok := r.SetString(s); !ok {
-			return fmt.Errorf("unexpected numeric value: %s", s)
-		}
-		f := r.FloatString(9)
-		f = strings.TrimRight(f, "0")
-		f = strings.TrimRight(f, ".")
-		dst.Set(reflect.ValueOf(f))
+		dst.Set(reflect.ValueOf(s))
 	case types.BIG_NUMERIC:
 		s, err := src.ToString()
 		if err != nil {
 			return err
 		}
-		r := new(big.Rat)
-		if _, ok := r.SetString(s); !ok {
-			return fmt.Errorf("unexpected bignumeric value: %s", s)
-		}
-		f := r.FloatString(38)
-		f = strings.TrimRight(f, "0")
-		f = strings.TrimRight(f, ".")
-		dst.Set(reflect.ValueOf(f))
+		dst.Set(reflect.ValueOf(s))
 	case types.DATE:
 		date, err := src.ToJSON()
 		if err != nil {
