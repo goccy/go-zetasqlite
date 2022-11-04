@@ -44,6 +44,16 @@ CREATE TABLE _table_a (
 )`,
 		},
 		{
+			name: "create table as select",
+			query: `
+CREATE TABLE foo ( id STRING, name STRING );
+CREATE TABLE bar ( id STRING, name STRING );
+CREATE OR REPLACE TABLE new_table_as_select AS (
+  SELECT t1.id, t2.name FROM foo t1 JOIN bar t2 ON t1.id = t2.id
+);
+`,
+		},
+		{
 			name: "recreate table",
 			query: `
 CREATE OR REPLACE TABLE recreate_table ( a string );

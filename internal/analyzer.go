@@ -247,6 +247,7 @@ func (it *AnalyzerOutputIterator) Analyze(ctx context.Context) (*AnalyzerOutput,
 	case ast.CreateTableStmt:
 		return it.analyzeCreateTableStmt(ctx, stmtNode.(*ast.CreateTableStmtNode))
 	case ast.CreateTableAsSelectStmt:
+		ctx = withUseColumnID(ctx)
 		return it.analyzeCreateTableAsSelectStmt(ctx, stmtNode.(*ast.CreateTableAsSelectStmtNode))
 	case ast.CreateFunctionStmt:
 		return it.analyzeCreateFunctionStmt(ctx, stmtNode.(*ast.CreateFunctionStmtNode))
