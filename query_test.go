@@ -3087,6 +3087,11 @@ SELECT
 			query:        `SELECT PARSE_BIGNUMERIC("123.45"), PARSE_BIGNUMERIC("123.456E37"), PARSE_BIGNUMERIC("1.123456789012345678901234567890123456789")`,
 			expectedRows: [][]interface{}{{"123.45", "1234560000000000000000000000000000000000", "1.12345678901234567890123456789012345679"}},
 		},
+		{
+			name:         "cast numeric and bignumeric to string",
+			query:        `SELECT cast(PARSE_NUMERIC("123.456") as STRING), cast(PARSE_BIGNUMERIC("123.456") as STRING)`,
+			expectedRows: [][]interface{}{{"123.456", "123.456"}},
+		},
 
 		// uuid functions
 		{
