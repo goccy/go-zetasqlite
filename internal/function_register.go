@@ -373,6 +373,9 @@ func RegisterFunctions(conn *sqlite3.SQLiteConn) error {
 		if err != nil {
 			return "", err
 		}
+		if decoded == nil {
+			return nil, nil
+		}
 		return decoded.Interface(), nil
 	}, true); err != nil {
 		return fmt.Errorf("failed to register group_by function: %w", err)
