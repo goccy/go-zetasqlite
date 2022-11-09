@@ -119,3 +119,26 @@ COMMIT TRANSACTION;
 		})
 	}
 }
+
+func TestCreateTempTable(t *testing.T) {
+	now := time.Now()
+	ctx := context.Background()
+	ctx = zetasqlite.WithCurrentTime(ctx, now)
+	db, err := sql.Open("zetasqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if _, err := db.ExecContext(ctx, "CREATE TEMP TABLE tmp_table (id INT64)"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, "CREATE TEMP TABLE tmp_table (id INT64)"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, "CREATE TABLE tmp_table (id INT64)"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, "CREATE TABLE tmp_table (id INT64)"); err == nil {
+		t.Fatal("expected error")
+	}
+}

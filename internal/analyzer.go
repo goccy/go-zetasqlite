@@ -279,7 +279,7 @@ func (it *AnalyzerOutputIterator) analyzeCreateTableStmt(ctx context.Context, no
 		return nil, err
 	}
 	execContext := func(ctx context.Context, conn *Conn) (driver.Result, error) {
-		dropTableQuery := fmt.Sprintf("DROP TABLE IF EXISTS `%s`", spec.TableName())
+		dropTableQuery := fmt.Sprintf("DROP TABLE IF EXISTS `%s`", strings.Join(spec.NamePath, "."))
 		if spec.CreateMode == ast.CreateOrReplaceMode {
 			if _, err := conn.ExecContext(ctx, dropTableQuery); err != nil {
 				return nil, err
@@ -343,7 +343,7 @@ func (it *AnalyzerOutputIterator) analyzeCreateTableAsSelectStmt(ctx context.Con
 		return nil, err
 	}
 	execContext := func(ctx context.Context, conn *Conn) (driver.Result, error) {
-		dropTableQuery := fmt.Sprintf("DROP TABLE IF EXISTS `%s`", spec.TableName())
+		dropTableQuery := fmt.Sprintf("DROP TABLE IF EXISTS `%s`", strings.Join(spec.NamePath, "."))
 		if spec.CreateMode == ast.CreateOrReplaceMode {
 			if _, err := conn.ExecContext(ctx, dropTableQuery); err != nil {
 				return nil, err
