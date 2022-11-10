@@ -67,7 +67,7 @@ func main() {
 
 # Status
 
-A list of ZetaSQL specifications and features supported by go-zetasqlite.
+A list of ZetaSQL ( Google Standard SQL ) specifications and features supported by go-zetasqlite.
 
 ## Types
 
@@ -89,26 +89,9 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 - [x] RECORD
 - [ ] GEOGRAPHY
 
-## Statements
+## Expressions
 
-- [x] SELECT
-- [x] UPDATE
-- [x] INSERT
-- [x] DELETE
-- [x] DROP
-- [x] TRUNCATE
-- [x] MERGE
-- [x] BEGIN-END
-- [x] BEGIN TRANSACTION
-- [x] COMMIT TRANSACTION
-- [x] CREATE TABLE
-- [x] CREATE FUNCTION
-- [x] CREATE TEMPORARY TABLE
-- [x] CREATE TEMPORARY FUNCTION
-
-## Standard SQL Features
-
-### Operator precedence
+### Operators
 
 - [x] Field access operator
 - [x] Array subscript operator
@@ -133,27 +116,193 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 - [x] [NOT] EXISTS
 - [x] IS [NOT] DISTINCT FROM
 
-### Conditional expressions
+### Conditional Expressions
 
-- [x] CASE-WHEN
+- [x] CASE expr
+- [x] CASE
 - [x] COALESCE
-- [x] IF
 - [x] IFNULL
 - [x] NULLIF
 
-### Other clauses
+### Subqueries
 
-- [x] OVER
-- [x] WINDOW
-- [x] WITH
-- [x] UNION
-- [X] HAVING
-- [x] ORDER BY
-- [X] GROUP BY - ROLLUP
-- [X] INNER/LEFT/RIGHT/FULL/CROSS JOIN
-- [x] QUALIFY
-- [x] EXCEPT
-- [x] REPLACE
+- [x] Expression subqueries
+  - [x] Scalar subqueries
+  - [x] ARRAY subqueries
+  - [x] IN subqueries
+  - [x] EXISTS subqueries
+- [x] Table subqueries
+- [x] Correlated subqueries
+- [x] Volatile subqueries
+
+## Query
+
+- [x] SELECT statement
+  - [x] SELECT *
+  - [x] SELECT expression
+  - [x] SELECT expression.*
+  - [x] SELECT * EXCEPT
+  - [x] SELECT * REPLACE
+  - [x] SELECT DISTINCT
+  - [x] SELECT ALL
+  - [x] SELECT AS STRUCT
+  - [x] SELECT AS VALUE
+- [x] FROM clause
+- [x] UNNEST operator
+  - [x] UNNEST and STRUCTs
+  - [ ] Explicit and implicit UNNEST
+  - [ ] UNNEST and NULLs
+  - [ ] UNNEST and WITH OFFSET
+- [ ] PIVOT operator
+- [ ] UNPIVOT operator
+- [ ] TABLESAMPLE operator
+- [x] JOIN operation
+  - [x] INNER JOIN
+  - [x] CROSS JOIN
+  - [x] Comma cross join (,)
+  - [x] FULL OUTER JOIN
+  - [x] LEFT OUTER JOIN
+  - [x] RIGHT OUTER JOIN
+  - [x] ON clause
+  - [x] USING clause
+  - [x] ON and USING equivalency
+  - [ ] Join operations in a sequence
+  - [ ] Correlated join operation
+- [x] WHERE clause
+- [x] GROUP BY clause
+- [x] HAVING clause
+  - [x] Mandatory aggregation
+- [x] ORDER BY clause
+- [x] QUALIFY clause
+- [x] WINDOW clause
+- [x] Set operators
+  - [x] UNION
+  - [x] INTERSECT
+  - [x] EXCEPT
+- [x] LIMIT and OFFSET clauses
+- [x] WITH clause
+  - [ ] RECURSIVE keyword
+  - [ ] Non-recursive CTEs
+  - [ ] Recursive CTEs
+  - [ ] CTE rules and constraints
+  - [ ] CTE visibility
+- [x] Using aliases
+  - [x] Explicit aliases
+  - [x] Implicit aliases
+  - [x] Alias visibility
+  - [x] Duplicate aliases
+  - [x] Ambiguous aliases
+  - [x] Range variables
+- [x] Value tables
+  - [x] Return query results as a value table
+  - [x] Create a table with a value table
+  - [ ] Use a set operation on a value table
+
+## Statements
+
+### DDL ( Data Definition Language )
+
+- CREATE SCHEMA
+- [x] CREATE TABLE
+- [ ] CREATE TABLE LIKE
+- [ ] CREATE TABLE COPY
+- [ ] CREATE SNAPSHOT TABLE
+- [ ] CREATE TABLE CLONE
+- [ ] CREATE VIEW
+- [ ] CREATE MATERIALIZED VIEW
+- [ ] CREATE EXTERNAL TABLE
+- [x] CREATE FUNCTION
+- [ ] CREATE TABLE FUNCTION
+- [ ] CREATE PROCEDURE
+- [ ] CREATE ROW ACCESS POLICY
+- [ ] CREATE CAPACITY
+- [ ] CREATE RESERVATION
+- [ ] CREATE ASSIGNMENT
+- [ ] CREATE SEARCH INDEX
+- [ ] ALTER SCHEMA SET DEFAULT COLLATE
+- [ ] ALTER SCHEMA SET OPTIONS
+- [ ] ALTER TABLE SET OPTIONS
+- [ ] ALTER TABLE ADD COLUMN
+- [ ] ALTER TABLE RENAME TO
+- [ ] ALTER TABLE RENAME COLUMN
+- [ ] ALTER TABLE DROP COLUMN
+- [ ] ALTER TABLE SET DEFAULT COLLATE
+- [ ] ALTER COLUMN SET OPTIONS
+- [ ] ALTER COLUMN DROP NOT NULL
+- [ ] ALTER COLUMN SET DATA TYPE
+- [ ] ALTER COLUMN SET DEFAULT
+- [ ] ALTER COLUMN DROP DEFAULT
+- [ ] ALTER VIEW SET OPTIONS
+- [ ] ALTER MATERIALIZED VIEW SET OPTIONS
+- [ ] ALTER ORGANIZATION SET OPTIONS
+- [ ] ALTER PROJECT SET OPTIONS
+- [ ] ALTER BI_CAPACITY SET OPTIONS
+- [ ] DROP SCHEMA
+- [x] DROP TABLE
+- [ ] DROP SNAPSHOT TABLE
+- [ ] DROP EXTERNAL TABLE
+- [ ] DROP VIEW
+- [ ] DROP MATERIALIZED VIEW
+- [x] DROP FUNCTION
+- [ ] DROP TABLE FUNCTION
+- [ ] DROP PROCEDURE
+- [ ] DROP ROW ACCESS POLICY
+- [ ] DROP CAPACITY
+- [ ] DROP RESERVATION
+- [ ] DROP ASSIGNMENT
+- [ ] DROP SEARCH INDEX
+
+### DML ( Data Manipulation Language )
+
+- [x] INSERT
+- [x] DELETE
+- [x] TRUNCATE TABLE
+- [x] UPDATE
+- [x] MERGE
+
+### DCL ( Data Control Language )
+
+- [ ] GRANT
+- [ ] REVOKE
+
+### Procedural Language
+
+- [ ] DECLARE
+- [ ] SET
+- [ ] EXECUTE IMMEDIATE
+- [x] BEGIN...END
+- [ ] BEGIN...EXCEPTION...END
+- [x] CASE
+- [x] CASE search_expression
+- [x] IF
+- [ ] Labels
+- [ ] Loops
+  - [ ] LOOP
+  - [ ] REPEATE
+  - [ ] WHILE
+  - [ ] BREAK
+  - [ ] LEAVE
+  - [ ] CONTINUE
+  - [ ] ITERATE
+  - [ ] FOR...IN
+- [ ] Transactions
+  - [x] BEGIN TRANSACTION
+  - [x] COMMIT TRANSACTION
+  - [ ] ROLLBACK TRANSACTION
+- [ ] RAISE
+- [ ] RETURN
+- [ ] CALL
+
+### Debugging Statements
+
+- [ ] ASSERT
+
+### Other Statements
+
+- [ ] EXPORT DATA
+- [ ] LOAD DATA
+
+## Functions
 
 ### Aggregate functions
 
@@ -449,7 +598,71 @@ A list of ZetaSQL specifications and features supported by go-zetasqlite.
 
 ### Geography functions
 
-Not suported yet
+- [ ] S2_CELLIDFROMPOINT
+- [ ] S2_COVERINGCELLIDS
+- [ ] ST_ANGLE
+- [ ] ST_AREA
+- [ ] ST_ASBINARY
+- [ ] ST_ASGEOJSON
+- [ ] ST_ASTEXT
+- [ ] ST_AZIMUTH
+- [ ] ST_BOUNDARY
+- [ ] ST_BOUNDINGBOX
+- [ ] ST_BUFFER
+- [ ] ST_BUFFERWITHTOLERANCE
+- [ ] ST_CENTROID
+- [ ] ST_CENTROID_AGG
+- [ ] ST_CLOSESTPOINT
+- [ ] ST_CLUSTERDBSCAN
+- [ ] ST_CONTAINS
+- [ ] ST_CONVEXHULL
+- [ ] ST_COVEREDBY
+- [ ] ST_COVERS
+- [ ] ST_DIFFERENCE
+- [ ] ST_DIMENSION
+- [ ] ST_DISJOINT
+- [ ] ST_DISTANCE
+- [ ] ST_DUMP
+- [ ] ST_DWITHIN
+- [ ] ST_ENDPOINT
+- [ ] ST_EQUALS
+- [ ] ST_EXTENT
+- [ ] ST_EXTERIORRING
+- [ ] ST_GEOGFROM
+- [ ] ST_GEOGFROMGEOJSON
+- [ ] ST_GEOGFROMTEXT
+- [ ] ST_GEOGFROMWKB
+- [ ] ST_GEOGPOINT
+- [ ] ST_GEOGPOINTFROMGEOHASH
+- [ ] ST_GEOHASH
+- [ ] ST_GEOMETRYTYPE
+- [ ] ST_INTERIORRINGS
+- [ ] ST_INTERSECTION
+- [ ] ST_INTERSECTS
+- [ ] ST_INTERSECTSBOX
+- [ ] ST_ISCLOSED
+- [ ] ST_ISCOLLECTION
+- [ ] ST_ISEMPTY
+- [ ] ST_ISRING
+- [ ] ST_LENGTH
+- [ ] ST_MAKELINE
+- [ ] ST_MAKEPOLYGON
+- [ ] ST_MAKEPOLYGONORIENTED
+- [ ] ST_MAXDISTANCE
+- [ ] ST_NPOINTS
+- [ ] ST_NUMGEOMETRIES
+- [ ] ST_NUMPOINTS
+- [ ] ST_PERIMETER
+- [ ] ST_POINTN
+- [ ] ST_SIMPLIFY
+- [ ] ST_SNAPTOGRID
+- [ ] ST_STARTPOINT
+- [ ] ST_TOUCHES
+- [ ] ST_UNION
+- [ ] ST_UNION_AGG
+- [ ] ST_WITHIN
+- [ ] ST_X
+- [ ] ST_Y
 
 ### Security functions
 
