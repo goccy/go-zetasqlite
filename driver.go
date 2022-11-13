@@ -109,75 +109,89 @@ func (s *ZetaSQLiteConn) CheckNamedValue(value *driver.NamedValue) error {
 func (c *ZetaSQLiteConn) Prepare(query string) (driver.Stmt, error) {
 	ctx := context.Background()
 	conn := internal.NewConn(c.conn, c.tx)
-	it, err := c.analyzer.AnalyzeIterator(ctx, conn, query, nil)
+	actionFuncs, err := c.analyzer.Analyze(ctx, conn, query, nil)
 	if err != nil {
 		return nil, err
 	}
-
 	var stmt driver.Stmt
-	for it.Next() {
-		out, err := it.Analyze(ctx)
+	for _, actionFunc := range actionFuncs {
+		action, err := actionFunc()
 		if err != nil {
 			return nil, err
 		}
-		s, err := out.Prepare(ctx, conn)
+		s, err := action.Prepare(ctx, conn)
 		if err != nil {
 			return nil, err
 		}
 		stmt = s
 	}
-	if err := it.Err(); err != nil {
-		return nil, err
-	}
 	return stmt, nil
 }
 
-func (c *ZetaSQLiteConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+func (c *ZetaSQLiteConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (r driver.Result, e error) {
 	conn := internal.NewConn(c.conn, c.tx)
-	it, err := c.analyzer.AnalyzeIterator(ctx, conn, query, args)
+	actionFuncs, err := c.analyzer.Analyze(ctx, conn, query, args)
 	if err != nil {
 		return nil, err
 	}
+	var actions []internal.StmtAction
+	defer func() {
+		eg := new(internal.ErrorGroup)
+		eg.Add(e)
+		for _, action := range actions {
+			eg.Add(action.Cleanup(ctx, conn))
+		}
+		if eg.HasError() {
+			e = eg
+		}
+	}()
 
 	var result driver.Result
-	for it.Next() {
-		out, err := it.Analyze(ctx)
+	for _, actionFunc := range actionFuncs {
+		action, err := actionFunc()
 		if err != nil {
 			return nil, err
 		}
-		r, err := out.ExecContext(ctx, conn)
+		actions = append(actions, action)
+		r, err := action.ExecContext(ctx, conn)
 		if err != nil {
 			return nil, err
 		}
 		result = r
 	}
-	if err := it.Err(); err != nil {
-		return nil, err
-	}
 	return result, nil
 }
 
-func (c *ZetaSQLiteConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+func (c *ZetaSQLiteConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (r driver.Rows, e error) {
 	conn := internal.NewConn(c.conn, c.tx)
-	it, err := c.analyzer.AnalyzeIterator(ctx, conn, query, args)
+	actionFuncs, err := c.analyzer.Analyze(ctx, conn, query, args)
 	if err != nil {
 		return nil, err
 	}
-
-	var rows driver.Rows
-	for it.Next() {
-		out, err := it.Analyze(ctx)
+	var (
+		actions []internal.StmtAction
+		rows    *internal.Rows
+	)
+	defer func() {
+		if rows != nil {
+			// If we call cleanup action at the end of QueryContext function,
+			// there is a possibility that the deleted table will be referenced when scanning from Rows,
+			// so cleanup action should be executed in the Close() process of Rows.
+			// For that, let Rows have a reference to actions ( and connection ).
+			rows.SetActions(actions, conn)
+		}
+	}()
+	for _, actionFunc := range actionFuncs {
+		action, err := actionFunc()
 		if err != nil {
 			return nil, err
 		}
-		r, err := out.QueryContext(ctx, conn)
+		actions = append(actions, action)
+		queryRows, err := action.QueryContext(ctx, conn)
 		if err != nil {
 			return nil, err
 		}
-		rows = r
-	}
-	if err := it.Err(); err != nil {
-		return nil, err
+		rows = queryRows
 	}
 	return rows, nil
 }
