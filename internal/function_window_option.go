@@ -61,7 +61,7 @@ func (o *WindowFuncOption) UnmarshalJSON(b []byte) error {
 		}
 		o.Value = value.Value
 	case WindowFuncOptionPartition:
-		value, err := ValueFromGoValue(v.Value)
+		value, err := DecodeValue(v.Value)
 		if err != nil {
 			return fmt.Errorf("failed to convert %v to Value: %w", v.Value, err)
 		}
@@ -158,101 +158,67 @@ func getWindowOrderByOptionFuncSQL(column string, isAsc bool) string {
 }
 
 func WINDOW_FRAME_UNIT(frameUnit int64) (Value, error) {
-	b, _ := json.Marshal(&WindowFuncOption{
+	b, err := json.Marshal(&WindowFuncOption{
 		Type:  WindowFuncOptionFrameUnit,
 		Value: frameUnit,
 	})
+	if err != nil {
+		return nil, err
+	}
 	return StringValue(string(b)), nil
 }
 
 func WINDOW_BOUNDARY_START(boundaryType, offset int64) (Value, error) {
-	b, _ := json.Marshal(&WindowFuncOption{
+	b, err := json.Marshal(&WindowFuncOption{
 		Type: WindowFuncOptionStart,
 		Value: &WindowBoundary{
 			Type:   WindowBoundaryType(boundaryType),
 			Offset: offset,
 		},
 	})
+	if err != nil {
+		return nil, err
+	}
 	return StringValue(string(b)), nil
 }
 
 func WINDOW_BOUNDARY_END(boundaryType, offset int64) (Value, error) {
-	b, _ := json.Marshal(&WindowFuncOption{
+	b, err := json.Marshal(&WindowFuncOption{
 		Type: WindowFuncOptionEnd,
 		Value: &WindowBoundary{
 			Type:   WindowBoundaryType(boundaryType),
 			Offset: offset,
 		},
 	})
+	if err != nil {
+		return nil, err
+	}
 	return StringValue(string(b)), nil
 }
 
 func WINDOW_PARTITION(partition Value) (Value, error) {
-	var v interface{}
-	switch vv := partition.(type) {
-	case IntValue:
-		i64, err := vv.ToInt64()
-		if err != nil {
-			return nil, err
-		}
-		v = i64
-	case FloatValue:
-		f64, err := vv.ToFloat64()
-		if err != nil {
-			return nil, err
-		}
-		v = f64
-	case StringValue:
-		s, err := vv.ToString()
-		if err != nil {
-			return nil, err
-		}
-		v = s
-	case BoolValue:
-		b, err := vv.ToBool()
-		if err != nil {
-			return nil, err
-		}
-		v = b
-	case DateValue:
-		i64, err := vv.ToInt64()
-		if err != nil {
-			return nil, err
-		}
-		v = i64
-	case DatetimeValue:
-		i64, err := vv.ToInt64()
-		if err != nil {
-			return nil, err
-		}
-		v = i64
-	case TimeValue:
-		i64, err := vv.ToInt64()
-		if err != nil {
-			return nil, err
-		}
-		v = i64
-	case TimestampValue:
-		i64, err := vv.ToInt64()
-		if err != nil {
-			return nil, err
-		}
-		v = i64
-	default:
-		return nil, fmt.Errorf("unsupported %T type for order by value", vv)
+	v, err := EncodeValue(partition)
+	if err != nil {
+		return nil, err
 	}
-	b, _ := json.Marshal(&WindowFuncOption{
+	b, err := json.Marshal(&WindowFuncOption{
 		Type:  WindowFuncOptionPartition,
 		Value: v,
 	})
+	if err != nil {
+		return nil, err
+	}
 	return StringValue(string(b)), nil
 }
 
 func WINDOW_ROWID(id int64) (Value, error) {
-	b, _ := json.Marshal(&WindowFuncOption{
+	b, err := json.Marshal(&WindowFuncOption{
 		Type:  WindowFuncOptionRowID,
 		Value: id,
 	})
+	if err != nil {
+		return nil, err
+	}
 	return StringValue(string(b)), nil
 }
 
@@ -269,7 +235,7 @@ func (w *WindowOrderBy) UnmarshalJSON(b []byte) error {
 	if err := json.Unmarshal(b, &v); err != nil {
 		return err
 	}
-	value, err := ValueFromGoValue(v.Value)
+	value, err := DecodeValue(v.Value)
 	if err != nil {
 		return err
 	}
@@ -279,60 +245,11 @@ func (w *WindowOrderBy) UnmarshalJSON(b []byte) error {
 }
 
 func WINDOW_ORDER_BY(value Value, isAsc bool) (Value, error) {
-	var v interface{}
-	switch vv := value.(type) {
-	case IntValue:
-		i64, err := vv.ToInt64()
-		if err != nil {
-			return nil, err
-		}
-		v = i64
-	case FloatValue:
-		f64, err := vv.ToFloat64()
-		if err != nil {
-			return nil, err
-		}
-		v = f64
-	case StringValue:
-		s, err := vv.ToString()
-		if err != nil {
-			return nil, err
-		}
-		v = s
-	case BoolValue:
-		b, err := vv.ToBool()
-		if err != nil {
-			return nil, err
-		}
-		v = b
-	case DateValue:
-		i64, err := vv.ToInt64()
-		if err != nil {
-			return nil, err
-		}
-		v = i64
-	case DatetimeValue:
-		i64, err := vv.ToInt64()
-		if err != nil {
-			return nil, err
-		}
-		v = i64
-	case TimeValue:
-		i64, err := vv.ToInt64()
-		if err != nil {
-			return nil, err
-		}
-		v = i64
-	case TimestampValue:
-		i64, err := vv.ToInt64()
-		if err != nil {
-			return nil, err
-		}
-		v = i64
-	default:
-		return nil, fmt.Errorf("unsupported %T type for order by value", vv)
+	v, err := EncodeValue(value)
+	if err != nil {
+		return nil, err
 	}
-	b, _ := json.Marshal(&WindowFuncOption{
+	b, err := json.Marshal(&WindowFuncOption{
 		Type: WindowFuncOptionOrderBy,
 		Value: struct {
 			Value interface{} `json:"value"`
@@ -342,6 +259,9 @@ func WINDOW_ORDER_BY(value Value, isAsc bool) (Value, error) {
 			IsAsc: isAsc,
 		},
 	})
+	if err != nil {
+		return nil, err
+	}
 	return StringValue(string(b)), nil
 }
 

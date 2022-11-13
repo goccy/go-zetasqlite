@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"context"
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
@@ -14,7 +15,14 @@ import (
 
 type Rows struct {
 	rows    *sql.Rows
+	conn    *Conn
 	columns []*ColumnSpec
+	actions []StmtAction
+}
+
+func (r *Rows) SetActions(actions []StmtAction, conn *Conn) {
+	r.conn = conn
+	r.actions = actions
 }
 
 func (r *Rows) Columns() []string {
@@ -30,7 +38,17 @@ func (r *Rows) ColumnTypeDatabaseTypeName(i int) string {
 	return string(encodedType)
 }
 
-func (r *Rows) Close() error {
+func (r *Rows) Close() (e error) {
+	defer func() {
+		eg := new(ErrorGroup)
+		eg.Add(e)
+		for _, action := range r.actions {
+			eg.Add(action.Cleanup(context.Background(), r.conn))
+		}
+		if eg.HasError() {
+			e = eg
+		}
+	}()
 	if r.rows == nil {
 		return nil
 	}

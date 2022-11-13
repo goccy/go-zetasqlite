@@ -18,23 +18,6 @@ type Analyzer struct {
 	opt      *zetasql.AnalyzerOptions
 }
 
-type AnalyzerOutput struct {
-	node           ast.Node
-	query          string
-	formattedQuery string
-	params         []*ast.ParameterNode
-	isQuery        bool
-	tableSpec      *TableSpec
-	outputColumns  []*ColumnSpec
-	Prepare        func(context.Context, *Conn) (driver.Stmt, error)
-	ExecContext    func(context.Context, *Conn) (driver.Result, error)
-	QueryContext   func(context.Context, *Conn) (driver.Rows, error)
-}
-
-func (o *AnalyzerOutput) Params() []*ast.ParameterNode {
-	return o.params
-}
-
 func NewAnalyzer(catalog *Catalog) *Analyzer {
 	return &Analyzer{
 		catalog: catalog,
@@ -161,7 +144,9 @@ func (a *Analyzer) getParameterMode(stmt parsed_ast.StatementNode) (zetasql.Para
 	return zetasql.ParameterNamed, nil
 }
 
-func (a *Analyzer) AnalyzeIterator(ctx context.Context, conn *Conn, query string, args []driver.NamedValue) (*AnalyzerOutputIterator, error) {
+type StmtActionFunc func() (StmtAction, error)
+
+func (a *Analyzer) Analyze(ctx context.Context, conn *Conn, query string, args []driver.NamedValue) ([]StmtActionFunc, error) {
 	if err := a.catalog.Sync(ctx, conn); err != nil {
 		return nil, fmt.Errorf("failed to sync catalog: %w", err)
 	}
@@ -169,353 +154,178 @@ func (a *Analyzer) AnalyzeIterator(ctx context.Context, conn *Conn, query string
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse statements: %w", err)
 	}
-	resultStmts := make([]*Statement, 0, len(stmts))
-	for _, stmt := range stmts {
-		mode, err := a.getParameterMode(stmt)
-		if err != nil {
-			return nil, err
-		}
-		resultStmts = append(resultStmts, &Statement{
-			stmt: stmt,
-			mode: mode,
-		})
-	}
 	funcMap := map[string]*FunctionSpec{}
 	for _, spec := range a.catalog.getFunctions(a.namePath) {
 		funcMap[spec.FuncName()] = spec
 	}
-	return &AnalyzerOutputIterator{
-		query:    query,
-		args:     args,
-		stmts:    resultStmts,
-		analyzer: a,
-		funcMap:  funcMap,
-	}, nil
-}
-
-type Statement struct {
-	stmt parsed_ast.StatementNode
-	mode zetasql.ParameterMode
-}
-
-type AnalyzerOutputIterator struct {
-	query    string
-	args     []driver.NamedValue
-	analyzer *Analyzer
-	stmts    []*Statement
-	stmtIdx  int
-	funcMap  map[string]*FunctionSpec
-	out      *zetasql.AnalyzerOutput
-	isEnd    bool
-	err      error
-}
-
-func (it *AnalyzerOutputIterator) Next() bool {
-	if it.stmtIdx >= len(it.stmts) {
-		return false
+	actionFuncs := make([]StmtActionFunc, 0, len(stmts))
+	for _, stmt := range stmts {
+		stmt := stmt
+		actionFuncs = append(actionFuncs, func() (StmtAction, error) {
+			mode, err := a.getParameterMode(stmt)
+			if err != nil {
+				return nil, err
+			}
+			a.opt.SetParameterMode(mode)
+			out, err := zetasql.AnalyzeStatementFromParserAST(
+				query,
+				stmt,
+				a.catalog.catalog,
+				a.opt,
+			)
+			if err != nil {
+				return nil, fmt.Errorf("failed to analyze: %w", err)
+			}
+			stmtNode := out.Statement()
+			ctx = a.context(ctx, funcMap, stmtNode, stmt)
+			action, err := a.newStmtAction(ctx, query, args, stmtNode)
+			if err != nil {
+				return nil, err
+			}
+			args = args[:len(action.Args())]
+			return action, nil
+		})
 	}
-	stmt := it.stmts[it.stmtIdx]
-	it.analyzer.opt.SetParameterMode(stmt.mode)
-	out, err := zetasql.AnalyzeStatementFromParserAST(
-		it.query,
-		stmt.stmt,
-		it.analyzer.catalog.catalog,
-		it.analyzer.opt,
-	)
-	it.err = err
-	it.out = out
-	if it.err != nil {
-		return false
-	}
-	it.stmtIdx++
-	return true
+	return actionFuncs, nil
 }
 
-func (it *AnalyzerOutputIterator) Err() error {
-	return it.err
-}
-
-func (it *AnalyzerOutputIterator) Analyze(ctx context.Context) (*AnalyzerOutput, error) {
-	ctx = withNamePath(ctx, it.analyzer.namePath)
+func (a *Analyzer) context(
+	ctx context.Context,
+	funcMap map[string]*FunctionSpec,
+	stmtNode ast.StatementNode,
+	stmt parsed_ast.StatementNode) context.Context {
+	ctx = withNamePath(ctx, a.namePath)
 	ctx = withColumnRefMap(ctx, map[string]string{})
 	ctx = withTableNameToColumnListMap(ctx, map[string][]*ast.Column{})
-	ctx = withFuncMap(ctx, it.funcMap)
+	ctx = withFuncMap(ctx, funcMap)
 	ctx = withAnalyticOrderColumnNames(ctx, &analyticOrderColumnNames{})
-	stmtNode := it.out.Statement()
-	ctx = withNodeMap(ctx, zetasql.NewNodeMap(stmtNode, it.stmts[it.stmtIdx-1].stmt))
-	switch stmtNode.Kind() {
-	case ast.CreateTableStmt:
-		return it.analyzeCreateTableStmt(ctx, stmtNode.(*ast.CreateTableStmtNode))
-	case ast.CreateTableAsSelectStmt:
-		ctx = withUseColumnID(ctx)
-		return it.analyzeCreateTableAsSelectStmt(ctx, stmtNode.(*ast.CreateTableAsSelectStmtNode))
-	case ast.CreateFunctionStmt:
-		return it.analyzeCreateFunctionStmt(ctx, stmtNode.(*ast.CreateFunctionStmtNode))
-	case ast.DropStmt:
-		return it.analyzeDropStmt(ctx, stmtNode.(*ast.DropStmtNode))
-	case ast.InsertStmt, ast.UpdateStmt, ast.DeleteStmt:
-		return it.analyzeDMLStmt(ctx, stmtNode)
-	case ast.TruncateStmt:
-		return it.analyzeTruncateStmt(ctx, stmtNode.(*ast.TruncateStmtNode))
-	case ast.MergeStmt:
-		ctx = withUseColumnID(ctx)
-		return it.analyzeMergeStmt(ctx, stmtNode.(*ast.MergeStmtNode))
-	case ast.QueryStmt:
-		ctx = withUseColumnID(ctx)
-		return it.analyzeQueryStmt(ctx, stmtNode.(*ast.QueryStmtNode))
-	case ast.BeginStmt:
-		return it.analyzeBeginStmt(ctx, stmtNode)
-	case ast.CommitStmt:
-		return it.analyzeCommitStmt(ctx, stmtNode)
-	}
-	return nil, fmt.Errorf("unsupported stmt %s", stmtNode.DebugString())
+	ctx = withNodeMap(ctx, zetasql.NewNodeMap(stmtNode, stmt))
+	return ctx
 }
 
-func (it *AnalyzerOutputIterator) analyzeCreateTableStmt(ctx context.Context, node *ast.CreateTableStmtNode) (*AnalyzerOutput, error) {
-	spec := newTableSpec(it.analyzer.namePath, node)
-	params := it.getParamsFromNode(node)
-	args, err := it.getArgsFromParams(params)
+func (a *Analyzer) newStmtAction(ctx context.Context, query string, args []driver.NamedValue, node ast.StatementNode) (StmtAction, error) {
+	switch node.Kind() {
+	case ast.CreateTableStmt:
+		return a.newCreateTableStmtAction(ctx, query, args, node.(*ast.CreateTableStmtNode))
+	case ast.CreateTableAsSelectStmt:
+		ctx = withUseColumnID(ctx)
+		return a.newCreateTableAsSelectStmtAction(ctx, query, args, node.(*ast.CreateTableAsSelectStmtNode))
+	case ast.CreateFunctionStmt:
+		return a.newCreateFunctionStmtAction(ctx, query, args, node.(*ast.CreateFunctionStmtNode))
+	case ast.DropStmt:
+		return a.newDropStmtAction(ctx, query, args, node.(*ast.DropStmtNode))
+	case ast.InsertStmt, ast.UpdateStmt, ast.DeleteStmt:
+		return a.newDMLStmtAction(ctx, query, args, node)
+	case ast.TruncateStmt:
+		return a.newTruncateStmtAction(ctx, query, args, node.(*ast.TruncateStmtNode))
+	case ast.MergeStmt:
+		ctx = withUseColumnID(ctx)
+		return a.newMergeStmtAction(ctx, query, args, node.(*ast.MergeStmtNode))
+	case ast.QueryStmt:
+		ctx = withUseColumnID(ctx)
+		return a.newQueryStmtAction(ctx, query, args, node.(*ast.QueryStmtNode))
+	case ast.BeginStmt:
+		return a.newBeginStmtAction(ctx, query, args, node)
+	case ast.CommitStmt:
+		return a.newCommitStmtAction(ctx, query, args, node)
+	}
+	return nil, fmt.Errorf("unsupported stmt %s", node.DebugString())
+}
+
+func (a *Analyzer) newCreateTableStmtAction(ctx context.Context, query string, args []driver.NamedValue, node *ast.CreateTableStmtNode) (*CreateTableStmtAction, error) {
+	spec := newTableSpec(a.namePath, node)
+	params := getParamsFromNode(node)
+	queryArgs, err := getArgsFromParams(args, params)
 	if err != nil {
 		return nil, err
 	}
-	execContext := func(ctx context.Context, conn *Conn) (driver.Result, error) {
-		dropTableQuery := fmt.Sprintf("DROP TABLE IF EXISTS `%s`", strings.Join(spec.NamePath, "."))
-		if spec.CreateMode == ast.CreateOrReplaceMode {
-			if _, err := conn.ExecContext(ctx, dropTableQuery); err != nil {
-				return nil, err
-			}
-		}
-		if _, err := conn.ExecContext(ctx, spec.SQLiteSchema(), args...); err != nil {
-			return nil, fmt.Errorf("failed to exec %s: %w", it.query, err)
-		}
-		if err := it.analyzer.catalog.AddNewTableSpec(ctx, conn, spec); err != nil {
-			return nil, fmt.Errorf("failed to add new table spec: %w", err)
-		}
-		if spec.IsTemp {
-			stmt, err := zetasql.ParseStatement(dropTableQuery, nil)
-			if err != nil {
-				return nil, err
-			}
-			it.stmts = append(it.stmts, &Statement{
-				stmt: stmt,
-				mode: zetasql.ParameterNamed,
-			})
-		}
-		return nil, nil
-	}
-	return &AnalyzerOutput{
-		node:      node,
-		query:     it.query,
-		params:    params,
-		tableSpec: spec,
-		Prepare: func(ctx context.Context, conn *Conn) (driver.Stmt, error) {
-			if spec.CreateMode == ast.CreateOrReplaceMode {
-				query := fmt.Sprintf("DROP TABLE IF EXISTS `%s`", spec.TableName())
-				if _, err := conn.ExecContext(ctx, query); err != nil {
-					return nil, err
-				}
-			}
-			s, err := conn.PrepareContext(ctx, spec.SQLiteSchema())
-			if err != nil {
-				return nil, fmt.Errorf("failed to prepare %s: %w", it.query, err)
-			}
-			return newCreateTableStmt(s, conn, it.analyzer.catalog, spec), nil
-		},
-		ExecContext: execContext,
-		QueryContext: func(ctx context.Context, conn *Conn) (driver.Rows, error) {
-			if _, err := execContext(ctx, conn); err != nil {
-				return nil, err
-			}
-			return &Rows{}, nil
-		},
+	return &CreateTableStmtAction{
+		query:   query,
+		spec:    spec,
+		args:    queryArgs,
+		catalog: a.catalog,
 	}, nil
 }
 
-func (it *AnalyzerOutputIterator) analyzeCreateTableAsSelectStmt(ctx context.Context, node *ast.CreateTableAsSelectStmtNode) (*AnalyzerOutput, error) {
+func (a *Analyzer) newCreateTableAsSelectStmtAction(ctx context.Context, query string, args []driver.NamedValue, node *ast.CreateTableAsSelectStmtNode) (*CreateTableStmtAction, error) {
 	query, err := newNode(node.Query()).FormatSQL(ctx)
 	if err != nil {
 		return nil, err
 	}
-	spec := newTableAsSelectSpec(it.analyzer.namePath, query, node)
-	params := it.getParamsFromNode(node)
-	args, err := it.getArgsFromParams(params)
+	spec := newTableAsSelectSpec(a.namePath, query, node)
+	params := getParamsFromNode(node)
+	queryArgs, err := getArgsFromParams(args, params)
 	if err != nil {
 		return nil, err
 	}
-	execContext := func(ctx context.Context, conn *Conn) (driver.Result, error) {
-		dropTableQuery := fmt.Sprintf("DROP TABLE IF EXISTS `%s`", strings.Join(spec.NamePath, "."))
-		if spec.CreateMode == ast.CreateOrReplaceMode {
-			if _, err := conn.ExecContext(ctx, dropTableQuery); err != nil {
-				return nil, err
-			}
-		}
-		if _, err := conn.ExecContext(ctx, spec.SQLiteSchema(), args...); err != nil {
-			return nil, fmt.Errorf("failed to exec %s: %w", it.query, err)
-		}
-		if err := it.analyzer.catalog.AddNewTableSpec(ctx, conn, spec); err != nil {
-			return nil, fmt.Errorf("failed to add new table spec: %w", err)
-		}
-		if spec.IsTemp {
-			stmt, err := zetasql.ParseStatement(dropTableQuery, nil)
-			if err != nil {
-				return nil, err
-			}
-			it.stmts = append(it.stmts, &Statement{
-				stmt: stmt,
-				mode: zetasql.ParameterNamed,
-			})
-		}
-		return nil, nil
-	}
-	return &AnalyzerOutput{
-		node:   node,
-		query:  it.query,
-		params: params,
-		Prepare: func(ctx context.Context, conn *Conn) (driver.Stmt, error) {
-			if spec.CreateMode == ast.CreateOrReplaceMode {
-				query := fmt.Sprintf("DROP TABLE IF EXISTS `%s`", spec.TableName())
-				if _, err := conn.ExecContext(ctx, query); err != nil {
-					return nil, err
-				}
-			}
-			s, err := conn.PrepareContext(ctx, spec.SQLiteSchema())
-			if err != nil {
-				return nil, fmt.Errorf("failed to prepare %s: %w", it.query, err)
-			}
-			return newCreateTableStmt(s, conn, it.analyzer.catalog, spec), nil
-		},
-		ExecContext: execContext,
-		QueryContext: func(ctx context.Context, conn *Conn) (driver.Rows, error) {
-			if _, err := execContext(ctx, conn); err != nil {
-				return nil, err
-			}
-			return &Rows{}, nil
-		},
+	return &CreateTableStmtAction{
+		query:   query,
+		spec:    spec,
+		args:    queryArgs,
+		catalog: a.catalog,
 	}, nil
 }
 
-func (it *AnalyzerOutputIterator) analyzeCreateFunctionStmt(ctx context.Context, node *ast.CreateFunctionStmtNode) (*AnalyzerOutput, error) {
-	spec, err := newFunctionSpec(ctx, it.analyzer.namePath, node)
+func (a *Analyzer) newCreateFunctionStmtAction(ctx context.Context, query string, args []driver.NamedValue, node *ast.CreateFunctionStmtNode) (*CreateFunctionStmtAction, error) {
+	spec, err := newFunctionSpec(ctx, a.namePath, node)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create function spec: %w", err)
 	}
-	execContext := func(ctx context.Context, conn *Conn) (driver.Result, error) {
-		if err := it.analyzer.catalog.AddNewFunctionSpec(ctx, conn, spec); err != nil {
-			return nil, fmt.Errorf("failed to add new function spec: %w", err)
-		}
-		it.funcMap[spec.FuncName()] = spec
-		return nil, nil
-	}
-	return &AnalyzerOutput{
-		query: it.query,
-		node:  node,
-		Prepare: func(ctx context.Context, conn *Conn) (driver.Stmt, error) {
-			return newCreateFunctionStmt(conn, it.analyzer.catalog, spec), nil
-		},
-		ExecContext: execContext,
-		QueryContext: func(ctx context.Context, conn *Conn) (driver.Rows, error) {
-			if _, err := execContext(ctx, conn); err != nil {
-				return nil, err
-			}
-			return &Rows{}, nil
-		},
+	return &CreateFunctionStmtAction{
+		spec:    spec,
+		catalog: a.catalog,
+		funcMap: funcMapFromContext(ctx),
 	}, nil
 }
 
-func (it *AnalyzerOutputIterator) analyzeDropStmt(ctx context.Context, node *ast.DropStmtNode) (*AnalyzerOutput, error) {
+func (a *Analyzer) newDropStmtAction(ctx context.Context, query string, args []driver.NamedValue, node *ast.DropStmtNode) (*DropStmtAction, error) {
 	formattedQuery, err := newNode(node).FormatSQL(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to format query %s: %w", it.query, err)
+		return nil, fmt.Errorf("failed to format query %s: %w", query, err)
 	}
 	if formattedQuery == "" {
-		return nil, fmt.Errorf("failed to format query %s", it.query)
+		return nil, fmt.Errorf("failed to format query %s", query)
 	}
-	params := it.getParamsFromNode(node)
-	args, err := it.getArgsFromParams(params)
+	params := getParamsFromNode(node)
+	queryArgs, err := getArgsFromParams(args, params)
 	if err != nil {
 		return nil, err
 	}
 	objectType := node.ObjectType()
-	name := FormatName(MergeNamePath(it.analyzer.namePath, node.NamePath()))
-	execContext := func(ctx context.Context, conn *Conn) (driver.Result, error) {
-		switch objectType {
-		case "TABLE":
-			if _, err := conn.ExecContext(ctx, formattedQuery, args...); err != nil {
-				return nil, fmt.Errorf("failed to exec %s: %w", formattedQuery, err)
-			}
-			if err := it.analyzer.catalog.DeleteTableSpec(ctx, conn, name); err != nil {
-				return nil, fmt.Errorf("failed to delete table spec: %w", err)
-			}
-		case "FUNCTION":
-			if err := it.analyzer.catalog.DeleteFunctionSpec(ctx, conn, name); err != nil {
-				return nil, fmt.Errorf("failed to delete function spec: %w", err)
-			}
-			delete(it.funcMap, name)
-		default:
-			return nil, fmt.Errorf("currently unsupported DROP %s statement", objectType)
-		}
-		return nil, nil
-	}
-	return &AnalyzerOutput{
-		node:           node,
-		query:          it.query,
+	name := FormatName(MergeNamePath(a.namePath, node.NamePath()))
+	return &DropStmtAction{
+		name:           name,
+		objectType:     objectType,
+		funcMap:        funcMapFromContext(ctx),
+		catalog:        a.catalog,
+		query:          query,
 		formattedQuery: formattedQuery,
-		params:         params,
-		Prepare: func(ctx context.Context, conn *Conn) (driver.Stmt, error) {
-			return nil, fmt.Errorf("currently unsupported prepared statement for DROP statment")
-		},
-		ExecContext: execContext,
-		QueryContext: func(ctx context.Context, conn *Conn) (driver.Rows, error) {
-			if _, err := execContext(ctx, conn); err != nil {
-				return nil, err
-			}
-			return &Rows{}, nil
-		},
+		args:           queryArgs,
 	}, nil
 }
 
-func (it *AnalyzerOutputIterator) analyzeDMLStmt(ctx context.Context, node ast.Node) (*AnalyzerOutput, error) {
+func (a *Analyzer) newDMLStmtAction(ctx context.Context, query string, args []driver.NamedValue, node ast.Node) (*DMLStmtAction, error) {
 	formattedQuery, err := newNode(node).FormatSQL(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to format query %s: %w", it.query, err)
+		return nil, fmt.Errorf("failed to format query %s: %w", query, err)
 	}
 	if formattedQuery == "" {
-		return nil, fmt.Errorf("failed to format query %s", it.query)
+		return nil, fmt.Errorf("failed to format query %s", query)
 	}
-	params := it.getParamsFromNode(node)
-	args, err := it.getArgsFromParams(params)
+	params := getParamsFromNode(node)
+	queryArgs, err := getArgsFromParams(args, params)
 	if err != nil {
 		return nil, err
 	}
-	execContext := func(ctx context.Context, conn *Conn) (driver.Result, error) {
-		if _, err := conn.ExecContext(ctx, formattedQuery, args...); err != nil {
-			return nil, fmt.Errorf("failed to exec %s: %w", formattedQuery, err)
-		}
-		return nil, nil
-	}
-	return &AnalyzerOutput{
-		node:           node,
-		query:          it.query,
-		formattedQuery: formattedQuery,
+	return &DMLStmtAction{
+		query:          query,
 		params:         params,
-		Prepare: func(ctx context.Context, conn *Conn) (driver.Stmt, error) {
-			s, err := conn.PrepareContext(ctx, formattedQuery)
-			if err != nil {
-				return nil, fmt.Errorf("failed to prepare %s: %w", it.query, err)
-			}
-			return newDMLStmt(s, params, formattedQuery), nil
-		},
-		ExecContext: execContext,
-		QueryContext: func(ctx context.Context, conn *Conn) (driver.Rows, error) {
-			if _, err := execContext(ctx, conn); err != nil {
-				return nil, err
-			}
-			return &Rows{}, nil
-		},
+		args:           queryArgs,
+		formattedQuery: formattedQuery,
 	}, nil
 }
 
-func (it *AnalyzerOutputIterator) analyzeQueryStmt(ctx context.Context, node *ast.QueryStmtNode) (*AnalyzerOutput, error) {
+func (a *Analyzer) newQueryStmtAction(ctx context.Context, query string, args []driver.NamedValue, node *ast.QueryStmtNode) (*QueryStmtAction, error) {
 	outputColumns := []*ColumnSpec{}
 	for _, col := range node.OutputColumnList() {
 		outputColumns = append(outputColumns, &ColumnSpec{
@@ -525,109 +335,39 @@ func (it *AnalyzerOutputIterator) analyzeQueryStmt(ctx context.Context, node *as
 	}
 	formattedQuery, err := newNode(node).FormatSQL(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to format query %s: %w", it.query, err)
+		return nil, fmt.Errorf("failed to format query %s: %w", query, err)
 	}
 	if formattedQuery == "" {
-		return nil, fmt.Errorf("failed to format query %s", it.query)
+		return nil, fmt.Errorf("failed to format query %s", query)
 	}
-	params := it.getParamsFromNode(node)
-	args, err := it.getArgsFromParams(params)
+	params := getParamsFromNode(node)
+	queryArgs, err := getArgsFromParams(args, params)
 	if err != nil {
 		return nil, err
 	}
-	return &AnalyzerOutput{
-		node:           node,
-		query:          it.query,
-		formattedQuery: formattedQuery,
+	return &QueryStmtAction{
+		query:          query,
 		params:         params,
-		isQuery:        true,
-		Prepare: func(ctx context.Context, conn *Conn) (driver.Stmt, error) {
-			s, err := conn.PrepareContext(ctx, formattedQuery)
-			if err != nil {
-				return nil, fmt.Errorf("failed to prepare %s: %w", it.query, err)
-			}
-			return newQueryStmt(s, params, formattedQuery, outputColumns), nil
-		},
-		ExecContext: func(ctx context.Context, conn *Conn) (driver.Result, error) {
-			if _, err := conn.ExecContext(ctx, formattedQuery, args...); err != nil {
-				return nil, fmt.Errorf("failed to query %s: %w", formattedQuery, err)
-			}
-			return nil, nil
-		},
-		QueryContext: func(ctx context.Context, conn *Conn) (driver.Rows, error) {
-			rows, err := conn.QueryContext(ctx, formattedQuery, args...)
-			if err != nil {
-				return nil, fmt.Errorf("failed to query %s: %w", formattedQuery, err)
-			}
-			return &Rows{rows: rows, columns: outputColumns}, nil
-		},
+		args:           queryArgs,
+		formattedQuery: formattedQuery,
+		outputColumns:  outputColumns,
 	}, nil
 }
 
-func (it *AnalyzerOutputIterator) analyzeBeginStmt(ctx context.Context, node ast.Node) (*AnalyzerOutput, error) {
-	return &AnalyzerOutput{
-		node:           node,
-		query:          it.query,
-		formattedQuery: "",
-		isQuery:        true,
-		Prepare: func(ctx context.Context, conn *Conn) (driver.Stmt, error) {
-			return nil, nil
-		},
-		ExecContext: func(ctx context.Context, conn *Conn) (driver.Result, error) {
-			return nil, nil
-		},
-		QueryContext: func(ctx context.Context, conn *Conn) (driver.Rows, error) {
-			return &Rows{}, nil
-		},
-	}, nil
+func (a *Analyzer) newBeginStmtAction(ctx context.Context, query string, args []driver.NamedValue, node ast.Node) (*BeginStmtAction, error) {
+	return &BeginStmtAction{}, nil
 }
 
-func (it *AnalyzerOutputIterator) analyzeCommitStmt(ctx context.Context, node ast.Node) (*AnalyzerOutput, error) {
-	return &AnalyzerOutput{
-		node:           node,
-		query:          it.query,
-		formattedQuery: "",
-		isQuery:        true,
-		Prepare: func(ctx context.Context, conn *Conn) (driver.Stmt, error) {
-			return nil, nil
-		},
-		ExecContext: func(ctx context.Context, conn *Conn) (driver.Result, error) {
-			return nil, nil
-		},
-		QueryContext: func(ctx context.Context, conn *Conn) (driver.Rows, error) {
-			return &Rows{}, nil
-		},
-	}, nil
+func (a *Analyzer) newCommitStmtAction(ctx context.Context, query string, args []driver.NamedValue, node ast.Node) (*CommitStmtAction, error) {
+	return &CommitStmtAction{}, nil
 }
 
-func (it *AnalyzerOutputIterator) analyzeTruncateStmt(ctx context.Context, node *ast.TruncateStmtNode) (*AnalyzerOutput, error) {
-	execContext := func(ctx context.Context, conn *Conn) (driver.Result, error) {
-		table := node.TableScan().Table().Name()
-		query := fmt.Sprintf("DELETE FROM `%s`", table)
-		if _, err := conn.ExecContext(ctx, query); err != nil {
-			return nil, fmt.Errorf("failed to truncate %s: %w", query, err)
-		}
-		return nil, nil
-	}
-	return &AnalyzerOutput{
-		node:           node,
-		query:          it.query,
-		formattedQuery: "",
-		isQuery:        true,
-		Prepare: func(ctx context.Context, conn *Conn) (driver.Stmt, error) {
-			return nil, nil
-		},
-		ExecContext: execContext,
-		QueryContext: func(ctx context.Context, conn *Conn) (driver.Rows, error) {
-			if _, err := execContext(ctx, conn); err != nil {
-				return nil, err
-			}
-			return &Rows{}, nil
-		},
-	}, nil
+func (a *Analyzer) newTruncateStmtAction(ctx context.Context, query string, args []driver.NamedValue, node *ast.TruncateStmtNode) (*TruncateStmtAction, error) {
+	table := node.TableScan().Table().Name()
+	return &TruncateStmtAction{query: fmt.Sprintf("DELETE FROM `%s`", table)}, nil
 }
 
-func (it *AnalyzerOutputIterator) analyzeMergeStmt(ctx context.Context, node *ast.MergeStmtNode) (*AnalyzerOutput, error) {
+func (a *Analyzer) newMergeStmtAction(ctx context.Context, query string, args []driver.NamedValue, node *ast.MergeStmtNode) (*MergeStmtAction, error) {
 	targetTable, err := newNode(node.TableScan()).FormatSQL(ctx)
 	if err != nil {
 		return nil, err
@@ -647,17 +387,17 @@ func (it *AnalyzerOutputIterator) analyzeMergeStmt(ctx context.Context, node *as
 	if fn.Function().FullName(false) != "$equal" {
 		return nil, fmt.Errorf("currently MERGE expression is supported equal expression only")
 	}
-	args := fn.ArgumentList()
-	if len(args) != 2 {
+	argList := fn.ArgumentList()
+	if len(argList) != 2 {
 		return nil, fmt.Errorf("unexpected MERGE expression column num. expected 2 column but specified %d column", len(args))
 	}
-	colA, ok := args[0].(*ast.ColumnRefNode)
+	colA, ok := argList[0].(*ast.ColumnRefNode)
 	if !ok {
-		return nil, fmt.Errorf("unexpected MERGE expression. expected column reference but got %T", args[0])
+		return nil, fmt.Errorf("unexpected MERGE expression. expected column reference but got %T", argList[0])
 	}
-	colB, ok := args[1].(*ast.ColumnRefNode)
+	colB, ok := argList[1].(*ast.ColumnRefNode)
 	if !ok {
-		return nil, fmt.Errorf("unexpected MERGE expression. expected column reference but got %T", args[1])
+		return nil, fmt.Errorf("unexpected MERGE expression. expected column reference but got %T", argList[1])
 	}
 	var (
 		sourceColumn *ast.Column
@@ -762,33 +502,10 @@ func (it *AnalyzerOutputIterator) analyzeMergeStmt(ctx context.Context, node *as
 		}
 	}
 	stmts = append(stmts, "DROP TABLE zetasqlite_merged_table")
-	execContext := func(ctx context.Context, conn *Conn) (driver.Result, error) {
-		for _, stmt := range stmts {
-			if _, err := conn.ExecContext(ctx, stmt); err != nil {
-				return nil, fmt.Errorf("failed to exec merge statement %s: %w", stmt, err)
-			}
-		}
-		return nil, nil
-	}
-	return &AnalyzerOutput{
-		node:           node,
-		query:          it.query,
-		formattedQuery: "",
-		isQuery:        true,
-		Prepare: func(ctx context.Context, conn *Conn) (driver.Stmt, error) {
-			return nil, nil
-		},
-		ExecContext: execContext,
-		QueryContext: func(ctx context.Context, conn *Conn) (driver.Rows, error) {
-			if _, err := execContext(ctx, conn); err != nil {
-				return nil, err
-			}
-			return &Rows{}, nil
-		},
-	}, nil
+	return &MergeStmtAction{stmts: stmts}, nil
 }
 
-func (it *AnalyzerOutputIterator) getParamsFromNode(node ast.Node) []*ast.ParameterNode {
+func getParamsFromNode(node ast.Node) []*ast.ParameterNode {
 	var params []*ast.ParameterNode
 	ast.Walk(node, func(n ast.Node) error {
 		param, ok := n.(*ast.ParameterNode)
@@ -800,16 +517,15 @@ func (it *AnalyzerOutputIterator) getParamsFromNode(node ast.Node) []*ast.Parame
 	return params
 }
 
-func (it *AnalyzerOutputIterator) getArgsFromParams(params []*ast.ParameterNode) ([]interface{}, error) {
+func getArgsFromParams(values []driver.NamedValue, params []*ast.ParameterNode) ([]interface{}, error) {
 	argNum := len(params)
-	if len(it.args) < argNum {
+	if len(values) < argNum {
 		return nil, fmt.Errorf("not enough query arguments")
 	}
-	newNamedValues, err := EncodeNamedValues(it.args[:argNum], params)
+	newNamedValues, err := EncodeNamedValues(values[:argNum], params)
 	if err != nil {
 		return nil, err
 	}
-	it.args = it.args[:argNum]
 	args := make([]interface{}, 0, argNum)
 	for _, newNamedValue := range newNamedValues {
 		args = append(args, newNamedValue)

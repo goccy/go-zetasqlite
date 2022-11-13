@@ -265,9 +265,12 @@ func newTableSpec(namePath []string, stmt *ast.CreateTableStmtNode) *TableSpec {
 func newTableAsSelectSpec(namePath []string, query string, stmt *ast.CreateTableAsSelectStmtNode) *TableSpec {
 	var outputColumns []string
 	for _, column := range stmt.OutputColumnList() {
+		colName := column.Name()
+		refColumnName := column.Column().Name()
+		colID := column.Column().ColumnID()
 		outputColumns = append(
 			outputColumns,
-			fmt.Sprintf("`%[1]s#%[2]d` AS `%[1]s`", column.Name(), column.Column().ColumnID()),
+			fmt.Sprintf("`%s#%d` AS `%s`", refColumnName, colID, colName),
 		)
 	}
 	return &TableSpec{
