@@ -573,7 +573,11 @@ func valueFromGoReflectValue(v reflect.Value) (Value, error) {
 	case reflect.Ptr:
 		return valueFromGoReflectValue(v.Elem())
 	case reflect.Interface:
-		return valueFromGoReflectValue(reflect.ValueOf(v.Interface()))
+		vv := v.Interface()
+		if isNullValue(vv) {
+			return nil, nil
+		}
+		return valueFromGoReflectValue(reflect.ValueOf(vv))
 	}
 	return nil, fmt.Errorf("cannot convert %s type to zetasqlite value type", kind)
 }
