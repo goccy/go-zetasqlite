@@ -102,7 +102,15 @@ func (r *Rows) assignValue(src interface{}, dst reflect.Value, typ *Type) error 
 		dst.Set(reflect.New(dst.Type()).Elem())
 		return nil
 	}
-	value, err := DecodeValue(src)
+	decodedValue, err := DecodeValue(src)
+	if err != nil {
+		return err
+	}
+	t, err := typ.ToZetaSQLType()
+	if err != nil {
+		return err
+	}
+	value, err := CastValue(t, decodedValue)
 	if err != nil {
 		return err
 	}

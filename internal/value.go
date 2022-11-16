@@ -752,8 +752,7 @@ func (nv *NumericValue) Format(verb rune) string {
 }
 
 func (nv *NumericValue) Interface() interface{} {
-	f, _ := nv.Rat.Float64()
-	return f
+	return nv.Rat.String()
 }
 
 type BoolValue bool
