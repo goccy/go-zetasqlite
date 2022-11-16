@@ -752,8 +752,7 @@ func (nv *NumericValue) Format(verb rune) string {
 }
 
 func (nv *NumericValue) Interface() interface{} {
-	f, _ := nv.Rat.Float64()
-	return f
+	return nv.Rat.String()
 }
 
 type BoolValue bool
@@ -1396,9 +1395,17 @@ func (sv *StructValue) Format(verb rune) string {
 func (sv *StructValue) Interface() interface{} {
 	fields := []map[string]interface{}{}
 	for i := 0; i < len(sv.keys); i++ {
-		fields = append(fields, map[string]interface{}{
-			sv.keys[i]: sv.values[i].Interface(),
-		})
+		key := sv.keys[i]
+		value := sv.values[i]
+		if value == nil {
+			fields = append(fields, map[string]interface{}{
+				key: nil,
+			})
+		} else {
+			fields = append(fields, map[string]interface{}{
+				key: value.Interface(),
+			})
+		}
 	}
 	return fields
 }

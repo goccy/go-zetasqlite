@@ -451,12 +451,21 @@ func CastValue(t types.Type, v Value) (Value, error) {
 			return nil, err
 		}
 		typ := t.AsStruct()
-		if typ.NumFields() != len(s.m) {
+		if typ.NumFields() != len(s.keys) {
 			return nil, fmt.Errorf(
 				"unexpected field number. struct type expected field number %d but got %d",
 				typ.NumFields(),
 				len(s.m),
 			)
+		}
+		anonymousStruct := true
+		for _, key := range s.keys {
+			if key != "" {
+				anonymousStruct = false
+			}
+		}
+		if anonymousStruct {
+			return s, nil
 		}
 		ret := &StructValue{m: s.m}
 		for i := 0; i < typ.NumFields(); i++ {
@@ -492,6 +501,8 @@ func CastValue(t types.Type, v Value) (Value, error) {
 			return nil, err
 		}
 		return JsonValue(j), nil
+	case types.GEOGRAPHY:
+		return v, nil
 	}
 	return nil, fmt.Errorf("unsupported cast %s value", t.Kind())
 }
@@ -571,7 +582,11 @@ func valueFromGoReflectValue(v reflect.Value) (Value, error) {
 	case reflect.Ptr:
 		return valueFromGoReflectValue(v.Elem())
 	case reflect.Interface:
-		return valueFromGoReflectValue(reflect.ValueOf(v.Interface()))
+		vv := v.Interface()
+		if isNullValue(vv) {
+			return nil, nil
+		}
+		return valueFromGoReflectValue(reflect.ValueOf(vv))
 	}
 	return nil, fmt.Errorf("cannot convert %s type to zetasqlite value type", kind)
 }
