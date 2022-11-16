@@ -492,6 +492,8 @@ func CastValue(t types.Type, v Value) (Value, error) {
 			return nil, err
 		}
 		return JsonValue(j), nil
+	case types.GEOGRAPHY:
+		return v, nil
 	}
 	return nil, fmt.Errorf("unsupported cast %s value", t.Kind())
 }

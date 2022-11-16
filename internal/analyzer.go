@@ -61,6 +61,8 @@ func newAnalyzerOptions() *zetasql.AnalyzerOptions {
 		zetasql.FeatureV13NullsFirstLastInOrderBy,
 		zetasql.FeatureV13Qualify,
 		zetasql.FeatureV13AllowDashesInTableName,
+		zetasql.FeatureGeography,
+		zetasql.FeatureV13ExtendedGeographyParsers,
 	})
 	langOpt.SetSupportedStatementKinds([]ast.Kind{
 		ast.BeginStmt,
