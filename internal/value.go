@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
+	"math"
 	"math/big"
 	"reflect"
 	"regexp"
@@ -156,7 +157,11 @@ func (iv IntValue) ToJSON() (string, error) {
 }
 
 func (iv IntValue) ToTime() (time.Time, error) {
-	return time.Time{}, fmt.Errorf("failed to convert %d to time.Time type", iv)
+	v := int64(iv)
+	if v > time.Unix(0, 0).Unix()*int64(time.Millisecond) {
+		return TimestampFromInt64Value(v)
+	}
+	return DateFromInt64Value(v)
 }
 
 func (iv IntValue) ToRat() (*big.Rat, error) {
@@ -293,6 +298,15 @@ func (sv StringValue) ToTime() (time.Time, error) {
 		return parseTime(raw)
 	case isTimestamp(raw):
 		return parseTimestamp(raw, time.UTC)
+	}
+	if f, err := strconv.ParseFloat(raw, 64); err == nil {
+		return TimestampFromFloatValue(f)
+	}
+	if i64, err := strconv.ParseInt(raw, 10, 64); err == nil {
+		if i64 > time.Unix(0, 0).Unix()*int64(time.Millisecond) {
+			return TimestampFromInt64Value(i64)
+		}
+		return DateFromInt64Value(i64)
 	}
 	return time.Time{}, fmt.Errorf("failed to convert %s to time.Time type", sv)
 }
@@ -570,7 +584,7 @@ func (fv FloatValue) ToJSON() (string, error) {
 }
 
 func (fv FloatValue) ToTime() (time.Time, error) {
-	return time.Time{}, fmt.Errorf("failed to convert time.Time from float64: %v", fv)
+	return TimestampFromFloatValue(float64(fv))
 }
 
 func (fv FloatValue) ToRat() (*big.Rat, error) {
@@ -2292,7 +2306,7 @@ func (v *SafeValue) Interface() interface{} {
 var (
 	dateRe     = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}$`)
 	datetimeRe = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}[T\s][0-9]{2}:[0-9]{2}:[0-9]{2}$`)
-	timeRe     = regexp.MustCompile(`^[0-9]{2}:[0-9]{2}:[0-9]{2}$`)
+	timeRe     = regexp.MustCompile(`^[0-9]{2}:[0-9]{2}:[0-9]{2}`)
 )
 
 func isDate(date string) bool {
@@ -2330,7 +2344,7 @@ func parseDatetime(datetime string) (time.Time, error) {
 }
 
 func parseTime(t string) (time.Time, error) {
-	return time.Parse("15:04:05", t)
+	return time.Parse("15:04:05.999999", t)
 }
 
 func parseTimestamp(timestamp string, loc *time.Location) (time.Time, error) {
@@ -2368,6 +2382,22 @@ func parseTimestamp(timestamp string, loc *time.Location) (time.Time, error) {
 		return t, nil
 	}
 	return time.Time{}, fmt.Errorf("failed to parse timestamp. unexpected format %s", timestamp)
+}
+
+func DateFromInt64Value(v int64) (time.Time, error) {
+	return time.Unix(0, 0).Add(time.Duration(v) * 24 * time.Hour), nil
+}
+
+func TimestampFromFloatValue(f float64) (time.Time, error) {
+	secs := math.Trunc(f)
+	micros := math.Trunc((f-secs)*1e6 + 0.5)
+	return time.Unix(int64(secs), int64(micros)*1000).UTC(), nil
+}
+
+func TimestampFromInt64Value(v int64) (time.Time, error) {
+	sec := v / int64(time.Millisecond)
+	msec := v - sec*int64(time.Millisecond)
+	return time.Unix(sec, msec*int64(time.Millisecond)).UTC(), nil
 }
 
 func parseInterval(v string) (*IntervalValue, error) {

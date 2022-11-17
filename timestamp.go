@@ -1,9 +1,10 @@
 package zetasqlite
 
 import (
-	"math"
 	"strconv"
 	"time"
+
+	"github.com/goccy/go-zetasqlite/internal"
 )
 
 // TimeFromTimestampValue zetasqlite returns string values ​​by default for timestamp values.
@@ -13,7 +14,5 @@ func TimeFromTimestampValue(v string) (time.Time, error) {
 	if err != nil {
 		return time.Time{}, err
 	}
-	secs := math.Trunc(f)
-	micros := math.Trunc((f-secs)*1e6 + 0.5)
-	return time.Unix(int64(secs), int64(micros)*1000).UTC(), nil
+	return internal.TimestampFromFloatValue(f)
 }
