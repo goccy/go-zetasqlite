@@ -215,14 +215,8 @@ func (c *Catalog) deleteTableSpecByName(name string) error {
 		}
 		tables = append(tables, table)
 	}
-
-	c.catalog = newSimpleCatalog(catalogName)
-	c.tables = []*TableSpec{}
-	c.tableMap = map[string]*TableSpec{}
-	for _, spec := range tables {
-		if err := c.addTableSpec(spec); err != nil {
-			return err
-		}
+	if err := c.resetCatalog(tables, c.functions); err != nil {
+		return err
 	}
 	return nil
 }
@@ -240,10 +234,23 @@ func (c *Catalog) deleteFunctionSpecByName(name string) error {
 		}
 		functions = append(functions, function)
 	}
+	if err := c.resetCatalog(c.tables, functions); err != nil {
+		return err
+	}
+	return nil
+}
 
+func (c *Catalog) resetCatalog(tables []*TableSpec, functions []*FunctionSpec) error {
 	c.catalog = newSimpleCatalog(catalogName)
+	c.tables = []*TableSpec{}
 	c.functions = []*FunctionSpec{}
+	c.tableMap = map[string]*TableSpec{}
 	c.funcMap = map[string]*FunctionSpec{}
+	for _, spec := range tables {
+		if err := c.addTableSpec(spec); err != nil {
+			return err
+		}
+	}
 	for _, spec := range functions {
 		if err := c.addFunctionSpec(spec); err != nil {
 			return err
