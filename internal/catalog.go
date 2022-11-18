@@ -244,7 +244,7 @@ func (c *Catalog) deleteFunctionSpecByName(name string) error {
 	c.catalog = newSimpleCatalog(catalogName)
 	c.functions = []*FunctionSpec{}
 	c.funcMap = map[string]*FunctionSpec{}
-	for _, spec := range c.functions {
+	for _, spec := range functions {
 		if err := c.addFunctionSpec(spec); err != nil {
 			return err
 		}
