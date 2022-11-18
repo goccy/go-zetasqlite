@@ -131,6 +131,11 @@ func (a *CreateFunctionStmtAction) Cleanup(ctx context.Context, conn *Conn) erro
 	if !a.spec.IsTemp {
 		return nil
 	}
+	funcName := a.spec.FuncName()
+	if err := a.catalog.DeleteFunctionSpec(ctx, conn, funcName); err != nil {
+		return fmt.Errorf("failed to delete function spec: %w", err)
+	}
+	delete(a.funcMap, funcName)
 	return nil
 }
 
