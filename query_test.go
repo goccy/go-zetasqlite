@@ -377,6 +377,11 @@ SELECT t.customer.address.country FROM orders AS t`,
 			expectedRows: [][]interface{}{{"Canada"}},
 		},
 		{
+			name:         "struct with bool",
+			query:        `SELECT CURRENT_TIMESTAMP() AS ts, STRUCT(NULL AS a, FALSE AS b).b AS b`,
+			expectedRows: [][]interface{}{{createTimestampFormatFromTime(now.UTC()), false}},
+		},
+		{
 			name: "array index access operator",
 			query: `
 WITH Items AS (SELECT ["coffee", "tea", "milk"] AS item_array)

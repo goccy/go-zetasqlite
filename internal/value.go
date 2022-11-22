@@ -568,6 +568,12 @@ func (fv FloatValue) ToFloat64() (float64, error) {
 }
 
 func (fv FloatValue) ToBool() (bool, error) {
+	switch fmt.Sprint(fv) {
+	case "1":
+		return true, nil
+	case "0":
+		return false, nil
+	}
 	return false, fmt.Errorf("failed to convert %f to bool type", fv)
 }
 
