@@ -254,6 +254,9 @@ func ARRAY_SAFE_ORDINAL(v Value, idx int) (Value, error) {
 }
 
 func LIKE(a, b Value) (Value, error) {
+	if a == nil || b == nil {
+		return BoolValue(false), nil
+	}
 	va, err := a.ToString()
 	if err != nil {
 		return nil, err

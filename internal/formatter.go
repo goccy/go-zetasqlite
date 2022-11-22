@@ -585,16 +585,26 @@ func (n *TableScanNode) FormatSQL(ctx context.Context) (string, error) {
 	if n.node == nil {
 		return "", nil
 	}
-	tableName, err := getTableName(ctx, n.node)
-	if err != nil {
-		return "", err
-	}
 	var columns []string
 	for _, col := range n.node.ColumnList() {
 		columns = append(
 			columns,
 			fmt.Sprintf("`%s` AS `%s`", col.Name(), uniqueColumnName(ctx, col)),
 		)
+	}
+
+	table := n.node.Table()
+	wildcardTable, ok := table.(*WildcardTable)
+	if ok {
+		query, err := wildcardTable.FormatSQL(ctx)
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("(SELECT %s FROM (%s))", strings.Join(columns, ","), query), nil
+	}
+	tableName, err := getTableName(ctx, n.node)
+	if err != nil {
+		return "", err
 	}
 	return fmt.Sprintf("(SELECT %s FROM `%s`)", strings.Join(columns, ","), tableName), nil
 }

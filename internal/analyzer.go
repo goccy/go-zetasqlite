@@ -172,7 +172,7 @@ func (a *Analyzer) Analyze(ctx context.Context, conn *Conn, query string, args [
 			out, err := zetasql.AnalyzeStatementFromParserAST(
 				query,
 				stmt,
-				a.catalog.catalog,
+				a.catalog,
 				a.opt,
 			)
 			if err != nil {

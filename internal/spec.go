@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	ast "github.com/goccy/go-zetasql/resolved_ast"
 	"github.com/goccy/go-zetasql/types"
@@ -16,13 +17,15 @@ type NameWithType struct {
 }
 
 type FunctionSpec struct {
-	IsTemp   bool            `json:"isTemp"`
-	NamePath []string        `json:"name"`
-	Language string          `json:"language"`
-	Args     []*NameWithType `json:"args"`
-	Return   *Type           `json:"return"`
-	Body     string          `json:"body"`
-	Code     string          `json:"code"`
+	IsTemp    bool            `json:"isTemp"`
+	NamePath  []string        `json:"name"`
+	Language  string          `json:"language"`
+	Args      []*NameWithType `json:"args"`
+	Return    *Type           `json:"return"`
+	Body      string          `json:"body"`
+	Code      string          `json:"code"`
+	UpdatedAt time.Time       `json:"updatedAt"`
+	CreatedAt time.Time       `json:"createdAt"`
 }
 
 func (s *FunctionSpec) FuncName() string {
@@ -51,6 +54,8 @@ type TableSpec struct {
 	Columns    []*ColumnSpec  `json:"columns"`
 	CreateMode ast.CreateMode `json:"createMode"`
 	Query      string         `json:"query"`
+	UpdatedAt  time.Time      `json:"updatedAt"`
+	CreatedAt  time.Time      `json:"createdAt"`
 }
 
 func (s *TableSpec) Column(name string) *ColumnSpec {
@@ -220,14 +225,17 @@ func newFunctionSpec(ctx context.Context, namePath []string, stmt *ast.CreateFun
 	if err != nil {
 		return nil, fmt.Errorf("failed to format function expression: %w", err)
 	}
+	now := time.Now()
 	return &FunctionSpec{
-		IsTemp:   stmt.CreateScope() == ast.CreateScopeTemp,
-		NamePath: MergeNamePath(namePath, stmt.NamePath()),
-		Args:     args,
-		Return:   newType(stmt.ReturnType()),
-		Code:     stmt.Code(),
-		Body:     body,
-		Language: stmt.Language(),
+		IsTemp:    stmt.CreateScope() == ast.CreateScopeTemp,
+		NamePath:  MergeNamePath(namePath, stmt.NamePath()),
+		Args:      args,
+		Return:    newType(stmt.ReturnType()),
+		Code:      stmt.Code(),
+		Body:      body,
+		Language:  stmt.Language(),
+		CreatedAt: now,
+		UpdatedAt: now,
 	}, nil
 }
 
@@ -254,11 +262,14 @@ func newColumnsFromDef(def []*ast.ColumnDefinitionNode) []*ColumnSpec {
 }
 
 func newTableSpec(namePath []string, stmt *ast.CreateTableStmtNode) *TableSpec {
+	now := time.Now()
 	return &TableSpec{
 		IsTemp:     stmt.CreateScope() == ast.CreateScopeTemp,
 		NamePath:   MergeNamePath(namePath, stmt.NamePath()),
 		Columns:    newColumnsFromDef(stmt.ColumnDefinitionList()),
 		CreateMode: stmt.CreateMode(),
+		UpdatedAt:  now,
+		CreatedAt:  now,
 	}
 }
 
@@ -273,12 +284,15 @@ func newTableAsSelectSpec(namePath []string, query string, stmt *ast.CreateTable
 			fmt.Sprintf("`%s#%d` AS `%s`", refColumnName, colID, colName),
 		)
 	}
+	now := time.Now()
 	return &TableSpec{
 		IsTemp:     stmt.CreateScope() == ast.CreateScopeTemp,
 		NamePath:   MergeNamePath(namePath, stmt.NamePath()),
 		Columns:    newColumnsFromDef(stmt.ColumnDefinitionList()),
 		CreateMode: stmt.CreateMode(),
 		Query:      fmt.Sprintf("SELECT %s FROM (%s)", strings.Join(outputColumns, ","), query),
+		UpdatedAt:  now,
+		CreatedAt:  now,
 	}
 }
 
