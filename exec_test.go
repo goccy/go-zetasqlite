@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/goccy/go-zetasqlite"
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestExec(t *testing.T) {
@@ -140,5 +141,73 @@ func TestCreateTempTable(t *testing.T) {
 	}
 	if _, err := db.ExecContext(ctx, "CREATE TABLE tmp_table (id INT64)"); err == nil {
 		t.Fatal("expected error")
+	}
+}
+
+func TestWildcardTable(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("zetasqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if _, err := db.ExecContext(
+		ctx,
+		"CREATE TABLE `project.dataset.table_a` AS SELECT specialName FROM UNNEST (['alice_a', 'bob_a']) as specialName",
+	); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(
+		ctx,
+		"CREATE TABLE `project.dataset.table_b` AS SELECT name FROM UNNEST(['alice_b', 'bob_b']) as name",
+	); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(
+		ctx,
+		"CREATE TABLE `project.dataset.table_c` AS SELECT name FROM UNNEST(['alice_c', 'bob_c']) as name",
+	); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(
+		ctx,
+		"CREATE TABLE `project.dataset.other_d` AS SELECT name FROM UNNEST(['alice_d', 'bob_d']) as name",
+	); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := db.QueryContext(ctx, "SELECT name, _TABLE_SUFFIX FROM `project.dataset.table_*` WHERE name LIKE 'alice%' OR name IS NULL")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	type queryRow struct {
+		Name   *string
+		Suffix string
+	}
+	var results []*queryRow
+	for rows.Next() {
+		var (
+			name   *string
+			suffix string
+		)
+		if err := rows.Scan(&name, &suffix); err != nil {
+			t.Fatal(err)
+		}
+		results = append(results, &queryRow{
+			Name:   name,
+			Suffix: suffix,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	stringPtr := func(v string) *string { return &v }
+	if diff := cmp.Diff(results, []*queryRow{
+		{Name: stringPtr("alice_c"), Suffix: "c"},
+		{Name: stringPtr("alice_b"), Suffix: "b"},
+		{Name: nil, Suffix: "a"},
+		{Name: nil, Suffix: "a"},
+	}); diff != "" {
+		t.Errorf("(-want +got):\n%s", diff)
 	}
 }

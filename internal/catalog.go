@@ -79,6 +79,73 @@ func NewCatalog(db *sql.DB) *Catalog {
 	}
 }
 
+func (c *Catalog) FullName() string {
+	return c.catalog.FullName()
+}
+
+func (c *Catalog) FindTable(path []string) (types.Table, error) {
+	if c.isWildcardTable(path) {
+		return c.createWildcardTable(path)
+	}
+	return c.catalog.FindTable(path)
+}
+
+func (c *Catalog) FindModel(path []string) (types.Model, error) {
+	return c.catalog.FindModel(path)
+}
+
+func (c *Catalog) FindConnection(path []string) (types.Connection, error) {
+	return c.catalog.FindConnection(path)
+}
+
+func (c *Catalog) FindFunction(path []string) (*types.Function, error) {
+	return c.catalog.FindFunction(path)
+}
+
+func (c *Catalog) FindTableValuedFunction(path []string) (types.TableValuedFunction, error) {
+	return c.catalog.FindTableValuedFunction(path)
+}
+
+func (c *Catalog) FindProcedure(path []string) (*types.Procedure, error) {
+	return c.catalog.FindProcedure(path)
+}
+
+func (c *Catalog) FindType(path []string) (types.Type, error) {
+	return c.catalog.FindType(path)
+}
+
+func (c *Catalog) FindConstant(path []string) (types.Constant, int, error) {
+	return c.catalog.FindConstant(path)
+}
+
+func (c *Catalog) FindConversion(from, to types.Type) (types.Conversion, error) {
+	return c.catalog.FindConversion(from, to)
+}
+
+func (c *Catalog) ExtendedTypeSuperTypes(typ types.Type) (*types.TypeListView, error) {
+	return c.catalog.ExtendedTypeSuperTypes(typ)
+}
+
+func (c *Catalog) SuggestTable(mistypedPath []string) string {
+	return c.catalog.SuggestTable(mistypedPath)
+}
+
+func (c *Catalog) SuggestModel(mistypedPath []string) string {
+	return c.catalog.SuggestModel(mistypedPath)
+}
+
+func (c *Catalog) SuggestFunction(mistypedPath []string) string {
+	return c.catalog.SuggestFunction(mistypedPath)
+}
+
+func (c *Catalog) SuggestTableValuedFunction(mistypedPath []string) string {
+	return c.catalog.SuggestTableValuedFunction(mistypedPath)
+}
+
+func (c *Catalog) SuggestConstant(mistypedPath []string) string {
+	return c.catalog.SuggestConstant(mistypedPath)
+}
+
 func (c *Catalog) formatNamePath(path []string) string {
 	return strings.Join(path, "_")
 }
