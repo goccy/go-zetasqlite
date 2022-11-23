@@ -16,6 +16,22 @@ type NameWithType struct {
 	Type *Type  `json:"type"`
 }
 
+func (t *NameWithType) FunctionArgumentType() (*types.FunctionArgumentType, error) {
+	if t.Type.SignatureKind != types.ArgTypeFixed {
+		return types.NewTemplatedFunctionArgumentType(
+			t.Type.SignatureKind,
+			types.NewFunctionArgumentTypeOptions(types.RequiredArgumentCardinality),
+		), nil
+	}
+	typ, err := t.Type.ToZetaSQLType()
+	if err != nil {
+		return nil, err
+	}
+	opt := types.NewFunctionArgumentTypeOptions(types.RequiredArgumentCardinality)
+	opt.SetArgumentName(t.Name)
+	return types.NewFunctionArgumentType(typ, opt), nil
+}
+
 type FunctionSpec struct {
 	IsTemp    bool            `json:"isTemp"`
 	NamePath  []string        `json:"name"`
@@ -152,7 +168,6 @@ func (t *Type) FunctionArgumentType() (*types.FunctionArgumentType, error) {
 		return nil, err
 	}
 	opt := types.NewFunctionArgumentTypeOptions(types.RequiredArgumentCardinality)
-	opt.SetArgumentName(t.Name)
 	return types.NewFunctionArgumentType(typ, opt), nil
 }
 

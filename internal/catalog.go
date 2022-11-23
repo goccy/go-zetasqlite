@@ -516,7 +516,7 @@ func (c *Catalog) addFunctionSpecRecursive(cat *types.SimpleCatalog, spec *Funct
 	}
 	argTypes := []*types.FunctionArgumentType{}
 	for _, arg := range spec.Args {
-		argType, err := arg.Type.FunctionArgumentType()
+		argType, err := arg.FunctionArgumentType()
 		if err != nil {
 			return err
 		}
