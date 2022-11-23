@@ -63,6 +63,7 @@ func newAnalyzerOptions() *zetasql.AnalyzerOptions {
 		zetasql.FeatureV13AllowDashesInTableName,
 		zetasql.FeatureGeography,
 		zetasql.FeatureV13ExtendedGeographyParsers,
+		zetasql.FeatureTemplateFunctions,
 	})
 	langOpt.SetSupportedStatementKinds([]ast.Kind{
 		ast.BeginStmt,
@@ -196,6 +197,7 @@ func (a *Analyzer) context(
 	funcMap map[string]*FunctionSpec,
 	stmtNode ast.StatementNode,
 	stmt parsed_ast.StatementNode) context.Context {
+	ctx = withAnalyzer(ctx, a)
 	ctx = withNamePath(ctx, a.namePath)
 	ctx = withColumnRefMap(ctx, map[string]string{})
 	ctx = withTableNameToColumnListMap(ctx, map[string][]*ast.Column{})
@@ -203,6 +205,23 @@ func (a *Analyzer) context(
 	ctx = withAnalyticOrderColumnNames(ctx, &analyticOrderColumnNames{})
 	ctx = withNodeMap(ctx, zetasql.NewNodeMap(stmtNode, stmt))
 	return ctx
+}
+
+func (a *Analyzer) analyzeTemplatedFunctionWithRuntimeArgument(ctx context.Context, query string) (*FunctionSpec, error) {
+	out, err := zetasql.AnalyzeStatement(query, a.catalog, a.opt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to analyze: %w", err)
+	}
+	node := out.Statement()
+	stmt, ok := node.(*ast.CreateFunctionStmtNode)
+	if !ok {
+		return nil, fmt.Errorf("unexpected create function query %s", query)
+	}
+	spec, err := newFunctionSpec(ctx, a.namePath, stmt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create function spec: %w", err)
+	}
+	return spec, nil
 }
 
 func (a *Analyzer) newStmtAction(ctx context.Context, query string, args []driver.NamedValue, node ast.StatementNode) (StmtAction, error) {

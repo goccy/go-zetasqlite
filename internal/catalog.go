@@ -516,18 +516,17 @@ func (c *Catalog) addFunctionSpecRecursive(cat *types.SimpleCatalog, spec *Funct
 	}
 	argTypes := []*types.FunctionArgumentType{}
 	for _, arg := range spec.Args {
-		t, err := arg.Type.ToZetaSQLType()
+		argType, err := arg.Type.FunctionArgumentType()
 		if err != nil {
 			return err
 		}
-		argTypes = append(argTypes, types.NewFunctionArgumentType(arg.Name, t))
+		argTypes = append(argTypes, argType)
 	}
-	retType, err := spec.Return.ToZetaSQLType()
+	retType, err := spec.Return.FunctionArgumentType()
 	if err != nil {
 		return err
 	}
-	returnType := types.NewFunctionArgumentType(spec.Return.Name, retType)
-	sig := types.NewFunctionSignature(returnType, argTypes)
+	sig := types.NewFunctionSignature(retType, argTypes)
 	newFunc := types.NewFunction([]string{funcName}, "", types.ScalarMode, []*types.FunctionSignature{sig})
 	cat.AddFunction(newFunc)
 	return nil

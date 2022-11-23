@@ -9,6 +9,7 @@ import (
 )
 
 type (
+	analyzerKey                     struct{}
 	namePathKey                     struct{}
 	nodeMapKey                      struct{}
 	columnRefMapKey                 struct{}
@@ -25,6 +26,18 @@ type (
 	rowIDColumnKey                  struct{}
 	useTableNameForColumnKey        struct{}
 )
+
+func analyzerFromContext(ctx context.Context) *Analyzer {
+	value := ctx.Value(analyzerKey{})
+	if value == nil {
+		return nil
+	}
+	return value.(*Analyzer)
+}
+
+func withAnalyzer(ctx context.Context, analyzer *Analyzer) context.Context {
+	return context.WithValue(ctx, analyzerKey{}, analyzer)
+}
 
 func namePathFromContext(ctx context.Context) []string {
 	value := ctx.Value(namePathKey{})

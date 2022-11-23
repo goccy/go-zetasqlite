@@ -286,12 +286,7 @@ func (n *FunctionCallNode) FormatSQL(ctx context.Context) (string, error) {
 	}
 	funcMap := funcMapFromContext(ctx)
 	if spec, exists := funcMap[funcName]; exists {
-		body := spec.Body
-		for _, arg := range args {
-			// TODO: Need to recognize the argument exactly.
-			body = strings.Replace(body, "?", arg, 1)
-		}
-		return fmt.Sprintf("( %s )", body), nil
+		return spec.CallSQL(ctx, n.node.ArgumentList(), args)
 	}
 	return fmt.Sprintf(
 		"%s(%s)",

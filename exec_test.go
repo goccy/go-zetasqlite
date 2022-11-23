@@ -3,6 +3,7 @@ package zetasqlite_test
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"testing"
 	"time"
 
@@ -210,4 +211,60 @@ func TestWildcardTable(t *testing.T) {
 	}); diff != "" {
 		t.Errorf("(-want +got):\n%s", diff)
 	}
+}
+
+func TestTemplatedArgFunc(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("zetasqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if _, err := db.ExecContext(
+		ctx,
+		`CREATE FUNCTION MAX_FROM_ARRAY(arr ANY TYPE) as (( SELECT MAX(x) FROM UNNEST(arr) as x ))`,
+	); err != nil {
+		t.Fatal(err)
+	}
+	t.Run("int64", func(t *testing.T) {
+		rows, err := db.QueryContext(ctx, "SELECT MAX_FROM_ARRAY([1, 4, 2, 3])")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var num int64
+			if err := rows.Scan(&num); err != nil {
+				t.Fatal(err)
+			}
+			if num != 4 {
+				t.Fatalf("failed to get max number. got %d", num)
+			}
+			break
+		}
+		if rows.Err() != nil {
+			t.Fatal(err)
+		}
+	})
+	t.Run("float64", func(t *testing.T) {
+		rows, err := db.QueryContext(ctx, "SELECT MAX_FROM_ARRAY([1.234, 3.456, 4.567, 2.345])")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var num float64
+			if err := rows.Scan(&num); err != nil {
+				t.Fatal(err)
+			}
+			if fmt.Sprint(num) != "4.567" {
+				t.Fatalf("failed to get max number. got %f", num)
+			}
+			break
+		}
+		if rows.Err() != nil {
+			t.Fatal(err)
+		}
+	})
+
 }

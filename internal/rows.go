@@ -110,9 +110,19 @@ func (r *Rows) assignValue(src interface{}, dst reflect.Value, typ *Type) error 
 	if err != nil {
 		return err
 	}
-	value, err := CastValue(t, decodedValue)
-	if err != nil {
-		return err
+	// anonymous struct used as a return type by templated argument function.
+	// so, this case should ignore cast process.
+	isAnonymousStructType := t.IsStruct() && t.AsStruct().NumFields() == 0
+
+	var value Value
+	if isAnonymousStructType {
+		value = decodedValue
+	} else {
+		castedValue, err := CastValue(t, decodedValue)
+		if err != nil {
+			return err
+		}
+		value = castedValue
 	}
 	kind := dst.Type().Kind()
 	switch kind {
@@ -201,6 +211,10 @@ func (r *Rows) assignValue(src interface{}, dst reflect.Value, typ *Type) error 
 		}
 		dst.Set(reflect.ValueOf(b))
 	case reflect.Interface:
+		if isAnonymousStructType {
+			dst.Set(reflect.ValueOf(value))
+			return nil
+		}
 		return r.assignInterfaceValue(value, dst, typ)
 	default:
 		return fmt.Errorf("unexpected destination type %s for %T", kind, value)
