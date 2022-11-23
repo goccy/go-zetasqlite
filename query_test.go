@@ -3267,6 +3267,12 @@ FROM
 			query:        `SELECT EXISTS ( SELECT val FROM UNNEST([1, 2, 3]) AS val WHERE val = 1 )`,
 			expectedRows: [][]interface{}{{true}},
 		},
+
+		{
+			name:         "nested with",
+			query:        `WITH output AS ( WITH sub AS ( SELECT val FROM UNNEST([1, 2, 3]) as val ) SELECT * FROM sub WHERE val > 1 ) SELECT * FROM output`,
+			expectedRows: [][]interface{}{{int64(2)}, {int64(3)}},
+		},
 	} {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
