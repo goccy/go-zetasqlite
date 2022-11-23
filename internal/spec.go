@@ -16,6 +16,22 @@ type NameWithType struct {
 	Type *Type  `json:"type"`
 }
 
+func (t *NameWithType) FunctionArgumentType() (*types.FunctionArgumentType, error) {
+	if t.Type.SignatureKind != types.ArgTypeFixed {
+		return types.NewTemplatedFunctionArgumentType(
+			t.Type.SignatureKind,
+			types.NewFunctionArgumentTypeOptions(types.RequiredArgumentCardinality),
+		), nil
+	}
+	typ, err := t.Type.ToZetaSQLType()
+	if err != nil {
+		return nil, err
+	}
+	opt := types.NewFunctionArgumentTypeOptions(types.RequiredArgumentCardinality)
+	opt.SetArgumentName(t.Name)
+	return types.NewFunctionArgumentType(typ, opt), nil
+}
+
 type FunctionSpec struct {
 	IsTemp    bool            `json:"isTemp"`
 	NamePath  []string        `json:"name"`
@@ -46,6 +62,41 @@ func (s *FunctionSpec) SQL() string {
 		retType.Kind(),
 		s.Body,
 	)
+}
+
+func (s *FunctionSpec) CallSQL(ctx context.Context, args []ast.ExprNode, argValues []string) (string, error) {
+	var body string
+	if s.Body == "" {
+		// templated argument func
+		definedArgs := make([]string, 0, len(args))
+		for idx, arg := range args {
+			typeName := newType(arg.Type()).FormatType()
+			definedArgs = append(
+				definedArgs,
+				fmt.Sprintf("%s %s", s.Args[idx].Name, typeName),
+			)
+		}
+		funcName := strings.Join(s.NamePath, ".")
+		runtimeDefinedFunc := fmt.Sprintf(
+			"CREATE FUNCTION `%s`(%s) as (%s)",
+			funcName,
+			strings.Join(definedArgs, ","),
+			s.Code,
+		)
+		analyzer := analyzerFromContext(ctx)
+		runtimeSpec, err := analyzer.analyzeTemplatedFunctionWithRuntimeArgument(ctx, runtimeDefinedFunc)
+		if err != nil {
+			return "", err
+		}
+		body = runtimeSpec.Body
+	} else {
+		body = s.Body
+	}
+	for _, arg := range argValues {
+		// TODO: Need to recognize the argument exactly.
+		body = strings.Replace(body, "?", arg, 1)
+	}
+	return fmt.Sprintf("( %s )", body), nil
 }
 
 type TableSpec struct {
@@ -98,10 +149,26 @@ type ColumnSpec struct {
 }
 
 type Type struct {
-	Name        string          `json:"name"`
-	Kind        int             `json:"kind"`
-	ElementType *Type           `json:"elementType"`
-	FieldTypes  []*NameWithType `json:"fieldTypes"`
+	Name          string                      `json:"name"`
+	Kind          int                         `json:"kind"`
+	SignatureKind types.SignatureArgumentKind `json:"signatureKind"`
+	ElementType   *Type                       `json:"elementType"`
+	FieldTypes    []*NameWithType             `json:"fieldTypes"`
+}
+
+func (t *Type) FunctionArgumentType() (*types.FunctionArgumentType, error) {
+	if t.SignatureKind != types.ArgTypeFixed {
+		return types.NewTemplatedFunctionArgumentType(
+			t.SignatureKind,
+			types.NewFunctionArgumentTypeOptions(types.RequiredArgumentCardinality),
+		), nil
+	}
+	typ, err := t.ToZetaSQLType()
+	if err != nil {
+		return nil, err
+	}
+	opt := types.NewFunctionArgumentTypeOptions(types.RequiredArgumentCardinality)
+	return types.NewFunctionArgumentType(typ, opt), nil
 }
 
 func (t *Type) IsArray() bool {
@@ -155,6 +222,20 @@ func (t *Type) ToZetaSQLType() (types.Type, error) {
 		return types.NewStructType(fields)
 	}
 	return types.TypeFromKind(types.TypeKind(t.Kind)), nil
+}
+
+func (t *Type) FormatType() string {
+	switch t.Kind {
+	case types.STRUCT:
+		formatTypes := make([]string, 0, len(t.FieldTypes))
+		for _, field := range t.FieldTypes {
+			formatTypes = append(formatTypes, fmt.Sprintf("`%s` %s", field.Name, field.Type.FormatType()))
+		}
+		return fmt.Sprintf("STRUCT<%s>", strings.Join(formatTypes, ","))
+	case types.ARRAY:
+		return fmt.Sprintf("ARRAY<%s>", t.ElementType.FormatType())
+	}
+	return types.TypeKind(t.Kind).String()
 }
 
 func (s *ColumnSpec) SQLiteSchema() string {
@@ -214,16 +295,30 @@ func (s *ColumnSpec) SQLiteSchema() string {
 
 func newFunctionSpec(ctx context.Context, namePath []string, stmt *ast.CreateFunctionStmtNode) (*FunctionSpec, error) {
 	args := []*NameWithType{}
-	for _, arg := range stmt.Signature().Arguments() {
-		args = append(args, &NameWithType{
-			Name: arg.ArgumentName(),
-			Type: newType(arg.Type()),
-		})
+	signature := stmt.Signature()
+	for _, arg := range signature.Arguments() {
+		if arg.IsTemplated() {
+			args = append(args, &NameWithType{
+				Name: arg.ArgumentName(),
+				Type: &Type{
+					SignatureKind: types.ArgTypeAny1,
+				},
+			})
+		} else {
+			args = append(args, &NameWithType{
+				Name: arg.ArgumentName(),
+				Type: newType(arg.Type()),
+			})
+		}
 	}
 	funcExpr := stmt.FunctionExpression()
-	body, err := newNode(funcExpr).FormatSQL(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to format function expression: %w", err)
+	var body string
+	if funcExpr != nil {
+		bodyQuery, err := newNode(funcExpr).FormatSQL(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to format function expression: %w", err)
+		}
+		body = bodyQuery
 	}
 	now := time.Now()
 	return &FunctionSpec{
