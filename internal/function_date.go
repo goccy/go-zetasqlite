@@ -37,7 +37,15 @@ func DATE(args ...Value) (Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		return DateValue(t), nil
+		zone, err := args[1].ToString()
+		if err != nil {
+			return nil, err
+		}
+		loc, err := time.LoadLocation(zone)
+		if err != nil {
+			return nil, err
+		}
+		return DateValue(t.In(loc)), nil
 	} else {
 		t, err := args[0].ToTime()
 		if err != nil {
