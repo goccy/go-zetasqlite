@@ -220,51 +220,100 @@ func TestTemplatedArgFunc(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	if _, err := db.ExecContext(
-		ctx,
-		`CREATE FUNCTION MAX_FROM_ARRAY(arr ANY TYPE) as (( SELECT MAX(x) FROM UNNEST(arr) as x ))`,
-	); err != nil {
-		t.Fatal(err)
-	}
-	t.Run("int64", func(t *testing.T) {
-		rows, err := db.QueryContext(ctx, "SELECT MAX_FROM_ARRAY([1, 4, 2, 3])")
-		if err != nil {
+	t.Run("simple any arguments", func(t *testing.T) {
+		if _, err := db.ExecContext(
+			ctx,
+			`CREATE FUNCTION ANY_ADD(x ANY TYPE, y ANY TYPE) AS ((x + 4) / y)`,
+		); err != nil {
 			t.Fatal(err)
 		}
-		defer rows.Close()
-		for rows.Next() {
-			var num int64
-			if err := rows.Scan(&num); err != nil {
+		t.Run("int64", func(t *testing.T) {
+			rows, err := db.QueryContext(ctx, "SELECT ANY_ADD(3, 4)")
+			if err != nil {
 				t.Fatal(err)
 			}
-			if num != 4 {
-				t.Fatalf("failed to get max number. got %d", num)
+			defer rows.Close()
+			for rows.Next() {
+				var num float64
+				if err := rows.Scan(&num); err != nil {
+					t.Fatal(err)
+				}
+				if fmt.Sprint(num) != "1.75" {
+					t.Fatalf("failed to get max number. got %f", num)
+				}
+				break
 			}
-			break
-		}
-		if rows.Err() != nil {
-			t.Fatal(err)
-		}
-	})
-	t.Run("float64", func(t *testing.T) {
-		rows, err := db.QueryContext(ctx, "SELECT MAX_FROM_ARRAY([1.234, 3.456, 4.567, 2.345])")
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer rows.Close()
-		for rows.Next() {
-			var num float64
-			if err := rows.Scan(&num); err != nil {
+			if rows.Err() != nil {
 				t.Fatal(err)
 			}
-			if fmt.Sprint(num) != "4.567" {
-				t.Fatalf("failed to get max number. got %f", num)
+		})
+		t.Run("float64", func(t *testing.T) {
+			rows, err := db.QueryContext(ctx, "SELECT ANY_ADD(18.22, 11.11)")
+			if err != nil {
+				t.Fatal(err)
 			}
-			break
-		}
-		if rows.Err() != nil {
+			defer rows.Close()
+			for rows.Next() {
+				var num float64
+				if err := rows.Scan(&num); err != nil {
+					t.Fatal(err)
+				}
+				if num != 2.0 {
+					t.Fatalf("failed to get max number. got %f", num)
+				}
+				break
+			}
+			if rows.Err() != nil {
+				t.Fatal(err)
+			}
+		})
+	})
+	t.Run("array any arguments", func(t *testing.T) {
+		if _, err := db.ExecContext(
+			ctx,
+			`CREATE FUNCTION MAX_FROM_ARRAY(arr ANY TYPE) as (( SELECT MAX(x) FROM UNNEST(arr) as x ))`,
+		); err != nil {
 			t.Fatal(err)
 		}
+		t.Run("int64", func(t *testing.T) {
+			rows, err := db.QueryContext(ctx, "SELECT MAX_FROM_ARRAY([1, 4, 2, 3])")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer rows.Close()
+			for rows.Next() {
+				var num int64
+				if err := rows.Scan(&num); err != nil {
+					t.Fatal(err)
+				}
+				if num != 4 {
+					t.Fatalf("failed to get max number. got %d", num)
+				}
+				break
+			}
+			if rows.Err() != nil {
+				t.Fatal(err)
+			}
+		})
+		t.Run("float64", func(t *testing.T) {
+			rows, err := db.QueryContext(ctx, "SELECT MAX_FROM_ARRAY([1.234, 3.456, 4.567, 2.345])")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer rows.Close()
+			for rows.Next() {
+				var num float64
+				if err := rows.Scan(&num); err != nil {
+					t.Fatal(err)
+				}
+				if fmt.Sprint(num) != "4.567" {
+					t.Fatalf("failed to get max number. got %f", num)
+				}
+				break
+			}
+			if rows.Err() != nil {
+				t.Fatal(err)
+			}
+		})
 	})
-
 }

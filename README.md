@@ -182,10 +182,10 @@ A list of ZetaSQL ( Google Standard SQL ) specifications and features supported 
 - [x] LIMIT and OFFSET clauses
 - [x] WITH clause
   - [ ] RECURSIVE keyword
-  - [ ] Non-recursive CTEs
+  - [x] Non-recursive CTEs
   - [ ] Recursive CTEs
-  - [ ] CTE rules and constraints
-  - [ ] CTE visibility
+  - [x] CTE rules and constraints
+  - [x] CTE visibility
 - [x] Using aliases
   - [x] Explicit aliases
   - [x] Implicit aliases
@@ -197,6 +197,7 @@ A list of ZetaSQL ( Google Standard SQL ) specifications and features supported 
   - [x] Return query results as a value table
   - [x] Create a table with a value table
   - [ ] Use a set operation on a value table
+- [x] Queries for wildcard table
 
 ## Statements
 
@@ -301,6 +302,19 @@ A list of ZetaSQL ( Google Standard SQL ) specifications and features supported 
 
 - [ ] EXPORT DATA
 - [ ] LOAD DATA
+
+
+## User Defined Functions
+
+- [x] User Defined Function
+- [x] Templated Argument Function
+  - If the return type is not specified, templated argument function supports only some types of patterns.
+    - `ANY` -> `ANY`
+    - `ARRAY<ANY>` -> `ANY`
+    - `ANY` -> `ARRAY<ANY>`
+    - If the return type is always fixed, only some types are supported, such as `INT64` / `DOUBLE`
+
+- [ ] JavaScript UDF
 
 ## Functions
 
