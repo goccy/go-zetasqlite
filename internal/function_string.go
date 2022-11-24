@@ -110,6 +110,9 @@ func COLLATE(v, spec string) (Value, error) {
 func CONCAT(args ...Value) (Value, error) {
 	var ret []byte
 	for _, v := range args {
+		if v == nil {
+			continue
+		}
 		b, err := v.ToBytes()
 		if err != nil {
 			return nil, err

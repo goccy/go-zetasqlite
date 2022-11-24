@@ -292,7 +292,13 @@ func BETWEEN(target, start, end Value) (Value, error) {
 }
 
 func IN(a Value, values ...Value) (Value, error) {
+	if a == nil {
+		return BoolValue(false), nil
+	}
 	for _, v := range values {
+		if v == nil {
+			continue
+		}
 		cond, err := a.EQ(v)
 		if err != nil {
 			return nil, err
