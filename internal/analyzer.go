@@ -289,15 +289,98 @@ func (a *Analyzer) newCreateTableAsSelectStmtAction(ctx context.Context, query s
 }
 
 func (a *Analyzer) newCreateFunctionStmtAction(ctx context.Context, query string, args []driver.NamedValue, node *ast.CreateFunctionStmtNode) (*CreateFunctionStmtAction, error) {
-	spec, err := newFunctionSpec(ctx, a.namePath, node)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create function spec: %w", err)
+	var spec *FunctionSpec
+	if a.resultTypeIsTemplatedType(node.Signature()) {
+		realStmts, err := a.inferTemplatedTypeByRealType(query, node)
+		if err != nil {
+			return nil, err
+		}
+		templatedFuncSpec, err := newTemplatedFunctionSpec(ctx, a.namePath, node, realStmts)
+		if err != nil {
+			return nil, err
+		}
+		spec = templatedFuncSpec
+	} else {
+		funcSpec, err := newFunctionSpec(ctx, a.namePath, node)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create function spec: %w", err)
+		}
+		spec = funcSpec
 	}
 	return &CreateFunctionStmtAction{
 		spec:    spec,
 		catalog: a.catalog,
 		funcMap: funcMapFromContext(ctx),
 	}, nil
+}
+
+func (a *Analyzer) resultTypeIsTemplatedType(sig *types.FunctionSignature) bool {
+	if !sig.IsTemplated() {
+		return false
+	}
+	return sig.ResultType().IsTemplated()
+}
+
+var inferTypes = []string{
+	"INT64", "DOUBLE", "BOOL", "STRING", "BYTES",
+	"JSON", "DATE", "DATETIME", "TIME", "TIMESTAMP",
+	"INTERVAL", "GEOGRAPHY",
+	"STRUCT<>",
+}
+
+func (a *Analyzer) inferTemplatedTypeByRealType(query string, node *ast.CreateFunctionStmtNode) ([]*ast.CreateFunctionStmtNode, error) {
+	var stmts []*ast.CreateFunctionStmtNode
+	for _, typ := range inferTypes {
+		if out, err := zetasql.AnalyzeStatement(a.buildScalarTypeFuncFromTemplatedFunc(node, typ), a.catalog, a.opt); err == nil {
+			stmts = append(stmts, out.Statement().(*ast.CreateFunctionStmtNode))
+		}
+	}
+	if len(stmts) != 0 {
+		return stmts, nil
+	}
+	for _, typ := range inferTypes {
+		if out, err := zetasql.AnalyzeStatement(a.buildArrayTypeFuncFromTemplatedFunc(node, typ), a.catalog, a.opt); err == nil {
+			stmts = append(stmts, out.Statement().(*ast.CreateFunctionStmtNode))
+		}
+	}
+	if len(stmts) != 0 {
+		return stmts, nil
+	}
+	return nil, fmt.Errorf("failed to infer templated function result type for %s", query)
+}
+
+func (a *Analyzer) buildScalarTypeFuncFromTemplatedFunc(node *ast.CreateFunctionStmtNode, realType string) string {
+	signature := node.Signature()
+	var args []string
+	for _, arg := range signature.Arguments() {
+		typ := realType
+		if !arg.IsTemplated() {
+			typ = newType(arg.Type()).FormatType()
+		}
+		args = append(args, fmt.Sprintf("%s %s", arg.ArgumentName(), typ))
+	}
+	return fmt.Sprintf(
+		"CREATE TEMP FUNCTION __zetasqlite_func__(%s) as (%s)",
+		strings.Join(args, ","),
+		node.Code(),
+	)
+}
+
+func (a *Analyzer) buildArrayTypeFuncFromTemplatedFunc(node *ast.CreateFunctionStmtNode, realType string) string {
+	signature := node.Signature()
+	var args []string
+	for _, arg := range signature.Arguments() {
+		typ := fmt.Sprintf("ARRAY<%s>", realType)
+		if !arg.IsTemplated() {
+			typ = newType(arg.Type()).FormatType()
+		}
+		args = append(args, fmt.Sprintf("%s %s", arg.ArgumentName(), typ))
+	}
+	return fmt.Sprintf(
+		"CREATE TEMP FUNCTION __zetasqlite_func__(%s) as (%s)",
+		strings.Join(args, ","),
+		node.Code(),
+	)
 }
 
 func (a *Analyzer) newDropStmtAction(ctx context.Context, query string, args []driver.NamedValue, node *ast.DropStmtNode) (*DropStmtAction, error) {

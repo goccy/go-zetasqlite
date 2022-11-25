@@ -293,23 +293,21 @@ func (s *ColumnSpec) SQLiteSchema() string {
 	return schema
 }
 
+func newTypeFromFunctionArgumentType(t *types.FunctionArgumentType) *Type {
+	if t.IsTemplated() {
+		return &Type{SignatureKind: t.Kind()}
+	}
+	return newType(t.Type())
+}
+
 func newFunctionSpec(ctx context.Context, namePath []string, stmt *ast.CreateFunctionStmtNode) (*FunctionSpec, error) {
 	args := []*NameWithType{}
 	signature := stmt.Signature()
 	for _, arg := range signature.Arguments() {
-		if arg.IsTemplated() {
-			args = append(args, &NameWithType{
-				Name: arg.ArgumentName(),
-				Type: &Type{
-					SignatureKind: types.ArgTypeAny1,
-				},
-			})
-		} else {
-			args = append(args, &NameWithType{
-				Name: arg.ArgumentName(),
-				Type: newType(arg.Type()),
-			})
-		}
+		args = append(args, &NameWithType{
+			Name: arg.ArgumentName(),
+			Type: newTypeFromFunctionArgumentType(arg),
+		})
 	}
 	funcExpr := stmt.FunctionExpression()
 	var body string
@@ -326,6 +324,74 @@ func newFunctionSpec(ctx context.Context, namePath []string, stmt *ast.CreateFun
 		NamePath:  MergeNamePath(namePath, stmt.NamePath()),
 		Args:      args,
 		Return:    newType(stmt.ReturnType()),
+		Code:      stmt.Code(),
+		Body:      body,
+		Language:  stmt.Language(),
+		CreatedAt: now,
+		UpdatedAt: now,
+	}, nil
+}
+
+func newTypeFromFunctionArgumentTypeByRealType(t *types.FunctionArgumentType, realType types.Type) *Type {
+	if t.IsTemplated() {
+		if realType.IsArray() {
+			return &Type{SignatureKind: types.ArgArrayTypeAny1}
+		}
+		return &Type{SignatureKind: types.ArgTypeAny1}
+	}
+	return newType(t.Type())
+}
+
+func newTemplatedFunctionSpec(ctx context.Context, namePath []string, stmt *ast.CreateFunctionStmtNode, realStmts []*ast.CreateFunctionStmtNode) (*FunctionSpec, error) {
+	signature := stmt.Signature()
+	arguments := signature.Arguments()
+	realStmt := realStmts[0]
+	realSignature := realStmt.Signature()
+	realArguments := realSignature.Arguments()
+	resultType := newType(realSignature.ResultType().Type())
+	resultTypeName := resultType.FormatType()
+
+	allSameResultType := true
+	for _, stmt := range realStmts {
+		if newType(stmt.Signature().ResultType().Type()).FormatType() != resultTypeName {
+			allSameResultType = false
+			break
+		}
+	}
+	var retType *Type
+	if allSameResultType {
+		retType = resultType
+	} else {
+		retType = newTypeFromFunctionArgumentTypeByRealType(
+			signature.ResultType(),
+			realSignature.ResultType().Type(),
+		)
+	}
+	args := []*NameWithType{}
+	for i := 0; i < len(arguments); i++ {
+		args = append(args, &NameWithType{
+			Name: arguments[i].ArgumentName(),
+			Type: newTypeFromFunctionArgumentTypeByRealType(
+				arguments[i],
+				realArguments[i].Type(),
+			),
+		})
+	}
+	funcExpr := stmt.FunctionExpression()
+	var body string
+	if funcExpr != nil {
+		bodyQuery, err := newNode(funcExpr).FormatSQL(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to format function expression: %w", err)
+		}
+		body = bodyQuery
+	}
+	now := time.Now()
+	return &FunctionSpec{
+		IsTemp:    stmt.CreateScope() == ast.CreateScopeTemp,
+		NamePath:  MergeNamePath(namePath, stmt.NamePath()),
+		Args:      args,
+		Return:    retType,
 		Code:      stmt.Code(),
 		Body:      body,
 		Language:  stmt.Language(),
