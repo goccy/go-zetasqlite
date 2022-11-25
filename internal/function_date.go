@@ -6,7 +6,7 @@ import (
 )
 
 func CURRENT_DATE(zone string) (Value, error) {
-	loc, err := time.LoadLocation(zone)
+	loc, err := toLocation(zone)
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +41,7 @@ func DATE(args ...Value) (Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		loc, err := time.LoadLocation(zone)
+		loc, err := toLocation(zone)
 		if err != nil {
 			return nil, err
 		}

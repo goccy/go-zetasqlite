@@ -1662,7 +1662,7 @@ func bindCurrentDate(args ...Value) (Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		loc, err := time.LoadLocation(zone)
+		loc, err := toLocation(zone)
 		if err != nil {
 			return nil, err
 		}
@@ -1875,7 +1875,7 @@ func bindCurrentDatetime(args ...Value) (Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		loc, err := time.LoadLocation(zone)
+		loc, err := toLocation(zone)
 		if err != nil {
 			return nil, err
 		}
@@ -2038,7 +2038,7 @@ func bindCurrentTime(args ...Value) (Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		loc, err := time.LoadLocation(zone)
+		loc, err := toLocation(zone)
 		if err != nil {
 			return nil, err
 		}
@@ -2201,7 +2201,7 @@ func bindCurrentTimestamp(args ...Value) (Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		loc, err := time.LoadLocation(zone)
+		loc, err := toLocation(zone)
 		if err != nil {
 			return nil, err
 		}

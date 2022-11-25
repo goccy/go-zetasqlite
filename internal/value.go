@@ -2328,7 +2328,7 @@ func isTime(time string) bool {
 }
 
 func isTimestamp(timestamp string) bool {
-	loc, err := time.LoadLocation("")
+	loc, err := toLocation("")
 	if err != nil {
 		return false
 	}

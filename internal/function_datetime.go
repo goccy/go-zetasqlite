@@ -6,7 +6,7 @@ import (
 )
 
 func CURRENT_DATETIME(zone string) (Value, error) {
-	loc, err := time.LoadLocation(zone)
+	loc, err := toLocation(zone)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func DATETIME(args ...Value) (Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		location, err := time.LoadLocation("")
+		location, err := toLocation("")
 		if err != nil {
 			return nil, err
 		}
@@ -94,7 +94,7 @@ func DATETIME(args ...Value) (Value, error) {
 			if err != nil {
 				return nil, fmt.Errorf("DATETIME: second argument must be string type: %w", err)
 			}
-			location, err := time.LoadLocation(zone)
+			location, err := toLocation(zone)
 			if err != nil {
 				return nil, err
 			}

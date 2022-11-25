@@ -6,7 +6,7 @@ import (
 )
 
 func CURRENT_TIMESTAMP(zone string) (Value, error) {
-	loc, err := time.LoadLocation(zone)
+	loc, err := toLocation(zone)
 	if err != nil {
 		return nil, err
 	}
@@ -18,7 +18,7 @@ func CURRENT_TIMESTAMP_WITH_TIME(v time.Time) (Value, error) {
 }
 
 func STRING(t time.Time, zone string) (Value, error) {
-	loc, err := time.LoadLocation(zone)
+	loc, err := toLocation(zone)
 	if err != nil {
 		return nil, err
 	}
@@ -26,7 +26,7 @@ func STRING(t time.Time, zone string) (Value, error) {
 }
 
 func TIMESTAMP(v Value, zone string) (Value, error) {
-	loc, err := time.LoadLocation(zone)
+	loc, err := toLocation(zone)
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +114,7 @@ func TIMESTAMP_DIFF(a, b time.Time, part string) (Value, error) {
 }
 
 func TIMESTAMP_TRUNC(t time.Time, part, zone string) (Value, error) {
-	loc, err := time.LoadLocation(zone)
+	loc, err := toLocation(zone)
 	if err != nil {
 		return nil, err
 	}
@@ -246,7 +246,7 @@ func TIMESTAMP_TRUNC(t time.Time, part, zone string) (Value, error) {
 }
 
 func FORMAT_TIMESTAMP(format string, t time.Time, zone string) (Value, error) {
-	loc, err := time.LoadLocation(zone)
+	loc, err := toLocation(zone)
 	if err != nil {
 		return nil, err
 	}
