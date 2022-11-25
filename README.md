@@ -314,7 +314,7 @@ A list of ZetaSQL ( Google Standard SQL ) specifications and features supported 
     - `ANY` -> `ARRAY<ANY>`
     - If the return type is always fixed, only some types are supported, such as `INT64` / `DOUBLE`
 
-- [ ] JavaScript UDF
+- [x] JavaScript UDF
 
 ## Functions
 

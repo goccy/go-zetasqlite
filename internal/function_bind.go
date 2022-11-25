@@ -3,6 +3,8 @@ package internal
 import (
 	"fmt"
 	"time"
+
+	"github.com/goccy/go-json"
 )
 
 type SQLiteFunction func(...interface{}) (interface{}, error)
@@ -492,19 +494,27 @@ func bindCast(args ...Value) (Value, error) {
 	if len(args) != 4 {
 		return nil, fmt.Errorf("CAST: invalid argument num %d", len(args))
 	}
-	fromTypeKind, err := args[1].ToInt64()
+	jsonEncodedFromType, err := args[1].ToString()
 	if err != nil {
 		return nil, err
 	}
-	toTypeKind, err := args[2].ToInt64()
+	jsonEncodedToType, err := args[2].ToString()
 	if err != nil {
+		return nil, err
+	}
+	var fromType Type
+	if err := json.Unmarshal([]byte(jsonEncodedFromType), &fromType); err != nil {
+		return nil, err
+	}
+	var toType Type
+	if err := json.Unmarshal([]byte(jsonEncodedToType), &toType); err != nil {
 		return nil, err
 	}
 	isSafeCast, err := args[3].ToBool()
 	if err != nil {
 		return nil, err
 	}
-	return CAST(args[0], fromTypeKind, toTypeKind, isSafeCast)
+	return CAST(args[0], &fromType, &toType, isSafeCast)
 }
 
 func bindInterval(args ...Value) (Value, error) {
@@ -2679,6 +2689,37 @@ func bindWindowOrderBy(args ...Value) (Value, error) {
 		return nil, err
 	}
 	return WINDOW_ORDER_BY(args[0], isAsc)
+}
+
+func bindEvalJavaScript(args ...Value) (Value, error) {
+	code, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	encodedType, err := args[1].ToString()
+	if err != nil {
+		return nil, err
+	}
+	var typ Type
+	if err := json.Unmarshal([]byte(encodedType), &typ); err != nil {
+		return nil, fmt.Errorf("failed to decode type information from %s: %w", encodedType, err)
+	}
+	if len(args) == 2 {
+		return EVAL_JAVASCRIPT(code, &typ, nil, nil)
+	}
+	argNames, err := args[2].ToArray()
+	if err != nil {
+		return nil, err
+	}
+	names := make([]string, 0, len(argNames.values))
+	for _, val := range argNames.values {
+		name, err := val.ToString()
+		if err != nil {
+			return nil, err
+		}
+		names = append(names, name)
+	}
+	return EVAL_JAVASCRIPT(code, &typ, names, args[3:])
 }
 
 func bindArrayAgg() func() *Aggregator {

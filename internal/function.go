@@ -604,3 +604,29 @@ func GENERATE_UUID() (Value, error) {
 	id := uuid.NewString()
 	return StringValue(string(id)), nil
 }
+
+func CAST(expr Value, fromType, toType *Type, isSafeCast bool) (Value, error) {
+	from, err := fromType.ToZetaSQLType()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get zetasql type from cast base type: %w", err)
+	}
+	to, err := toType.ToZetaSQLType()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get zetasql type from cast target type: %w", err)
+	}
+	fromValue, err := CastValue(from, expr)
+	if err != nil {
+		if isSafeCast {
+			return nil, nil
+		}
+		return nil, err
+	}
+	casted, err := CastValue(to, fromValue)
+	if err != nil {
+		if isSafeCast {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return casted, nil
+}

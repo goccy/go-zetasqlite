@@ -247,6 +247,9 @@ var normalFuncs = []*FuncInfo{
 	{Name: "window_boundary_end", BindFunc: bindWindowBoundaryEnd},
 	{Name: "window_rowid", BindFunc: bindWindowRowID},
 	{Name: "window_order_by", BindFunc: bindWindowOrderBy},
+
+	// javascript funcs
+	{Name: "eval_javascript", BindFunc: bindEvalJavaScript},
 }
 
 var aggregateFuncs = []*AggregateFuncInfo{
@@ -396,6 +399,7 @@ func RegisterFunctions(conn *sqlite3.SQLiteConn) error {
 	}); err != nil {
 		return fmt.Errorf("failed to register collate function: %w", err)
 	}
+
 	for _, values := range normalFuncMap {
 		for _, v := range values {
 			if err := conn.RegisterFunc(v.Name, v.Func, true); err != nil {

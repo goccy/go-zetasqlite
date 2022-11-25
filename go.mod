@@ -19,6 +19,7 @@ require gonum.org/v1/gonum v0.11.0
 
 require (
 	cloud.google.com/go/bigquery v1.42.0
+	github.com/dop251/goja v0.0.0-20221118162653-d4bf6fde1b86
 	golang.org/x/text v0.3.7
 )
 
@@ -26,6 +27,8 @@ require (
 	cloud.google.com/go v0.102.1 // indirect
 	cloud.google.com/go/compute v1.7.0 // indirect
 	cloud.google.com/go/iam v0.3.0 // indirect
+	github.com/dlclark/regexp2 v1.7.0 // indirect
+	github.com/go-sourcemap/sourcemap v2.1.3+incompatible // indirect
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.1.0 // indirect
