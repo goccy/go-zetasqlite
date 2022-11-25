@@ -6,7 +6,7 @@ import (
 )
 
 func CURRENT_TIME(zone string) (Value, error) {
-	loc, err := time.LoadLocation(zone)
+	loc, err := toLocation(zone)
 	if err != nil {
 		return nil, err
 	}
@@ -31,7 +31,7 @@ func TIME(args ...Value) (Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		loc, err := time.LoadLocation("")
+		loc, err := toLocation("")
 		if err != nil {
 			return nil, err
 		}
@@ -51,7 +51,7 @@ func TIME(args ...Value) (Value, error) {
 			if err != nil {
 				return nil, err
 			}
-			loc, err := time.LoadLocation(zone)
+			loc, err := toLocation(zone)
 			if err != nil {
 				return nil, err
 			}
