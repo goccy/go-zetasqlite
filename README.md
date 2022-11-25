@@ -65,6 +65,12 @@ func main() {
 }
 ```
 
+# Tools
+
+## ZetaSQLite CLI
+
+You can execute ZetaSQL queries interactively by using the tools provided by `cmd/zetasqlite-cli`. See [here](https://github.com/goccy/go-zetasqlite/tree/main/cmd/zetasqlite-cli#readme) for details
+
 # Status
 
 A list of ZetaSQL ( Google Standard SQL ) specifications and features supported by go-zetasqlite.
