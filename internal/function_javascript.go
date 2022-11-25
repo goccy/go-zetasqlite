@@ -9,7 +9,11 @@ import (
 func EVAL_JAVASCRIPT(code string, retType *Type, argNames []string, args []Value) (Value, error) {
 	vm := goja.New()
 	for i := 0; i < len(args); i++ {
-		if err := vm.Set(argNames[i], args[i].Interface()); err != nil {
+		var v interface{}
+		if args[i] != nil {
+			v = args[i].Interface()
+		}
+		if err := vm.Set(argNames[i], v); err != nil {
 			return nil, fmt.Errorf(
 				"failed to set argument variable for %s as %v",
 				argNames[i],
