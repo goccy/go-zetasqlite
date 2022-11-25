@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/goccy/go-json"
 	ast "github.com/goccy/go-zetasql/resolved_ast"
 	"github.com/goccy/go-zetasql/types"
 )
@@ -309,14 +310,51 @@ func newFunctionSpec(ctx context.Context, namePath []string, stmt *ast.CreateFun
 			Type: newTypeFromFunctionArgumentType(arg),
 		})
 	}
-	funcExpr := stmt.FunctionExpression()
+
 	var body string
-	if funcExpr != nil {
-		bodyQuery, err := newNode(funcExpr).FormatSQL(ctx)
+	language := stmt.Language()
+	switch language {
+	case "js":
+		code, err := EncodeGoValue(types.StringType(), stmt.Code())
 		if err != nil {
-			return nil, fmt.Errorf("failed to format function expression: %w", err)
+			return nil, err
 		}
-		body = bodyQuery
+		encodedType, err := json.Marshal(newType(stmt.ReturnType()))
+		if err != nil {
+			return nil, err
+		}
+		retType, err := EncodeGoValue(types.StringType(), string(encodedType))
+		if err != nil {
+			return nil, err
+		}
+		argParams := make([]string, 0, len(args))
+		argNames := make([]string, 0, len(args))
+		for _, arg := range args {
+			argParams = append(argParams, "?")
+			argNames = append(argNames, arg.Name)
+		}
+		if len(argParams) == 0 {
+			body = fmt.Sprintf("zetasqlite_eval_javascript('%s', '%s')", code, retType)
+		} else {
+			arr, err := EncodeGoValue(types.StringArrayType(), argNames)
+			if err != nil {
+				return nil, err
+			}
+			body = fmt.Sprintf(
+				"zetasqlite_eval_javascript('%s', '%s', '%s', %s)",
+				code, retType, arr,
+				strings.Join(argParams, ","),
+			)
+		}
+	default:
+		funcExpr := stmt.FunctionExpression()
+		if funcExpr != nil {
+			bodyQuery, err := newNode(funcExpr).FormatSQL(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("failed to format function expression: %w", err)
+			}
+			body = bodyQuery
+		}
 	}
 	now := time.Now()
 	return &FunctionSpec{
@@ -326,7 +364,7 @@ func newFunctionSpec(ctx context.Context, namePath []string, stmt *ast.CreateFun
 		Return:    newType(stmt.ReturnType()),
 		Code:      stmt.Code(),
 		Body:      body,
-		Language:  stmt.Language(),
+		Language:  language,
 		CreatedAt: now,
 		UpdatedAt: now,
 	}, nil

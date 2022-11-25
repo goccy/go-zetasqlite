@@ -244,7 +244,7 @@ func TestTemplatedArgFunc(t *testing.T) {
 				break
 			}
 			if rows.Err() != nil {
-				t.Fatal(err)
+				t.Fatal(rows.Err())
 			}
 		})
 		t.Run("float64", func(t *testing.T) {
@@ -264,7 +264,7 @@ func TestTemplatedArgFunc(t *testing.T) {
 				break
 			}
 			if rows.Err() != nil {
-				t.Fatal(err)
+				t.Fatal(rows.Err())
 			}
 		})
 	})
@@ -292,7 +292,7 @@ func TestTemplatedArgFunc(t *testing.T) {
 				break
 			}
 			if rows.Err() != nil {
-				t.Fatal(err)
+				t.Fatal(rows.Err())
 			}
 		})
 		t.Run("float64", func(t *testing.T) {
@@ -312,8 +312,132 @@ func TestTemplatedArgFunc(t *testing.T) {
 				break
 			}
 			if rows.Err() != nil {
-				t.Fatal(err)
+				t.Fatal(rows.Err())
 			}
 		})
+	})
+}
+
+func TestJavaScriptUDF(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("zetasqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	t.Run("operation", func(t *testing.T) {
+		if _, err := db.ExecContext(
+			ctx,
+			`
+CREATE FUNCTION multiplyInputs(x FLOAT64, y FLOAT64)
+RETURNS FLOAT64
+LANGUAGE js
+AS r"""
+  return x*y;
+"""`,
+		); err != nil {
+			t.Fatal(err)
+		}
+		rows, err := db.QueryContext(ctx, `
+WITH numbers AS
+  (SELECT 1 AS x, 5 as y UNION ALL SELECT 2 AS x, 10 as y UNION ALL SELECT 3 as x, 15 as y)
+  SELECT x, y, multiplyInputs(x, y) AS product FROM numbers`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer rows.Close()
+
+		results := [][]float64{}
+		for rows.Next() {
+			var (
+				x, y, retVal float64
+			)
+			if err := rows.Scan(&x, &y, &retVal); err != nil {
+				t.Fatal(err)
+			}
+			results = append(results, []float64{x, y, retVal})
+		}
+		if rows.Err() != nil {
+			t.Fatal(rows.Err())
+		}
+		if diff := cmp.Diff(results, [][]float64{
+			{1, 5, 5},
+			{2, 10, 20},
+			{3, 15, 45},
+		}); diff != "" {
+			t.Errorf("(-want +got):\n%s", diff)
+		}
+	})
+	t.Run("function", func(t *testing.T) {
+		if _, err := db.ExecContext(
+			ctx,
+			`
+CREATE FUNCTION SumFieldsNamedFoo(json_row STRING)
+RETURNS FLOAT64
+LANGUAGE js
+AS r"""
+  function SumFoo(obj) {
+    var sum = 0;
+    for (var field in obj) {
+      if (obj.hasOwnProperty(field) && obj[field] != null) {
+        if (typeof obj[field] == "object") {
+          sum += SumFoo(obj[field]);
+        } else if (field == "foo") {
+          sum += obj[field];
+        }
+      }
+    }
+    return sum;
+  }
+  var row = JSON.parse(json_row);
+  return SumFoo(row);
+"""`,
+		); err != nil {
+			t.Fatal(err)
+		}
+		rows, err := db.QueryContext(ctx, `
+WITH Input AS (
+  SELECT
+    STRUCT(1 AS foo, 2 AS bar, STRUCT('foo' AS x, 3.14 AS foo) AS baz) AS s,
+    10 AS foo
+  UNION ALL
+  SELECT
+    NULL,
+    4 AS foo
+  UNION ALL
+  SELECT
+    STRUCT(NULL, 2 AS bar, STRUCT('fizz' AS x, 1.59 AS foo) AS baz) AS s,
+    NULL AS foo
+) SELECT TO_JSON_STRING(t), SumFieldsNamedFoo(TO_JSON_STRING(t)) FROM Input AS t`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer rows.Close()
+
+		type queryRow struct {
+			JsonRow string
+			Sum     float64
+		}
+		results := []*queryRow{}
+		for rows.Next() {
+			var (
+				jsonRow string
+				sum     float64
+			)
+			if err := rows.Scan(&jsonRow, &sum); err != nil {
+				t.Fatal(err)
+			}
+			results = append(results, &queryRow{JsonRow: jsonRow, Sum: sum})
+		}
+		if rows.Err() != nil {
+			t.Fatal(rows.Err())
+		}
+		if diff := cmp.Diff(results, []*queryRow{
+			{JsonRow: `{"s":{"foo":1,"bar":2,"baz":{"x":"foo","foo":3.14}},"foo":10}`, Sum: 14.14},
+			{JsonRow: `{"s":null,"foo":4}`, Sum: 4},
+			{JsonRow: `{"s":{"foo":null,"bar":2,"baz":{"x":"fizz","foo":1.59}},"foo":null}`, Sum: 1.59},
+		}); diff != "" {
+			t.Errorf("(-want +got):\n%s", diff)
+		}
 	})
 }

@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/goccy/go-json"
 	parsed_ast "github.com/goccy/go-zetasql/ast"
 	ast "github.com/goccy/go-zetasql/resolved_ast"
+	"github.com/goccy/go-zetasql/types"
 )
 
 type Formatter interface {
@@ -444,15 +446,31 @@ func (n *CastNode) FormatSQL(ctx context.Context) (string, error) {
 	if n.node == nil {
 		return "", nil
 	}
-	fromTypeKind := n.node.Expr().Type().Kind()
-	toTypeKind := n.node.Type().Kind()
+	fromType := newType(n.node.Expr().Type())
+	jsonEncodedFromType, err := json.Marshal(fromType)
+	if err != nil {
+		return "", err
+	}
+	toType := newType(n.node.Type())
+	jsonEncodedToType, err := json.Marshal(toType)
+	if err != nil {
+		return "", err
+	}
+	encodedFromType, err := EncodeGoValue(types.StringType(), string(jsonEncodedFromType))
+	if err != nil {
+		return "", err
+	}
+	encodedToType, err := EncodeGoValue(types.StringType(), string(jsonEncodedToType))
+	if err != nil {
+		return "", err
+	}
 	expr, err := newNode(n.node.Expr()).FormatSQL(ctx)
 	if err != nil {
 		return "", err
 	}
 	return fmt.Sprintf(
-		"zetasqlite_cast(%s, %d, %d, %t)",
-		expr, fromTypeKind, toTypeKind, n.node.ReturnNullOnError(),
+		"zetasqlite_cast(%s, '%s', '%s', %t)",
+		expr, encodedFromType, encodedToType, n.node.ReturnNullOnError(),
 	), nil
 }
 

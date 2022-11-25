@@ -472,7 +472,7 @@ func CastValue(t types.Type, v Value) (Value, error) {
 			key := typ.Field(i).Name()
 			value, exists := s.m[key]
 			if !exists {
-				return nil, fmt.Errorf("failed to find struct field value: %s", key)
+				value = s.values[i]
 			}
 			casted, err := CastValue(typ.Field(i).Type(), value)
 			if err != nil {
