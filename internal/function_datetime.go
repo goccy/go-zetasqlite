@@ -94,11 +94,11 @@ func DATETIME(args ...Value) (Value, error) {
 			if err != nil {
 				return nil, fmt.Errorf("DATETIME: second argument must be string type: %w", err)
 			}
-			location, err := toLocation(zone)
+			loc, err := toLocation(zone)
 			if err != nil {
 				return nil, err
 			}
-			return DatetimeValue(t.In(location)), nil
+			return DatetimeValue(t.In(loc)), nil
 		}
 		return DatetimeValue(t), nil
 	}

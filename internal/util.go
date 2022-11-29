@@ -47,3 +47,9 @@ func toLocation(timeZone string) (*time.Location, error) {
 	}
 	return loc, nil
 }
+
+func modifyTimeZone(t time.Time, loc *time.Location) (time.Time, error) {
+	// remove timezone parameter from time
+	format := t.Format("2006-01-02T15:04:05.999999999")
+	return parseTimestamp(format, loc)
+}
