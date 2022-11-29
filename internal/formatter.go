@@ -523,7 +523,19 @@ func (n *GetProtoFieldNode) FormatSQL(ctx context.Context) (string, error) {
 }
 
 func (n *GetJsonFieldNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
+	if n.node == nil {
+		return "", nil
+	}
+	expr, err := newNode(n.node.Expr()).FormatSQL(ctx)
+	if err != nil {
+		return "", err
+	}
+	name := n.node.FieldName()
+	encodedName, err := EncodeGoValue(types.StringType(), name)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("zetasqlite_get_json_field(%s, '%s')", expr, encodedName), nil
 }
 
 func (n *FlattenNode) FormatSQL(ctx context.Context) (string, error) {

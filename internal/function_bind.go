@@ -309,6 +309,32 @@ func bindStructField(args ...Value) (Value, error) {
 	return STRUCT_FIELD(args[0], int(i64))
 }
 
+func bindJsonField(args ...Value) (Value, error) {
+	if existsNull(args) {
+		return nil, nil
+	}
+	jsonValue, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	fieldName, err := args[1].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return JSON_FIELD(jsonValue, fieldName)
+}
+
+func bindSubscript(args ...Value) (Value, error) {
+	if existsNull(args) {
+		return nil, nil
+	}
+	jsonValue, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return JSON_SUBSCRIPT(jsonValue, args[1])
+}
+
 func bindArrayAtOffset(args ...Value) (Value, error) {
 	if len(args) != 2 {
 		return nil, fmt.Errorf("ARRAY_OFFSET: invalid argument num %d", len(args))
@@ -1301,6 +1327,141 @@ func bindUpper(args ...Value) (Value, error) {
 		return nil, nil
 	}
 	return UPPER(args[0])
+}
+
+func bindJsonExtract(args ...Value) (Value, error) {
+	if existsNull(args) {
+		return nil, nil
+	}
+	v, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	path, err := args[1].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return JSON_EXTRACT(v, path)
+}
+
+func bindJsonExtractScalar(args ...Value) (Value, error) {
+	if existsNull(args) {
+		return nil, nil
+	}
+	v, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	path, err := args[1].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return JSON_EXTRACT_SCALAR(v, path)
+}
+
+func bindJsonExtractArray(args ...Value) (Value, error) {
+	if existsNull(args) {
+		return nil, nil
+	}
+	v, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	path, err := args[1].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return JSON_EXTRACT_ARRAY(v, path)
+}
+
+func bindJsonExtractStringArray(args ...Value) (Value, error) {
+	if existsNull(args) {
+		return nil, nil
+	}
+	v, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	path, err := args[1].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return JSON_EXTRACT_STRING_ARRAY(v, path)
+}
+
+func bindJsonQuery(args ...Value) (Value, error) {
+	if existsNull(args) {
+		return nil, nil
+	}
+	v, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	path, err := args[1].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return JSON_QUERY(v, path)
+}
+
+func bindJsonValue(args ...Value) (Value, error) {
+	if existsNull(args) {
+		return nil, nil
+	}
+	v, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	path, err := args[1].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return JSON_VALUE(v, path)
+}
+
+func bindJsonQueryArray(args ...Value) (Value, error) {
+	if existsNull(args) {
+		return nil, nil
+	}
+	v, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	path, err := args[1].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return JSON_QUERY_ARRAY(v, path)
+}
+
+func bindJsonValueArray(args ...Value) (Value, error) {
+	if existsNull(args) {
+		return nil, nil
+	}
+	v, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	path, err := args[1].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return JSON_VALUE_ARRAY(v, path)
+}
+
+func bindParseJson(args ...Value) (Value, error) {
+	if existsNull(args) {
+		return nil, nil
+	}
+	v, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	mode, err := args[1].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return PARSE_JSON(v, mode)
 }
 
 func bindToJson(args ...Value) (Value, error) {

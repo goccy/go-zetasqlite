@@ -207,9 +207,12 @@ func floatValueFromLiteral(lit string) (FloatValue, error) {
 }
 
 func stringValueFromLiteral(lit string) (StringValue, error) {
+	if strings.HasPrefix(lit, `'`) {
+		return StringValue(strings.Trim(lit, `'`)), nil
+	}
 	v, err := strconv.Unquote(lit)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to unquote from string literal: %w", err)
 	}
 	return StringValue(v), nil
 }
@@ -324,7 +327,7 @@ func arrayValueFromLiteral(v types.Value) (*ArrayValue, error) {
 		elem := v.Element(i)
 		value, err := ValueFromZetaSQLValue(elem)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to convert from zetasql value: %w", err)
 		}
 		ret.values = append(ret.values, value)
 	}

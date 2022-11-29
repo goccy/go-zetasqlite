@@ -101,7 +101,7 @@ A list of ZetaSQL ( Google Standard SQL ) specifications and features supported 
 
 - [x] Field access operator
 - [x] Array subscript operator
-- [ ] JSON subscript operator
+- [x] JSON subscript operator
 - [x] Unary operators ( `+`, `-`, `~` )
 - [x] Multiplication ( `*` )
 - [x] Division ( `/` )
@@ -521,15 +521,15 @@ A list of ZetaSQL ( Google Standard SQL ) specifications and features supported 
 
 ### JSON functions
 
-- [ ] JSON_EXTRACT
-- [ ] JSON_QUERY
-- [ ] JSON_EXTRACT_SCALAR
-- [ ] JSON_VALUE
-- [ ] JSON_EXTRACT_ARRAY
-- [ ] JSON_QUERY_ARRAY
-- [ ] JSON_EXTRACT_STRING_ARRAY
-- [ ] JSON_VALUE_ARRAY
-- [ ] PARSE_JSON
+- [x] JSON_EXTRACT
+- [x] JSON_QUERY
+- [x] JSON_EXTRACT_SCALAR
+- [x] JSON_VALUE
+- [x] JSON_EXTRACT_ARRAY
+- [x] JSON_QUERY_ARRAY
+- [x] JSON_EXTRACT_STRING_ARRAY
+- [x] JSON_VALUE_ARRAY
+- [x] PARSE_JSON
 - [x] TO_JSON
 - [x] TO_JSON_STRING
 - [x] STRING

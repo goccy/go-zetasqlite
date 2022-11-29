@@ -46,7 +46,11 @@ func TIMESTAMP(v Value, zone string) (Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		return TimestampValue(t.In(loc)), nil
+		modified, err := modifyTimeZone(t, loc)
+		if err != nil {
+			return nil, err
+		}
+		return TimestampValue(modified), nil
 	}
 	return nil, fmt.Errorf("TIMESTAMP: invalid first argument type %T", v)
 }
