@@ -65,7 +65,8 @@ func (s *FunctionSpec) SQL() string {
 	)
 }
 
-func (s *FunctionSpec) CallSQL(ctx context.Context, args []ast.ExprNode, argValues []string) (string, error) {
+func (s *FunctionSpec) CallSQL(ctx context.Context, callNode *ast.BaseFunctionCallNode, argValues []string) (string, error) {
+	args := callNode.ArgumentList()
 	var body string
 	if s.Body == "" {
 		// templated argument func
@@ -93,9 +94,10 @@ func (s *FunctionSpec) CallSQL(ctx context.Context, args []ast.ExprNode, argValu
 	} else {
 		body = s.Body
 	}
-	for _, arg := range argValues {
-		// TODO: Need to recognize the argument exactly.
-		body = strings.Replace(body, "?", arg, 1)
+	for i := 0; i < len(s.Args); i++ {
+		argRef := fmt.Sprintf("@%s", s.Args[i].Name)
+		value := argValues[i]
+		body = strings.Replace(body, argRef, value, -1)
 	}
 	return fmt.Sprintf("( %s )", body), nil
 }
@@ -330,7 +332,7 @@ func newFunctionSpec(ctx context.Context, namePath []string, stmt *ast.CreateFun
 		argParams := make([]string, 0, len(args))
 		argNames := make([]string, 0, len(args))
 		for _, arg := range args {
-			argParams = append(argParams, "?")
+			argParams = append(argParams, fmt.Sprintf("@%s", arg.Name))
 			argNames = append(argNames, arg.Name)
 		}
 		if len(argParams) == 0 {

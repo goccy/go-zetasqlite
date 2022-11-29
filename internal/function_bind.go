@@ -180,127 +180,127 @@ func newWindowAggregator(
 }
 
 func bindAdd(args ...Value) (Value, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf("ADD: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return ADD(args[0], args[1])
 }
 
 func bindSub(args ...Value) (Value, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf("SUB: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return SUB(args[0], args[1])
 }
 
 func bindMul(args ...Value) (Value, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf("MUL: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return MUL(args[0], args[1])
 }
 
 func bindOpDiv(args ...Value) (Value, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf("OP_DIV: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return OP_DIV(args[0], args[1])
 }
 
 func bindEqual(args ...Value) (Value, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf("EQ: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return EQ(args[0], args[1])
 }
 
 func bindNotEqual(args ...Value) (Value, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf("NOT_EQ: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return NOT_EQ(args[0], args[1])
 }
 
 func bindGreater(args ...Value) (Value, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf("GT: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return GT(args[0], args[1])
 }
 
 func bindGreaterOrEqual(args ...Value) (Value, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf("GT: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return GTE(args[0], args[1])
 }
 
 func bindLess(args ...Value) (Value, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf("LT: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return LT(args[0], args[1])
 }
 
 func bindLessOrEqual(args ...Value) (Value, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf("LTE: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return LTE(args[0], args[1])
 }
 
 func bindBitNot(args ...Value) (Value, error) {
-	if len(args) != 1 {
-		return nil, fmt.Errorf("BIT_NOT: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return BIT_NOT(args[0])
 }
 
 func bindBitLeftShift(args ...Value) (Value, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf("BIT_LEFT_SHIFT: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return BIT_LEFT_SHIFT(args[0], args[1])
 }
 
 func bindBitRightShift(args ...Value) (Value, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf("BIT_RIGHT_SHIFT: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return BIT_RIGHT_SHIFT(args[0], args[1])
 }
 
 func bindBitAnd(args ...Value) (Value, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf("BIT_AND: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return BIT_AND(args[0], args[1])
 }
 
 func bindBitOr(args ...Value) (Value, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf("BIT_OR: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return BIT_OR(args[0], args[1])
 }
 
 func bindBitXor(args ...Value) (Value, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf("BIT_XOR: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return BIT_XOR(args[0], args[1])
 }
 
 func bindInArray(args ...Value) (Value, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf("ARRAY_IN: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return BoolValue(false), nil
 	}
 	return ARRAY_IN(args[0], args[1])
 }
 
 func bindStructField(args ...Value) (Value, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf("STRUCT_FIELD: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	i64, err := args[1].ToInt64()
 	if err != nil {
@@ -336,8 +336,8 @@ func bindSubscript(args ...Value) (Value, error) {
 }
 
 func bindArrayAtOffset(args ...Value) (Value, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf("ARRAY_OFFSET: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	i64, err := args[1].ToInt64()
 	if err != nil {
@@ -347,8 +347,8 @@ func bindArrayAtOffset(args ...Value) (Value, error) {
 }
 
 func bindSafeArrayAtOffset(args ...Value) (Value, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf("ARRAY_SAFE_OFFSET: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	i64, err := args[1].ToInt64()
 	if err != nil {
@@ -358,8 +358,8 @@ func bindSafeArrayAtOffset(args ...Value) (Value, error) {
 }
 
 func bindArrayAtOrdinal(args ...Value) (Value, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf("ARRAY_ORDINAL: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	i64, err := args[1].ToInt64()
 	if err != nil {
@@ -369,8 +369,8 @@ func bindArrayAtOrdinal(args ...Value) (Value, error) {
 }
 
 func bindSafeArrayAtOrdinal(args ...Value) (Value, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf("ARRAY_SAFE_ORDINAL: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	i64, err := args[1].ToInt64()
 	if err != nil {
@@ -380,22 +380,16 @@ func bindSafeArrayAtOrdinal(args ...Value) (Value, error) {
 }
 
 func bindIsDistinctFrom(args ...Value) (Value, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf("IS_DISTINCT_FROM: invalid argument num %d", len(args))
-	}
 	return IS_DISTINCT_FROM(args[0], args[1])
 }
 
 func bindIsNotDistinctFrom(args ...Value) (Value, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf("IS_NOT_DISTINCT_FROM: invalid argument num %d", len(args))
-	}
 	return IS_NOT_DISTINCT_FROM(args[0], args[1])
 }
 
 func bindExtract(args ...Value) (Value, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf("EXTRACT: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	part, err := args[1].ToString()
 	if err != nil {
@@ -404,72 +398,63 @@ func bindExtract(args ...Value) (Value, error) {
 	return EXTRACT(args[0], part)
 }
 
-func bindGenerateUUID(args ...Value) (Value, error) {
-	if len(args) != 0 {
-		return nil, fmt.Errorf("GENERATE_UUID: invalid argument num %d", len(args))
-	}
+func bindGenerateUUID(_ ...Value) (Value, error) {
 	return GENERATE_UUID()
 }
 
 func bindLike(args ...Value) (Value, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf("LIKE: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return BoolValue(false), nil
 	}
 	return LIKE(args[0], args[1])
 }
 
 func bindBetween(args ...Value) (Value, error) {
-	if len(args) != 3 {
-		return nil, fmt.Errorf("BETWEEN: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return BoolValue(false), nil
 	}
 	return BETWEEN(args[0], args[1], args[2])
 }
 
 func bindIn(args ...Value) (Value, error) {
-	if len(args) < 2 {
-		return nil, fmt.Errorf("IN: invalid argument num %d", len(args))
-	}
 	return IN(args[0], args[1:]...)
 }
 
 func bindIsNull(args ...Value) (Value, error) {
-	if len(args) != 1 {
-		return nil, fmt.Errorf("IS_NULL: invalid argument num %d", len(args))
-	}
 	return IS_NULL(args[0])
 }
 
 func bindIsTrue(args ...Value) (Value, error) {
-	if len(args) != 1 {
-		return nil, fmt.Errorf("IS_TRUE: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return IS_TRUE(args[0])
 }
 
 func bindIsFalse(args ...Value) (Value, error) {
-	if len(args) != 1 {
-		return nil, fmt.Errorf("IS_FALSE: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return IS_FALSE(args[0])
 }
 
 func bindNot(args ...Value) (Value, error) {
-	if len(args) != 1 {
-		return nil, fmt.Errorf("NOT: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return NOT(args[0])
 }
 
 func bindAnd(args ...Value) (Value, error) {
-	if len(args) == 0 {
-		return nil, fmt.Errorf("AND: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return AND(args...)
 }
 
 func bindOr(args ...Value) (Value, error) {
-	if len(args) == 0 {
-		return nil, fmt.Errorf("OR: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return OR(args...)
 }
@@ -1036,8 +1021,8 @@ func bindNormalizeAndCasefold(args ...Value) (Value, error) {
 }
 
 func bindRegexpContains(args ...Value) (Value, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf("REGEXP_CONTAINS: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	v, err := args[0].ToString()
 	if err != nil {
@@ -2548,9 +2533,6 @@ func bindFormatTimestamp(args ...Value) (Value, error) {
 }
 
 func bindParseTimestamp(args ...Value) (Value, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf("PARSE_TIMESTAMP: invalid argument num %d", len(args))
-	}
 	if existsNull(args) {
 		return nil, nil
 	}
@@ -2562,7 +2544,14 @@ func bindParseTimestamp(args ...Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return PARSE_TIMESTAMP(format, target)
+	if len(args) == 2 {
+		return PARSE_TIMESTAMP(format, target)
+	}
+	timeZone, err := args[2].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return PARSE_TIMESTAMP_WITH_TIMEZONE(format, target, timeZone)
 }
 
 func bindTimestampSeconds(args ...Value) (Value, error) {
