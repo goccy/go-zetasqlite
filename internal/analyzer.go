@@ -611,11 +611,22 @@ func (a *Analyzer) newMergeStmtAction(ctx context.Context, query string, args []
 }
 
 func getParamsFromNode(node ast.Node) []*ast.ParameterNode {
-	var params []*ast.ParameterNode
+	var (
+		params       []*ast.ParameterNode
+		paramNameMap = map[string]struct{}{}
+	)
 	ast.Walk(node, func(n ast.Node) error {
 		param, ok := n.(*ast.ParameterNode)
 		if ok {
-			params = append(params, param)
+			name := param.Name()
+			if name != "" {
+				if _, exists := paramNameMap[name]; !exists {
+					params = append(params, param)
+					paramNameMap[name] = struct{}{}
+				}
+			} else {
+				params = append(params, param)
+			}
 		}
 		return nil
 	})
