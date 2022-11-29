@@ -270,6 +270,22 @@ func PARSE_TIMESTAMP(format, date string) (Value, error) {
 	return TimestampValue(*t), nil
 }
 
+func PARSE_TIMESTAMP_WITH_TIMEZONE(format, date, zone string) (Value, error) {
+	t, err := parseTimeFormat(format, date, FormatTypeTimestamp)
+	if err != nil {
+		return nil, err
+	}
+	loc, err := toLocation(zone)
+	if err != nil {
+		return nil, err
+	}
+	modified, err := modifyTimeZone(*t, loc)
+	if err != nil {
+		return nil, err
+	}
+	return TimestampValue(modified), nil
+}
+
 func TIMESTAMP_SECONDS(sec int64) (Value, error) {
 	return TimestampValue(time.Unix(sec, 0)), nil
 }

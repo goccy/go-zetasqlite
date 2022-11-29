@@ -2548,9 +2548,6 @@ func bindFormatTimestamp(args ...Value) (Value, error) {
 }
 
 func bindParseTimestamp(args ...Value) (Value, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf("PARSE_TIMESTAMP: invalid argument num %d", len(args))
-	}
 	if existsNull(args) {
 		return nil, nil
 	}
@@ -2562,7 +2559,14 @@ func bindParseTimestamp(args ...Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return PARSE_TIMESTAMP(format, target)
+	if len(args) == 2 {
+		return PARSE_TIMESTAMP(format, target)
+	}
+	timeZone, err := args[2].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return PARSE_TIMESTAMP_WITH_TIMEZONE(format, target, timeZone)
 }
 
 func bindTimestampSeconds(args ...Value) (Value, error) {
