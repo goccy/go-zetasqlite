@@ -288,7 +288,7 @@ func (n *FunctionCallNode) FormatSQL(ctx context.Context) (string, error) {
 	}
 	funcMap := funcMapFromContext(ctx)
 	if spec, exists := funcMap[funcName]; exists {
-		return spec.CallSQL(ctx, n.node.ArgumentList(), args)
+		return spec.CallSQL(ctx, n.node.BaseFunctionCallNode, args)
 	}
 	return fmt.Sprintf(
 		"%s(%s)",
@@ -307,12 +307,7 @@ func (n *AggregateFunctionCallNode) FormatSQL(ctx context.Context) (string, erro
 	}
 	funcMap := funcMapFromContext(ctx)
 	if spec, exists := funcMap[funcName]; exists {
-		body := spec.Body
-		for _, arg := range args {
-			// TODO: Need to recognize the argument exactly.
-			body = strings.Replace(body, "?", arg, 1)
-		}
-		return fmt.Sprintf("( %s )", body), nil
+		return spec.CallSQL(ctx, n.node.BaseFunctionCallNode, args)
 	}
 	var opts []string
 	for _, item := range n.node.OrderByItemList() {
@@ -367,15 +362,6 @@ func (n *AnalyticFunctionCallNode) FormatSQL(ctx context.Context) (string, error
 	if err != nil {
 		return "", err
 	}
-	funcMap := funcMapFromContext(ctx)
-	if spec, exists := funcMap[funcName]; exists {
-		body := spec.Body
-		for _, arg := range args {
-			// TODO: Need to recognize the argument exactly.
-			body = strings.Replace(body, "?", arg, 1)
-		}
-		return fmt.Sprintf("( %s )", body), nil
-	}
 	var opts []string
 	if n.node.Distinct() {
 		opts = append(opts, "zetasqlite_distinct()")
@@ -403,6 +389,10 @@ func (n *AnalyticFunctionCallNode) FormatSQL(ctx context.Context) (string, error
 	}
 	args = append(args, getWindowRowIDOptionFuncSQL())
 	input := analyticInputScanFromContext(ctx)
+	funcMap := funcMapFromContext(ctx)
+	if spec, exists := funcMap[funcName]; exists {
+		return spec.CallSQL(ctx, n.node.BaseFunctionCallNode, args)
+	}
 	return fmt.Sprintf(
 		"( SELECT %s(%s) %s )",
 		funcName,
@@ -1821,7 +1811,7 @@ func (n *ArgumentRefNode) FormatSQL(ctx context.Context) (string, error) {
 	if n.node == nil {
 		return "", nil
 	}
-	return "?", nil
+	return fmt.Sprintf("@%s", n.node.Name()), nil
 }
 
 func (n *CreateTableFunctionStmtNode) FormatSQL(ctx context.Context) (string, error) {
