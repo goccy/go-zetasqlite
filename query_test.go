@@ -3151,6 +3151,383 @@ SELECT Add(3, 4);
 
 		// json
 		{
+			name: "json value subscript operator",
+			query: `
+SELECT json_value.class.students[0]['name'] AS first_student
+FROM
+  UNNEST(
+    [
+      JSON '{"class" : {"students" : [{"name" : "Jane"}]}}',
+      JSON '{"class" : {"students" : []}}',
+      JSON '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'])
+    AS json_value`,
+			expectedRows: [][]interface{}{{`"Jane"`}, {nil}, {`"John"`}},
+		},
+		{
+			name:         "json_extract",
+			query:        `SELECT JSON_EXTRACT(JSON '{"class":{"students":[{"id":5},{"id":12}]}}', '$.class')`,
+			expectedRows: [][]interface{}{{`{"students":[{"id":5},{"id":12}]}`}},
+		},
+		{
+			name: "json_extract for format",
+			query: `
+SELECT JSON_EXTRACT(json_text, '$') AS json_text_string
+FROM UNNEST([
+  '{"class" : {"students" : [{"name" : "Jane"}]}}',
+  '{"class" : {"students" : []}}',
+  '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
+]) AS json_text`,
+			expectedRows: [][]interface{}{
+				{`{"class":{"students":[{"name":"Jane"}]}}`},
+				{`{"class":{"students":[]}}`},
+				{`{"class":{"students":[{"name":"John"},{"name":"Jamie"}]}}`},
+			},
+		},
+		{
+			name: "json_extract with array",
+			query: `
+SELECT JSON_EXTRACT(json_text, '$.class.students[0]') AS first_student
+FROM UNNEST([
+  '{"class" : {"students" : [{"name" : "Jane"}]}}',
+  '{"class" : {"students" : []}}',
+  '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
+]) AS json_text`,
+			expectedRows: [][]interface{}{{`{"name":"Jane"}`}, {nil}, {`{"name":"John"}`}},
+		},
+		{
+			name: "json_extract for name",
+			query: `
+SELECT JSON_EXTRACT(json_text, '$.class.students[1].name') AS second_student_name
+FROM UNNEST([
+  '{"class" : {"students" : [{"name" : "Jane"}]}}',
+  '{"class" : {"students" : []}}',
+  '{"class" : {"students" : [{"name" : "John"}, {"name" : null}]}}',
+  '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
+]) AS json_text`,
+			expectedRows: [][]interface{}{{nil}, {nil}, {nil}, {`"Jamie"`}},
+		},
+		{
+			name: "json_extract with escape",
+			query: `
+SELECT JSON_EXTRACT(json_text, "$.class['students']") AS student_names
+FROM UNNEST([
+  '{"class" : {"students" : [{"name" : "Jane"}]}}',
+  '{"class" : {"students" : []}}',
+  '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
+]) AS json_text`,
+			expectedRows: [][]interface{}{{`[{"name":"Jane"}]`}, {`[]`}, {`[{"name":"John"},{"name":"Jamie"}]`}},
+		},
+		{
+			name: "json_extract and null",
+			query: `
+SELECT
+  JSON_EXTRACT('{"a":null}', "$.a"),
+  JSON_EXTRACT('{"a":null}', "$.b"),
+  JSON_EXTRACT(JSON '{"a":null}', "$.a"),
+  JSON_EXTRACT(JSON '{"a":null}', "$.b")`,
+			expectedRows: [][]interface{}{{nil, nil, nil, nil}},
+		},
+		{
+			name:         "json_query",
+			query:        `SELECT JSON_QUERY(JSON '{"class":{"students":[{"id":5},{"id":12}]}}', '$.class')`,
+			expectedRows: [][]interface{}{{`{"students":[{"id":5},{"id":12}]}`}},
+		},
+		{
+			name: "json_query for format",
+			query: `
+SELECT JSON_QUERY(json_text, '$') AS json_text_string
+FROM UNNEST([
+  '{"class" : {"students" : [{"name" : "Jane"}]}}',
+  '{"class" : {"students" : []}}',
+  '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
+]) AS json_text`,
+			expectedRows: [][]interface{}{
+				{`{"class":{"students":[{"name":"Jane"}]}}`},
+				{`{"class":{"students":[]}}`},
+				{`{"class":{"students":[{"name":"John"},{"name":"Jamie"}]}}`},
+			},
+		},
+		{
+			name: "json_query with array",
+			query: `
+SELECT JSON_QUERY(json_text, '$.class.students[0]') AS first_student
+FROM UNNEST([
+  '{"class" : {"students" : [{"name" : "Jane"}]}}',
+  '{"class" : {"students" : []}}',
+  '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
+]) AS json_text`,
+			expectedRows: [][]interface{}{{`{"name":"Jane"}`}, {nil}, {`{"name":"John"}`}},
+		},
+		{
+			name: "json_query for name",
+			query: `
+SELECT JSON_QUERY(json_text, '$.class.students[1].name') AS second_student_name
+FROM UNNEST([
+  '{"class" : {"students" : [{"name" : "Jane"}]}}',
+  '{"class" : {"students" : []}}',
+  '{"class" : {"students" : [{"name" : "John"}, {"name" : null}]}}',
+  '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
+]) AS json_text`,
+			expectedRows: [][]interface{}{{nil}, {nil}, {nil}, {`"Jamie"`}},
+		},
+		{
+			name: "json_query with escape",
+			query: `
+SELECT JSON_QUERY(json_text, '$.class."students"') AS student_names
+FROM UNNEST([
+  '{"class" : {"students" : [{"name" : "Jane"}]}}',
+  '{"class" : {"students" : []}}',
+  '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
+]) AS json_text`,
+			expectedRows: [][]interface{}{{`[{"name":"Jane"}]`}, {`[]`}, {`[{"name":"John"},{"name":"Jamie"}]`}},
+		},
+		{
+			name: "json_query and null",
+			query: `
+SELECT
+  JSON_QUERY('{"a":null}', "$.a"),
+  JSON_QUERY('{"a":null}', "$.b"),
+  JSON_QUERY(JSON '{"a":null}', "$.a"),
+  JSON_QUERY(JSON '{"a":null}', "$.b")`,
+			expectedRows: [][]interface{}{{nil, nil, nil, nil}},
+		},
+		{
+			name:         "json_extract_scalar with number",
+			query:        `SELECT JSON_EXTRACT_SCALAR(JSON '{ "name" : "Jakob", "age" : "6" }', '$.age')`,
+			expectedRows: [][]interface{}{{`6`}},
+		},
+		{
+			name:         "json_extract_scalar with string",
+			query:        `SELECT JSON_EXTRACT_SCALAR('{ "name" : "Jakob", "age" : "6" }', '$.name')`,
+			expectedRows: [][]interface{}{{`Jakob`}},
+		},
+		{
+			name:         "json_extract_scalar with array",
+			query:        `SELECT JSON_EXTRACT_SCALAR('{"fruits": ["apple", "banana"]}', '$.fruits')`,
+			expectedRows: [][]interface{}{{nil}},
+		},
+		{
+			name:         "json_extract_scalar with escape",
+			query:        `SELECT JSON_EXTRACT_SCALAR('{"a.b": {"c": "world"}}', "$['a.b'].c")`,
+			expectedRows: [][]interface{}{{"world"}},
+		},
+		{
+			name:         "json_value with number",
+			query:        `SELECT JSON_VALUE(JSON '{ "name" : "Jakob", "age" : "6" }', '$.age')`,
+			expectedRows: [][]interface{}{{`6`}},
+		},
+		{
+			name:         "json_value with string",
+			query:        `SELECT JSON_VALUE('{ "name" : "Jakob", "age" : "6" }', '$.name')`,
+			expectedRows: [][]interface{}{{`Jakob`}},
+		},
+		{
+			name:         "json_value with array",
+			query:        `SELECT JSON_VALUE('{"fruits": ["apple", "banana"]}', '$.fruits')`,
+			expectedRows: [][]interface{}{{nil}},
+		},
+		{
+			name:         "json_value with escape",
+			query:        `SELECT JSON_VALUE('{"a.b": {"c": "world"}}', '$."a.b".c')`,
+			expectedRows: [][]interface{}{{"world"}},
+		},
+		{
+			name:  "json_extract_array",
+			query: `SELECT JSON_EXTRACT_ARRAY(JSON '{"fruits":["apples","oranges","grapes"]}','$.fruits')`,
+			expectedRows: [][]interface{}{
+				{[]interface{}{`"apples"`, `"oranges"`, `"grapes"`}},
+			},
+		},
+		{
+			name:  "json_extract_array with integer",
+			query: `SELECT JSON_EXTRACT_ARRAY('[1,2,3]')`,
+			expectedRows: [][]interface{}{
+				{[]interface{}{"1", "2", "3"}},
+			},
+		},
+		{
+			name:  "json_extract_array with integer cast",
+			query: `SELECT ARRAY(SELECT CAST(integer_element AS INT64) FROM UNNEST(JSON_EXTRACT_ARRAY('[1,2,3]','$')) AS integer_element)`,
+			expectedRows: [][]interface{}{
+				{[]interface{}{int64(1), int64(2), int64(3)}},
+			},
+		},
+		{
+			name:  "json_extract_array format",
+			query: `SELECT JSON_EXTRACT_ARRAY('["apples","oranges","grapes"]', '$')`,
+			expectedRows: [][]interface{}{
+				{[]interface{}{`"apples"`, `"oranges"`, `"grapes"`}},
+			},
+		},
+		{
+			name:  "json_extract_array filter",
+			query: `SELECT JSON_EXTRACT_ARRAY('{"fruit":[{"apples":5,"oranges":10},{"apples":2,"oranges":4}],"vegetables":[{"lettuce":7,"kale": 8}]}', '$.fruit')`,
+			expectedRows: [][]interface{}{
+				{[]interface{}{`{"apples":5,"oranges":10}`, `{"apples":2,"oranges":4}`}},
+			},
+		},
+		{
+			name:         "json_extract_array with escape",
+			query:        `SELECT JSON_EXTRACT_ARRAY('{"a.b": {"c": ["world"]}}', "$['a.b'].c")`,
+			expectedRows: [][]interface{}{{[]interface{}{`"world"`}}},
+		},
+		{
+			name:         "json_extract_array with null",
+			query:        `SELECT JSON_EXTRACT_ARRAY('{"a":"foo"}','$.a'), JSON_EXTRACT_ARRAY('{"a":"foo"}','$.b')`,
+			expectedRows: [][]interface{}{{nil, nil}},
+		},
+		{
+			name:         "json_extract_array with empty array",
+			query:        `SELECT JSON_EXTRACT_ARRAY('{"a":"foo","b":[]}','$.b')`,
+			expectedRows: [][]interface{}{{[]interface{}{}}},
+		},
+		{
+			name:  "json_query_array",
+			query: `SELECT JSON_QUERY_ARRAY(JSON '{"fruits":["apples","oranges","grapes"]}','$.fruits')`,
+			expectedRows: [][]interface{}{
+				{[]interface{}{`"apples"`, `"oranges"`, `"grapes"`}},
+			},
+		},
+		{
+			name:  "json_query_array with integer",
+			query: `SELECT JSON_QUERY_ARRAY('[1,2,3]')`,
+			expectedRows: [][]interface{}{
+				{[]interface{}{"1", "2", "3"}},
+			},
+		},
+		{
+			name:  "json_query_array with integer cast",
+			query: `SELECT ARRAY(SELECT CAST(integer_element AS INT64) FROM UNNEST(JSON_QUERY_ARRAY('[1,2,3]','$')) AS integer_element)`,
+			expectedRows: [][]interface{}{
+				{[]interface{}{int64(1), int64(2), int64(3)}},
+			},
+		},
+		{
+			name:  "json_query_array format",
+			query: `SELECT JSON_QUERY_ARRAY('["apples","oranges","grapes"]', '$')`,
+			expectedRows: [][]interface{}{
+				{[]interface{}{`"apples"`, `"oranges"`, `"grapes"`}},
+			},
+		},
+		{
+			name:  "json_query_array filter",
+			query: `SELECT JSON_QUERY_ARRAY('{"fruit":[{"apples":5,"oranges":10},{"apples":2,"oranges":4}],"vegetables":[{"lettuce":7,"kale": 8}]}', '$.fruit')`,
+			expectedRows: [][]interface{}{
+				{[]interface{}{`{"apples":5,"oranges":10}`, `{"apples":2,"oranges":4}`}},
+			},
+		},
+		{
+			name:         "json_query_array with escape",
+			query:        `SELECT JSON_QUERY_ARRAY('{"a.b": {"c": ["world"]}}', '$."a.b".c')`,
+			expectedRows: [][]interface{}{{[]interface{}{`"world"`}}},
+		},
+		{
+			name:         "json_query_array with null",
+			query:        `SELECT JSON_QUERY_ARRAY('{"a":"foo"}','$.a'), JSON_EXTRACT_ARRAY('{"a":"foo"}','$.b')`,
+			expectedRows: [][]interface{}{{nil, nil}},
+		},
+		{
+			name:         "json_query_array with empty array",
+			query:        `SELECT JSON_QUERY_ARRAY('{"a":"foo","b":[]}','$.b')`,
+			expectedRows: [][]interface{}{{[]interface{}{}}},
+		},
+		{
+			name:  "json_extract_string_array",
+			query: `SELECT JSON_EXTRACT_STRING_ARRAY(JSON '{"fruits":["apples","oranges","grapes"]}','$.fruits')`,
+			expectedRows: [][]interface{}{
+				{[]interface{}{`apples`, `oranges`, `grapes`}},
+			},
+		},
+		{
+			name:  "json_extract_string_array with root only",
+			query: `SELECT JSON_EXTRACT_STRING_ARRAY('["foo","bar","baz"]','$')`,
+			expectedRows: [][]interface{}{
+				{[]interface{}{`foo`, `bar`, `baz`}},
+			},
+		},
+		{
+			name:  "json_extract_string_array with integer cast",
+			query: `SELECT ARRAY(SELECT CAST(integer_element AS INT64) FROM UNNEST(JSON_EXTRACT_STRING_ARRAY('[1,2,3]','$')) AS integer_element)`,
+			expectedRows: [][]interface{}{
+				{[]interface{}{int64(1), int64(2), int64(3)}},
+			},
+		},
+		{
+			name:  "json_extract_string_array with escape",
+			query: `SELECT JSON_EXTRACT_STRING_ARRAY('{"a.b": {"c": ["world"]}}', "$['a.b'].c")`,
+			expectedRows: [][]interface{}{
+				{[]interface{}{"world"}},
+			},
+		},
+		{
+			name: "json_extract_string_array with null",
+			query: `
+SELECT
+  JSON_EXTRACT_STRING_ARRAY('}}','$'),
+  JSON_EXTRACT_STRING_ARRAY(NULL,'$'),
+  JSON_EXTRACT_STRING_ARRAY('{"a":["foo","bar","baz"]}','$.b'),
+  JSON_EXTRACT_STRING_ARRAY('{"a":"foo"}','$'),
+  JSON_EXTRACT_STRING_ARRAY('{"a":[{"b":"foo","c":1},{"b":"bar","c":2}],"d":"baz"}','$.a'),
+  JSON_EXTRACT_STRING_ARRAY('{"a":[10, {"b": 20}]','$.a')`,
+			expectedRows: [][]interface{}{{nil, nil, nil, nil, nil, nil}},
+		},
+		{
+			name:         "json_extract_string_array with empty array",
+			query:        `SELECT JSON_EXTRACT_STRING_ARRAY('{"a":"foo","b":[]}','$.b')`,
+			expectedRows: [][]interface{}{{[]interface{}{}}},
+		},
+		{
+			name:  "json_value_array",
+			query: `SELECT JSON_VALUE_ARRAY(JSON '{"fruits":["apples","oranges","grapes"]}','$.fruits')`,
+			expectedRows: [][]interface{}{
+				{[]interface{}{`apples`, `oranges`, `grapes`}},
+			},
+		},
+		{
+			name:  "json_value_array with root only",
+			query: `SELECT JSON_VALUE_ARRAY('["foo","bar","baz"]','$')`,
+			expectedRows: [][]interface{}{
+				{[]interface{}{`foo`, `bar`, `baz`}},
+			},
+		},
+		{
+			name:  "json_value_array with integer cast",
+			query: `SELECT ARRAY(SELECT CAST(integer_element AS INT64) FROM UNNEST(JSON_VALUE_ARRAY('[1,2,3]','$')) AS integer_element)`,
+			expectedRows: [][]interface{}{
+				{[]interface{}{int64(1), int64(2), int64(3)}},
+			},
+		},
+		{
+			name:  "json_value_array with escape",
+			query: `SELECT JSON_VALUE_ARRAY('{"a.b": {"c": ["world"]}}', '$."a.b".c')`,
+			expectedRows: [][]interface{}{
+				{[]interface{}{"world"}},
+			},
+		},
+		{
+			name: "json_value_array with null",
+			query: `
+SELECT
+  JSON_VALUE_ARRAY('}}','$'),
+  JSON_VALUE_ARRAY(NULL,'$'),
+  JSON_VALUE_ARRAY('{"a":["foo","bar","baz"]}','$.b'),
+  JSON_VALUE_ARRAY('{"a":"foo"}','$'),
+  JSON_VALUE_ARRAY('{"a":[{"b":"foo","c":1},{"b":"bar","c":2}],"d":"baz"}','$.a'),
+  JSON_VALUE_ARRAY('{"a":[10, {"b": 20}]','$.a')`,
+			expectedRows: [][]interface{}{{nil, nil, nil, nil, nil, nil}},
+		},
+		{
+			name:         "json_value_array with empty array",
+			query:        `SELECT JSON_VALUE_ARRAY('{"a":"foo","b":[]}','$.b')`,
+			expectedRows: [][]interface{}{{[]interface{}{}}},
+		},
+		{
+			name:         "parse_json",
+			query:        `SELECT PARSE_JSON('{"coordinates":[10,20],"id":1}')`,
+			expectedRows: [][]interface{}{{`{"coordinates":[10,20],"id":1}`}},
+		},
+
+		{
 			name: "to_json",
 			query: `
 With CoordinatesTable AS (
