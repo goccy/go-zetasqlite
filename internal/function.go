@@ -289,6 +289,9 @@ func NOT(a Value) (Value, error) {
 
 func AND(args ...Value) (Value, error) {
 	for _, v := range args {
+		if v == nil {
+			continue
+		}
 		cond, err := v.ToBool()
 		if err != nil {
 			return nil, err
@@ -297,11 +300,18 @@ func AND(args ...Value) (Value, error) {
 			return BoolValue(false), nil
 		}
 	}
+	// if exists null value and not exists false value, returns null.
+	if existsNull(args) {
+		return nil, nil
+	}
 	return BoolValue(true), nil
 }
 
 func OR(args ...Value) (Value, error) {
 	for _, v := range args {
+		if v == nil {
+			continue
+		}
 		cond, err := v.ToBool()
 		if err != nil {
 			return nil, err
@@ -309,6 +319,10 @@ func OR(args ...Value) (Value, error) {
 		if cond {
 			return BoolValue(true), nil
 		}
+	}
+	// if exists null value and not exists true value, returns null.
+	if existsNull(args) {
+		return nil, nil
 	}
 	return BoolValue(false), nil
 }
