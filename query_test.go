@@ -220,11 +220,102 @@ func TestQuery(t *testing.T) {
 			query:        `SELECT 1 = 1 AND 2 = 2`,
 			expectedRows: [][]interface{}{{true}},
 		},
+		{
+			name:         "and operator with true and true",
+			query:        `SELECT TRUE AND TRUE`,
+			expectedRows: [][]interface{}{{true}},
+		},
+		{
+			name:         "and operator with true and false",
+			query:        `SELECT TRUE AND FALSE`,
+			expectedRows: [][]interface{}{{false}},
+		},
+		{
+			name:         "and operator with true and null",
+			query:        `SELECT TRUE AND NULL`,
+			expectedRows: [][]interface{}{{nil}},
+		},
+		{
+			name:         "and operator with false and true",
+			query:        `SELECT FALSE AND TRUE`,
+			expectedRows: [][]interface{}{{false}},
+		},
+		{
+			name:         "and operator with false and false",
+			query:        `SELECT FALSE AND FALSE`,
+			expectedRows: [][]interface{}{{false}},
+		},
+		{
+			name:         "and operator with false and null",
+			query:        `SELECT FALSE AND NULL`,
+			expectedRows: [][]interface{}{{false}},
+		},
+		{
+			name:         "and operator with null and true",
+			query:        `SELECT NULL AND TRUE`,
+			expectedRows: [][]interface{}{{nil}},
+		},
+		{
+			name:         "and operator with null and false",
+			query:        `SELECT NULL AND FALSE`,
+			expectedRows: [][]interface{}{{false}},
+		},
+		{
+			name:         "and operator with null and null",
+			query:        `SELECT NULL AND NULL`,
+			expectedRows: [][]interface{}{{nil}},
+		},
+
 		// priority 12 operator
 		{
 			name:         "or operator",
 			query:        `SELECT 1 = 2 OR 1 = 1`,
 			expectedRows: [][]interface{}{{true}},
+		},
+		{
+			name:         "or operator with true and true",
+			query:        `SELECT TRUE OR TRUE`,
+			expectedRows: [][]interface{}{{true}},
+		},
+		{
+			name:         "or operator with true and false",
+			query:        `SELECT TRUE OR FALSE`,
+			expectedRows: [][]interface{}{{true}},
+		},
+		{
+			name:         "or operator with true and null",
+			query:        `SELECT TRUE OR NULL`,
+			expectedRows: [][]interface{}{{true}},
+		},
+		{
+			name:         "or operator with false and true",
+			query:        `SELECT FALSE OR TRUE`,
+			expectedRows: [][]interface{}{{true}},
+		},
+		{
+			name:         "or operator with false and false",
+			query:        `SELECT FALSE OR FALSE`,
+			expectedRows: [][]interface{}{{false}},
+		},
+		{
+			name:         "or operator with false and null",
+			query:        `SELECT FALSE OR NULL`,
+			expectedRows: [][]interface{}{{nil}},
+		},
+		{
+			name:         "or operator with null and true",
+			query:        `SELECT NULL OR TRUE`,
+			expectedRows: [][]interface{}{{true}},
+		},
+		{
+			name:         "or operator with null and false",
+			query:        `SELECT NULL OR FALSE`,
+			expectedRows: [][]interface{}{{nil}},
+		},
+		{
+			name:         "or operator with null and null",
+			query:        `SELECT NULL OR NULL`,
+			expectedRows: [][]interface{}{{nil}},
 		},
 		{
 			name:         "exists",
