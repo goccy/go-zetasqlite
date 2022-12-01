@@ -446,16 +446,10 @@ func bindNot(args ...Value) (Value, error) {
 }
 
 func bindAnd(args ...Value) (Value, error) {
-	if existsNull(args) {
-		return nil, nil
-	}
 	return AND(args...)
 }
 
 func bindOr(args ...Value) (Value, error) {
-	if existsNull(args) {
-		return nil, nil
-	}
 	return OR(args...)
 }
 
