@@ -909,7 +909,7 @@ func secondParser(text []rune, t *time.Time) (int, error) {
 }
 
 func secondFormatter(t *time.Time) ([]rune, error) {
-	return []rune(fmt.Sprintf("%02d", time.Duration(t.Second())/time.Second)), nil
+	return []rune(fmt.Sprintf("%02d", t.Second())), nil
 }
 
 func unixtimeSecondsParser(text []rune, t *time.Time) (int, error) {

@@ -3068,6 +3068,11 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			expectedRows: [][]interface{}{{"Dec 2008"}},
 		},
 		{
+			name:         "format_timestamp with %Y-%m-%d %H:%M:%S",
+			query:        `SELECT FORMAT_TIMESTAMP("%Y-%m-%d %H:%M:%S", TIMESTAMP "2008-12-25 15:30:21+00", "Asia/Tokyo")`,
+			expectedRows: [][]interface{}{{"2008-12-26 00:30:21"}},
+		},
+		{
 			name:         "parse timestamp with %a %b %e %I:%M:%S %Y",
 			query:        `SELECT PARSE_TIMESTAMP("%a %b %e %I:%M:%S %Y", "Thu Dec 25 07:30:00 2008")`,
 			expectedRows: [][]interface{}{{createTimestampFormatFromString("2008-12-25 07:30:00+00")}},
