@@ -440,4 +440,36 @@ WITH Input AS (
 			t.Errorf("(-want +got):\n%s", diff)
 		}
 	})
+	t.Run("multibytes", func(t *testing.T) {
+		if _, err := db.ExecContext(
+			ctx,
+			`
+CREATE FUNCTION JS_JOIN(v ARRAY<STRING>)
+RETURNS STRING
+LANGUAGE js
+AS r"""
+  return v.join(' ');
+"""`,
+		); err != nil {
+			t.Fatal(err)
+		}
+		rows, err := db.QueryContext(ctx, `SELECT JS_JOIN(['あいうえお', 'かきくけこ'])`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer rows.Close()
+		if !rows.Next() {
+			t.Fatal("failed to get result")
+		}
+		var v string
+		if err := rows.Scan(&v); err != nil {
+			t.Fatal(err)
+		}
+		if rows.Err() != nil {
+			t.Fatal(rows.Err())
+		}
+		if v != "あいうえお かきくけこ" {
+			t.Fatalf("got %s", v)
+		}
+	})
 }

@@ -2,8 +2,11 @@ package internal
 
 import (
 	"fmt"
+	"math/big"
+	"time"
 
 	"github.com/dop251/goja"
+	"github.com/goccy/go-zetasql/types"
 )
 
 func EVAL_JAVASCRIPT(code string, retType *Type, argNames []string, args []Value) (Value, error) {
@@ -33,13 +36,82 @@ zetasqlite_javascript_func();
 	if err != nil {
 		return nil, fmt.Errorf("failed to get return type: %w", err)
 	}
-	value, err := ValueFromGoValue(ret)
+	value, err := castJavaScriptValue(typ, ret)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert zetasqlite value from %v: %w", ret, err)
 	}
-	casted, err := CastValue(typ, value)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert from %v to %s: %w", value, retType.FormatType(), err)
+	return value, nil
+}
+
+func castJavaScriptValue(t types.Type, v goja.Value) (Value, error) {
+	if v == nil {
+		return nil, nil
 	}
-	return casted, nil
+	switch t.Kind() {
+	case types.INT32, types.INT64, types.UINT32, types.UINT64:
+		return IntValue(v.ToInteger()), nil
+	case types.BOOL:
+		return BoolValue(v.ToBoolean()), nil
+	case types.FLOAT, types.DOUBLE:
+		return FloatValue(v.ToFloat()), nil
+	case types.STRING, types.ENUM:
+		return StringValue(v.ToString().String()), nil
+	case types.BYTES:
+		return BytesValue(v.ToString().String()), nil
+	case types.DATE:
+		t, err := parseDate(v.ToString().String())
+		if err != nil {
+			return nil, err
+		}
+		return DateValue(t), nil
+	case types.DATETIME:
+		t, err := parseDatetime(v.ToString().String())
+		if err != nil {
+			return nil, err
+		}
+		return DatetimeValue(t), nil
+	case types.TIME:
+		t, err := parseTime(v.ToString().String())
+		if err != nil {
+			return nil, err
+		}
+		return TimeValue(t), nil
+	case types.TIMESTAMP:
+		t, err := parseTimestamp(v.ToString().String(), time.UTC)
+		if err != nil {
+			return nil, err
+		}
+		return TimestampValue(t), nil
+	case types.INTERVAL:
+		return parseInterval(v.ToString().String())
+	case types.NUMERIC:
+		r := new(big.Rat)
+		r.SetString(v.ToNumber().String())
+		return &NumericValue{Rat: r}, nil
+	case types.BIG_NUMERIC:
+		r := new(big.Rat)
+		r.SetString(v.ToNumber().String())
+		return &NumericValue{Rat: r}, nil
+	case types.JSON:
+		return JsonValue(v.ToString().String()), nil
+	case types.ARRAY:
+		base, err := ValueFromGoValue(v.Export())
+		if err != nil {
+			return nil, err
+		}
+		return CastValue(t, base)
+	case types.STRUCT:
+		base, err := ValueFromGoValue(v.Export())
+		if err != nil {
+			return nil, err
+		}
+		return CastValue(t, base)
+	case types.GEOGRAPHY:
+		base, err := ValueFromGoValue(v.Export())
+		if err != nil {
+			return nil, err
+		}
+		return CastValue(t, base)
+	}
+	return nil, fmt.Errorf("unsupported cast %s from JavaScript value", t.Kind())
 }
