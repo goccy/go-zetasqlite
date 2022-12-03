@@ -2024,7 +2024,8 @@ func (t TimestampValue) ToRat() (*big.Rat, error) {
 }
 
 func (d TimestampValue) Format(verb rune) string {
-	formatted := time.Time(d).Format(time.RFC3339)
+	const timestampPrintableFormat = "2006-01-02 15:04:05"
+	formatted := time.Time(d).UTC().Format(timestampPrintableFormat) + "+00"
 	switch verb {
 	case 't':
 		return formatted
