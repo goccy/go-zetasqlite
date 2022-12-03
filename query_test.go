@@ -2107,6 +2107,47 @@ SELECT characters, CHARACTER_LENGTH(characters) FROM example`,
 			expectedRows: [][]interface{}{{true, false, true}},
 		},
 		{
+			name:         "format %d",
+			query:        `SELECT FORMAT('%d %i %o %x %X', 10, 11, 10, 255, 255)`,
+			expectedRows: [][]interface{}{{"10 11 12 ff FF"}},
+		},
+		{
+			name:         "format |%10d|",
+			query:        `SELECT FORMAT('|%10d|', 11)`,
+			expectedRows: [][]interface{}{{"|        11|"}},
+		},
+		{
+			name:         "format +%010d+",
+			query:        `SELECT FORMAT('+%010d+', 12)`,
+			expectedRows: [][]interface{}{{"+0000000012+"}},
+		},
+		{
+			name:         "format %'d",
+			query:        `SELECT FORMAT("%'d", 123456789)`,
+			expectedRows: [][]interface{}{{"123,456,789"}},
+		},
+		{
+			name:         "format %s",
+			query:        `SELECT FORMAT('-%s-', 'abcd efg')`,
+			expectedRows: [][]interface{}{{"-abcd efg-"}},
+		},
+		{
+			name:         "format %f %E",
+			query:        `SELECT FORMAT('%f %E', 1.1, 2.2)`,
+			expectedRows: [][]interface{}{{"1.100000 2.200000E+00"}},
+		},
+		{
+			name:         "format date with %t",
+			query:        `SELECT FORMAT('%t', date '2015-09-01')`,
+			expectedRows: [][]interface{}{{"2015-09-01"}},
+		},
+		{
+			name:         "format timestamp with %t",
+			query:        `SELECT FORMAT('%t', timestamp '2015-09-01 12:34:56 America/Los_Angeles')`,
+			expectedRows: [][]interface{}{{"2015-09-01 19:34:56+00"}},
+		},
+
+		{
 			name:         "from_base32",
 			query:        `SELECT FROM_BASE32('MFRGGZDF74======')`,
 			expectedRows: [][]interface{}{{"YWJjZGX/"}},
