@@ -2,10 +2,11 @@ package internal
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/goccy/go-json"
 )
 
 type FormatInfo struct {
