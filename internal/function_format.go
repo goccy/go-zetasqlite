@@ -87,29 +87,29 @@ var formatSpecifierTable = map[rune]*FormatInfo{
 
 func validateDecimalInteger(arg Value) error {
 	if _, ok := arg.(IntValue); !ok {
-		return fmt.Errorf("decimal integer format (%d or %i) required int64 type")
+		return fmt.Errorf("decimal integer format (%%d or %%i) required int64 type")
 	}
 	return nil
 }
 
 func validateOctal(arg Value) error {
 	if _, ok := arg.(IntValue); !ok {
-		return fmt.Errorf("octal format (%o) required int64 type")
+		return fmt.Errorf("octal format (%%o) required int64 type")
 	}
 	i64, _ := arg.ToInt64()
 	if i64 < 0 {
-		return fmt.Errorf("octal format (%o) required positive value")
+		return fmt.Errorf("octal format (%%o) required positive value")
 	}
 	return nil
 }
 
 func validateHexInteger(arg Value) error {
 	if _, ok := arg.(IntValue); !ok {
-		return fmt.Errorf("hexadecimal integer format (%x or %X) required int64 type")
+		return fmt.Errorf("hexadecimal integer format (%%x or %%X) required int64 type")
 	}
 	i64, _ := arg.ToInt64()
 	if i64 < 0 {
-		return fmt.Errorf("hexadecimal integer format (%x or %X) required positive value")
+		return fmt.Errorf("hexadecimal integer format (%%x or %%X) required positive value")
 	}
 	return nil
 }
@@ -119,7 +119,7 @@ func validateDecimalNotation(arg Value) error {
 	case *NumericValue, FloatValue:
 		return nil
 	}
-	return fmt.Errorf("decimal notation format (%f or %F) required float64 or numeric or bignumeric type")
+	return fmt.Errorf("decimal notation format (%%f or %%F) required float64 or numeric or bignumeric type")
 }
 
 func validateScientificNotation(arg Value) error {
@@ -127,7 +127,7 @@ func validateScientificNotation(arg Value) error {
 	case *NumericValue, FloatValue:
 		return nil
 	}
-	return fmt.Errorf("scientific notation format (%e or %E) required float64 or numeric or bignumeric type")
+	return fmt.Errorf("scientific notation format (%%e or %%E) required float64 or numeric or bignumeric type")
 }
 
 func validateDecimalOrScientificNotation(arg Value) error {
@@ -135,33 +135,33 @@ func validateDecimalOrScientificNotation(arg Value) error {
 	case *NumericValue, FloatValue:
 		return nil
 	}
-	return fmt.Errorf("decimal or scientific notation format (%g or %G) required float64 or numeric or bignumeric type")
+	return fmt.Errorf("decimal or scientific notation format (%%g or %%G) required float64 or numeric or bignumeric type")
 }
 
 func validateOneLineJSON(arg Value) error {
 	if _, ok := arg.(JsonValue); !ok {
-		return fmt.Errorf("one-line printable string format (%p) required json type")
+		return fmt.Errorf("one-line printable string format (%%p) required json type")
 	}
 	return nil
 }
 
 func validateMultiLineJSON(arg Value) error {
 	if _, ok := arg.(JsonValue); !ok {
-		return fmt.Errorf("multi-line printable string format (%P) required json type")
+		return fmt.Errorf("multi-line printable string format (%%P) required json type")
 	}
 	return nil
 }
 
 func validateString(arg Value) error {
 	if _, ok := arg.(StringValue); !ok {
-		return fmt.Errorf("string of characters format (%s) required string type")
+		return fmt.Errorf("string of characters format (%%s) required string type")
 	}
 	return nil
 }
 
 func validatePrintableString(arg Value) error {
 	if _, err := arg.ToString(); err != nil {
-		return fmt.Errorf("printable string format (%t): %w", err)
+		return fmt.Errorf("printable string format (%%t): %w", err)
 	}
 	return nil
 }
