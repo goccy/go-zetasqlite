@@ -142,6 +142,9 @@ func (f *WINDOW_COUNT) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
 	}); err != nil {
 		return nil, err
 	}
+	if count == nil {
+		return IntValue(0), nil
+	}
 	return count, nil
 }
 

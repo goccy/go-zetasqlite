@@ -652,9 +652,14 @@ SELECT ARRAY_CONCAT_AGG(x) AS array_concat_agg FROM (
 			expectedRows: [][]interface{}{{int64(4860)}},
 		},
 		{
-			name:         "count",
+			name:         "count star and distinct",
 			query:        `SELECT COUNT(*) AS count_star, COUNT(DISTINCT x) AS count_dist_x FROM UNNEST([1, 4, 4, 5]) AS x`,
 			expectedRows: [][]interface{}{{int64(4), int64(3)}},
+		},
+		{
+			name:         "count with null",
+			query:        `SELECT COUNT(x) FROM UNNEST([NULL]) AS x`,
+			expectedRows: [][]interface{}{{int64(0)}},
 		},
 		{
 			name:         "count with if",
@@ -665,6 +670,11 @@ SELECT ARRAY_CONCAT_AGG(x) AS array_concat_agg FROM (
 			name:         "countif",
 			query:        `SELECT COUNTIF(x<0) AS num_negative, COUNTIF(x>0) AS num_positive FROM UNNEST([5, -2, 3, 6, -10, -7, 4, 0]) AS x`,
 			expectedRows: [][]interface{}{{int64(3), int64(4)}},
+		},
+		{
+			name:         "countif with null",
+			query:        `SELECT COUNTIF(x<0) FROM UNNEST([NULL]) AS x`,
+			expectedRows: [][]interface{}{{int64(0)}},
 		},
 		{
 			name:         "logical_and",
