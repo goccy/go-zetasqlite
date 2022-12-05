@@ -259,6 +259,9 @@ func (f *COUNT) Step(v Value, opt *AggregatorOption) error {
 }
 
 func (f *COUNT) Done() (Value, error) {
+	if f.count == nil {
+		return IntValue(0), nil
+	}
 	return f.count, nil
 }
 
@@ -302,6 +305,9 @@ func (f *COUNTIF) Step(cond Value, opt *AggregatorOption) error {
 }
 
 func (f *COUNTIF) Done() (Value, error) {
+	if f.count == nil {
+		return IntValue(0), nil
+	}
 	return f.count, nil
 }
 
