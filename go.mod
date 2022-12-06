@@ -3,7 +3,7 @@ module github.com/goccy/go-zetasqlite
 go 1.17
 
 require (
-	github.com/goccy/go-zetasql v0.5.0
+	github.com/goccy/go-zetasql v0.5.1
 	github.com/mattn/go-sqlite3 v1.14.14
 )
 
