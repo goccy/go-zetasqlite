@@ -2,7 +2,6 @@ package internal
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/goccy/go-json"
 )
@@ -670,10 +669,6 @@ func bindSha512(args ...Value) (Value, error) {
 		return nil, err
 	}
 	return SHA512(v)
-}
-
-func timeFromUnixNano(unixNano int64) time.Time {
-	return time.Unix(0, unixNano)
 }
 
 func bindAscii(args ...Value) (Value, error) {

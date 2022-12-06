@@ -56,11 +56,11 @@ func EncodeGoValues(v []interface{}, params []*ast.ParameterNode) ([]interface{}
 func EncodeGoValue(t types.Type, v interface{}) (interface{}, error) {
 	value, err := ValueFromGoValue(v)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	casted, err := CastValue(t, value)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	return EncodeValue(casted)
 }
@@ -660,13 +660,9 @@ func valueLayoutFromValue(v Value) (*ValueLayout, error) {
 			Body:   body,
 		}, nil
 	case TimestampValue:
-		body, err := vv.ToString()
-		if err != nil {
-			return nil, err
-		}
 		return &ValueLayout{
 			Header: TimestampValueType,
-			Body:   body,
+			Body:   fmt.Sprint(time.Time(vv).UnixNano()),
 		}, nil
 	case *IntervalValue:
 		s, err := vv.ToString()
