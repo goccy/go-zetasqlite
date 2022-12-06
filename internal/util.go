@@ -78,3 +78,7 @@ func modifyTimeZone(t time.Time, loc *time.Location) (time.Time, error) {
 	format := t.Format("2006-01-02T15:04:05.999999999")
 	return parseTimestamp(format, loc)
 }
+
+func timeFromUnixNano(unixNano int64) time.Time {
+	return time.Unix(0, unixNano)
+}
