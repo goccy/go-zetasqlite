@@ -106,6 +106,7 @@ type TableSpec struct {
 	IsTemp     bool           `json:"isTemp"`
 	NamePath   []string       `json:"namePath"`
 	Columns    []*ColumnSpec  `json:"columns"`
+	PrimaryKey []string       `json:"primaryKey"`
 	CreateMode ast.CreateMode `json:"createMode"`
 	Query      string         `json:"query"`
 	UpdatedAt  time.Time      `json:"updatedAt"`
@@ -132,6 +133,12 @@ func (s *TableSpec) SQLiteSchema() string {
 	columns := []string{}
 	for _, c := range s.Columns {
 		columns = append(columns, c.SQLiteSchema())
+	}
+	if len(s.PrimaryKey) != 0 {
+		columns = append(
+			columns,
+			fmt.Sprintf("PRIMARY KEY (%s)", strings.Join(s.PrimaryKey, ",")),
+		)
 	}
 	var stmt string
 	switch s.CreateMode {
@@ -462,12 +469,20 @@ func newColumnsFromDef(def []*ast.ColumnDefinitionNode) []*ColumnSpec {
 	return columns
 }
 
+func newPrimaryKey(key *ast.PrimaryKeyNode) []string {
+	if key == nil {
+		return nil
+	}
+	return key.ColumnNameList()
+}
+
 func newTableSpec(namePath []string, stmt *ast.CreateTableStmtNode) *TableSpec {
 	now := time.Now()
 	return &TableSpec{
 		IsTemp:     stmt.CreateScope() == ast.CreateScopeTemp,
 		NamePath:   MergeNamePath(namePath, stmt.NamePath()),
 		Columns:    newColumnsFromDef(stmt.ColumnDefinitionList()),
+		PrimaryKey: newPrimaryKey(stmt.PrimaryKey()),
 		CreateMode: stmt.CreateMode(),
 		UpdatedAt:  now,
 		CreatedAt:  now,
@@ -490,6 +505,7 @@ func newTableAsSelectSpec(namePath []string, query string, stmt *ast.CreateTable
 		IsTemp:     stmt.CreateScope() == ast.CreateScopeTemp,
 		NamePath:   MergeNamePath(namePath, stmt.NamePath()),
 		Columns:    newColumnsFromDef(stmt.ColumnDefinitionList()),
+		PrimaryKey: newPrimaryKey(stmt.PrimaryKey()),
 		CreateMode: stmt.CreateMode(),
 		Query:      fmt.Sprintf("SELECT %s FROM (%s)", strings.Join(outputColumns, ","), query),
 		UpdatedAt:  now,
