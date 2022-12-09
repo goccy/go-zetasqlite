@@ -90,6 +90,14 @@ func newZetaSQLiteConn(db *sql.DB, catalog *internal.Catalog) (*ZetaSQLiteConn, 
 	}, nil
 }
 
+func (c *ZetaSQLiteConn) SetAutoIndexMode(enabled bool) {
+	c.analyzer.SetAutoIndexMode(enabled)
+}
+
+func (c *ZetaSQLiteConn) SetExplainMode(enabled bool) {
+	c.analyzer.SetExplainMode(enabled)
+}
+
 func (c *ZetaSQLiteConn) NamePath() []string {
 	return c.analyzer.NamePath()
 }

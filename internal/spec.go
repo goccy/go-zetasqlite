@@ -189,6 +189,15 @@ func (t *Type) IsStruct() bool {
 	return t.Kind == types.STRUCT
 }
 
+func (t *Type) AvailableAutoIndex() bool {
+	switch t.Kind {
+	case types.BYTES, types.JSON, types.ARRAY, types.STRUCT,
+		types.GEOGRAPHY, types.PROTO, types.EXTENDED:
+		return false
+	}
+	return true
+}
+
 func (t *Type) GoReflectType() (reflect.Type, error) {
 	switch t.Kind {
 	case types.INT32, types.INT64, types.UINT32, types.UINT64:

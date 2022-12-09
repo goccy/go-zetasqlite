@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
+	"strings"
 
 	ast "github.com/goccy/go-zetasql/resolved_ast"
 )
@@ -17,10 +18,11 @@ type StmtAction interface {
 }
 
 type CreateTableStmtAction struct {
-	query   string
-	args    []interface{}
-	spec    *TableSpec
-	catalog *Catalog
+	query           string
+	args            []interface{}
+	spec            *TableSpec
+	catalog         *Catalog
+	isAutoIndexMode bool
 }
 
 func (a *CreateTableStmtAction) Prepare(ctx context.Context, conn *Conn) (driver.Stmt, error) {
@@ -39,6 +41,25 @@ func (a *CreateTableStmtAction) Prepare(ctx context.Context, conn *Conn) (driver
 	return newCreateTableStmt(stmt, conn, a.catalog, a.spec), nil
 }
 
+func (a *CreateTableStmtAction) createIndexAutomatically(ctx context.Context, conn *Conn) error {
+	for _, col := range a.spec.Columns {
+		if !col.Type.AvailableAutoIndex() {
+			continue
+		}
+		indexName := fmt.Sprintf("zetasqlite_autoindex_%s_%s", col.Name, strings.Join(a.spec.NamePath, "_"))
+		createIndexQuery := fmt.Sprintf(
+			"CREATE INDEX IF NOT EXISTS %s ON `%s`(`%s`)",
+			indexName,
+			a.spec.TableName(),
+			col.Name,
+		)
+		if _, err := conn.ExecContext(ctx, createIndexQuery); err != nil {
+			return fmt.Errorf("failed to create index automatically %s: %w", createIndexQuery, err)
+		}
+	}
+	return nil
+}
+
 func (a *CreateTableStmtAction) exec(ctx context.Context, conn *Conn) error {
 	if a.spec.CreateMode == ast.CreateOrReplaceMode {
 		if _, err := conn.ExecContext(
@@ -50,6 +71,11 @@ func (a *CreateTableStmtAction) exec(ctx context.Context, conn *Conn) error {
 	}
 	if _, err := conn.ExecContext(ctx, a.spec.SQLiteSchema(), a.args...); err != nil {
 		return fmt.Errorf("failed to exec %s: %w", a.query, err)
+	}
+	if a.isAutoIndexMode {
+		if err := a.createIndexAutomatically(ctx, conn); err != nil {
+			return err
+		}
 	}
 	if err := a.catalog.AddNewTableSpec(ctx, conn, a.spec); err != nil {
 		return fmt.Errorf("failed to add new table spec: %w", err)
@@ -245,6 +271,7 @@ type QueryStmtAction struct {
 	args           []interface{}
 	formattedQuery string
 	outputColumns  []*ColumnSpec
+	isExplainMode  bool
 }
 
 func (a *QueryStmtAction) Prepare(ctx context.Context, conn *Conn) (driver.Stmt, error) {
@@ -262,7 +289,34 @@ func (a *QueryStmtAction) ExecContext(ctx context.Context, conn *Conn) (driver.R
 	return nil, nil
 }
 
+func (a *QueryStmtAction) ExplainQueryPlan(ctx context.Context, conn *Conn) error {
+	rows, err := conn.QueryContext(ctx, fmt.Sprintf("EXPLAIN QUERY PLAN %s", a.formattedQuery), a.args...)
+	if err != nil {
+		return fmt.Errorf("failed to explain query plan: %w", err)
+	}
+	defer rows.Close()
+	fmt.Println("|selectid|order|from|detail|")
+	fmt.Println("----------------------------")
+	for rows.Next() {
+		var (
+			selectID, order, from int
+			detail                string
+		)
+		if err := rows.Scan(&selectID, &order, &from, &detail); err != nil {
+			return fmt.Errorf("failed to scan: %w", err)
+		}
+		fmt.Printf("|%d|%d|%d|%s|\n", selectID, order, from, detail)
+	}
+	return nil
+}
+
 func (a *QueryStmtAction) QueryContext(ctx context.Context, conn *Conn) (*Rows, error) {
+	if a.isExplainMode {
+		if err := a.ExplainQueryPlan(ctx, conn); err != nil {
+			return nil, err
+		}
+		return &Rows{}, nil
+	}
 	rows, err := conn.QueryContext(ctx, a.formattedQuery, a.args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query %s: %w", a.query, err)
