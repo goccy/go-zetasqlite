@@ -13,7 +13,6 @@ import (
 
 	"github.com/chzyer/readline"
 	"github.com/goccy/go-zetasqlite"
-	_ "github.com/goccy/go-zetasqlite"
 	"github.com/goccy/go-zetasqlite/internal"
 	"github.com/jessevdk/go-flags"
 	"golang.org/x/crypto/ssh/terminal"
