@@ -13,9 +13,11 @@ import (
 )
 
 type Analyzer struct {
-	namePath []string
-	catalog  *Catalog
-	opt      *zetasql.AnalyzerOptions
+	namePath        []string
+	isAutoIndexMode bool
+	isExplainMode   bool
+	catalog         *Catalog
+	opt             *zetasql.AnalyzerOptions
 }
 
 func NewAnalyzer(catalog *Catalog) *Analyzer {
@@ -87,6 +89,14 @@ func newAnalyzerOptions() *zetasql.AnalyzerOptions {
 	opt.SetLanguage(langOpt)
 	opt.SetParseLocationRecordType(zetasql.ParseLocationRecordFullNodeScope)
 	return opt
+}
+
+func (a *Analyzer) SetAutoIndexMode(enabled bool) {
+	a.isAutoIndexMode = enabled
+}
+
+func (a *Analyzer) SetExplainMode(enabled bool) {
+	a.isExplainMode = enabled
 }
 
 func (a *Analyzer) NamePath() []string {
@@ -262,10 +272,11 @@ func (a *Analyzer) newCreateTableStmtAction(ctx context.Context, query string, a
 		return nil, err
 	}
 	return &CreateTableStmtAction{
-		query:   query,
-		spec:    spec,
-		args:    queryArgs,
-		catalog: a.catalog,
+		query:           query,
+		spec:            spec,
+		args:            queryArgs,
+		catalog:         a.catalog,
+		isAutoIndexMode: a.isAutoIndexMode,
 	}, nil
 }
 
@@ -281,10 +292,11 @@ func (a *Analyzer) newCreateTableAsSelectStmtAction(ctx context.Context, query s
 		return nil, err
 	}
 	return &CreateTableStmtAction{
-		query:   query,
-		spec:    spec,
-		args:    queryArgs,
-		catalog: a.catalog,
+		query:           query,
+		spec:            spec,
+		args:            queryArgs,
+		catalog:         a.catalog,
+		isAutoIndexMode: a.isAutoIndexMode,
 	}, nil
 }
 
@@ -456,6 +468,7 @@ func (a *Analyzer) newQueryStmtAction(ctx context.Context, query string, args []
 		args:           queryArgs,
 		formattedQuery: formattedQuery,
 		outputColumns:  outputColumns,
+		isExplainMode:  a.isExplainMode,
 	}, nil
 }
 

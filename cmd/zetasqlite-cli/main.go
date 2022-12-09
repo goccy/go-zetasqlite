@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/chzyer/readline"
+	"github.com/goccy/go-zetasqlite"
 	_ "github.com/goccy/go-zetasqlite"
 	"github.com/goccy/go-zetasqlite/internal"
 	"github.com/jessevdk/go-flags"
@@ -19,8 +20,10 @@ import (
 )
 
 type option struct {
-	RawMode     bool   `description:"specify the raw query mode. write sqlite3 query directly. this is a debug mode for developers" long:"raw"`
-	HistoryFile string `description:"specify the history file for used queries" long:"history" default:".zetasqlite_history"`
+	RawMode       bool   `description:"specify the raw query mode. write sqlite3 query directly. this is a debug mode for developers" long:"raw"`
+	HistoryFile   string `description:"specify the history file for used queries" long:"history" default:".zetasqlite_history"`
+	AutoIndexMode bool   `description:"specify the auto index mode. automatically create an index when creating a table" long:"autoindex"`
+	ExplainMode   bool   `description:"specify the explain mode. show results using sqlite3's explain query plan instead of executing the query" long:"explain"`
 }
 
 type exitCode int
@@ -36,13 +39,7 @@ const (
 )
 
 var (
-	errQuit    = errors.New("exit normally")
-	commandMap = map[string]func(context.Context, []string, option, *sql.DB) error{
-		".quit":      stopCommand,
-		".exit":      stopCommand,
-		".tables":    showTablesCommand,
-		".functions": showFunctionsCommand,
-	}
+	errQuit = errors.New("exit normally")
 )
 
 func parseOpt() ([]string, option, error) {
@@ -69,47 +66,42 @@ func run(ctx context.Context) exitCode {
 		}
 		return exitError
 	}
-	if err := start(ctx, args, opt); err != nil {
+	cli := &CLI{
+		args:            args,
+		historyFile:     opt.HistoryFile,
+		isRawMode:       opt.RawMode,
+		isAutoIndexMode: opt.AutoIndexMode,
+		isExplainMode:   opt.ExplainMode,
+	}
+	if err := cli.run(ctx); err != nil {
 		fmt.Fprintf(os.Stderr, err.Error())
 		return exitError
 	}
 	return exitOK
 }
 
-func getDriverName(opt option) string {
-	if opt.RawMode {
-		return zetasqliteRawDriver
-	}
-	return zetasqliteDriver
+type CLI struct {
+	args            []string
+	historyFile     string
+	isRawMode       bool
+	isAutoIndexMode bool
+	isExplainMode   bool
 }
 
-func getDSN(args []string) string {
-	if len(args) > 0 {
-		return fmt.Sprintf("file:%s?cache=shared", args[0])
-	}
-	return "file::memory:?cache=shared"
-}
-
-func start(ctx context.Context, args []string, opt option) error {
-	db, err := sql.Open(getDriverName(opt), getDSN(args))
-	if err != nil {
-		return fmt.Errorf("failed to open zetasqlite driver: %w", err)
-	}
-	defer db.Close()
-
+func (cli *CLI) run(ctx context.Context) error {
 	if !terminal.IsTerminal(int(os.Stdin.Fd())) {
 		// use pipe
 		query, err := io.ReadAll(os.Stdin)
 		if err != nil {
 			return err
 		}
-		if err := eval(ctx, args, opt, db, string(query)); err != nil {
+		if err := cli.runCommand(ctx, string(query)); err != nil {
 			return err
 		}
 	}
 	rl, err := readline.NewEx(&readline.Config{
 		Prompt:      "zetasqlite> ",
-		HistoryFile: opt.HistoryFile,
+		HistoryFile: cli.historyFile,
 	})
 	if err != nil {
 		return err
@@ -120,7 +112,7 @@ func start(ctx context.Context, args []string, opt option) error {
 		if err == io.EOF || err == readline.ErrInterrupt {
 			break
 		}
-		if err := eval(ctx, args, opt, db, line); err != nil {
+		if err := cli.runCommand(ctx, line); err != nil {
 			if err == errQuit {
 				break
 			}
@@ -130,49 +122,54 @@ func start(ctx context.Context, args []string, opt option) error {
 	return nil
 }
 
-func eval(ctx context.Context, args []string, opt option, db *sql.DB, query string) error {
-	query = strings.TrimSpace(query)
-	if cmd, exists := commandMap[query]; exists {
-		return cmd(ctx, args, opt, db)
+func (cli *CLI) getDSN() string {
+	if len(cli.args) > 0 {
+		return fmt.Sprintf("file:%s?cache=shared", cli.args[0])
 	}
-	rows, err := db.QueryContext(ctx, query)
-	if err != nil {
-		fmt.Printf("ERROR: %v\n", err)
-		return nil
-	}
-	columns, err := rows.Columns()
-	if err != nil {
-		fmt.Printf("ERROR: %v\n", err)
-		return nil
-	}
-	columnNum := len(columns)
-	queryArgs := make([]interface{}, columnNum)
-	for i := 0; i < columnNum; i++ {
-		var v interface{}
-		queryArgs[i] = &v
-	}
-	header := strings.Join(columns, "|")
-	fmt.Printf("%s\n", header)
-	fmt.Printf("%s\n", strings.Repeat("-", len(header)))
-	for rows.Next() {
-		if err := rows.Scan(queryArgs...); err != nil {
-			fmt.Printf("ERROR: %v", err)
-			return nil
-		}
-		values := make([]string, 0, len(queryArgs))
-		for _, arg := range queryArgs {
-			v := reflect.ValueOf(arg).Elem().Interface()
-			values = append(values, fmt.Sprint(v))
-		}
-		fmt.Printf("%s\n", strings.Join(values, "|"))
-	}
-	return nil
+	return "file::memory:?cache=shared"
 }
 
-func stopCommand(_ context.Context, _ []string, _ option, _ *sql.DB) error { return errQuit }
+func (cli *CLI) getDriverName() string {
+	if cli.isRawMode {
+		return zetasqliteRawDriver
+	}
+	return zetasqliteDriver
+}
 
-func showTablesCommand(ctx context.Context, args []string, opt option, _ *sql.DB) error {
-	db, err := sql.Open(zetasqliteRawDriver, getDSN(args))
+type CommandArgs struct {
+	args        []string
+	query       string
+	subCommands []string
+}
+
+func (cli *CLI) runCommand(ctx context.Context, query string) error {
+	query = strings.TrimSpace(query)
+	commands := strings.Split(query, " ")
+	if len(commands) == 0 {
+		return nil
+	}
+	commandType := commands[0]
+	var subCommands []string
+	if len(commands) > 1 {
+		subCommands = commands[1:]
+	}
+	switch commandType {
+	case ".quit", ".exit":
+		return errQuit
+	case ".tables":
+		return cli.showTablesCommand(ctx)
+	case ".functions":
+		return cli.showFunctionsCommand(ctx)
+	case ".explain":
+		return cli.explainModeCommand(ctx, subCommands)
+	case ".autoindex":
+		return cli.autoIndexModeCommand(ctx, subCommands)
+	}
+	return cli.defaultCommand(ctx, query)
+}
+
+func (cli *CLI) showTablesCommand(ctx context.Context) error {
+	db, err := sql.Open(zetasqliteRawDriver, cli.getDSN())
 	if err != nil {
 		return fmt.Errorf("failed to open zetasqlite driver: %w", err)
 	}
@@ -199,8 +196,8 @@ func showTablesCommand(ctx context.Context, args []string, opt option, _ *sql.DB
 	return nil
 }
 
-func showFunctionsCommand(ctx context.Context, args []string, opt option, _ *sql.DB) error {
-	db, err := sql.Open(zetasqliteRawDriver, getDSN(args))
+func (cli *CLI) showFunctionsCommand(ctx context.Context) error {
+	db, err := sql.Open(zetasqliteRawDriver, cli.getDSN())
 	if err != nil {
 		return fmt.Errorf("failed to open zetasqlite driver: %w", err)
 	}
@@ -223,6 +220,91 @@ func showFunctionsCommand(ctx context.Context, args []string, opt option, _ *sql
 			return err
 		}
 		fmt.Println(strings.Join(fn.NamePath, "."))
+	}
+	return nil
+}
+
+func (cli *CLI) explainModeCommand(ctx context.Context, subCommands []string) error {
+	if len(subCommands) == 0 {
+		fmt.Println(".explain requires on/off argument")
+		return nil
+	}
+	switch subCommands[0] {
+	case "on":
+		cli.isExplainMode = true
+	case "off":
+		cli.isExplainMode = false
+	}
+	return nil
+}
+
+func (cli *CLI) autoIndexModeCommand(ctx context.Context, subCommands []string) error {
+	if len(subCommands) == 0 {
+		fmt.Printf(".autoindex requires on/off argument")
+		return nil
+	}
+	switch subCommands[1] {
+	case "on":
+		cli.isAutoIndexMode = true
+	case "off":
+		cli.isAutoIndexMode = false
+	}
+	return nil
+}
+
+func (cli *CLI) defaultCommand(ctx context.Context, query string) error {
+	db, err := sql.Open(cli.getDriverName(), cli.getDSN())
+	if err != nil {
+		return fmt.Errorf("failed to open zetasqlite driver: %w", err)
+	}
+	defer db.Close()
+
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get connection: %w", err)
+	}
+	if err := conn.Raw(func(c interface{}) error {
+		zetasqliteConn, ok := c.(*zetasqlite.ZetaSQLiteConn)
+		if !ok {
+			return fmt.Errorf("failed to get ZetaSQLiteConn from %T", c)
+		}
+		zetasqliteConn.SetExplainMode(cli.isExplainMode)
+		zetasqliteConn.SetAutoIndexMode(cli.isAutoIndexMode)
+		return nil
+	}); err != nil {
+		return fmt.Errorf("failed to setup connection: %w", err)
+	}
+	rows, err := conn.QueryContext(ctx, query)
+	if err != nil {
+		fmt.Printf("ERROR: %v\n", err)
+		return nil
+	}
+	defer rows.Close()
+	columns, err := rows.Columns()
+	if err != nil {
+		fmt.Printf("ERROR: %v\n", err)
+		return nil
+	}
+	columnNum := len(columns)
+	queryArgs := make([]interface{}, columnNum)
+	for i := 0; i < columnNum; i++ {
+		var v interface{}
+		queryArgs[i] = &v
+	}
+	header := strings.Join(columns, "|")
+	fmt.Printf("%s\n", header)
+	fmt.Printf("%s\n", strings.Repeat("-", len(header)))
+	for rows.Next() {
+		if err := rows.Scan(queryArgs...); err != nil {
+			fmt.Printf("ERROR: %v", err)
+			return nil
+		}
+		values := make([]string, 0, len(queryArgs))
+		for _, arg := range queryArgs {
+			v := reflect.ValueOf(arg).Elem().Interface()
+			values = append(values, fmt.Sprint(v))
+		}
+		fmt.Printf("%s\n", strings.Join(values, "|"))
 	}
 	return nil
 }
