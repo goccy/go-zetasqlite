@@ -5,6 +5,8 @@ import (
 	"sort"
 	"strings"
 	"sync"
+
+	"gonum.org/v1/gonum/stat"
 )
 
 type OrderedValue struct {
@@ -36,6 +38,27 @@ func (f *ARRAY) Done() (Value, error) {
 	}, nil
 }
 
+type ANY_VALUE struct {
+	once  sync.Once
+	opt   *AggregatorOption
+	value Value
+}
+
+func (f *ANY_VALUE) Step(v Value, opt *AggregatorOption) error {
+	if v == nil {
+		return nil
+	}
+	f.once.Do(func() {
+		f.opt = opt
+		f.value = v
+	})
+	return nil
+}
+
+func (f *ANY_VALUE) Done() (Value, error) {
+	return f.value, nil
+}
+
 type ARRAY_AGG struct {
 	once   sync.Once
 	opt    *AggregatorOption
@@ -44,7 +67,7 @@ type ARRAY_AGG struct {
 
 func (f *ARRAY_AGG) Step(v Value, opt *AggregatorOption) error {
 	if v == nil {
-		return fmt.Errorf("ARRAY_AGG: NULL value unsupported")
+		return fmt.Errorf("ARRAY_AGG: input value must be not null")
 	}
 	f.once.Do(func() { f.opt = opt })
 	f.values = append(f.values, &OrderedValue{
@@ -138,11 +161,12 @@ func (f *ARRAY_CONCAT_AGG) Done() (Value, error) {
 	}, nil
 }
 
-type SUM struct {
+type AVG struct {
 	sum Value
+	num int64
 }
 
-func (f *SUM) Step(v Value, opt *AggregatorOption) error {
+func (f *AVG) Step(v Value, opt *AggregatorOption) error {
 	if v == nil {
 		return nil
 	}
@@ -155,11 +179,19 @@ func (f *SUM) Step(v Value, opt *AggregatorOption) error {
 		}
 		f.sum = added
 	}
+	f.num++
 	return nil
 }
 
-func (f *SUM) Done() (Value, error) {
-	return f.sum, nil
+func (f *AVG) Done() (Value, error) {
+	if f.sum == nil {
+		return nil, nil
+	}
+	base, err := f.sum.ToFloat64()
+	if err != nil {
+		return nil, err
+	}
+	return FloatValue(base / float64(f.num)), nil
 }
 
 type BIT_AND_AGG struct {
@@ -405,39 +437,6 @@ func (f *MIN) Done() (Value, error) {
 	return f.min, nil
 }
 
-type AVG struct {
-	sum Value
-	num int64
-}
-
-func (f *AVG) Step(v Value, opt *AggregatorOption) error {
-	if v == nil {
-		return nil
-	}
-	if f.sum == nil {
-		f.sum = v
-	} else {
-		added, err := f.sum.Add(v)
-		if err != nil {
-			return err
-		}
-		f.sum = added
-	}
-	f.num++
-	return nil
-}
-
-func (f *AVG) Done() (Value, error) {
-	if f.sum == nil {
-		return nil, nil
-	}
-	base, err := f.sum.ToFloat64()
-	if err != nil {
-		return nil, err
-	}
-	return FloatValue(base / float64(f.num)), nil
-}
-
 type STRING_AGG struct {
 	values []*OrderedValue
 	delim  string
@@ -495,4 +494,397 @@ func (f *STRING_AGG) Done() (Value, error) {
 		values = append(values, text)
 	}
 	return StringValue(strings.Join(values, f.delim)), nil
+}
+
+type SUM struct {
+	sum Value
+}
+
+func (f *SUM) Step(v Value, opt *AggregatorOption) error {
+	if v == nil {
+		return nil
+	}
+	if f.sum == nil {
+		f.sum = v
+	} else {
+		added, err := f.sum.Add(v)
+		if err != nil {
+			return err
+		}
+		f.sum = added
+	}
+	return nil
+}
+
+func (f *SUM) Done() (Value, error) {
+	return f.sum, nil
+}
+
+type CORR struct {
+	x []float64
+	y []float64
+}
+
+func (f *CORR) Step(x, y Value, opt *AggregatorOption) error {
+	if x == nil || y == nil {
+		return nil
+	}
+	vx, err := x.ToFloat64()
+	if err != nil {
+		return err
+	}
+	vy, err := y.ToFloat64()
+	if err != nil {
+		return err
+	}
+	f.x = append(f.x, vx)
+	f.y = append(f.y, vy)
+	return nil
+}
+
+func (f *CORR) Done() (Value, error) {
+	if len(f.x) == 0 || len(f.y) == 0 {
+		return nil, nil
+	}
+	return FloatValue(stat.Correlation(f.x, f.y, nil)), nil
+}
+
+type COVAR_POP struct {
+	x []float64
+	y []float64
+}
+
+func (f *COVAR_POP) Step(x, y Value, opt *AggregatorOption) error {
+	if x == nil || y == nil {
+		return nil
+	}
+	vx, err := x.ToFloat64()
+	if err != nil {
+		return err
+	}
+	vy, err := y.ToFloat64()
+	if err != nil {
+		return err
+	}
+	f.x = append(f.x, vx)
+	f.y = append(f.y, vy)
+	return nil
+}
+
+func (f *COVAR_POP) Done() (Value, error) {
+	if len(f.x) == 0 || len(f.y) == 0 {
+		return nil, nil
+	}
+	return FloatValue(stat.Covariance(f.x, f.y, nil)), nil
+}
+
+type COVAR_SAMP struct {
+	x []float64
+	y []float64
+}
+
+func (f *COVAR_SAMP) Step(x, y Value, opt *AggregatorOption) error {
+	if x == nil || y == nil {
+		return nil
+	}
+	vx, err := x.ToFloat64()
+	if err != nil {
+		return err
+	}
+	vy, err := y.ToFloat64()
+	if err != nil {
+		return err
+	}
+	f.x = append(f.x, vx)
+	f.y = append(f.y, vy)
+	return nil
+}
+
+func (f *COVAR_SAMP) Done() (Value, error) {
+	if len(f.x) == 0 || len(f.y) == 0 {
+		return nil, nil
+	}
+	return FloatValue(stat.Covariance(f.x, f.y, nil)), nil
+}
+
+type STDDEV_POP struct {
+	v []float64
+}
+
+func (f *STDDEV_POP) Step(v Value, opt *AggregatorOption) error {
+	if v == nil {
+		return nil
+	}
+	f64, err := v.ToFloat64()
+	if err != nil {
+		return err
+	}
+	f.v = append(f.v, f64)
+	return nil
+}
+
+func (f *STDDEV_POP) Done() (Value, error) {
+	if len(f.v) == 0 {
+		return nil, nil
+	}
+	_, std := stat.PopMeanStdDev(f.v, nil)
+	return FloatValue(std), nil
+}
+
+type STDDEV_SAMP struct {
+	v []float64
+}
+
+func (f *STDDEV_SAMP) Step(v Value, opt *AggregatorOption) error {
+	if v == nil {
+		return nil
+	}
+	f64, err := v.ToFloat64()
+	if err != nil {
+		return err
+	}
+	f.v = append(f.v, f64)
+	return nil
+}
+
+func (f *STDDEV_SAMP) Done() (Value, error) {
+	if len(f.v) == 0 {
+		return nil, nil
+	}
+	return FloatValue(stat.StdDev(f.v, nil)), nil
+}
+
+type STDDEV = STDDEV_SAMP
+
+type VAR_POP struct {
+	v []float64
+}
+
+func (f *VAR_POP) Step(v Value, opt *AggregatorOption) error {
+	if v == nil {
+		return nil
+	}
+	f64, err := v.ToFloat64()
+	if err != nil {
+		return err
+	}
+	f.v = append(f.v, f64)
+	return nil
+}
+
+func (f *VAR_POP) Done() (Value, error) {
+	if len(f.v) == 0 {
+		return nil, nil
+	}
+	_, variance := stat.PopMeanVariance(f.v, nil)
+	return FloatValue(variance), nil
+}
+
+type VAR_SAMP struct {
+	v []float64
+}
+
+func (f *VAR_SAMP) Step(v Value, opt *AggregatorOption) error {
+	if v == nil {
+		return nil
+	}
+	f64, err := v.ToFloat64()
+	if err != nil {
+		return err
+	}
+	f.v = append(f.v, f64)
+	return nil
+}
+
+func (f *VAR_SAMP) Done() (Value, error) {
+	if len(f.v) == 0 {
+		return nil, nil
+	}
+	return FloatValue(stat.Variance(f.v, nil)), nil
+}
+
+type VARIANCE = VAR_SAMP
+
+type APPROX_COUNT_DISTINCT struct {
+	once     sync.Once
+	valueMap map[string]struct{}
+}
+
+func (f *APPROX_COUNT_DISTINCT) Step(v Value, opt *AggregatorOption) error {
+	if v == nil {
+		return nil
+	}
+	f.once.Do(func() { f.valueMap = map[string]struct{}{} })
+	value, err := v.ToString()
+	if err != nil {
+		return err
+	}
+	f.valueMap[value] = struct{}{}
+	return nil
+}
+
+func (f *APPROX_COUNT_DISTINCT) Done() (Value, error) {
+	return IntValue(len(f.valueMap)), nil
+}
+
+type APPROX_QUANTILES struct {
+	once   sync.Once
+	values []Value
+	num    int64
+}
+
+func (f *APPROX_QUANTILES) Step(v Value, num int64, opt *AggregatorOption) error {
+	f.once.Do(func() {
+		f.num = num
+	})
+	f.values = append(f.values, v)
+	return nil
+}
+
+func (f *APPROX_QUANTILES) Done() (Value, error) {
+	if len(f.values) == 0 {
+		return nil, nil
+	}
+	if f.num == 0 {
+		return &ArrayValue{values: []Value{f.values[0]}}, nil
+	}
+	if f.num == 1 {
+		return &ArrayValue{values: []Value{f.values[0], f.values[len(f.values)-1]}}, nil
+	}
+	ratio := float64(100) / float64(f.num)
+	length := float64(len(f.values))
+	quantiles := []Value{}
+	for i := float64(0); i < 100; i += ratio {
+		fIdx := length * (i / 100)
+		idx := int64(fIdx)
+		if float64(idx) < fIdx {
+			idx += 1
+		}
+		if idx > 0 {
+			quantiles = append(quantiles, f.values[idx-1])
+		} else {
+			quantiles = append(quantiles, f.values[idx])
+		}
+	}
+	quantiles = append(quantiles, f.values[len(f.values)-1])
+	return &ArrayValue{values: quantiles}, nil
+}
+
+type APPROX_TOP_COUNT struct {
+	once     sync.Once
+	valueMap map[Value]*StructValue
+	num      int64
+}
+
+func (f *APPROX_TOP_COUNT) Step(v Value, num int64, opt *AggregatorOption) error {
+	f.once.Do(func() {
+		f.valueMap = map[Value]*StructValue{}
+		f.num = num
+	})
+	value, exists := f.valueMap[v]
+	if exists {
+		cur, _ := value.values[1].ToInt64()
+		value.values[1] = IntValue(cur + 1)
+		value.m["count"] = IntValue(cur + 1)
+	} else {
+		f.valueMap[v] = &StructValue{
+			keys:   []string{"value", "count"},
+			values: []Value{v, IntValue(1)},
+			m: map[string]Value{
+				"value": v,
+				"count": IntValue(1),
+			},
+		}
+	}
+	return nil
+}
+
+func (f *APPROX_TOP_COUNT) Done() (Value, error) {
+	if len(f.valueMap) == 0 {
+		return nil, nil
+	}
+	if int64(len(f.valueMap)) < f.num {
+		return nil, fmt.Errorf("APPROX_TOP_COUNT: required number is larger than number of input values")
+	}
+	values := make([]*StructValue, 0, len(f.valueMap))
+	for _, v := range f.valueMap {
+		values = append(values, v)
+	}
+	sort.Slice(values, func(i, j int) bool {
+		cond, _ := values[i].values[1].GT(values[j].values[1])
+		return cond
+	})
+	ret := &ArrayValue{}
+	for _, v := range values[:f.num] {
+		ret.values = append(ret.values, v)
+	}
+	return ret, nil
+}
+
+type APPROX_TOP_SUM struct {
+	once     sync.Once
+	valueMap map[Value]*StructValue
+	num      int64
+}
+
+func (f *APPROX_TOP_SUM) Step(v, weight Value, num int64, opt *AggregatorOption) error {
+	f.once.Do(func() {
+		f.valueMap = map[Value]*StructValue{}
+		f.num = num
+	})
+	value, exists := f.valueMap[v]
+	if exists {
+		if weight != nil {
+			var sum Value
+			if value.values[1] == nil {
+				sum = weight
+			} else {
+				added, err := value.values[1].Add(weight)
+				if err != nil {
+					return err
+				}
+				sum = added
+			}
+			value.values[1] = sum
+			value.m["sum"] = sum
+		}
+	} else {
+		f.valueMap[v] = &StructValue{
+			keys:   []string{"value", "sum"},
+			values: []Value{v, weight},
+			m: map[string]Value{
+				"value": v,
+				"sum":   weight,
+			},
+		}
+	}
+	return nil
+}
+
+func (f *APPROX_TOP_SUM) Done() (Value, error) {
+	if len(f.valueMap) == 0 {
+		return nil, nil
+	}
+	if int64(len(f.valueMap)) < f.num {
+		return nil, fmt.Errorf("APPROX_TOP_SUM: required number is larger than number of input values")
+	}
+	values := make([]*StructValue, 0, len(f.valueMap))
+	for _, v := range f.valueMap {
+		values = append(values, v)
+	}
+	sort.Slice(values, func(i, j int) bool {
+		if values[i].values[1] == nil {
+			return false
+		}
+		if values[j].values[1] == nil {
+			return true
+		}
+		cond, _ := values[i].values[1].GT(values[j].values[1])
+		return cond
+	})
+	ret := &ArrayValue{}
+	for _, v := range values[:f.num] {
+		ret.values = append(ret.values, v)
+	}
+	return ret, nil
 }

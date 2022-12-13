@@ -23,6 +23,9 @@ func TestQuery(t *testing.T) {
 	}
 	defer db.Close()
 	floatCmpOpt := cmp.Comparer(func(x, y float64) bool {
+		if x == y {
+			return true
+		}
 		delta := math.Abs(x - y)
 		mean := math.Abs(x+y) / 2.0
 		return delta/mean < 0.00001
@@ -542,6 +545,22 @@ FROM Items`,
 			query:        `SELECT DATE "2020-09-22" + 1 AS day_later, DATE "2020-09-22" - 7 AS week_ago`,
 			expectedRows: [][]interface{}{{"2020-09-23", "2020-09-15"}},
 		},
+
+		// aggregate functions
+		{
+			name:         "any_value",
+			query:        `SELECT ANY_VALUE(fruit) FROM UNNEST(["apple", "banana", "pear"]) as fruit`,
+			expectedRows: [][]interface{}{{"apple"}},
+		},
+		{
+			name:  "any_value with window",
+			query: `SELECT fruit, ANY_VALUE(fruit) OVER (ORDER BY LENGTH(fruit) ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) FROM UNNEST(["apple", "banana", "pear"]) as fruit`,
+			expectedRows: [][]interface{}{
+				{"pear", "pear"},
+				{"apple", "pear"},
+				{"banana", "apple"},
+			},
+		},
 		{
 			name:  "array_agg",
 			query: `SELECT ARRAY_AGG(x) AS array_agg FROM UNNEST([2, 1,-2, 3, -2, 1, 2]) AS x`,
@@ -593,6 +612,19 @@ FROM Items`,
 			}},
 		},
 		{
+			name:  "array_agg with window",
+			query: `SELECT x, ARRAY_AGG(x) OVER (ORDER BY ABS(x)) FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x`,
+			expectedRows: [][]interface{}{
+				{int64(1), []interface{}{int64(1), int64(1)}},
+				{int64(1), []interface{}{int64(1), int64(1)}},
+				{int64(-2), []interface{}{int64(1), int64(1), int64(2), int64(-2), int64(-2), int64(2)}},
+				{int64(-2), []interface{}{int64(1), int64(1), int64(2), int64(-2), int64(-2), int64(2)}},
+				{int64(2), []interface{}{int64(1), int64(1), int64(2), int64(-2), int64(-2), int64(2)}},
+				{int64(2), []interface{}{int64(1), int64(1), int64(2), int64(-2), int64(-2), int64(2)}},
+				{int64(3), []interface{}{int64(1), int64(1), int64(2), int64(-2), int64(-2), int64(2), int64(3)}},
+			},
+		},
+		{
 			name: "array_concat_agg",
 			query: `
 SELECT ARRAY_CONCAT_AGG(x) AS array_concat_agg FROM (
@@ -625,6 +657,18 @@ SELECT ARRAY_CONCAT_AGG(x) AS array_concat_agg FROM (
 			name:         "avg with distinct",
 			query:        `SELECT AVG(DISTINCT x) AS avg FROM UNNEST([0, 2, 4, 4, 5]) AS x`,
 			expectedRows: [][]interface{}{{float64(2.75)}},
+		},
+		{
+			name:  "avg with window",
+			query: `SELECT x, AVG(x) OVER (ORDER BY x ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) FROM UNNEST([0, 2, NULL, 4, 4, 5]) AS x`,
+			expectedRows: [][]interface{}{
+				{nil, nil},
+				{int64(0), float64(0)},
+				{int64(2), float64(1)},
+				{int64(4), float64(3)},
+				{int64(4), float64(4)},
+				{int64(5), float64(4.5)},
+			},
 		},
 		{
 			name:         "bit_and",
@@ -667,6 +711,16 @@ SELECT ARRAY_CONCAT_AGG(x) AS array_concat_agg FROM (
 			expectedRows: [][]interface{}{{int64(3)}},
 		},
 		{
+			name:  "count with window",
+			query: `SELECT x, COUNT(*) OVER (PARTITION BY MOD(x, 3)), COUNT(DISTINCT x) OVER (PARTITION BY MOD(x, 3)) FROM UNNEST([1, 4, 4, 5]) AS x`,
+			expectedRows: [][]interface{}{
+				{int64(1), int64(3), int64(2)},
+				{int64(4), int64(3), int64(2)},
+				{int64(4), int64(3), int64(2)},
+				{int64(5), int64(1), int64(1)},
+			},
+		},
+		{
 			name:         "countif",
 			query:        `SELECT COUNTIF(x<0) AS num_negative, COUNTIF(x>0) AS num_positive FROM UNNEST([5, -2, 3, 6, -10, -7, 4, 0]) AS x`,
 			expectedRows: [][]interface{}{{int64(3), int64(4)}},
@@ -676,6 +730,22 @@ SELECT ARRAY_CONCAT_AGG(x) AS array_concat_agg FROM (
 			query:        `SELECT COUNTIF(x<0) FROM UNNEST([NULL]) AS x`,
 			expectedRows: [][]interface{}{{int64(0)}},
 		},
+		{
+			name:  "countif with window",
+			query: `SELECT x, COUNTIF(x<0) OVER (ORDER BY ABS(x) ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) FROM UNNEST([5, -2, 3, 6, -10, NULL, -7, 4, 0]) AS x`,
+			expectedRows: [][]interface{}{
+				{nil, int64(0)},
+				{int64(0), int64(1)},
+				{int64(-2), int64(1)},
+				{int64(3), int64(1)},
+				{int64(4), int64(0)},
+				{int64(5), int64(0)},
+				{int64(6), int64(1)},
+				{int64(-7), int64(2)},
+				{int64(-10), int64(2)},
+			},
+		},
+
 		{
 			name:         "logical_and",
 			query:        `SELECT LOGICAL_AND(x) AS logical_and FROM UNNEST([true, false, true]) AS x`,
@@ -747,6 +817,17 @@ SELECT ARRAY_CONCAT_AGG(x) AS array_concat_agg FROM (
 			expectedRows: [][]interface{}{{"pear & banana"}},
 		},
 		{
+			name:  "string_agg with window",
+			query: `SELECT fruit, STRING_AGG(fruit, " & ") OVER (ORDER BY LENGTH(fruit)) FROM UNNEST(["apple", NULL, "pear", "banana", "pear"]) AS fruit`,
+			expectedRows: [][]interface{}{
+				{nil, nil},
+				{"pear", "pear & pear"},
+				{"pear", "pear & pear"},
+				{"apple", "pear & pear & apple"},
+				{"banana", "pear & pear & apple & banana"},
+			},
+		},
+		{
 			name:         "sum",
 			query:        `SELECT SUM(x) AS sum FROM UNNEST([1, 2, 3, 4, 5, 4, 3, 2, 1]) AS x`,
 			expectedRows: [][]interface{}{{int64(25)}},
@@ -757,10 +838,234 @@ SELECT ARRAY_CONCAT_AGG(x) AS array_concat_agg FROM (
 			expectedRows: [][]interface{}{{int64(15)}},
 		},
 		{
+			name:  "sum with window",
+			query: `SELECT x, SUM(x) OVER (PARTITION BY MOD(x, 3)) FROM UNNEST([1, 2, 3, 4, 5, 4, 3, 2, 1]) AS x`,
+			expectedRows: [][]interface{}{
+				{int64(3), int64(6)},
+				{int64(3), int64(6)},
+				{int64(1), int64(10)},
+				{int64(1), int64(10)},
+				{int64(4), int64(10)},
+				{int64(4), int64(10)},
+				{int64(2), int64(9)},
+				{int64(2), int64(9)},
+				{int64(5), int64(9)},
+			},
+		},
+		{
+			name:  "sum with window and distinct",
+			query: `SELECT x, SUM(DISTINCT x) OVER (PARTITION BY MOD(x, 3)) FROM UNNEST([1, 2, 3, 4, 5, 4, 3, 2, 1]) AS x`,
+			expectedRows: [][]interface{}{
+				{int64(3), int64(3)},
+				{int64(3), int64(3)},
+				{int64(1), int64(5)},
+				{int64(1), int64(5)},
+				{int64(4), int64(5)},
+				{int64(4), int64(5)},
+				{int64(2), int64(7)},
+				{int64(2), int64(7)},
+				{int64(5), int64(7)},
+			},
+		},
+		{
 			name:         "sum null",
 			query:        `SELECT SUM(x) AS sum FROM UNNEST([]) AS x`,
 			expectedRows: [][]interface{}{{nil}},
 		},
+		{
+			name:         "approx_count_distinct",
+			query:        `SELECT APPROX_COUNT_DISTINCT(x) FROM UNNEST([0, 1, 1, 2, 3, 5]) as x`,
+			expectedRows: [][]interface{}{{int64(5)}},
+		},
+		{
+			name:         "approx_quantiles",
+			query:        `SELECT APPROX_QUANTILES(x, 2) FROM UNNEST([1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x`,
+			expectedRows: [][]interface{}{{[]interface{}{int64(1), int64(5), int64(10)}}},
+		},
+		{
+			name:         "approx_quantiles 2",
+			query:        `SELECT APPROX_QUANTILES(x, 100)[OFFSET(90)] FROM UNNEST([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) AS x`,
+			expectedRows: [][]interface{}{{int64(9)}},
+		},
+		{
+			name:         "approx_quantiles with distinct",
+			query:        `SELECT APPROX_QUANTILES(DISTINCT x, 2) FROM UNNEST([1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x`,
+			expectedRows: [][]interface{}{{[]interface{}{int64(1), int64(6), int64(10)}}},
+		},
+		{
+			name:         "approx_quantiles with null",
+			query:        `SELECT APPROX_QUANTILES(x, 2 RESPECT NULLS) FROM UNNEST([NULL, NULL, 1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x`,
+			expectedRows: [][]interface{}{{[]interface{}{nil, int64(4), int64(10)}}},
+		},
+		{
+			name:         "approx_quantiles with respect nulls",
+			query:        `SELECT APPROX_QUANTILES(DISTINCT x, 2 RESPECT NULLS) FROM UNNEST([NULL, NULL, 1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x`,
+			expectedRows: [][]interface{}{{[]interface{}{nil, int64(6), int64(10)}}},
+		},
+		{
+			name:  "approx_top_count",
+			query: `SELECT APPROX_TOP_COUNT(x, 2) FROM UNNEST(["apple", "apple", "pear", "pear", "pear", "banana"]) as x`,
+			expectedRows: [][]interface{}{
+				{
+					[]interface{}{
+						[]map[string]interface{}{
+							map[string]interface{}{
+								"value": "pear",
+							},
+							map[string]interface{}{
+								"count": int64(3),
+							},
+						},
+						[]map[string]interface{}{
+							map[string]interface{}{
+								"value": "apple",
+							},
+							map[string]interface{}{
+								"count": int64(2),
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:  "approx_top_count with null",
+			query: `SELECT APPROX_TOP_COUNT(x, 2) FROM UNNEST([NULL, "pear", "pear", "pear", "apple", NULL]) as x`,
+			expectedRows: [][]interface{}{
+				{
+					[]interface{}{
+						[]map[string]interface{}{
+							map[string]interface{}{
+								"value": "pear",
+							},
+							map[string]interface{}{
+								"count": int64(3),
+							},
+						},
+						[]map[string]interface{}{
+							map[string]interface{}{
+								"value": nil,
+							},
+							map[string]interface{}{
+								"count": int64(2),
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "approx_top_sum",
+			query: `
+SELECT APPROX_TOP_SUM(x, weight, 2) FROM UNNEST([
+  STRUCT("apple" AS x, 3 AS weight),
+  ("pear", 2),
+  ("apple", 0),
+  ("banana", 5),
+  ("pear", 4)
+])`,
+			expectedRows: [][]interface{}{
+				{
+					[]interface{}{
+						[]map[string]interface{}{
+							map[string]interface{}{
+								"value": "pear",
+							},
+							map[string]interface{}{
+								"sum": int64(6),
+							},
+						},
+						[]map[string]interface{}{
+							map[string]interface{}{
+								"value": "banana",
+							},
+							map[string]interface{}{
+								"sum": int64(5),
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:  "approx_top_sum with null",
+			query: `SELECT APPROX_TOP_SUM(x, weight, 2) FROM UNNEST([STRUCT("apple" AS x, NULL AS weight), ("pear", 0), ("pear", NULL)])`,
+			expectedRows: [][]interface{}{
+				{
+					[]interface{}{
+						[]map[string]interface{}{
+							map[string]interface{}{
+								"value": "pear",
+							},
+							map[string]interface{}{
+								"sum": int64(0),
+							},
+						},
+						[]map[string]interface{}{
+							map[string]interface{}{
+								"value": "apple",
+							},
+							map[string]interface{}{
+								"sum": nil,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:  "approx_top_sum with null 2",
+			query: `SELECT APPROX_TOP_SUM(x, weight, 2) FROM UNNEST([STRUCT("apple" AS x, 0 AS weight), (NULL, 2)])`,
+			expectedRows: [][]interface{}{
+				{
+					[]interface{}{
+						[]map[string]interface{}{
+							map[string]interface{}{
+								"value": nil,
+							},
+							map[string]interface{}{
+								"sum": int64(2),
+							},
+						},
+						[]map[string]interface{}{
+							map[string]interface{}{
+								"value": "apple",
+							},
+							map[string]interface{}{
+								"sum": int64(0),
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:  "approx_top_sum with null 3",
+			query: `SELECT APPROX_TOP_SUM(x, weight, 2) FROM UNNEST([STRUCT("apple" AS x, 0 AS weight), (NULL, NULL)])`,
+			expectedRows: [][]interface{}{
+				{
+					[]interface{}{
+						[]map[string]interface{}{
+							map[string]interface{}{
+								"value": "apple",
+							},
+							map[string]interface{}{
+								"sum": int64(0),
+							},
+						},
+						[]map[string]interface{}{
+							map[string]interface{}{
+								"value": nil,
+							},
+							map[string]interface{}{
+								"sum": nil,
+							},
+						},
+					},
+				},
+			},
+		},
+
 		{
 			name:         "null",
 			query:        `SELECT NULL`,
@@ -1026,6 +1331,219 @@ WINDOW item_window AS (
 			},
 		},
 		{
+			name: `nth_value`,
+			query: `
+WITH finishers AS
+ (SELECT 'Sophia Liu' as name,
+  TIMESTAMP '2016-10-18 2:51:45+00' as finish_time,
+  'F30-34' as division
+  UNION ALL SELECT 'Lisa Stelzner', TIMESTAMP '2016-10-18 2:54:11+00', 'F35-39'
+  UNION ALL SELECT 'Nikki Leith', TIMESTAMP '2016-10-18 2:59:01+00', 'F30-34'
+  UNION ALL SELECT 'Lauren Matthews', TIMESTAMP '2016-10-18 3:01:17+00', 'F35-39'
+  UNION ALL SELECT 'Desiree Berry', TIMESTAMP '2016-10-18 3:05:42+00', 'F35-39'
+  UNION ALL SELECT 'Suzy Slane', TIMESTAMP '2016-10-18 3:06:24+00', 'F35-39'
+  UNION ALL SELECT 'Jen Edwards', TIMESTAMP '2016-10-18 3:06:36+00', 'F30-34'
+  UNION ALL SELECT 'Meghan Lederer', TIMESTAMP '2016-10-18 3:07:41+00', 'F30-34'
+  UNION ALL SELECT 'Carly Forte', TIMESTAMP '2016-10-18 3:08:58+00', 'F25-29'
+  UNION ALL SELECT 'Lauren Reasoner', TIMESTAMP '2016-10-18 3:10:14+00', 'F30-34')
+SELECT name,
+  FORMAT_TIMESTAMP('%X', finish_time) AS finish_time,
+  division,
+  FORMAT_TIMESTAMP('%X', fastest_time) AS fastest_time,
+  FORMAT_TIMESTAMP('%X', second_fastest) AS second_fastest
+FROM (
+  SELECT name,
+  finish_time,
+  division,finishers,
+  FIRST_VALUE(finish_time)
+    OVER w1 AS fastest_time,
+  NTH_VALUE(finish_time, 2)
+    OVER w1 as second_fastest
+  FROM finishers
+  WINDOW w1 AS (
+    PARTITION BY division ORDER BY finish_time ASC
+    ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING))`,
+			expectedRows: [][]interface{}{
+				{"Carly Forte", "03:08:58", "F25-29", "03:08:58", nil},
+				{"Sophia Liu", "02:51:45", "F30-34", "02:51:45", "02:59:01"},
+				{"Nikki Leith", "02:59:01", "F30-34", "02:51:45", "02:59:01"},
+				{"Jen Edwards", "03:06:36", "F30-34", "02:51:45", "02:59:01"},
+				{"Meghan Lederer", "03:07:41", "F30-34", "02:51:45", "02:59:01"},
+				{"Lauren Reasoner", "03:10:14", "F30-34", "02:51:45", "02:59:01"},
+				{"Lisa Stelzner", "02:54:11", "F35-39", "02:54:11", "03:01:17"},
+				{"Lauren Matthews", "03:01:17", "F35-39", "02:54:11", "03:01:17"},
+				{"Desiree Berry", "03:05:42", "F35-39", "02:54:11", "03:01:17"},
+				{"Suzy Slane", "03:06:24", "F35-39", "02:54:11", "03:01:17"},
+			},
+		},
+		{
+			name: `lead`,
+			query: `
+WITH finishers AS
+ (SELECT 'Sophia Liu' as name,
+  TIMESTAMP '2016-10-18 2:51:45+00' as finish_time,
+  'F30-34' as division
+  UNION ALL SELECT 'Lisa Stelzner', TIMESTAMP '2016-10-18 2:54:11+00', 'F35-39'
+  UNION ALL SELECT 'Nikki Leith', TIMESTAMP '2016-10-18 2:59:01+00', 'F30-34'
+  UNION ALL SELECT 'Lauren Matthews', TIMESTAMP '2016-10-18 3:01:17+00', 'F35-39'
+  UNION ALL SELECT 'Desiree Berry', TIMESTAMP '2016-10-18 3:05:42+00', 'F35-39'
+  UNION ALL SELECT 'Suzy Slane', TIMESTAMP '2016-10-18 3:06:24+00', 'F35-39'
+  UNION ALL SELECT 'Jen Edwards', TIMESTAMP '2016-10-18 3:06:36+00', 'F30-34'
+  UNION ALL SELECT 'Meghan Lederer', TIMESTAMP '2016-10-18 3:07:41+00', 'F30-34'
+  UNION ALL SELECT 'Carly Forte', TIMESTAMP '2016-10-18 3:08:58+00', 'F25-29'
+  UNION ALL SELECT 'Lauren Reasoner', TIMESTAMP '2016-10-18 3:10:14+00', 'F30-34')
+SELECT name,
+  FORMAT_TIMESTAMP('%X', finish_time) AS finish_time,
+  division,
+  LEAD(name)
+    OVER (PARTITION BY division ORDER BY finish_time ASC) AS followed_by
+FROM finishers`,
+			expectedRows: [][]interface{}{
+				{"Carly Forte", "03:08:58", "F25-29", nil},
+				{"Sophia Liu", "02:51:45", "F30-34", "Nikki Leith"},
+				{"Nikki Leith", "02:59:01", "F30-34", "Jen Edwards"},
+				{"Jen Edwards", "03:06:36", "F30-34", "Meghan Lederer"},
+				{"Meghan Lederer", "03:07:41", "F30-34", "Lauren Reasoner"},
+				{"Lauren Reasoner", "03:10:14", "F30-34", nil},
+				{"Lisa Stelzner", "02:54:11", "F35-39", "Lauren Matthews"},
+				{"Lauren Matthews", "03:01:17", "F35-39", "Desiree Berry"},
+				{"Desiree Berry", "03:05:42", "F35-39", "Suzy Slane"},
+				{"Suzy Slane", "03:06:24", "F35-39", nil},
+			},
+		},
+		{
+			name: `lead with offset`,
+			query: `
+WITH finishers AS
+ (SELECT 'Sophia Liu' as name,
+  TIMESTAMP '2016-10-18 2:51:45+00' as finish_time,
+  'F30-34' as division
+  UNION ALL SELECT 'Lisa Stelzner', TIMESTAMP '2016-10-18 2:54:11+00', 'F35-39'
+  UNION ALL SELECT 'Nikki Leith', TIMESTAMP '2016-10-18 2:59:01+00', 'F30-34'
+  UNION ALL SELECT 'Lauren Matthews', TIMESTAMP '2016-10-18 3:01:17+00', 'F35-39'
+  UNION ALL SELECT 'Desiree Berry', TIMESTAMP '2016-10-18 3:05:42+00', 'F35-39'
+  UNION ALL SELECT 'Suzy Slane', TIMESTAMP '2016-10-18 3:06:24+00', 'F35-39'
+  UNION ALL SELECT 'Jen Edwards', TIMESTAMP '2016-10-18 3:06:36+00', 'F30-34'
+  UNION ALL SELECT 'Meghan Lederer', TIMESTAMP '2016-10-18 3:07:41+00', 'F30-34'
+  UNION ALL SELECT 'Carly Forte', TIMESTAMP '2016-10-18 3:08:58+00', 'F25-29'
+  UNION ALL SELECT 'Lauren Reasoner', TIMESTAMP '2016-10-18 3:10:14+00', 'F30-34')
+SELECT name,
+  FORMAT_TIMESTAMP('%X', finish_time) AS finish_time,
+  division,
+  LEAD(name, 2)
+    OVER (PARTITION BY division ORDER BY finish_time ASC) AS two_runners_back
+FROM finishers`,
+			expectedRows: [][]interface{}{
+				{"Carly Forte", "03:08:58", "F25-29", nil},
+				{"Sophia Liu", "02:51:45", "F30-34", "Jen Edwards"},
+				{"Nikki Leith", "02:59:01", "F30-34", "Meghan Lederer"},
+				{"Jen Edwards", "03:06:36", "F30-34", "Lauren Reasoner"},
+				{"Meghan Lederer", "03:07:41", "F30-34", nil},
+				{"Lauren Reasoner", "03:10:14", "F30-34", nil},
+				{"Lisa Stelzner", "02:54:11", "F35-39", "Desiree Berry"},
+				{"Lauren Matthews", "03:01:17", "F35-39", "Suzy Slane"},
+				{"Desiree Berry", "03:05:42", "F35-39", nil},
+				{"Suzy Slane", "03:06:24", "F35-39", nil},
+			},
+		},
+		{
+			name: `lead with default`,
+			query: `
+WITH finishers AS
+ (SELECT 'Sophia Liu' as name,
+  TIMESTAMP '2016-10-18 2:51:45+00' as finish_time,
+  'F30-34' as division
+  UNION ALL SELECT 'Lisa Stelzner', TIMESTAMP '2016-10-18 2:54:11+00', 'F35-39'
+  UNION ALL SELECT 'Nikki Leith', TIMESTAMP '2016-10-18 2:59:01+00', 'F30-34'
+  UNION ALL SELECT 'Lauren Matthews', TIMESTAMP '2016-10-18 3:01:17+00', 'F35-39'
+  UNION ALL SELECT 'Desiree Berry', TIMESTAMP '2016-10-18 3:05:42+00', 'F35-39'
+  UNION ALL SELECT 'Suzy Slane', TIMESTAMP '2016-10-18 3:06:24+00', 'F35-39'
+  UNION ALL SELECT 'Jen Edwards', TIMESTAMP '2016-10-18 3:06:36+00', 'F30-34'
+  UNION ALL SELECT 'Meghan Lederer', TIMESTAMP '2016-10-18 3:07:41+00', 'F30-34'
+  UNION ALL SELECT 'Carly Forte', TIMESTAMP '2016-10-18 3:08:58+00', 'F25-29'
+  UNION ALL SELECT 'Lauren Reasoner', TIMESTAMP '2016-10-18 3:10:14+00', 'F30-34')
+SELECT name,
+  FORMAT_TIMESTAMP('%X', finish_time) AS finish_time,
+  division,
+  LEAD(name, 2, 'Nobody')
+    OVER (PARTITION BY division ORDER BY finish_time ASC) AS two_runners_back
+FROM finishers`,
+			expectedRows: [][]interface{}{
+				{"Carly Forte", "03:08:58", "F25-29", "Nobody"},
+				{"Sophia Liu", "02:51:45", "F30-34", "Jen Edwards"},
+				{"Nikki Leith", "02:59:01", "F30-34", "Meghan Lederer"},
+				{"Jen Edwards", "03:06:36", "F30-34", "Lauren Reasoner"},
+				{"Meghan Lederer", "03:07:41", "F30-34", "Nobody"},
+				{"Lauren Reasoner", "03:10:14", "F30-34", "Nobody"},
+				{"Lisa Stelzner", "02:54:11", "F35-39", "Desiree Berry"},
+				{"Lauren Matthews", "03:01:17", "F35-39", "Suzy Slane"},
+				{"Desiree Berry", "03:05:42", "F35-39", "Nobody"},
+				{"Suzy Slane", "03:06:24", "F35-39", "Nobody"},
+			},
+		},
+		{
+			name: `percentile_cont`,
+			query: `
+SELECT
+  PERCENTILE_CONT(x, 0) OVER() AS min,
+  PERCENTILE_CONT(x, 0.01) OVER() AS percentile1,
+  PERCENTILE_CONT(x, 0.5) OVER() AS median,
+  PERCENTILE_CONT(x, 0.9) OVER() AS percentile90,
+  PERCENTILE_CONT(x, 1) OVER() AS max
+FROM UNNEST([0, 3, NULL, 1, 2]) AS x LIMIT 1`,
+			expectedRows: [][]interface{}{
+				{float64(0), float64(0.03), float64(1.5), float64(2.7), float64(3)},
+			},
+		},
+		// TODO: support RESPECT NULLS
+		//		{
+		//			name: `percentile_cont with respect nulls`,
+		//			query: `
+		//SELECT
+		//  PERCENTILE_CONT(x, 0 RESPECT NULLS) OVER() AS min,
+		//  PERCENTILE_CONT(x, 0.01 RESPECT NULLS) OVER() AS percentile1,
+		//  PERCENTILE_CONT(x, 0.5 RESPECT NULLS) OVER() AS median,
+		//  PERCENTILE_CONT(x, 0.9 RESPECT NULLS) OVER() AS percentile90,
+		//  PERCENTILE_CONT(x, 1 RESPECT NULLS) OVER() AS max
+		//FROM UNNEST([0, 3, NULL, 1, 2]) AS x LIMIT 1`,
+		//			expectedRows: [][]interface{}{
+		//				{nil, float64(0), float64(1), float64(2.6), float64(3)},
+		//			},
+		//		},
+		{
+			name: `percentile_disc`,
+			query: `
+SELECT
+  x,
+  PERCENTILE_DISC(x, 0) OVER() AS min,
+  PERCENTILE_DISC(x, 0.5) OVER() AS median,
+  PERCENTILE_DISC(x, 1) OVER() AS max
+FROM UNNEST(['c', NULL, 'b', 'a']) AS x`,
+			expectedRows: [][]interface{}{
+				{nil, "a", "b", "c"},
+				{"a", "a", "b", "c"},
+				{"b", "a", "b", "c"},
+				{"c", "a", "b", "c"},
+			},
+		},
+		{
+			name: `percentile_disc with respect nulls`,
+			query: `
+SELECT
+  x,
+  PERCENTILE_DISC(x, 0 RESPECT NULLS) OVER() AS min,
+  PERCENTILE_DISC(x, 0.5 RESPECT NULLS) OVER() AS median,
+  PERCENTILE_DISC(x, 1 RESPECT NULLS) OVER() AS max
+FROM UNNEST(['c', NULL, 'b', 'a']) AS x`,
+			expectedRows: [][]interface{}{
+				{nil, nil, "a", "c"},
+				{"a", nil, "a", "c"},
+				{"b", nil, "a", "c"},
+				{"c", nil, "a", "c"},
+			},
+		},
+
+		{
 			name: "window range",
 			query: `
 WITH Farm AS
@@ -1171,6 +1689,97 @@ FROM finishers
 				{"Lauren Matthews", createTimestampFormatFromString("2016-10-18 10:01:17+00"), "F35-39", int64(2)},
 				{"Desiree Berry", createTimestampFormatFromString("2016-10-18 10:05:42+00"), "F35-39", int64(3)},
 				{"Suzy Slane", createTimestampFormatFromString("2016-10-18 10:06:24+00"), "F35-39", int64(4)},
+			},
+		},
+		{
+			name: "percent_rank",
+			query: `
+WITH finishers AS
+ (SELECT 'Sophia Liu' as name,
+  TIMESTAMP '2016-10-18 2:51:45+00' as finish_time,
+  'F30-34' as division
+  UNION ALL SELECT 'Lisa Stelzner', TIMESTAMP '2016-10-18 2:54:11+00', 'F35-39'
+  UNION ALL SELECT 'Nikki Leith', TIMESTAMP '2016-10-18 2:59:01+00', 'F30-34'
+  UNION ALL SELECT 'Lauren Matthews', TIMESTAMP '2016-10-18 3:01:17+00', 'F35-39'
+  UNION ALL SELECT 'Desiree Berry', TIMESTAMP '2016-10-18 3:05:42+00', 'F35-39'
+  UNION ALL SELECT 'Suzy Slane', TIMESTAMP '2016-10-18 3:06:24+00', 'F35-39'
+  UNION ALL SELECT 'Jen Edwards', TIMESTAMP '2016-10-18 3:06:36+00', 'F30-34'
+  UNION ALL SELECT 'Meghan Lederer', TIMESTAMP '2016-10-18 2:59:01+00', 'F30-34')
+SELECT name,
+  FORMAT_TIMESTAMP('%X', finish_time) AS finish_time,
+  division,
+  PERCENT_RANK() OVER (PARTITION BY division ORDER BY finish_time ASC) AS finish_rank
+FROM finishers`,
+			expectedRows: [][]interface{}{
+				{"Sophia Liu", "02:51:45", "F30-34", float64(0)},
+				{"Nikki Leith", "02:59:01", "F30-34", float64(0.33333333333333331)},
+				{"Meghan Lederer", "02:59:01", "F30-34", float64(0.33333333333333331)},
+				{"Jen Edwards", "03:06:36", "F30-34", float64(1)},
+				{"Lisa Stelzner", "02:54:11", "F35-39", float64(0)},
+				{"Lauren Matthews", "03:01:17", "F35-39", float64(0.33333333333333331)},
+				{"Desiree Berry", "03:05:42", "F35-39", float64(0.66666666666666663)},
+				{"Suzy Slane", "03:06:24", "F35-39", float64(1)},
+			},
+		},
+		{
+			name: "cume_dist",
+			query: `
+WITH finishers AS
+ (SELECT 'Sophia Liu' as name,
+  TIMESTAMP '2016-10-18 2:51:45+00' as finish_time,
+  'F30-34' as division
+  UNION ALL SELECT 'Lisa Stelzner', TIMESTAMP '2016-10-18 2:54:11+00', 'F35-39'
+  UNION ALL SELECT 'Nikki Leith', TIMESTAMP '2016-10-18 2:59:01+00', 'F30-34'
+  UNION ALL SELECT 'Lauren Matthews', TIMESTAMP '2016-10-18 3:01:17+00', 'F35-39'
+  UNION ALL SELECT 'Desiree Berry', TIMESTAMP '2016-10-18 3:05:42+00', 'F35-39'
+  UNION ALL SELECT 'Suzy Slane', TIMESTAMP '2016-10-18 3:06:24+00', 'F35-39'
+  UNION ALL SELECT 'Jen Edwards', TIMESTAMP '2016-10-18 3:06:36+00', 'F30-34'
+  UNION ALL SELECT 'Meghan Lederer', TIMESTAMP '2016-10-18 2:59:01+00', 'F30-34')
+SELECT name,
+  FORMAT_TIMESTAMP('%X', finish_time) AS finish_time,
+  division,
+  CUME_DIST() OVER (PARTITION BY division ORDER BY finish_time ASC) AS finish_rank
+FROM finishers`,
+			expectedRows: [][]interface{}{
+				{"Sophia Liu", "02:51:45", "F30-34", float64(0.25)},
+				// FIXME: care same ordered value.
+				{"Nikki Leith", "02:59:01", "F30-34", float64(0.5)},
+				{"Meghan Lederer", "02:59:01", "F30-34", float64(0.75)},
+				{"Jen Edwards", "03:06:36", "F30-34", float64(1)},
+				{"Lisa Stelzner", "02:54:11", "F35-39", float64(0.25)},
+				{"Lauren Matthews", "03:01:17", "F35-39", float64(0.5)},
+				{"Desiree Berry", "03:05:42", "F35-39", float64(0.75)},
+				{"Suzy Slane", "03:06:24", "F35-39", float64(1)},
+			},
+		},
+		{
+			name: "ntile",
+			query: `
+WITH finishers AS
+ (SELECT 'Sophia Liu' as name,
+  TIMESTAMP '2016-10-18 2:51:45+00' as finish_time,
+  'F30-34' as division
+  UNION ALL SELECT 'Lisa Stelzner', TIMESTAMP '2016-10-18 2:54:11+00', 'F35-39'
+  UNION ALL SELECT 'Nikki Leith', TIMESTAMP '2016-10-18 2:59:01+00', 'F30-34'
+  UNION ALL SELECT 'Lauren Matthews', TIMESTAMP '2016-10-18 3:01:17+00', 'F35-39'
+  UNION ALL SELECT 'Desiree Berry', TIMESTAMP '2016-10-18 3:05:42+00', 'F35-39'
+  UNION ALL SELECT 'Suzy Slane', TIMESTAMP '2016-10-18 3:06:24+00', 'F35-39'
+  UNION ALL SELECT 'Jen Edwards', TIMESTAMP '2016-10-18 3:06:36+00', 'F30-34'
+  UNION ALL SELECT 'Meghan Lederer', TIMESTAMP '2016-10-18 2:59:00+00', 'F30-34')
+SELECT name,
+  FORMAT_TIMESTAMP('%X', finish_time) AS finish_time,
+  division,
+  NTILE(3) OVER (PARTITION BY division ORDER BY finish_time ASC) AS finish_rank
+FROM finishers`,
+			expectedRows: [][]interface{}{
+				{"Sophia Liu", "02:51:45", "F30-34", int64(1)},
+				{"Meghan Lederer", "02:59:00", "F30-34", int64(1)},
+				{"Nikki Leith", "02:59:01", "F30-34", int64(2)},
+				{"Jen Edwards", "03:06:36", "F30-34", int64(3)},
+				{"Lisa Stelzner", "02:54:11", "F35-39", int64(1)},
+				{"Lauren Matthews", "03:01:17", "F35-39", int64(1)},
+				{"Desiree Berry", "03:05:42", "F35-39", int64(2)},
+				{"Suzy Slane", "03:06:24", "F35-39", int64(3)},
 			},
 		},
 		{
@@ -3837,7 +4446,7 @@ FROM
 					t.Fatalf("failed to get columns. expected %d but got %d", len(expectedRow), len(derefArgs))
 				}
 				if diff := cmp.Diff(expectedRow, derefArgs, floatCmpOpt); diff != "" {
-					t.Errorf("(-want +got):\n%s", diff)
+					t.Errorf("[%d]: (-want +got):\n%s", rowNum, diff)
 				}
 				rowNum++
 			}

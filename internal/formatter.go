@@ -366,6 +366,12 @@ func (n *AnalyticFunctionCallNode) FormatSQL(ctx context.Context) (string, error
 	if n.node.Distinct() {
 		opts = append(opts, "zetasqlite_distinct()")
 	}
+	switch n.node.NullHandlingModifier() {
+	case ast.RespectNulls:
+		// do nothing
+	default:
+		opts = append(opts, "zetasqlite_ignore_nulls()")
+	}
 	args = append(args, opts...)
 	for _, column := range analyticPartitionColumnNamesFromContext(ctx) {
 		args = append(args, getWindowPartitionOptionFuncSQL(column))

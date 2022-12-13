@@ -347,6 +347,7 @@ type WindowFuncAggregatedStatus struct {
 	PartitionedValues    []*PartitionedValue
 	Values               []*WindowOrderedValue
 	SortedValues         []*WindowOrderedValue
+	opt                  *AggregatorOption
 }
 
 func newWindowFuncAggregatedStatus() *WindowFuncAggregatedStatus {
@@ -411,11 +412,23 @@ func (s *WindowFuncAggregatedStatus) Done(cb func([]Value, int, int) error) erro
 			isAsc := sortedValues[0].OrderBy[orderBy].IsAsc
 			if isAsc {
 				sort.Slice(sortedValues, func(i, j int) bool {
+					if sortedValues[i].OrderBy[orderBy].Value == nil {
+						return true
+					}
+					if sortedValues[j].OrderBy[orderBy].Value == nil {
+						return false
+					}
 					cond, _ := sortedValues[i].OrderBy[orderBy].Value.LT(sortedValues[j].OrderBy[orderBy].Value)
 					return cond
 				})
 			} else {
 				sort.Slice(sortedValues, func(i, j int) bool {
+					if sortedValues[i].OrderBy[orderBy].Value == nil {
+						return true
+					}
+					if sortedValues[j].OrderBy[orderBy].Value == nil {
+						return false
+					}
 					cond, _ := sortedValues[i].OrderBy[orderBy].Value.GT(sortedValues[j].OrderBy[orderBy].Value)
 					return cond
 				})
@@ -445,6 +458,14 @@ func (s *WindowFuncAggregatedStatus) Done(cb func([]Value, int, int) error) erro
 		end = len(resultValues) - 1
 	}
 	return cb(resultValues, start, end)
+}
+
+func (s *WindowFuncAggregatedStatus) IgnoreNulls() bool {
+	return s.opt.IgnoreNulls
+}
+
+func (s *WindowFuncAggregatedStatus) Distinct() bool {
+	return s.opt.Distinct
 }
 
 func (s *WindowFuncAggregatedStatus) FilteredValues() []*WindowOrderedValue {
@@ -529,7 +550,7 @@ func (s *WindowFuncAggregatedStatus) getIndexFromBoundaryByRange(boundary *Windo
 		if err != nil {
 			return 0, err
 		}
-		return s.lookupMinIndexFromRangeValue(value)
+		return s.lookupMaxIndexFromRangeValue(value)
 	case WindowOffsetPrecedingType:
 		value, err := s.currentRangeValue()
 		if err != nil {

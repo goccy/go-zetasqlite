@@ -43,6 +43,7 @@ func newAnalyzerOptions() *zetasql.AnalyzerOptions {
 		zetasql.FeatureTimestampNanos,
 		zetasql.FeatureV11HavingInAggregate,
 		zetasql.FeatureV11NullHandlingModifierInAggregate,
+		zetasql.FeatureV11NullHandlingModifierInAnalytic,
 		zetasql.FeatureV11OrderByCollate,
 		zetasql.FeatureV11SelectStarExceptReplace,
 		zetasql.FeatureV12SafeFunctionCall,

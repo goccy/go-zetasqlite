@@ -264,9 +264,12 @@ var normalFuncs = []*FuncInfo{
 }
 
 var aggregateFuncs = []*AggregateFuncInfo{
+	{Name: "array", BindFunc: bindArray},
+
+	// aggregate functions
+	{Name: "any_value", BindFunc: bindAnyValue},
 	{Name: "array_agg", BindFunc: bindArrayAgg},
 	{Name: "array_concat_agg", BindFunc: bindArrayConcatAgg},
-	{Name: "sum", BindFunc: bindSum},
 	{Name: "avg", BindFunc: bindAvg},
 	{Name: "count", BindFunc: bindCount},
 	{Name: "count_star", BindFunc: bindCountStar},
@@ -279,33 +282,66 @@ var aggregateFuncs = []*AggregateFuncInfo{
 	{Name: "max", BindFunc: bindMax},
 	{Name: "min", BindFunc: bindMin},
 	{Name: "string_agg", BindFunc: bindStringAgg},
-	{Name: "array", BindFunc: bindArray},
+	{Name: "sum", BindFunc: bindSum},
+
+	// statistical aggregate functions
+	{Name: "corr", BindFunc: bindCorr},
+	{Name: "covar_pop", BindFunc: bindCovarPop},
+	{Name: "covar_samp", BindFunc: bindCovarSamp},
+	{Name: "stddev_pop", BindFunc: bindStddevPop},
+	{Name: "stddev_samp", BindFunc: bindStddevSamp},
+	{Name: "stddev", BindFunc: bindStddev},
+	{Name: "var_pop", BindFunc: bindVarPop},
+	{Name: "var_samp", BindFunc: bindVarSamp},
+	{Name: "variance", BindFunc: bindVariance},
+
+	// approximate aggregate functions
+	{Name: "approx_count_distinct", BindFunc: bindApproxCountDistinct},
+	{Name: "approx_quantiles", BindFunc: bindApproxQuantiles},
+	{Name: "approx_top_count", BindFunc: bindApproxTopCount},
+	{Name: "approx_top_sum", BindFunc: bindApproxTopSum},
 }
 
 var windowFuncs = []*WindowFuncInfo{
-	{Name: "sum", BindFunc: bindWindowSum},
-	{Name: "max", BindFunc: bindWindowMax},
-	{Name: "min", BindFunc: bindWindowMin},
+	// aggregate functions
+	{Name: "any_value", BindFunc: bindWindowAnyValue},
+	{Name: "array_agg", BindFunc: bindWindowArrayAgg},
+	{Name: "avg", BindFunc: bindWindowAvg},
 	{Name: "count", BindFunc: bindWindowCount},
 	{Name: "count_star", BindFunc: bindWindowCountStar},
-	{Name: "avg", BindFunc: bindWindowAvg},
-	{Name: "first_value", BindFunc: bindWindowFirstValue},
-	{Name: "last_value", BindFunc: bindWindowLastValue},
-	{Name: "lag", BindFunc: bindWindowLag},
-	{Name: "rank", BindFunc: bindWindowRank},
-	{Name: "dense_rank", BindFunc: bindWindowDenseRank},
-	{Name: "row_number", BindFunc: bindWindowRowNumber},
+	{Name: "countif", BindFunc: bindWindowCountIf},
+	{Name: "max", BindFunc: bindWindowMax},
+	{Name: "min", BindFunc: bindWindowMin},
+	{Name: "string_agg", BindFunc: bindWindowStringAgg},
+	{Name: "sum", BindFunc: bindWindowSum},
 
 	// statistical aggregate functions
 	{Name: "corr", BindFunc: bindWindowCorr},
 	{Name: "covar_pop", BindFunc: bindWindowCovarPop},
 	{Name: "covar_samp", BindFunc: bindWindowCovarSamp},
-	{Name: "stddev_pop", BindFunc: bindWindowStdDevPop},
-	{Name: "stddev_samp", BindFunc: bindWindowStdDevSamp},
-	{Name: "stddev", BindFunc: bindWindowStdDev},
+	{Name: "stddev_pop", BindFunc: bindWindowStddevPop},
+	{Name: "stddev_samp", BindFunc: bindWindowStddevSamp},
+	{Name: "stddev", BindFunc: bindWindowStddev},
 	{Name: "var_pop", BindFunc: bindWindowVarPop},
 	{Name: "var_samp", BindFunc: bindWindowVarSamp},
 	{Name: "variance", BindFunc: bindWindowVariance},
+
+	// navigation functions
+	{Name: "first_value", BindFunc: bindWindowFirstValue},
+	{Name: "last_value", BindFunc: bindWindowLastValue},
+	{Name: "nth_value", BindFunc: bindWindowNthValue},
+	{Name: "lead", BindFunc: bindWindowLead},
+	{Name: "lag", BindFunc: bindWindowLag},
+	{Name: "percentile_cont", BindFunc: bindWindowPercentileCont},
+	{Name: "percentile_disc", BindFunc: bindWindowPercentileDisc},
+
+	// numbering functions
+	{Name: "rank", BindFunc: bindWindowRank},
+	{Name: "dense_rank", BindFunc: bindWindowDenseRank},
+	{Name: "percent_rank", BindFunc: bindWindowPercentRank},
+	{Name: "cume_dist", BindFunc: bindWindowCumeDist},
+	{Name: "ntile", BindFunc: bindWindowNtile},
+	{Name: "row_number", BindFunc: bindWindowRowNumber},
 }
 
 type NameAndFunc struct {
