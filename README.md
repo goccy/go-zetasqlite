@@ -356,10 +356,10 @@ A list of ZetaSQL ( Google Standard SQL ) specifications and features supported 
 
 ### Approximate aggregate functions
 
-- [ ] APPROX_COUNT_DISTINCT
-- [ ] APPROX_QUANTILES
-- [ ] APPROX_TOP_COUNT
-- [ ] APPROX_TOP_SUM
+- [x] APPROX_COUNT_DISTINCT
+- [x] APPROX_QUANTILES
+- [x] APPROX_TOP_COUNT
+- [x] APPROX_TOP_SUM
 
 ### HyperLogLog++ functions
 
@@ -372,9 +372,9 @@ A list of ZetaSQL ( Google Standard SQL ) specifications and features supported 
 
 - [x] RANK
 - [x] DENSE_RANK
-- [ ] PERCENT_RANK
-- [ ] CUME_DIST
-- [ ] NTILE
+- [x] PERCENT_RANK
+- [x] CUME_DIST
+- [x] NTILE
 - [x] ROW_NUMBER
 
 ### Bit functions
@@ -450,11 +450,11 @@ A list of ZetaSQL ( Google Standard SQL ) specifications and features supported 
 
 - [x] FIRST_VALUE
 - [x] LAST_VALUE
-- [ ] NTH_VALUE
-- [ ] LEAD
+- [x] NTH_VALUE
+- [x] LEAD
 - [x] LAG
-- [ ] PERCENTILE_CONT
-- [ ] PERCENTILE_DISC
+- [x] PERCENTILE_CONT
+- [x] PERCENTILE_DISC
 
 ### Hash functions
 

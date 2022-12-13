@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/goccy/go-json"
 )
@@ -49,6 +50,7 @@ func convertArgs(args ...interface{}) ([]Value, error) {
 
 type Aggregator struct {
 	distinctMap map[string]struct{}
+	distinctNil bool
 	step        func([]Value, *AggregatorOption) error
 	done        func() (Value, error)
 }
@@ -80,17 +82,20 @@ func (a *Aggregator) Step(stepArgs ...interface{}) error {
 			return fmt.Errorf("DISTINCT option required at least one argument")
 		}
 		if values[0] == nil {
-			// if value is nil, ignore it.
-			return nil
+			if a.distinctNil {
+				return nil
+			}
+			a.distinctNil = true
+		} else {
+			key, err := values[0].ToString()
+			if err != nil {
+				return err
+			}
+			if _, exists := a.distinctMap[key]; exists {
+				return nil
+			}
+			a.distinctMap[key] = struct{}{}
 		}
-		key, err := values[0].ToString()
-		if err != nil {
-			return err
-		}
-		if _, exists := a.distinctMap[key]; exists {
-			return nil
-		}
-		a.distinctMap[key] = struct{}{}
 	}
 	return a.step(values, opt)
 }
@@ -116,8 +121,9 @@ func newAggregator(
 type WindowAggregator struct {
 	distinctMap map[string]struct{}
 	agg         *WindowFuncAggregatedStatus
-	step        func([]Value, *AggregatorOption, *WindowFuncStatus, *WindowFuncAggregatedStatus) error
+	step        func([]Value, *WindowFuncStatus, *WindowFuncAggregatedStatus) error
 	done        func(*WindowFuncAggregatedStatus) (Value, error)
+	once        sync.Once
 }
 
 func (a *WindowAggregator) Step(stepArgs ...interface{}) error {
@@ -133,30 +139,10 @@ func (a *WindowAggregator) Step(stepArgs ...interface{}) error {
 	if err != nil {
 		return err
 	}
-	if opt.IgnoreNulls {
-		filtered := []Value{}
-		for _, v := range values {
-			if v == nil {
-				continue
-			}
-			filtered = append(filtered, v)
-		}
-		values = filtered
-	}
-	if opt.Distinct {
-		if len(values) < 1 {
-			return fmt.Errorf("DISTINCT option required at least one argument")
-		}
-		key, err := values[0].ToString()
-		if err != nil {
-			return err
-		}
-		if _, exists := a.distinctMap[key]; exists {
-			return nil
-		}
-		a.distinctMap[key] = struct{}{}
-	}
-	return a.step(values, opt, windowOpt, a.agg)
+	a.once.Do(func() {
+		a.agg.opt = opt
+	})
+	return a.step(values, windowOpt, a.agg)
 }
 
 func (a *WindowAggregator) Done() (interface{}, error) {
@@ -168,7 +154,7 @@ func (a *WindowAggregator) Done() (interface{}, error) {
 }
 
 func newWindowAggregator(
-	step func([]Value, *AggregatorOption, *WindowFuncStatus, *WindowFuncAggregatedStatus) error,
+	step func([]Value, *WindowFuncStatus, *WindowFuncAggregatedStatus) error,
 	done func(*WindowFuncAggregatedStatus) (Value, error)) *WindowAggregator {
 	return &WindowAggregator{
 		distinctMap: map[string]struct{}{},
@@ -1511,271 +1497,277 @@ func bindJsonType(args ...Value) (Value, error) {
 }
 
 func bindAbs(args ...Value) (Value, error) {
-	if len(args) != 1 {
-		return nil, fmt.Errorf("ABS: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return ABS(args[0])
 }
 
 func bindSign(args ...Value) (Value, error) {
-	if len(args) != 1 {
-		return nil, fmt.Errorf("SIGN: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return SIGN(args[0])
 }
 
 func bindIsInf(args ...Value) (Value, error) {
-	if len(args) != 1 {
-		return nil, fmt.Errorf("IS_INF: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return IS_INF(args[0])
 }
 
 func bindIsNaN(args ...Value) (Value, error) {
-	if len(args) != 1 {
-		return nil, fmt.Errorf("IS_NAN: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return IS_NAN(args[0])
 }
 
 func bindIEEEDivide(args ...Value) (Value, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf("IEEE_DIVIDE: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return IEEE_DIVIDE(args[0], args[1])
 }
 
 func bindRand(args ...Value) (Value, error) {
-	if len(args) != 0 {
-		return nil, fmt.Errorf("RAND: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return RAND()
 }
 
 func bindSqrt(args ...Value) (Value, error) {
-	if len(args) != 1 {
-		return nil, fmt.Errorf("SQRT: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return SQRT(args[0])
 }
 
 func bindPow(args ...Value) (Value, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf("POW(ER): invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return POW(args[0], args[1])
 }
 
 func bindExp(args ...Value) (Value, error) {
-	if len(args) != 1 {
-		return nil, fmt.Errorf("EXP: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return EXP(args[0])
 }
 
 func bindLn(args ...Value) (Value, error) {
-	if len(args) != 1 {
-		return nil, fmt.Errorf("LN: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return LN(args[0])
 }
 
 func bindLog(args ...Value) (Value, error) {
+	if existsNull(args) {
+		return nil, nil
+	}
 	if len(args) == 1 {
 		return LN(args[0])
-	}
-	if len(args) != 2 {
-		return nil, fmt.Errorf("LOG: invalid argument num %d", len(args))
 	}
 	return LOG(args[0], args[1])
 }
 
 func bindLog10(args ...Value) (Value, error) {
-	if len(args) != 1 {
-		return nil, fmt.Errorf("LOG10: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return LOG10(args[0])
 }
 
 func bindGreatest(args ...Value) (Value, error) {
+	if existsNull(args) {
+		return nil, nil
+	}
 	return GREATEST(args...)
 }
 
 func bindLeast(args ...Value) (Value, error) {
+	if existsNull(args) {
+		return nil, nil
+	}
 	return LEAST(args...)
 }
 
 func bindDiv(args ...Value) (Value, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf("DIV: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return DIV(args[0], args[1])
 }
 
 func bindSafeDivide(args ...Value) (Value, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf("SAFE_DIVIDE: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return SAFE_DIVIDE(args[0], args[1])
 }
 
 func bindSafeMultiply(args ...Value) (Value, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf("SAFE_MULTIPLY: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return SAFE_MULTIPLY(args[0], args[1])
 }
 
 func bindSafeNegate(args ...Value) (Value, error) {
-	if len(args) != 1 {
-		return nil, fmt.Errorf("SAFE_NEGATE: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return SAFE_NEGATE(args[0])
 }
 
 func bindSafeAdd(args ...Value) (Value, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf("SAFE_ADD: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return SAFE_ADD(args[0], args[1])
 }
 
 func bindSafeSubtract(args ...Value) (Value, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf("SAFE_SUBTRACT: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return SAFE_SUBTRACT(args[0], args[1])
 }
 
 func bindMod(args ...Value) (Value, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf("MOD: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return MOD(args[0], args[1])
 }
 
 func bindRound(args ...Value) (Value, error) {
-	if len(args) != 1 {
-		return nil, fmt.Errorf("ROUND: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return ROUND(args[0])
 }
 
 func bindTrunc(args ...Value) (Value, error) {
-	if len(args) != 1 {
-		return nil, fmt.Errorf("TRUNC: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return TRUNC(args[0])
 }
 
 func bindCeil(args ...Value) (Value, error) {
-	if len(args) != 1 {
-		return nil, fmt.Errorf("CEIL(ING): invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return CEIL(args[0])
 }
 
 func bindFloor(args ...Value) (Value, error) {
-	if len(args) != 1 {
-		return nil, fmt.Errorf("FLOOR: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return FLOOR(args[0])
 }
 
 func bindCos(args ...Value) (Value, error) {
-	if len(args) != 1 {
-		return nil, fmt.Errorf("COS: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return COS(args[0])
 }
 
 func bindCosh(args ...Value) (Value, error) {
-	if len(args) != 1 {
-		return nil, fmt.Errorf("COSH: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return COSH(args[0])
 }
 
 func bindAcos(args ...Value) (Value, error) {
-	if len(args) != 1 {
-		return nil, fmt.Errorf("ACOS: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return ACOS(args[0])
 }
 
 func bindAcosh(args ...Value) (Value, error) {
-	if len(args) != 1 {
-		return nil, fmt.Errorf("ACOSH: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return ACOSH(args[0])
 }
 
 func bindSin(args ...Value) (Value, error) {
-	if len(args) != 1 {
-		return nil, fmt.Errorf("SIN: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return SIN(args[0])
 }
 
 func bindSinh(args ...Value) (Value, error) {
-	if len(args) != 1 {
-		return nil, fmt.Errorf("SINH: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return SINH(args[0])
 }
 
 func bindAsin(args ...Value) (Value, error) {
-	if len(args) != 1 {
-		return nil, fmt.Errorf("ASIN: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return ASIN(args[0])
 }
 
 func bindAsinh(args ...Value) (Value, error) {
-	if len(args) != 1 {
-		return nil, fmt.Errorf("ASINH: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return ASINH(args[0])
 }
 
 func bindTan(args ...Value) (Value, error) {
-	if len(args) != 1 {
-		return nil, fmt.Errorf("TAN: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return TAN(args[0])
 }
 
 func bindTanh(args ...Value) (Value, error) {
-	if len(args) != 1 {
-		return nil, fmt.Errorf("TANH: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return TANH(args[0])
 }
 
 func bindAtan(args ...Value) (Value, error) {
-	if len(args) != 1 {
-		return nil, fmt.Errorf("ATAN: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return ATAN(args[0])
 }
 
 func bindAtanh(args ...Value) (Value, error) {
-	if len(args) != 1 {
-		return nil, fmt.Errorf("ATANH: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return ATANH(args[0])
 }
 
 func bindAtan2(args ...Value) (Value, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf("ATAN2: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	return ATAN2(args[0], args[1])
 }
 
 func bindRangeBucket(args ...Value) (Value, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf("RANGE_BUCKET: invalid argument num %d", len(args))
+	if existsNull(args) {
+		return nil, nil
 	}
 	array, err := args[1].ToArray()
 	if err != nil {
@@ -2861,14 +2853,39 @@ func bindEvalJavaScript(args ...Value) (Value, error) {
 	return EVAL_JAVASCRIPT(code, &typ, names, args[3:])
 }
 
+func bindArray() func() *Aggregator {
+	return func() *Aggregator {
+		fn := &ARRAY{}
+		return newAggregator(
+			func(args []Value, opt *AggregatorOption) error {
+				return fn.Step(args[0], opt)
+			},
+			func() (Value, error) {
+				return fn.Done()
+			},
+		)
+	}
+}
+
+func bindAnyValue() func() *Aggregator {
+	return func() *Aggregator {
+		fn := &ANY_VALUE{}
+		return newAggregator(
+			func(args []Value, opt *AggregatorOption) error {
+				return fn.Step(args[0], opt)
+			},
+			func() (Value, error) {
+				return fn.Done()
+			},
+		)
+	}
+}
+
 func bindArrayAgg() func() *Aggregator {
 	return func() *Aggregator {
 		fn := &ARRAY_AGG{}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
-				if len(args) != 1 {
-					return fmt.Errorf("ARRAY_AGG: invalid argument num %d", len(args))
-				}
 				return fn.Step(args[0], opt)
 			},
 			func() (Value, error) {
@@ -2883,9 +2900,6 @@ func bindArrayConcatAgg() func() *Aggregator {
 		fn := &ARRAY_CONCAT_AGG{}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
-				if len(args) != 1 {
-					return fmt.Errorf("ARRAY_CONCAT_AGG: invalid argument num %d", len(args))
-				}
 				if args[0] == nil {
 					return nil
 				}
@@ -2902,31 +2916,11 @@ func bindArrayConcatAgg() func() *Aggregator {
 	}
 }
 
-func bindSum() func() *Aggregator {
-	return func() *Aggregator {
-		fn := &SUM{}
-		return newAggregator(
-			func(args []Value, opt *AggregatorOption) error {
-				if len(args) != 1 {
-					return fmt.Errorf("SUM: invalid argument num %d", len(args))
-				}
-				return fn.Step(args[0], opt)
-			},
-			func() (Value, error) {
-				return fn.Done()
-			},
-		)
-	}
-}
-
 func bindAvg() func() *Aggregator {
 	return func() *Aggregator {
 		fn := &AVG{}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
-				if len(args) != 1 {
-					return fmt.Errorf("AVG: invalid argument num %d", len(args))
-				}
 				return fn.Step(args[0], opt)
 			},
 			func() (Value, error) {
@@ -2941,9 +2935,6 @@ func bindCount() func() *Aggregator {
 		fn := &COUNT{}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
-				if len(args) != 1 {
-					return fmt.Errorf("COUNT: invalid argument num %d", len(args))
-				}
 				return fn.Step(args[0], opt)
 			},
 			func() (Value, error) {
@@ -2958,9 +2949,6 @@ func bindCountStar() func() *Aggregator {
 		fn := &COUNT_STAR{}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
-				if len(args) != 0 {
-					return fmt.Errorf("COUNT_STAR: invalid argument num %d", len(args))
-				}
 				return fn.Step(opt)
 			},
 			func() (Value, error) {
@@ -2975,9 +2963,6 @@ func bindBitAndAgg() func() *Aggregator {
 		fn := &BIT_AND_AGG{IntValue(-1)}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
-				if len(args) != 1 {
-					return fmt.Errorf("BIT_AND_AGG: invalid argument num %d", len(args))
-				}
 				return fn.Step(args[0], opt)
 			},
 			func() (Value, error) {
@@ -2992,9 +2977,6 @@ func bindBitOrAgg() func() *Aggregator {
 		fn := &BIT_OR_AGG{-1}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
-				if len(args) != 1 {
-					return fmt.Errorf("BIT_OR_AGG: invalid argument num %d", len(args))
-				}
 				return fn.Step(args[0], opt)
 			},
 			func() (Value, error) {
@@ -3009,9 +2991,6 @@ func bindBitXorAgg() func() *Aggregator {
 		fn := &BIT_XOR_AGG{1}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
-				if len(args) != 1 {
-					return fmt.Errorf("BIT_XOR_AGG: invalid argument num %d", len(args))
-				}
 				return fn.Step(args[0], opt)
 			},
 			func() (Value, error) {
@@ -3026,9 +3005,6 @@ func bindCountIf() func() *Aggregator {
 		fn := &COUNTIF{}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
-				if len(args) != 1 {
-					return fmt.Errorf("COUNT_IF: invalid argument num %d", len(args))
-				}
 				return fn.Step(args[0], opt)
 			},
 			func() (Value, error) {
@@ -3043,9 +3019,6 @@ func bindLogicalAnd() func() *Aggregator {
 		fn := &LOGICAL_AND{true}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
-				if len(args) != 1 {
-					return fmt.Errorf("LOGICAL_AND: invalid argument num %d", len(args))
-				}
 				return fn.Step(args[0], opt)
 			},
 			func() (Value, error) {
@@ -3060,9 +3033,6 @@ func bindLogicalOr() func() *Aggregator {
 		fn := &LOGICAL_OR{}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
-				if len(args) != 1 {
-					return fmt.Errorf("LOGICAL_OR: invalid argument num %d", len(args))
-				}
 				return fn.Step(args[0], opt)
 			},
 			func() (Value, error) {
@@ -3077,9 +3047,6 @@ func bindMax() func() *Aggregator {
 		fn := &MAX{}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
-				if len(args) != 1 {
-					return fmt.Errorf("MAX: invalid argument num %d", len(args))
-				}
 				return fn.Step(args[0], opt)
 			},
 			func() (Value, error) {
@@ -3094,9 +3061,6 @@ func bindMin() func() *Aggregator {
 		fn := &MIN{}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
-				if len(args) != 1 {
-					return fmt.Errorf("MIN: invalid argument num %d", len(args))
-				}
 				return fn.Step(args[0], opt)
 			},
 			func() (Value, error) {
@@ -3111,9 +3075,6 @@ func bindStringAgg() func() *Aggregator {
 		fn := &STRING_AGG{}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
-				if len(args) != 1 && len(args) != 2 {
-					return fmt.Errorf("STRING_AGG: invalid argument num %d", len(args))
-				}
 				if len(args) == 1 {
 					return fn.Step(args[0], "", opt)
 				}
@@ -3130,14 +3091,11 @@ func bindStringAgg() func() *Aggregator {
 	}
 }
 
-func bindArray() func() *Aggregator {
+func bindSum() func() *Aggregator {
 	return func() *Aggregator {
-		fn := &ARRAY{}
+		fn := &SUM{}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
-				if len(args) != 1 {
-					return fmt.Errorf("ARRAY: invalid argument num %d", len(args))
-				}
 				return fn.Step(args[0], opt)
 			},
 			func() (Value, error) {
@@ -3147,14 +3105,214 @@ func bindArray() func() *Aggregator {
 	}
 }
 
-func bindWindowSum() func() *WindowAggregator {
-	return func() *WindowAggregator {
-		fn := &WINDOW_SUM{}
-		return newWindowAggregator(
-			func(args []Value, opt *AggregatorOption, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
-				if len(args) != 1 {
-					return fmt.Errorf("WINDOW_SUM: invalid argument num %d", len(args))
+func bindCorr() func() *Aggregator {
+	return func() *Aggregator {
+		fn := &CORR{}
+		return newAggregator(
+			func(args []Value, opt *AggregatorOption) error {
+				return fn.Step(args[0], args[1], opt)
+			},
+			func() (Value, error) {
+				return fn.Done()
+			},
+		)
+	}
+}
+
+func bindCovarPop() func() *Aggregator {
+	return func() *Aggregator {
+		fn := &COVAR_POP{}
+		return newAggregator(
+			func(args []Value, opt *AggregatorOption) error {
+				return fn.Step(args[0], args[1], opt)
+			},
+			func() (Value, error) {
+				return fn.Done()
+			},
+		)
+	}
+}
+
+func bindCovarSamp() func() *Aggregator {
+	return func() *Aggregator {
+		fn := &COVAR_SAMP{}
+		return newAggregator(
+			func(args []Value, opt *AggregatorOption) error {
+				return fn.Step(args[0], args[1], opt)
+			},
+			func() (Value, error) {
+				return fn.Done()
+			},
+		)
+	}
+}
+
+func bindStddevPop() func() *Aggregator {
+	return func() *Aggregator {
+		fn := &STDDEV_POP{}
+		return newAggregator(
+			func(args []Value, opt *AggregatorOption) error {
+				return fn.Step(args[0], opt)
+			},
+			func() (Value, error) {
+				return fn.Done()
+			},
+		)
+	}
+}
+
+func bindStddevSamp() func() *Aggregator {
+	return func() *Aggregator {
+		fn := &STDDEV_SAMP{}
+		return newAggregator(
+			func(args []Value, opt *AggregatorOption) error {
+				return fn.Step(args[0], opt)
+			},
+			func() (Value, error) {
+				return fn.Done()
+			},
+		)
+	}
+}
+
+func bindStddev() func() *Aggregator {
+	return func() *Aggregator {
+		fn := &STDDEV{}
+		return newAggregator(
+			func(args []Value, opt *AggregatorOption) error {
+				return fn.Step(args[0], opt)
+			},
+			func() (Value, error) {
+				return fn.Done()
+			},
+		)
+	}
+}
+
+func bindVarPop() func() *Aggregator {
+	return func() *Aggregator {
+		fn := &VAR_POP{}
+		return newAggregator(
+			func(args []Value, opt *AggregatorOption) error {
+				return fn.Step(args[0], opt)
+			},
+			func() (Value, error) {
+				return fn.Done()
+			},
+		)
+	}
+}
+
+func bindVarSamp() func() *Aggregator {
+	return func() *Aggregator {
+		fn := &VAR_SAMP{}
+		return newAggregator(
+			func(args []Value, opt *AggregatorOption) error {
+				return fn.Step(args[0], opt)
+			},
+			func() (Value, error) {
+				return fn.Done()
+			},
+		)
+	}
+}
+
+func bindVariance() func() *Aggregator {
+	return func() *Aggregator {
+		fn := &VARIANCE{}
+		return newAggregator(
+			func(args []Value, opt *AggregatorOption) error {
+				return fn.Step(args[0], opt)
+			},
+			func() (Value, error) {
+				return fn.Done()
+			},
+		)
+	}
+}
+
+func bindApproxCountDistinct() func() *Aggregator {
+	return func() *Aggregator {
+		fn := &APPROX_COUNT_DISTINCT{}
+		return newAggregator(
+			func(args []Value, opt *AggregatorOption) error {
+				return fn.Step(args[0], opt)
+			},
+			func() (Value, error) {
+				return fn.Done()
+			},
+		)
+	}
+}
+
+func bindApproxQuantiles() func() *Aggregator {
+	return func() *Aggregator {
+		fn := &APPROX_QUANTILES{}
+		return newAggregator(
+			func(args []Value, opt *AggregatorOption) error {
+				if args[1] == nil {
+					return fmt.Errorf("APPROX_QUANTILES: number must be not null")
 				}
+				num, err := args[1].ToInt64()
+				if err != nil {
+					return err
+				}
+				return fn.Step(args[0], num, opt)
+			},
+			func() (Value, error) {
+				return fn.Done()
+			},
+		)
+	}
+}
+
+func bindApproxTopCount() func() *Aggregator {
+	return func() *Aggregator {
+		fn := &APPROX_TOP_COUNT{}
+		return newAggregator(
+			func(args []Value, opt *AggregatorOption) error {
+				if args[1] == nil {
+					return fmt.Errorf("APPROX_TOP_COUNT: number must be not null")
+				}
+				num, err := args[1].ToInt64()
+				if err != nil {
+					return err
+				}
+				return fn.Step(args[0], num, opt)
+			},
+			func() (Value, error) {
+				return fn.Done()
+			},
+		)
+	}
+}
+
+func bindApproxTopSum() func() *Aggregator {
+	return func() *Aggregator {
+		fn := &APPROX_TOP_SUM{}
+		return newAggregator(
+			func(args []Value, opt *AggregatorOption) error {
+				if args[2] == nil {
+					return fmt.Errorf("APPROX_TOP_SUM: number must be not null")
+				}
+				num, err := args[2].ToInt64()
+				if err != nil {
+					return err
+				}
+				return fn.Step(args[0], args[1], num, opt)
+			},
+			func() (Value, error) {
+				return fn.Done()
+			},
+		)
+	}
+}
+
+func bindWindowAnyValue() func() *WindowAggregator {
+	return func() *WindowAggregator {
+		fn := &WINDOW_ANY_VALUE{}
+		return newWindowAggregator(
+			func(args []Value, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
 				return fn.Step(args[0], windowOpt, agg)
 			},
 			func(agg *WindowFuncAggregatedStatus) (Value, error) {
@@ -3164,14 +3322,11 @@ func bindWindowSum() func() *WindowAggregator {
 	}
 }
 
-func bindWindowMax() func() *WindowAggregator {
+func bindWindowArrayAgg() func() *WindowAggregator {
 	return func() *WindowAggregator {
-		fn := &WINDOW_MAX{}
+		fn := &WINDOW_ARRAY_AGG{}
 		return newWindowAggregator(
-			func(args []Value, opt *AggregatorOption, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
-				if len(args) != 1 {
-					return fmt.Errorf("WINDOW_MAX: invalid argument num %d", len(args))
-				}
+			func(args []Value, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
 				return fn.Step(args[0], windowOpt, agg)
 			},
 			func(agg *WindowFuncAggregatedStatus) (Value, error) {
@@ -3181,14 +3336,11 @@ func bindWindowMax() func() *WindowAggregator {
 	}
 }
 
-func bindWindowMin() func() *WindowAggregator {
+func bindWindowAvg() func() *WindowAggregator {
 	return func() *WindowAggregator {
-		fn := &WINDOW_MIN{}
+		fn := &WINDOW_AVG{}
 		return newWindowAggregator(
-			func(args []Value, opt *AggregatorOption, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
-				if len(args) != 1 {
-					return fmt.Errorf("WINDOW_MIN: invalid argument num %d", len(args))
-				}
+			func(args []Value, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
 				return fn.Step(args[0], windowOpt, agg)
 			},
 			func(agg *WindowFuncAggregatedStatus) (Value, error) {
@@ -3202,10 +3354,7 @@ func bindWindowCount() func() *WindowAggregator {
 	return func() *WindowAggregator {
 		fn := &WINDOW_COUNT{}
 		return newWindowAggregator(
-			func(args []Value, opt *AggregatorOption, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
-				if len(args) != 1 {
-					return fmt.Errorf("WINDOW_COUNT: invalid argument num %d", len(args))
-				}
+			func(args []Value, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
 				return fn.Step(args[0], windowOpt, agg)
 			},
 			func(agg *WindowFuncAggregatedStatus) (Value, error) {
@@ -3219,10 +3368,7 @@ func bindWindowCountStar() func() *WindowAggregator {
 	return func() *WindowAggregator {
 		fn := &WINDOW_COUNT_STAR{}
 		return newWindowAggregator(
-			func(args []Value, opt *AggregatorOption, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
-				if len(args) != 0 {
-					return fmt.Errorf("WINDOW_COUNT_STAR: invalid argument num %d", len(args))
-				}
+			func(args []Value, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
 				return fn.Step(windowOpt, agg)
 			},
 			func(agg *WindowFuncAggregatedStatus) (Value, error) {
@@ -3232,14 +3378,201 @@ func bindWindowCountStar() func() *WindowAggregator {
 	}
 }
 
-func bindWindowAvg() func() *WindowAggregator {
+func bindWindowCountIf() func() *WindowAggregator {
 	return func() *WindowAggregator {
-		fn := &WINDOW_AVG{}
+		fn := &WINDOW_COUNTIF{}
 		return newWindowAggregator(
-			func(args []Value, opt *AggregatorOption, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
-				if len(args) != 1 {
-					return fmt.Errorf("WINDOW_AVG: invalid argument num %d", len(args))
+			func(args []Value, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+				return fn.Step(args[0], windowOpt, agg)
+			},
+			func(agg *WindowFuncAggregatedStatus) (Value, error) {
+				return fn.Done(agg)
+			},
+		)
+	}
+}
+
+func bindWindowMax() func() *WindowAggregator {
+	return func() *WindowAggregator {
+		fn := &WINDOW_MAX{}
+		return newWindowAggregator(
+			func(args []Value, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+				return fn.Step(args[0], windowOpt, agg)
+			},
+			func(agg *WindowFuncAggregatedStatus) (Value, error) {
+				return fn.Done(agg)
+			},
+		)
+	}
+}
+
+func bindWindowMin() func() *WindowAggregator {
+	return func() *WindowAggregator {
+		fn := &WINDOW_MIN{}
+		return newWindowAggregator(
+			func(args []Value, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+				return fn.Step(args[0], windowOpt, agg)
+			},
+			func(agg *WindowFuncAggregatedStatus) (Value, error) {
+				return fn.Done(agg)
+			},
+		)
+	}
+}
+
+func bindWindowStringAgg() func() *WindowAggregator {
+	return func() *WindowAggregator {
+		fn := &WINDOW_STRING_AGG{}
+		return newWindowAggregator(
+			func(args []Value, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+				var delim string
+				if len(args) > 1 {
+					d, err := args[1].ToString()
+					if err != nil {
+						return err
+					}
+					delim = d
 				}
+				return fn.Step(args[0], delim, windowOpt, agg)
+			},
+			func(agg *WindowFuncAggregatedStatus) (Value, error) {
+				return fn.Done(agg)
+			},
+		)
+	}
+}
+
+func bindWindowSum() func() *WindowAggregator {
+	return func() *WindowAggregator {
+		fn := &WINDOW_SUM{}
+		return newWindowAggregator(
+			func(args []Value, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+				return fn.Step(args[0], windowOpt, agg)
+			},
+			func(agg *WindowFuncAggregatedStatus) (Value, error) {
+				return fn.Done(agg)
+			},
+		)
+	}
+}
+
+func bindWindowCorr() func() *WindowAggregator {
+	return func() *WindowAggregator {
+		fn := &WINDOW_CORR{}
+		return newWindowAggregator(
+			func(args []Value, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+				return fn.Step(args[0], args[1], windowOpt, agg)
+			},
+			func(agg *WindowFuncAggregatedStatus) (Value, error) {
+				return fn.Done(agg)
+			},
+		)
+	}
+}
+
+func bindWindowCovarPop() func() *WindowAggregator {
+	return func() *WindowAggregator {
+		fn := &WINDOW_COVAR_POP{}
+		return newWindowAggregator(
+			func(args []Value, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+				return fn.Step(args[0], args[1], windowOpt, agg)
+			},
+			func(agg *WindowFuncAggregatedStatus) (Value, error) {
+				return fn.Done(agg)
+			},
+		)
+	}
+}
+
+func bindWindowCovarSamp() func() *WindowAggregator {
+	return func() *WindowAggregator {
+		fn := &WINDOW_COVAR_SAMP{}
+		return newWindowAggregator(
+			func(args []Value, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+				return fn.Step(args[0], args[1], windowOpt, agg)
+			},
+			func(agg *WindowFuncAggregatedStatus) (Value, error) {
+				return fn.Done(agg)
+			},
+		)
+	}
+}
+
+func bindWindowStddevPop() func() *WindowAggregator {
+	return func() *WindowAggregator {
+		fn := &WINDOW_STDDEV_POP{}
+		return newWindowAggregator(
+			func(args []Value, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+				return fn.Step(args[0], windowOpt, agg)
+			},
+			func(agg *WindowFuncAggregatedStatus) (Value, error) {
+				return fn.Done(agg)
+			},
+		)
+	}
+}
+
+func bindWindowStddevSamp() func() *WindowAggregator {
+	return func() *WindowAggregator {
+		fn := &WINDOW_STDDEV_SAMP{}
+		return newWindowAggregator(
+			func(args []Value, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+				return fn.Step(args[0], windowOpt, agg)
+			},
+			func(agg *WindowFuncAggregatedStatus) (Value, error) {
+				return fn.Done(agg)
+			},
+		)
+	}
+}
+
+func bindWindowStddev() func() *WindowAggregator {
+	return func() *WindowAggregator {
+		fn := &WINDOW_STDDEV{}
+		return newWindowAggregator(
+			func(args []Value, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+				return fn.Step(args[0], windowOpt, agg)
+			},
+			func(agg *WindowFuncAggregatedStatus) (Value, error) {
+				return fn.Done(agg)
+			},
+		)
+	}
+}
+
+func bindWindowVarPop() func() *WindowAggregator {
+	return func() *WindowAggregator {
+		fn := &WINDOW_VAR_POP{}
+		return newWindowAggregator(
+			func(args []Value, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+				return fn.Step(args[0], windowOpt, agg)
+			},
+			func(agg *WindowFuncAggregatedStatus) (Value, error) {
+				return fn.Done(agg)
+			},
+		)
+	}
+}
+
+func bindWindowVarSamp() func() *WindowAggregator {
+	return func() *WindowAggregator {
+		fn := &WINDOW_VAR_SAMP{}
+		return newWindowAggregator(
+			func(args []Value, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+				return fn.Step(args[0], windowOpt, agg)
+			},
+			func(agg *WindowFuncAggregatedStatus) (Value, error) {
+				return fn.Done(agg)
+			},
+		)
+	}
+}
+
+func bindWindowVariance() func() *WindowAggregator {
+	return func() *WindowAggregator {
+		fn := &WINDOW_VARIANCE{}
+		return newWindowAggregator(
+			func(args []Value, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
 				return fn.Step(args[0], windowOpt, agg)
 			},
 			func(agg *WindowFuncAggregatedStatus) (Value, error) {
@@ -3253,10 +3586,7 @@ func bindWindowFirstValue() func() *WindowAggregator {
 	return func() *WindowAggregator {
 		fn := &WINDOW_FIRST_VALUE{}
 		return newWindowAggregator(
-			func(args []Value, opt *AggregatorOption, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
-				if len(args) != 1 {
-					return fmt.Errorf("WINDOW_FIRST_VALUE: invalid argument num %d", len(args))
-				}
+			func(args []Value, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
 				return fn.Step(args[0], windowOpt, agg)
 			},
 			func(agg *WindowFuncAggregatedStatus) (Value, error) {
@@ -3270,10 +3600,7 @@ func bindWindowLastValue() func() *WindowAggregator {
 	return func() *WindowAggregator {
 		fn := &WINDOW_LAST_VALUE{}
 		return newWindowAggregator(
-			func(args []Value, opt *AggregatorOption, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
-				if len(args) != 1 {
-					return fmt.Errorf("WINDOW_LAST_VALUE: invalid argument num %d", len(args))
-				}
+			func(args []Value, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
 				return fn.Step(args[0], windowOpt, agg)
 			},
 			func(agg *WindowFuncAggregatedStatus) (Value, error) {
@@ -3283,16 +3610,37 @@ func bindWindowLastValue() func() *WindowAggregator {
 	}
 }
 
-func bindWindowLag() func() *WindowAggregator {
+func bindWindowNthValue() func() *WindowAggregator {
 	return func() *WindowAggregator {
-		fn := &WINDOW_LAG{}
+		fn := &WINDOW_NTH_VALUE{}
 		return newWindowAggregator(
-			func(args []Value, opt *AggregatorOption, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
-				if len(args) != 1 && len(args) != 2 && len(args) != 3 {
-					return fmt.Errorf("WINDOW_LAG: invalid argument num %d", len(args))
+			func(args []Value, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+				if args[1] == nil {
+					return fmt.Errorf("NTH_VALUE: constant integer expression must be not null value")
 				}
+				num, err := args[1].ToInt64()
+				if err != nil {
+					return err
+				}
+				return fn.Step(args[0], num, windowOpt, agg)
+			},
+			func(agg *WindowFuncAggregatedStatus) (Value, error) {
+				return fn.Done(agg)
+			},
+		)
+	}
+}
+
+func bindWindowLead() func() *WindowAggregator {
+	return func() *WindowAggregator {
+		fn := &WINDOW_LEAD{}
+		return newWindowAggregator(
+			func(args []Value, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
 				var offset int64 = 1
 				if len(args) >= 2 {
+					if args[1] == nil {
+						return fmt.Errorf("LEAD: offset is must be not null value")
+					}
 					v, err := args[1].ToInt64()
 					if err != nil {
 						return err
@@ -3300,7 +3648,7 @@ func bindWindowLag() func() *WindowAggregator {
 					offset = v
 				}
 				if offset < 0 {
-					return fmt.Errorf("WINDOW_LAG: offset is must be positive value %d", offset)
+					return fmt.Errorf("LEAD: offset is must be positive value %d", offset)
 				}
 				var defaultValue Value
 				if len(args) == 3 {
@@ -3315,14 +3663,71 @@ func bindWindowLag() func() *WindowAggregator {
 	}
 }
 
+func bindWindowLag() func() *WindowAggregator {
+	return func() *WindowAggregator {
+		fn := &WINDOW_LAG{}
+		return newWindowAggregator(
+			func(args []Value, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+				var offset int64 = 1
+				if len(args) >= 2 {
+					if args[1] == nil {
+						return fmt.Errorf("LAG: offset is must be not null value")
+					}
+					v, err := args[1].ToInt64()
+					if err != nil {
+						return err
+					}
+					offset = v
+				}
+				if offset < 0 {
+					return fmt.Errorf("LAG: offset is must be positive value %d", offset)
+				}
+				var defaultValue Value
+				if len(args) == 3 {
+					defaultValue = args[2]
+				}
+				return fn.Step(args[0], offset, defaultValue, windowOpt, agg)
+			},
+			func(agg *WindowFuncAggregatedStatus) (Value, error) {
+				return fn.Done(agg)
+			},
+		)
+	}
+}
+
+func bindWindowPercentileCont() func() *WindowAggregator {
+	return func() *WindowAggregator {
+		fn := &WINDOW_PERCENTILE_CONT{}
+		return newWindowAggregator(
+			func(args []Value, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+				return fn.Step(args[0], args[1], windowOpt, agg)
+			},
+			func(agg *WindowFuncAggregatedStatus) (Value, error) {
+				return fn.Done(agg)
+			},
+		)
+	}
+}
+
+func bindWindowPercentileDisc() func() *WindowAggregator {
+	return func() *WindowAggregator {
+		fn := &WINDOW_PERCENTILE_DISC{}
+		return newWindowAggregator(
+			func(args []Value, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+				return fn.Step(args[0], args[1], windowOpt, agg)
+			},
+			func(agg *WindowFuncAggregatedStatus) (Value, error) {
+				return fn.Done(agg)
+			},
+		)
+	}
+}
+
 func bindWindowRank() func() *WindowAggregator {
 	return func() *WindowAggregator {
 		fn := &WINDOW_RANK{}
 		return newWindowAggregator(
-			func(args []Value, opt *AggregatorOption, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
-				if len(args) != 0 {
-					return fmt.Errorf("WINDOW_RANK: invalid argument num %d", len(args))
-				}
+			func(args []Value, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
 				return fn.Step(windowOpt, agg)
 			},
 			func(agg *WindowFuncAggregatedStatus) (Value, error) {
@@ -3336,11 +3741,60 @@ func bindWindowDenseRank() func() *WindowAggregator {
 	return func() *WindowAggregator {
 		fn := &WINDOW_DENSE_RANK{}
 		return newWindowAggregator(
-			func(args []Value, opt *AggregatorOption, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
-				if len(args) != 0 {
-					return fmt.Errorf("WINDOW_DENSE_RANK: invalid argument num %d", len(args))
-				}
+			func(args []Value, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
 				return fn.Step(windowOpt, agg)
+			},
+			func(agg *WindowFuncAggregatedStatus) (Value, error) {
+				return fn.Done(agg)
+			},
+		)
+	}
+}
+
+func bindWindowPercentRank() func() *WindowAggregator {
+	return func() *WindowAggregator {
+		fn := &WINDOW_PERCENT_RANK{}
+		return newWindowAggregator(
+			func(args []Value, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+				return fn.Step(windowOpt, agg)
+			},
+			func(agg *WindowFuncAggregatedStatus) (Value, error) {
+				return fn.Done(agg)
+			},
+		)
+	}
+}
+
+func bindWindowCumeDist() func() *WindowAggregator {
+	return func() *WindowAggregator {
+		fn := &WINDOW_CUME_DIST{}
+		return newWindowAggregator(
+			func(args []Value, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+				return fn.Step(windowOpt, agg)
+			},
+			func(agg *WindowFuncAggregatedStatus) (Value, error) {
+				return fn.Done(agg)
+			},
+		)
+	}
+}
+
+func bindWindowNtile() func() *WindowAggregator {
+	return func() *WindowAggregator {
+		fn := &WINDOW_NTILE{}
+		return newWindowAggregator(
+			func(args []Value, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
+				if args[0] == nil {
+					return fmt.Errorf("NTILE: constant integer expression must be not null value")
+				}
+				num, err := args[0].ToInt64()
+				if err != nil {
+					return err
+				}
+				if num <= 0 {
+					return fmt.Errorf("NTILE: constant integer expression must be positive value")
+				}
+				return fn.Step(num, windowOpt, agg)
 			},
 			func(agg *WindowFuncAggregatedStatus) (Value, error) {
 				return fn.Done(agg)
@@ -3353,164 +3807,8 @@ func bindWindowRowNumber() func() *WindowAggregator {
 	return func() *WindowAggregator {
 		fn := &WINDOW_ROW_NUMBER{}
 		return newWindowAggregator(
-			func(args []Value, opt *AggregatorOption, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
-				if len(args) != 0 {
-					return fmt.Errorf("WINDOW_ROW_NUMBER: invalid argument num %d", len(args))
-				}
+			func(args []Value, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
 				return fn.Step(windowOpt, agg)
-			},
-			func(agg *WindowFuncAggregatedStatus) (Value, error) {
-				return fn.Done(agg)
-			},
-		)
-	}
-}
-
-func bindWindowCorr() func() *WindowAggregator {
-	return func() *WindowAggregator {
-		fn := &WINDOW_CORR{}
-		return newWindowAggregator(
-			func(args []Value, opt *AggregatorOption, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
-				if len(args) != 2 {
-					return fmt.Errorf("WINDOW_CORR: invalid argument num %d", len(args))
-				}
-				return fn.Step(args[0], args[1], windowOpt, agg)
-			},
-			func(agg *WindowFuncAggregatedStatus) (Value, error) {
-				return fn.Done(agg)
-			},
-		)
-	}
-}
-
-func bindWindowCovarPop() func() *WindowAggregator {
-	return func() *WindowAggregator {
-		fn := &WINDOW_COVAR_POP{}
-		return newWindowAggregator(
-			func(args []Value, opt *AggregatorOption, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
-				if len(args) != 2 {
-					return fmt.Errorf("WINDOW_COVAR_POP: invalid argument num %d", len(args))
-				}
-				return fn.Step(args[0], args[1], windowOpt, agg)
-			},
-			func(agg *WindowFuncAggregatedStatus) (Value, error) {
-				return fn.Done(agg)
-			},
-		)
-	}
-}
-
-func bindWindowCovarSamp() func() *WindowAggregator {
-	return func() *WindowAggregator {
-		fn := &WINDOW_COVAR_SAMP{}
-		return newWindowAggregator(
-			func(args []Value, opt *AggregatorOption, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
-				if len(args) != 2 {
-					return fmt.Errorf("WINDOW_COVAR_SAMP: invalid argument num %d", len(args))
-				}
-				return fn.Step(args[0], args[1], windowOpt, agg)
-			},
-			func(agg *WindowFuncAggregatedStatus) (Value, error) {
-				return fn.Done(agg)
-			},
-		)
-	}
-}
-
-func bindWindowStdDevPop() func() *WindowAggregator {
-	return func() *WindowAggregator {
-		fn := &WINDOW_STDDEV_POP{}
-		return newWindowAggregator(
-			func(args []Value, opt *AggregatorOption, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
-				if len(args) != 1 {
-					return fmt.Errorf("WINDOW_STDDEV_POP: invalid argument num %d", len(args))
-				}
-				return fn.Step(args[0], windowOpt, agg)
-			},
-			func(agg *WindowFuncAggregatedStatus) (Value, error) {
-				return fn.Done(agg)
-			},
-		)
-	}
-}
-
-func bindWindowStdDevSamp() func() *WindowAggregator {
-	return func() *WindowAggregator {
-		fn := &WINDOW_STDDEV_SAMP{}
-		return newWindowAggregator(
-			func(args []Value, opt *AggregatorOption, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
-				if len(args) != 1 {
-					return fmt.Errorf("WINDOW_STDDEV_SAMP: invalid argument num %d", len(args))
-				}
-				return fn.Step(args[0], windowOpt, agg)
-			},
-			func(agg *WindowFuncAggregatedStatus) (Value, error) {
-				return fn.Done(agg)
-			},
-		)
-	}
-}
-
-func bindWindowStdDev() func() *WindowAggregator {
-	return func() *WindowAggregator {
-		fn := &WINDOW_STDDEV_SAMP{}
-		return newWindowAggregator(
-			func(args []Value, opt *AggregatorOption, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
-				if len(args) != 1 {
-					return fmt.Errorf("WINDOW_STDDEV: invalid argument num %d", len(args))
-				}
-				return fn.Step(args[0], windowOpt, agg)
-			},
-			func(agg *WindowFuncAggregatedStatus) (Value, error) {
-				return fn.Done(agg)
-			},
-		)
-	}
-}
-
-func bindWindowVarPop() func() *WindowAggregator {
-	return func() *WindowAggregator {
-		fn := &WINDOW_VAR_POP{}
-		return newWindowAggregator(
-			func(args []Value, opt *AggregatorOption, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
-				if len(args) != 1 {
-					return fmt.Errorf("WINDOW_VAR_POP: invalid argument num %d", len(args))
-				}
-				return fn.Step(args[0], windowOpt, agg)
-			},
-			func(agg *WindowFuncAggregatedStatus) (Value, error) {
-				return fn.Done(agg)
-			},
-		)
-	}
-}
-
-func bindWindowVarSamp() func() *WindowAggregator {
-	return func() *WindowAggregator {
-		fn := &WINDOW_VAR_SAMP{}
-		return newWindowAggregator(
-			func(args []Value, opt *AggregatorOption, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
-				if len(args) != 1 {
-					return fmt.Errorf("WINDOW_VAR_SAMP: invalid argument num %d", len(args))
-				}
-				return fn.Step(args[0], windowOpt, agg)
-			},
-			func(agg *WindowFuncAggregatedStatus) (Value, error) {
-				return fn.Done(agg)
-			},
-		)
-	}
-}
-
-func bindWindowVariance() func() *WindowAggregator {
-	return func() *WindowAggregator {
-		fn := &WINDOW_VAR_SAMP{}
-		return newWindowAggregator(
-			func(args []Value, opt *AggregatorOption, windowOpt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {
-				if len(args) != 1 {
-					return fmt.Errorf("WINDOW_VARIANCE: invalid argument num %d", len(args))
-				}
-				return fn.Step(args[0], windowOpt, agg)
 			},
 			func(agg *WindowFuncAggregatedStatus) (Value, error) {
 				return fn.Done(agg)
