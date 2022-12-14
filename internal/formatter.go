@@ -348,16 +348,6 @@ func (n *AnalyticFunctionCallNode) FormatSQL(ctx context.Context) (string, error
 	}
 	orderColumnNames := analyticOrderColumnNamesFromContext(ctx)
 	orderColumns := orderColumnNames.values
-	for _, a := range n.node.ArgumentList() {
-		arg, err := newNode(a).FormatSQL(ctx)
-		if err != nil {
-			return "", err
-		}
-		orderColumnNames.values = append(orderColumnNames.values, &analyticOrderBy{
-			column: arg,
-			isAsc:  true,
-		})
-	}
 	funcName, args, err := getFuncNameAndArgs(ctx, n.node.BaseFunctionCallNode, true)
 	if err != nil {
 		return "", err
@@ -1157,7 +1147,10 @@ func (n *AnalyticScanNode) FormatSQL(ctx context.Context) (string, error) {
 			)
 		}
 	}
-	orderBy := fmt.Sprintf("ORDER BY %s", strings.Join(orderColumnFormattedNames, ","))
+	var orderBy string
+	if len(orderColumnFormattedNames) != 0 {
+		orderBy = fmt.Sprintf("ORDER BY %s", strings.Join(orderColumnFormattedNames, ","))
+	}
 	orderColumnNames.values = []*analyticOrderBy{}
 	return fmt.Sprintf(
 		"SELECT %s FROM (SELECT *, ROW_NUMBER() OVER() AS `row_id` %s) %s",
