@@ -617,9 +617,9 @@ FROM Items`,
 			expectedRows: [][]interface{}{
 				{int64(1), []interface{}{int64(1), int64(1)}},
 				{int64(1), []interface{}{int64(1), int64(1)}},
-				{int64(-2), []interface{}{int64(1), int64(1), int64(2), int64(-2), int64(-2), int64(2)}},
-				{int64(-2), []interface{}{int64(1), int64(1), int64(2), int64(-2), int64(-2), int64(2)}},
 				{int64(2), []interface{}{int64(1), int64(1), int64(2), int64(-2), int64(-2), int64(2)}},
+				{int64(-2), []interface{}{int64(1), int64(1), int64(2), int64(-2), int64(-2), int64(2)}},
+				{int64(-2), []interface{}{int64(1), int64(1), int64(2), int64(-2), int64(-2), int64(2)}},
 				{int64(2), []interface{}{int64(1), int64(1), int64(2), int64(-2), int64(-2), int64(2)}},
 				{int64(3), []interface{}{int64(1), int64(1), int64(2), int64(-2), int64(-2), int64(2), int64(3)}},
 			},
@@ -844,12 +844,12 @@ SELECT ARRAY_CONCAT_AGG(x) AS array_concat_agg FROM (
 				{int64(3), int64(6)},
 				{int64(3), int64(6)},
 				{int64(1), int64(10)},
+				{int64(4), int64(10)},
+				{int64(4), int64(10)},
 				{int64(1), int64(10)},
-				{int64(4), int64(10)},
-				{int64(4), int64(10)},
-				{int64(2), int64(9)},
 				{int64(2), int64(9)},
 				{int64(5), int64(9)},
+				{int64(2), int64(9)},
 			},
 		},
 		{
@@ -859,12 +859,12 @@ SELECT ARRAY_CONCAT_AGG(x) AS array_concat_agg FROM (
 				{int64(3), int64(3)},
 				{int64(3), int64(3)},
 				{int64(1), int64(5)},
+				{int64(4), int64(5)},
+				{int64(4), int64(5)},
 				{int64(1), int64(5)},
-				{int64(4), int64(5)},
-				{int64(4), int64(5)},
-				{int64(2), int64(7)},
 				{int64(2), int64(7)},
 				{int64(5), int64(7)},
+				{int64(2), int64(7)},
 			},
 		},
 		{
@@ -1087,12 +1087,12 @@ SELECT item, purchases, category, SUM(purchases)
   OVER () AS total_purchases
 FROM Produce`,
 			expectedRows: [][]interface{}{
-				{"banana", int64(2), "fruit", int64(54)},
-				{"leek", int64(2), "vegetable", int64(54)},
-				{"apple", int64(8), "fruit", int64(54)},
-				{"cabbage", int64(9), "vegetable", int64(54)},
-				{"lettuce", int64(10), "vegetable", int64(54)},
 				{"kale", int64(23), "vegetable", int64(54)},
+				{"banana", int64(2), "fruit", int64(54)},
+				{"cabbage", int64(9), "vegetable", int64(54)},
+				{"apple", int64(8), "fruit", int64(54)},
+				{"leek", int64(2), "vegetable", int64(54)},
+				{"lettuce", int64(10), "vegetable", int64(54)},
 			},
 		},
 		{
@@ -1520,10 +1520,10 @@ SELECT
   PERCENTILE_DISC(x, 1) OVER() AS max
 FROM UNNEST(['c', NULL, 'b', 'a']) AS x`,
 			expectedRows: [][]interface{}{
-				{nil, "a", "b", "c"},
-				{"a", "a", "b", "c"},
-				{"b", "a", "b", "c"},
 				{"c", "a", "b", "c"},
+				{nil, "a", "b", "c"},
+				{"b", "a", "b", "c"},
+				{"a", "a", "b", "c"},
 			},
 		},
 		{
@@ -1536,10 +1536,10 @@ SELECT
   PERCENTILE_DISC(x, 1 RESPECT NULLS) OVER() AS max
 FROM UNNEST(['c', NULL, 'b', 'a']) AS x`,
 			expectedRows: [][]interface{}{
-				{nil, nil, "a", "c"},
-				{"a", nil, "a", "c"},
-				{"b", nil, "a", "c"},
 				{"c", nil, "a", "c"},
+				{nil, nil, "a", "c"},
+				{"b", nil, "a", "c"},
+				{"a", nil, "a", "c"},
 			},
 		},
 
@@ -1840,6 +1840,18 @@ FROM finishers`,
 				{"Lauren Matthews", createTimestampFormatFromString("2016-10-18 03:01:17+00"), "F35-39", "Lisa Stelzner"},
 				{"Desiree Berry", createTimestampFormatFromString("2016-10-18 03:05:42+00"), "F35-39", "Lauren Matthews"},
 				{"Suzy Slane", createTimestampFormatFromString("2016-10-18 03:06:24+00"), "F35-39", "Desiree Berry"},
+			},
+		},
+		{
+			name: "lag with option",
+			query: `
+WITH segments AS (
+  SELECT "2020-08-01" AS created_at, 10 AS rank UNION ALL
+  SELECT "2020-08-01" AS created_at, 20 AS rank
+) SELECT LAG(rank + 1, 1, 0) OVER(PARTITION BY created_at ORDER BY rank) FROM segments`,
+			expectedRows: [][]interface{}{
+				{int64(0)},
+				{int64(11)},
 			},
 		},
 		{
