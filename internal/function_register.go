@@ -245,6 +245,9 @@ var normalFuncs = []*FuncInfo{
 	{Name: "make_array", BindFunc: bindMakeArray},
 	{Name: "make_struct", BindFunc: bindMakeStruct},
 
+	// hyperloglog++ functions
+	{Name: "hll_count_extract", BindFunc: bindHllCountExtract},
+
 	// aggregate option funcs
 	{Name: "distinct", BindFunc: bindDistinct},
 	{Name: "limit", BindFunc: bindLimit},
@@ -300,6 +303,11 @@ var aggregateFuncs = []*AggregateFuncInfo{
 	{Name: "approx_quantiles", BindFunc: bindApproxQuantiles},
 	{Name: "approx_top_count", BindFunc: bindApproxTopCount},
 	{Name: "approx_top_sum", BindFunc: bindApproxTopSum},
+
+	// hyperloglog++ functions
+	{Name: "hll_count_init", BindFunc: bindHllCountInit},
+	{Name: "hll_count_merge", BindFunc: bindHllCountMerge},
+	{Name: "hll_count_merge_partial", BindFunc: bindHllCountMergePartial},
 }
 
 var windowFuncs = []*WindowFuncInfo{

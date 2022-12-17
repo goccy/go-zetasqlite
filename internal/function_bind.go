@@ -3308,6 +3308,84 @@ func bindApproxTopSum() func() *Aggregator {
 	}
 }
 
+func bindHllCountInit() func() *Aggregator {
+	return func() *Aggregator {
+		fn := &HLL_COUNT_INIT{}
+		return newAggregator(
+			func(args []Value, opt *AggregatorOption) error {
+				precision := int64(15)
+				if len(args) == 2 {
+					if args[1] == nil {
+						return nil
+					}
+					v, err := args[1].ToInt64()
+					if err != nil {
+						return err
+					}
+					precision = v
+				}
+				return fn.Step(args[0], precision, opt)
+			},
+			func() (Value, error) {
+				return fn.Done()
+			},
+		)
+	}
+}
+
+func bindHllCountMerge() func() *Aggregator {
+	return func() *Aggregator {
+		fn := &HLL_COUNT_MERGE{}
+		return newAggregator(
+			func(args []Value, opt *AggregatorOption) error {
+				if args[0] == nil {
+					return nil
+				}
+				b, err := args[0].ToBytes()
+				if err != nil {
+					return err
+				}
+				return fn.Step(b, opt)
+			},
+			func() (Value, error) {
+				return fn.Done()
+			},
+		)
+	}
+}
+
+func bindHllCountMergePartial() func() *Aggregator {
+	return func() *Aggregator {
+		fn := &HLL_COUNT_MERGE_PARTIAL{}
+		return newAggregator(
+			func(args []Value, opt *AggregatorOption) error {
+				if args[0] == nil {
+					return nil
+				}
+				b, err := args[0].ToBytes()
+				if err != nil {
+					return err
+				}
+				return fn.Step(b, opt)
+			},
+			func() (Value, error) {
+				return fn.Done()
+			},
+		)
+	}
+}
+
+func bindHllCountExtract(args ...Value) (Value, error) {
+	if args[0] == nil {
+		return nil, nil
+	}
+	b, err := args[0].ToBytes()
+	if err != nil {
+		return nil, err
+	}
+	return HLL_COUNT_EXTRACT(b)
+}
+
 func bindWindowAnyValue() func() *WindowAggregator {
 	return func() *WindowAggregator {
 		fn := &WINDOW_ANY_VALUE{}

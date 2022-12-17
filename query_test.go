@@ -1066,6 +1066,102 @@ SELECT APPROX_TOP_SUM(x, weight, 2) FROM UNNEST([
 			},
 		},
 
+		// hyperloglog++ function
+		{
+			name: "hll_count.init",
+			query: `
+SELECT
+  country,
+  HLL_COUNT.INIT(customer_id, 10)
+    AS hll_sketch
+FROM
+  UNNEST(
+    ARRAY<STRUCT<country STRING, customer_id STRING, invoice_id STRING>>[
+      ('UA', 'customer_id_1', 'invoice_id_11'),
+      ('CZ', 'customer_id_2', 'invoice_id_22'),
+      ('CZ', 'customer_id_2', 'invoice_id_23'),
+      ('BR', 'customer_id_3', 'invoice_id_31'),
+      ('UA', 'customer_id_2', 'invoice_id_24')])
+GROUP BY country`,
+			expectedRows: [][]interface{}{
+				{"BR", "Eu9/P61VrRgkBrk="},
+				{"CZ", "Eu9/TliDjbmhVEA="},
+				{"UA", "Eu9/Ol8Q5++jVjNOWIONuaFUQA=="},
+			},
+		},
+		{
+			name: "hll_count.merge",
+			query: `
+SELECT HLL_COUNT.MERGE(hll_sketch) AS distinct_customers_with_open_invoice
+FROM
+(
+    SELECT
+      country,
+      HLL_COUNT.INIT(customer_id) AS hll_sketch
+    FROM
+      UNNEST(
+        ARRAY<STRUCT<country STRING, customer_id STRING, invoice_id STRING>>[
+          ('UA', 'customer_id_1', 'invoice_id_11'),
+          ('BR', 'customer_id_3', 'invoice_id_31'),
+          ('CZ', 'customer_id_2', 'invoice_id_22'),
+          ('CZ', 'customer_id_2', 'invoice_id_23'),
+          ('BR', 'customer_id_3', 'invoice_id_31'),
+          ('UA', 'customer_id_2', 'invoice_id_24')])
+    GROUP BY country
+)`,
+			expectedRows: [][]interface{}{{int64(3)}},
+		},
+		{
+			name: "hll_count.merge_partial",
+			query: `
+SELECT HLL_COUNT.MERGE_PARTIAL(HLL_sketch) AS distinct_customers_with_open_invoice
+FROM
+  (
+    SELECT
+      country,
+      HLL_COUNT.INIT(customer_id) AS hll_sketch
+    FROM
+      UNNEST(
+        ARRAY<STRUCT<country STRING, customer_id STRING, invoice_id STRING>>[
+          ('UA', 'customer_id_1', 'invoice_id_11'),
+          ('BR', 'customer_id_3', 'invoice_id_31'),
+          ('CZ', 'customer_id_2', 'invoice_id_22'),
+          ('CZ', 'customer_id_2', 'invoice_id_23'),
+          ('BR', 'customer_id_3', 'invoice_id_31'),
+          ('UA', 'customer_id_2', 'invoice_id_24')])
+    GROUP BY country
+  )`,
+			expectedRows: [][]interface{}{{"Eu9/Ol8Q5++jVjM/rVWtGCQGuU5Yg425oVRA"}},
+		},
+		{
+			name: "hll_count.extract",
+			query: `
+SELECT
+  country,
+  HLL_COUNT.EXTRACT(HLL_sketch) AS distinct_customers_with_open_invoice
+FROM
+  (
+    SELECT
+      country,
+      HLL_COUNT.INIT(customer_id) AS hll_sketch
+    FROM
+      UNNEST(
+        ARRAY<STRUCT<country STRING, customer_id STRING, invoice_id STRING>>[
+          ('UA', 'customer_id_1', 'invoice_id_11'),
+          ('BR', 'customer_id_3', 'invoice_id_31'),
+          ('CZ', 'customer_id_2', 'invoice_id_22'),
+          ('CZ', 'customer_id_2', 'invoice_id_23'),
+          ('BR', 'customer_id_3', 'invoice_id_31'),
+          ('UA', 'customer_id_2', 'invoice_id_24')])
+    GROUP BY country
+  )`,
+			expectedRows: [][]interface{}{
+				{"BR", int64(1)},
+				{"CZ", int64(1)},
+				{"UA", int64(2)},
+			},
+		},
+
 		{
 			name:         "null",
 			query:        `SELECT NULL`,
