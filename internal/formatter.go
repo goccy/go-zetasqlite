@@ -187,6 +187,7 @@ func getFuncNameAndArgs(ctx context.Context, node *ast.BaseFunctionCallNode, isW
 		args = append(args, arg)
 	}
 	funcName := node.Function().FullName(false)
+	funcName = strings.Replace(funcName, ".", "_", -1)
 
 	_, existsCurrentTimeFunc := currentTimeFuncMap[funcName]
 	_, existsNormalFunc := normalFuncMap[funcName]

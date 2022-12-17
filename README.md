@@ -363,10 +363,10 @@ A list of ZetaSQL ( Google Standard SQL ) specifications and features supported 
 
 ### HyperLogLog++ functions
 
-- [ ] HLL_COUNT.INIT
-- [ ] HLL_COUNT.MERGE
-- [ ] HLL_COUNT.MERGE_PARTIAL
-- [ ] HLL_COUNT.EXTRACT
+- [x] HLL_COUNT.INIT
+- [x] HLL_COUNT.MERGE
+- [x] HLL_COUNT.MERGE_PARTIAL
+- [x] HLL_COUNT.EXTRACT
 
 ### Numbering functions
 

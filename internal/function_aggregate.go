@@ -6,6 +6,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/DataDog/go-hll"
+	"github.com/spaolacci/murmur3"
 	"gonum.org/v1/gonum/stat"
 )
 
@@ -887,4 +889,120 @@ func (f *APPROX_TOP_SUM) Done() (Value, error) {
 		ret.values = append(ret.values, v)
 	}
 	return ret, nil
+}
+
+func init() {
+	hll.Defaults(hll.Settings{
+		Log2m:             15,
+		Regwidth:          8,
+		ExplicitThreshold: hll.AutoExplicitThreshold,
+		SparseEnabled:     true,
+	})
+}
+
+type HLL_COUNT_INIT struct {
+	once sync.Once
+	hll  *hll.Hll
+}
+
+func (f *HLL_COUNT_INIT) Step(input Value, precision int64, opt *AggregatorOption) (e error) {
+	f.once.Do(func() {
+		h, err := hll.NewHll(hll.Settings{Log2m: int(precision)})
+		if err != nil {
+			e = err
+		}
+		f.hll = &h
+	})
+	var v uint64
+	switch input.(type) {
+	case IntValue:
+		s, err := input.ToString()
+		if err != nil {
+			return err
+		}
+		v = murmur3.Sum64([]byte(s))
+	case *NumericValue:
+		b, err := input.ToBytes()
+		if err != nil {
+			return err
+		}
+		v = murmur3.Sum64(b)
+	case StringValue:
+		s, err := input.ToString()
+		if err != nil {
+			return err
+		}
+		v = murmur3.Sum64([]byte(s))
+	case BytesValue:
+		b, err := input.ToBytes()
+		if err != nil {
+			return err
+		}
+		v = murmur3.Sum64(b)
+	}
+	f.hll.AddRaw(uint64(v))
+	return nil
+}
+
+func (f *HLL_COUNT_INIT) Done() (Value, error) {
+	if f.hll == nil {
+		return nil, nil
+	}
+	return BytesValue(f.hll.ToBytes()), nil
+}
+
+type HLL_COUNT_MERGE struct {
+	hll *hll.Hll
+}
+
+func (f *HLL_COUNT_MERGE) Step(sketch []byte, opt *AggregatorOption) error {
+	h, err := hll.FromBytes(sketch)
+	if err != nil {
+		return err
+	}
+	if f.hll == nil {
+		f.hll = &h
+	} else {
+		f.hll.Union(h)
+	}
+	return nil
+}
+
+func (f *HLL_COUNT_MERGE) Done() (Value, error) {
+	if f.hll == nil {
+		return IntValue(0), nil
+	}
+	return IntValue(f.hll.Cardinality()), nil
+}
+
+type HLL_COUNT_MERGE_PARTIAL struct {
+	hll *hll.Hll
+}
+
+func (f *HLL_COUNT_MERGE_PARTIAL) Step(sketch []byte, opt *AggregatorOption) error {
+	h, err := hll.FromBytes(sketch)
+	if err != nil {
+		return err
+	}
+	if f.hll == nil {
+		f.hll = &h
+	} else {
+		f.hll.Union(h)
+	}
+	return nil
+}
+
+func (f *HLL_COUNT_MERGE_PARTIAL) Done() (Value, error) {
+	if f.hll == nil {
+		return nil, nil
+	}
+	return BytesValue(f.hll.ToBytes()), nil
+}
+
+func HLL_COUNT_EXTRACT(sketch []byte) (Value, error) {
+	h, err := hll.FromBytes(sketch)
+	if err != nil {
+		return nil, err
+	}
+	return IntValue(h.Cardinality()), nil
 }
