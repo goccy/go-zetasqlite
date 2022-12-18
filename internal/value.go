@@ -459,14 +459,38 @@ func (bv BytesValue) ToRat() (*big.Rat, error) {
 	return r, nil
 }
 
+func printableChar(v byte) bool {
+	if 0x20 <= v && v <= 0x7e {
+		return true
+	}
+	return false
+}
+
 func (bv BytesValue) Format(verb rune) string {
-	v, _ := bv.ToString()
 	switch verb {
 	case 't':
-		return v
+		var ret string
+		for _, b := range bv {
+			if printableChar(b) {
+				ret += fmt.Sprintf("%c", b)
+			} else {
+				ret += fmt.Sprintf("\\x%02x", b)
+			}
+		}
+		return ret
 	case 'T':
-		return strconv.Quote(v)
+		ret := `b"`
+		for _, b := range bv {
+			if printableChar(b) {
+				ret += fmt.Sprintf("%c", b)
+			} else {
+				ret += fmt.Sprintf("\\x%02x", b)
+			}
+		}
+		ret += `"`
+		return ret
 	}
+	v, _ := bv.ToString()
 	return v
 }
 

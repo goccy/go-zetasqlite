@@ -2028,6 +2028,28 @@ FROM finishers`,
 			},
 		},
 
+		{
+			name: "bit_count",
+			query: `
+SELECT a, BIT_COUNT(a) AS a_bits, FORMAT("%T", b) as b, BIT_COUNT(b) AS b_bits
+FROM UNNEST([
+  STRUCT(0 AS a, b'' AS b), (0, b'\x00'), (5, b'\x05'), (8, b'\x00\x08'),
+  (0xFFFF, b'\xFF\xFF'), (-2, b'\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFE'),
+  (-1, b'\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF'),
+  (NULL, b'\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF')
+]) AS x`,
+			expectedRows: [][]interface{}{
+				{int64(0), int64(0), `b""`, int64(0)},
+				{int64(0), int64(0), `b"\x00"`, int64(0)},
+				{int64(5), int64(2), `b"\x05"`, int64(2)},
+				{int64(8), int64(1), `b"\x00\x08"`, int64(1)},
+				{int64(65535), int64(16), `b"\xff\xff"`, int64(16)},
+				{int64(-2), int64(63), `b"\xff\xff\xff\xff\xff\xff\xff\xfe"`, int64(63)},
+				{int64(-1), int64(64), `b"\xff\xff\xff\xff\xff\xff\xff\xff"`, int64(64)},
+				{nil, nil, `b"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff"`, int64(80)},
+			},
+		},
+
 		// array functions
 		{
 			name:         "make_array",
@@ -3298,9 +3320,9 @@ WITH examples AS (
   (b'abc', 2),
   (b'\xab\xcd\xef', 4)])`,
 			expectedRows: [][]interface{}{
-				{`"YWJj"`, int64(5), `"YWJjICA="`},
-				{`"YWJj"`, int64(2), `"YWI="`},
-				{`"q83v"`, int64(4), `"q83vIA=="`},
+				{`b"abc"`, int64(5), `b"abc  "`},
+				{`b"abc"`, int64(2), `b"ab"`},
+				{`b"\xab\xcd\xef"`, int64(4), `b"\xab\xcd\xef "`},
 			},
 		},
 		{
@@ -3310,9 +3332,9 @@ WITH examples AS (
   (b'abc', 5, b'-'),
   (b'\xab\xcd\xef', 5, b'\x00')])`,
 			expectedRows: [][]interface{}{
-				{`"YWJj"`, int64(8), `"ZGVm"`, `"YWJjZGVmZGU="`},
-				{`"YWJj"`, int64(5), `"LQ=="`, `"YWJjLS0="`},
-				{`"q83v"`, int64(5), `"AA=="`, `"q83vAAA="`},
+				{`b"abc"`, int64(8), `b"def"`, `b"abcdefde"`},
+				{`b"abc"`, int64(5), `b"-"`, `b"abc--"`},
+				{`b"\xab\xcd\xef"`, int64(5), `b"\x00"`, `b"\xab\xcd\xef\x00\x00"`},
 			},
 		},
 		{

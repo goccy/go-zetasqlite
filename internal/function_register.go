@@ -248,6 +248,9 @@ var normalFuncs = []*FuncInfo{
 	// hyperloglog++ functions
 	{Name: "hll_count_extract", BindFunc: bindHllCountExtract},
 
+	// bit functions
+	{Name: "bit_count", BindFunc: bindBitCount},
+
 	// aggregate option funcs
 	{Name: "distinct", BindFunc: bindDistinct},
 	{Name: "limit", BindFunc: bindLimit},

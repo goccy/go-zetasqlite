@@ -387,6 +387,13 @@ func bindGenerateUUID(_ ...Value) (Value, error) {
 	return GENERATE_UUID()
 }
 
+func bindBitCount(args ...Value) (Value, error) {
+	if existsNull(args) {
+		return nil, nil
+	}
+	return BIT_COUNT(args[0])
+}
+
 func bindLike(args ...Value) (Value, error) {
 	if existsNull(args) {
 		return BoolValue(false), nil
