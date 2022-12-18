@@ -35,6 +35,11 @@ var normalFuncs = []*FuncInfo{
 	{Name: "safe_array_at_ordinal", BindFunc: bindSafeArrayAtOrdinal},
 	{Name: "is_distinct_from", BindFunc: bindIsDistinctFrom},
 	{Name: "is_not_distinct_from", BindFunc: bindIsNotDistinctFrom},
+
+	// security functions
+	{Name: "session_user", BindFunc: bindSessionUser},
+
+	// uuid functions
 	{Name: "generate_uuid", BindFunc: bindGenerateUUID},
 
 	// date functions
