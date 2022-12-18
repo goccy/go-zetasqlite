@@ -383,6 +383,10 @@ func bindExtract(args ...Value) (Value, error) {
 	return EXTRACT(args[0], part)
 }
 
+func bindSessionUser(_ ...Value) (Value, error) {
+	return SESSION_USER()
+}
+
 func bindGenerateUUID(_ ...Value) (Value, error) {
 	return GENERATE_UUID()
 }

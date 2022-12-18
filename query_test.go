@@ -3984,6 +3984,13 @@ SELECT
 			expectedRows: [][]interface{}{{"123.456", "123.456"}},
 		},
 
+		// security functions
+		{
+			name:         "session_user",
+			query:        `SELECT SESSION_USER()`,
+			expectedRows: [][]interface{}{{"dummy"}},
+		},
+
 		// uuid functions
 		{
 			name:         "generate_uuid",

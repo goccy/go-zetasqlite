@@ -686,7 +686,7 @@ A list of ZetaSQL ( Google Standard SQL ) specifications and features supported 
 
 ### Security functions
 
-- [ ] SESSION_USER
+- [x] SESSION_USER
 
 ### UUID functions
 
