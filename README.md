@@ -379,7 +379,7 @@ A list of ZetaSQL ( Google Standard SQL ) specifications and features supported 
 
 ### Bit functions
 
-- [ ] BIT_COUNT
+- [x] BIT_COUNT
 
 ### Conversion functions
 
