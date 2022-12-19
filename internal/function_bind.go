@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 
@@ -389,6 +390,17 @@ func bindSessionUser(_ ...Value) (Value, error) {
 
 func bindGenerateUUID(_ ...Value) (Value, error) {
 	return GENERATE_UUID()
+}
+
+func bindError(args ...Value) (Value, error) {
+	if args[0] == nil {
+		return nil, nil
+	}
+	v, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return nil, errors.New(v)
 }
 
 func bindBitCount(args ...Value) (Value, error) {

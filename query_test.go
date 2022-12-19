@@ -35,7 +35,7 @@ func TestQuery(t *testing.T) {
 		query        string
 		args         []interface{}
 		expectedRows [][]interface{}
-		expectedErr  bool
+		expectedErr  string
 	}{
 		// priority 2 operator
 		{
@@ -520,7 +520,7 @@ SELECT
   item_array[OFFSET(6)] AS item_offset
 FROM Items`,
 			expectedRows: [][]interface{}{},
-			expectedErr:  true,
+			expectedErr:  "OFFSET(6) is out of range",
 		},
 		// INVALID_ARGUMENT: Subscript access using [INT64] is not supported on values of type JSON [at 2:34]
 		//{
@@ -585,12 +585,12 @@ FROM Items`,
 		{
 			name:        "array_agg with nulls",
 			query:       `SELECT ARRAY_AGG(x) AS array_agg FROM UNNEST([NULL, 1, -2, 3, -2, 1, NULL]) AS x`,
-			expectedErr: true,
+			expectedErr: "ARRAY_AGG: input value must be not null",
 		},
 		{
 			name:        "array_agg with struct",
 			query:       `SELECT b, ARRAY_AGG(a) FROM UNNEST([STRUCT(1 AS a, 2 AS b), STRUCT(NULL AS a, 2 AS b)]) GROUP BY b`,
-			expectedErr: true,
+			expectedErr: "ARRAY_AGG: input value must be not null",
 		},
 		{
 			name:  "array_agg with ignore nulls",
@@ -2660,7 +2660,7 @@ SELECT item FROM Produce WHERE Produce.category = 'vegetable' QUALIFY RANK() OVE
 		{
 			name:        "invalid cast",
 			query:       `SELECT CAST("apple" AS INT64) AS not_a_number`,
-			expectedErr: true,
+			expectedErr: `failed to analyze: INVALID_ARGUMENT: Could not cast literal "apple" to type INT64 [at 1:13]`,
 		},
 		{
 			name:         "safe cast",
@@ -3582,12 +3582,12 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 		{
 			name:        "parse date ( the year element is in different locations )",
 			query:       `SELECT PARSE_DATE("%Y %A %b %e", "Thursday Dec 25 2008")`,
-			expectedErr: true,
+			expectedErr: "unexpected year number",
 		},
 		{
 			name:        "parse date ( one of the year elements is missing )",
 			query:       `SELECT PARSE_DATE("%A %b %e", "Thursday Dec 25 2008")`,
-			expectedErr: true,
+			expectedErr: `found unused format element [' ' '2' '0' '0' '8']`,
 		},
 		{
 			name:         "unix_date",
@@ -3687,12 +3687,12 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 		{
 			name:        "parse datetime ( the year element is in different locations )",
 			query:       `SELECT PARSE_DATETIME("%a %b %e %Y %I:%M:%S", "Thu Dec 25 07:30:00 2008")`,
-			expectedErr: true,
+			expectedErr: "unexpected year number",
 		},
 		{
 			name:        "parse datetime ( one of the year elements is missing )",
 			query:       `SELECT PARSE_DATETIME("%a %b %e %I:%M:%S", "Thu Dec 25 07:30:00 2008")`,
-			expectedErr: true,
+			expectedErr: `found unused format element [' ' '2' '0' '0' '8']`,
 		},
 
 		// time functions
@@ -3753,12 +3753,12 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 		{
 			name:        "parse time ( the seconds element is in different locations )",
 			query:       `SELECT PARSE_TIME("%S:%I:%M", "07:30:00")`,
-			expectedErr: true,
+			expectedErr: "invalid hour number 30",
 		},
 		{
 			name:        "parse time ( one of the seconds elements is missing )",
 			query:       `SELECT PARSE_TIME("%I:%M", "07:30:00")`,
-			expectedErr: true,
+			expectedErr: `found unused format element [':' '0' '0']`,
 		},
 
 		// timestamp functions
@@ -3875,12 +3875,12 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 		{
 			name:        "parse timestamp ( the year element is in different locations )",
 			query:       `SELECT PARSE_TIMESTAMP("%a %b %e %Y %I:%M:%S", "Thu Dec 25 07:30:00 2008")`,
-			expectedErr: true,
+			expectedErr: "unexpected year number",
 		},
 		{
 			name:        "parse timestamp ( one of the year elements is missing )",
 			query:       `SELECT PARSE_TIMESTAMP("%a %b %e %I:%M:%S", "Thu Dec 25 07:30:00 2008")`,
-			expectedErr: true,
+			expectedErr: `found unused format element [' ' '2' '0' '0' '8']`,
 		},
 		{
 			name:         "timestamp_seconds",
@@ -3996,6 +3996,23 @@ SELECT
 			name:         "generate_uuid",
 			query:        `SELECT LENGTH(GENERATE_UUID())`,
 			expectedRows: [][]interface{}{{int64(36)}},
+		},
+
+		// debugging functions
+		{
+			name: "error",
+			query: `
+SELECT
+  CASE
+    WHEN value = 'foo' THEN 'Value is foo.'
+    WHEN value = 'bar' THEN 'Value is bar.'
+    ELSE ERROR(CONCAT('Found unexpected value: ', value))
+  END AS new_value
+FROM (
+  SELECT 'foo' AS value UNION ALL
+  SELECT 'bar' AS value UNION ALL
+  SELECT 'baz' AS value)`,
+			expectedErr: "Found unexpected value: baz",
 		},
 
 		// begin-end
@@ -4548,7 +4565,7 @@ FROM
 		t.Run(test.name, func(t *testing.T) {
 			rows, err := db.QueryContext(ctx, test.query, test.args...)
 			if err != nil {
-				if !test.expectedErr {
+				if test.expectedErr == "" {
 					t.Fatal(err)
 				} else {
 					return
@@ -4588,9 +4605,9 @@ FROM
 				rowNum++
 			}
 			rowsErr := rows.Err()
-			if test.expectedErr {
-				if rowsErr == nil {
-					t.Fatal("expected error")
+			if test.expectedErr != "" {
+				if test.expectedErr != rowsErr.Error() {
+					t.Fatalf("unexpected error message: expected [%s] but got [%s]", test.expectedErr, rowsErr.Error())
 				}
 			} else {
 				if rowsErr != nil {

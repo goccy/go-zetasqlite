@@ -42,6 +42,9 @@ var normalFuncs = []*FuncInfo{
 	// uuid functions
 	{Name: "generate_uuid", BindFunc: bindGenerateUUID},
 
+	// debugging functions
+	{Name: "error", BindFunc: bindError},
+
 	// date functions
 	{Name: "current_date", BindFunc: bindCurrentDate},
 	{Name: "extract", BindFunc: bindExtract},
