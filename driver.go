@@ -30,6 +30,7 @@ func init() {
 			if err := internal.RegisterFunctions(conn); err != nil {
 				return err
 			}
+			conn.SetLimit(sqlite3.SQLITE_LIMIT_VARIABLE_NUMBER, -1)
 			return nil
 		},
 	})
