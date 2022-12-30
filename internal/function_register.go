@@ -104,8 +104,6 @@ var normalFuncs = []*FuncInfo{
 	{Name: "not", BindFunc: bindNot},
 	{Name: "and", BindFunc: bindAnd},
 	{Name: "or", BindFunc: bindOr},
-	{Name: "case_with_value", BindFunc: bindCaseWithValue},
-	{Name: "case_no_value", BindFunc: bindCaseNoValue},
 	{Name: "coalesce", BindFunc: bindCoalesce},
 	{Name: "if", BindFunc: bindIf},
 	{Name: "ifnull", BindFunc: bindIfNull},

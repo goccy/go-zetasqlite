@@ -4012,7 +4012,8 @@ FROM (
   SELECT 'foo' AS value UNION ALL
   SELECT 'bar' AS value UNION ALL
   SELECT 'baz' AS value)`,
-			expectedErr: "Found unexpected value: baz",
+			expectedRows: [][]interface{}{{"Value is foo."}, {"Value is bar."}},
+			expectedErr:  "Found unexpected value: baz",
 		},
 
 		// begin-end

@@ -287,6 +287,37 @@ func (n *FunctionCallNode) FormatSQL(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	switch funcName {
+	case "zetasqlite_case_no_value":
+		var whenStmts []string
+		for i := 0; i < len(args)-1; i += 2 {
+			whenStmts = append(whenStmts, fmt.Sprintf("WHEN %s THEN %s", args[i], args[i+1]))
+		}
+		stmt := fmt.Sprintf("CASE %s", strings.Join(whenStmts, " "))
+		// if args length is odd number, else statement exists.
+		if len(args) > (len(args)/2)*2 {
+			stmt += fmt.Sprintf(" ELSE %s", args[len(args)-1])
+		}
+		stmt += " END"
+		return stmt, nil
+	case "zetasqlite_case_with_value":
+		if len(args) < 2 {
+			return "", fmt.Errorf("not enough arguments for case with value")
+		}
+		val := args[0]
+		args = args[1:]
+		var whenStmts []string
+		for i := 0; i < len(args)-1; i += 2 {
+			whenStmts = append(whenStmts, fmt.Sprintf("WHEN %s THEN %s", args[i], args[i+1]))
+		}
+		stmt := fmt.Sprintf("CASE %s %s", val, strings.Join(whenStmts, " "))
+		// if args length is odd number, else statement exists.
+		if len(args) > (len(args)/2)*2 {
+			stmt += fmt.Sprintf(" ELSE %s", args[len(args)-1])
+		}
+		stmt += " END"
+		return stmt, nil
+	}
 	funcMap := funcMapFromContext(ctx)
 	if spec, exists := funcMap[funcName]; exists {
 		return spec.CallSQL(ctx, n.node.BaseFunctionCallNode, args)

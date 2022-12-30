@@ -461,20 +461,6 @@ func bindOr(args ...Value) (Value, error) {
 	return OR(args...)
 }
 
-func bindCaseWithValue(args ...Value) (Value, error) {
-	if len(args) < 1 {
-		return nil, fmt.Errorf("CASE_WITH_VALUE: invalid argument num %d", len(args))
-	}
-	return CASE_WITH_VALUE(args[0], args[1:]...)
-}
-
-func bindCaseNoValue(args ...Value) (Value, error) {
-	if len(args) == 0 {
-		return nil, fmt.Errorf("CASE_NO_VALUE: invalid argument num %d", len(args))
-	}
-	return CASE_NO_VALUE(args...)
-}
-
 func bindCoalesce(args ...Value) (Value, error) {
 	if len(args) == 0 {
 		return nil, fmt.Errorf("COALESCE: invalid argument num %d", len(args))
