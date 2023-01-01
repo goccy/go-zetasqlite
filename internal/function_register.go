@@ -42,6 +42,9 @@ var normalFuncs = []*FuncInfo{
 	// uuid functions
 	{Name: "generate_uuid", BindFunc: bindGenerateUUID},
 
+	// debugging functions
+	{Name: "error", BindFunc: bindError},
+
 	// date functions
 	{Name: "current_date", BindFunc: bindCurrentDate},
 	{Name: "extract", BindFunc: bindExtract},
@@ -101,8 +104,6 @@ var normalFuncs = []*FuncInfo{
 	{Name: "not", BindFunc: bindNot},
 	{Name: "and", BindFunc: bindAnd},
 	{Name: "or", BindFunc: bindOr},
-	{Name: "case_with_value", BindFunc: bindCaseWithValue},
-	{Name: "case_no_value", BindFunc: bindCaseNoValue},
 	{Name: "coalesce", BindFunc: bindCoalesce},
 	{Name: "if", BindFunc: bindIf},
 	{Name: "ifnull", BindFunc: bindIfNull},

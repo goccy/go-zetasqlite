@@ -350,55 +350,6 @@ func IS_NOT_DISTINCT_FROM(a, b Value) (Value, error) {
 	return BoolValue(cond), nil
 }
 
-func CASE_WITH_VALUE(caseV Value, args ...Value) (Value, error) {
-	if len(args) == 0 {
-		return nil, fmt.Errorf("when value must be specified")
-	}
-	for i := 0; i < len(args)-1; i += 2 {
-		when := args[i]
-		then := args[i+1]
-		cond, err := caseV.EQ(when)
-		if err != nil {
-			return nil, err
-		}
-		if cond {
-			return then, nil
-		}
-	}
-	// if args length is odd number, else statement exists.
-	if len(args) > (len(args)/2)*2 {
-		return args[len(args)-1], nil
-	}
-	// if else statment not exists, returns NULL.
-	return nil, nil
-}
-
-func CASE_NO_VALUE(args ...Value) (Value, error) {
-	if len(args) == 0 {
-		return nil, fmt.Errorf("when value must be specified")
-	}
-	for i := 0; i < len(args)-1; i += 2 {
-		when := args[i]
-		then := args[i+1]
-		if when == nil {
-			continue
-		}
-		cond, err := when.ToBool()
-		if err != nil {
-			return nil, err
-		}
-		if cond {
-			return then, nil
-		}
-	}
-	// if args length is odd number, else statement exists.
-	if len(args) > (len(args)/2)*2 {
-		return args[len(args)-1], nil
-	}
-	// if else statment not exists, returns NULL.
-	return nil, nil
-}
-
 func COALESCE(args ...Value) (Value, error) {
 	for _, arg := range args {
 		if arg == nil {

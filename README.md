@@ -707,7 +707,7 @@ A list of ZetaSQL ( Google Standard SQL ) specifications and features supported 
 
 ### Debugging functions
 
-- [ ] ERROR
+- [x] ERROR
 
 ### AEAD encryption functions
 

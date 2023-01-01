@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 
@@ -391,6 +392,17 @@ func bindGenerateUUID(_ ...Value) (Value, error) {
 	return GENERATE_UUID()
 }
 
+func bindError(args ...Value) (Value, error) {
+	if args[0] == nil {
+		return nil, nil
+	}
+	v, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return nil, errors.New(v)
+}
+
 func bindBitCount(args ...Value) (Value, error) {
 	if existsNull(args) {
 		return nil, nil
@@ -447,20 +459,6 @@ func bindAnd(args ...Value) (Value, error) {
 
 func bindOr(args ...Value) (Value, error) {
 	return OR(args...)
-}
-
-func bindCaseWithValue(args ...Value) (Value, error) {
-	if len(args) < 1 {
-		return nil, fmt.Errorf("CASE_WITH_VALUE: invalid argument num %d", len(args))
-	}
-	return CASE_WITH_VALUE(args[0], args[1:]...)
-}
-
-func bindCaseNoValue(args ...Value) (Value, error) {
-	if len(args) == 0 {
-		return nil, fmt.Errorf("CASE_NO_VALUE: invalid argument num %d", len(args))
-	}
-	return CASE_NO_VALUE(args...)
 }
 
 func bindCoalesce(args ...Value) (Value, error) {
