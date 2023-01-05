@@ -25,6 +25,8 @@ type (
 	useColumnIDKey                  struct{}
 	rowIDColumnKey                  struct{}
 	useTableNameForColumnKey        struct{}
+	withEntriesKey                  struct{}
+	withSubqueryKey                 struct{}
 )
 
 func analyzerFromContext(ctx context.Context) *Analyzer {
@@ -222,6 +224,34 @@ func withRowIDColumn(ctx context.Context) context.Context {
 
 func needsRowIDColumn(ctx context.Context) bool {
 	value := ctx.Value(rowIDColumnKey{})
+	if value == nil {
+		return false
+	}
+	return value.(bool)
+}
+
+type withSubqueryEntries struct {
+	entries []string
+}
+
+func withWithEntries(ctx context.Context, entries *withSubqueryEntries) context.Context {
+	return context.WithValue(ctx, withEntriesKey{}, entries)
+}
+
+func withEntries(ctx context.Context) *withSubqueryEntries {
+	value := ctx.Value(withEntriesKey{})
+	if value == nil {
+		return nil
+	}
+	return value.(*withSubqueryEntries)
+}
+
+func withWithSubquery(ctx context.Context) context.Context {
+	return context.WithValue(ctx, withSubqueryKey{}, true)
+}
+
+func withSubquery(ctx context.Context) bool {
+	value := ctx.Value(withSubqueryKey{})
 	if value == nil {
 		return false
 	}
