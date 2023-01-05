@@ -4555,11 +4555,35 @@ FROM
 			query:        `SELECT EXISTS ( SELECT val FROM UNNEST([1, 2, 3]) AS val WHERE val = 1 )`,
 			expectedRows: [][]interface{}{{true}},
 		},
-
+		{
+			name: "subquery with",
+			query: `
+WITH tmp as (
+  SELECT * FROM (
+    WITH A AS (
+      SELECT * FROM (SELECT 1 AS id)
+    )  SELECT * FROM A
+  )
+) SELECT id FROM tmp`,
+			expectedRows: [][]interface{}{{int64(1)}},
+		},
 		{
 			name:         "nested with",
 			query:        `WITH output AS ( WITH sub AS ( SELECT val FROM UNNEST([1, 2, 3]) as val ) SELECT * FROM sub WHERE val > 1 ) SELECT * FROM output`,
 			expectedRows: [][]interface{}{{int64(2)}, {int64(3)}},
+		},
+		{
+			name: "nested with 2",
+			query: `
+WITH tmp as (
+  WITH A AS (
+    SELECT * FROM (SELECT 1 AS id)
+  ), B AS (
+    SELECT * FROM (SELECT "hello" AS name)
+  ) SELECT * FROM A CROSS JOIN B
+) SELECT * FROM tmp
+`,
+			expectedRows: [][]interface{}{{int64(1), "hello"}},
 		},
 	} {
 		test := test

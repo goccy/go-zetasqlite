@@ -1470,6 +1470,15 @@ func (n *WithScanNode) FormatSQL(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if withSubquery(ctx) {
+		e := withEntries(ctx)
+		e.entries = append(e.entries, queries...)
+		return query, nil
+	}
+	e := withEntries(ctx)
+	if len(e.entries) != 0 {
+		queries = append(e.entries, queries...)
+	}
 	return fmt.Sprintf(
 		"WITH %s %s",
 		strings.Join(queries, ", "),
@@ -1482,7 +1491,7 @@ func (n *WithEntryNode) FormatSQL(ctx context.Context) (string, error) {
 		return "", nil
 	}
 	queryName := n.node.WithQueryName()
-	subquery, err := newNode(n.node.WithSubquery()).FormatSQL(ctx)
+	subquery, err := newNode(n.node.WithSubquery()).FormatSQL(withWithSubquery(ctx))
 	if err != nil {
 		return "", err
 	}
