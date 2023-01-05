@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
@@ -470,6 +471,47 @@ AS r"""
 		}
 		if v != "あいうえお かきくけこ" {
 			t.Fatalf("got %s", v)
+		}
+	})
+	t.Run("struct", func(t *testing.T) {
+		if _, err := db.ExecContext(
+			ctx,
+			`
+CREATE FUNCTION structToArray(obj STRUCT<idx INT64, name STRING>)
+RETURNS ARRAY<STRING>
+LANGUAGE js AS """
+  let result = []
+
+  result.push(obj["idx"])
+  result.push(obj["name"])
+  return result;
+""";
+`,
+		); err != nil {
+			t.Fatal(err)
+		}
+		rows, err := db.QueryContext(ctx, `SELECT * FROM UNNEST(structToArray(STRUCT(1,"A")))`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer rows.Close()
+
+		var results []string
+		for i := 0; i < 2; i++ {
+			if !rows.Next() {
+				t.Fatal("failed to get result")
+			}
+			var v string
+			if err := rows.Scan(&v); err != nil {
+				t.Fatal(err)
+			}
+			results = append(results, v)
+		}
+		if rows.Err() != nil {
+			t.Fatal(rows.Err())
+		}
+		if !reflect.DeepEqual(results, []string{"1", "A"}) {
+			t.Fatalf("failed to get results")
 		}
 	})
 }

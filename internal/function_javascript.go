@@ -14,7 +14,12 @@ func EVAL_JAVASCRIPT(code string, retType *Type, argNames []string, args []Value
 	for i := 0; i < len(args); i++ {
 		var v interface{}
 		if args[i] != nil {
-			v = args[i].Interface()
+			structV, ok := args[i].(*StructValue)
+			if ok {
+				v = structV.m
+			} else {
+				v = args[i].Interface()
+			}
 		}
 		if err := vm.Set(argNames[i], v); err != nil {
 			return nil, fmt.Errorf(
@@ -95,11 +100,20 @@ func castJavaScriptValue(t types.Type, v goja.Value) (Value, error) {
 	case types.JSON:
 		return JsonValue(v.ToString().String()), nil
 	case types.ARRAY:
-		base, err := ValueFromGoValue(v.Export())
-		if err != nil {
-			return nil, err
+		elemType := t.AsArray().ElementType()
+		var ret ArrayValue
+		for _, vv := range v.Export().([]interface{}) {
+			base, err := ValueFromGoValue(vv)
+			if err != nil {
+				return nil, err
+			}
+			elem, err := CastValue(elemType, base)
+			if err != nil {
+				return nil, err
+			}
+			ret.values = append(ret.values, elem)
 		}
-		return CastValue(t, base)
+		return &ret, nil
 	case types.STRUCT:
 		base, err := ValueFromGoValue(v.Export())
 		if err != nil {
