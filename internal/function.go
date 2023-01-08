@@ -214,7 +214,9 @@ func LIKE(a, b Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	re, err := regexp.Compile(strings.Replace(vb, "%", "*", -1))
+	wildcard := strings.Replace(vb, "%", ".*", -1)
+	matchLimits := fmt.Sprintf("^%s$", wildcard)
+	re, err := regexp.Compile(matchLimits)
 	if err != nil {
 		return nil, err
 	}
