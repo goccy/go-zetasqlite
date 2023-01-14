@@ -4573,6 +4573,12 @@ WITH tmp as (
 			expectedRows: [][]interface{}{{int64(2)}, {int64(3)}},
 		},
 		{
+			name: "join nested with",
+			query: `select * from (SELECT 1 AS id) as A LEFT JOIN (with tmp as (select 1 as id)  select * from tmp) as b on a.id = b.id
+`,
+			expectedRows: [][]interface{}{{int64(1), int64(1)}},
+		},
+		{
 			name: "nested with 2",
 			query: `
 WITH tmp as (

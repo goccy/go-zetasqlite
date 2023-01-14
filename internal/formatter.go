@@ -145,6 +145,10 @@ func getInputPattern(input string) InputPattern {
 	if strings.HasPrefix(trimmed, "SELECT") {
 		return InputNeedsWrap
 	}
+	if strings.HasPrefix(trimmed, "WITH") {
+		return InputNeedsWrap
+	}
+
 	return InputNeedsFrom
 }
 
