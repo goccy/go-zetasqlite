@@ -216,7 +216,6 @@ func (a *Analyzer) context(
 	ctx = withFuncMap(ctx, funcMap)
 	ctx = withAnalyticOrderColumnNames(ctx, &analyticOrderColumnNames{})
 	ctx = withNodeMap(ctx, zetasql.NewNodeMap(stmtNode, stmt))
-	ctx = withWithEntries(ctx, &withSubqueryEntries{})
 	return ctx
 }
 
