@@ -157,6 +157,21 @@ func TestQuery(t *testing.T) {
 			expectedRows: [][]interface{}{{true}},
 		},
 		{
+			name:         "like operator2",
+			query:        `SELECT "abcd" LIKE "%a%"`,
+			expectedRows: [][]interface{}{{true}},
+		},
+		{
+			name:         "like operator3",
+			query:        `SELECT "abcd" LIKE "%b%"`,
+			expectedRows: [][]interface{}{{true}},
+		},
+		{
+			name:         "like operator4",
+			query:        `SELECT "dog" LIKE "o%"`,
+			expectedRows: [][]interface{}{{false}},
+		},
+		{
 			name:         "not like operator",
 			query:        `SELECT "abcd" NOT LIKE "a%d"`,
 			expectedRows: [][]interface{}{{false}},
