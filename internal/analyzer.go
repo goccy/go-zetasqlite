@@ -652,7 +652,25 @@ func getArgsFromParams(values []driver.NamedValue, params []*ast.ParameterNode) 
 	if len(values) < argNum {
 		return nil, fmt.Errorf("not enough query arguments")
 	}
-	newNamedValues, err := EncodeNamedValues(values[:argNum], params)
+	namedValuesMap := map[string]driver.NamedValue{}
+	for _, value := range values {
+		namedValuesMap[value.Name] = value
+	}
+	var namedValues []driver.NamedValue
+	for idx, param := range params {
+		name := param.Name()
+		if name != "" {
+			value, exists := namedValuesMap[name]
+			if exists {
+				namedValues = append(namedValues, value)
+			} else {
+				namedValues = append(namedValues, values[idx])
+			}
+		} else {
+			namedValues = append(namedValues, values[idx])
+		}
+	}
+	newNamedValues, err := EncodeNamedValues(namedValues, params)
 	if err != nil {
 		return nil, err
 	}
