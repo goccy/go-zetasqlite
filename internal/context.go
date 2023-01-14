@@ -230,34 +230,6 @@ func needsRowIDColumn(ctx context.Context) bool {
 	return value.(bool)
 }
 
-type withSubqueryEntries struct {
-	entries []string
-}
-
-func withWithEntries(ctx context.Context, entries *withSubqueryEntries) context.Context {
-	return context.WithValue(ctx, withEntriesKey{}, entries)
-}
-
-func withEntries(ctx context.Context) *withSubqueryEntries {
-	value := ctx.Value(withEntriesKey{})
-	if value == nil {
-		return nil
-	}
-	return value.(*withSubqueryEntries)
-}
-
-func withWithSubquery(ctx context.Context) context.Context {
-	return context.WithValue(ctx, withSubqueryKey{}, true)
-}
-
-func withSubquery(ctx context.Context) bool {
-	value := ctx.Value(withSubqueryKey{})
-	if value == nil {
-		return false
-	}
-	return value.(bool)
-}
-
 func WithCurrentTime(ctx context.Context, now time.Time) context.Context {
 	return context.WithValue(ctx, currentTimeKey{}, &now)
 }
