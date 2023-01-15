@@ -654,7 +654,8 @@ func getArgsFromParams(values []driver.NamedValue, params []*ast.ParameterNode) 
 	}
 	namedValuesMap := map[string]driver.NamedValue{}
 	for _, value := range values {
-		namedValuesMap[value.Name] = value
+		// Name() value of ast.ParameterNode always returns lowercase name.
+		namedValuesMap[strings.ToLower(value.Name)] = value
 	}
 	var namedValues []driver.NamedValue
 	for idx, param := range params {
