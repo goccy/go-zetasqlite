@@ -123,6 +123,71 @@ COMMIT TRANSACTION;
 	}
 }
 
+func TestNestedStructFieldAccess(t *testing.T) {
+	now := time.Now()
+	ctx := context.Background()
+	ctx = zetasqlite.WithCurrentTime(ctx, now)
+	db, err := sql.Open("zetasqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if _, err := db.ExecContext(ctx, `
+CREATE TABLE table (
+  id INT64,
+  value STRUCT<fieldA STRING, fieldB STRUCT<fieldX STRING, fieldY STRING>>
+)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(
+		ctx,
+		`INSERT table (id, value) VALUES (?, ?)`,
+		123,
+		map[string]interface{}{
+			"fieldB": map[string]interface{}{
+				"fieldY": "bar",
+			},
+		},
+	); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := db.QueryContext(ctx, "SELECT value, value.fieldB, value.fieldB.fieldY FROM table")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	type queryRow struct {
+		Value  interface{}
+		FieldB []map[string]interface{}
+		FieldY string
+	}
+	var results []*queryRow
+	for rows.Next() {
+		var (
+			value  interface{}
+			fieldB []map[string]interface{}
+			fieldY string
+		)
+		if err := rows.Scan(&value, &fieldB, &fieldY); err != nil {
+			t.Fatal(err)
+		}
+		results = append(results, &queryRow{
+			Value:  value,
+			FieldB: fieldB,
+			FieldY: fieldY,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("failed to get results")
+	}
+	if results[0].FieldY != "bar" {
+		t.Fatalf("failed to get fieldY")
+	}
+}
+
 func TestCreateTempTable(t *testing.T) {
 	now := time.Now()
 	ctx := context.Background()
