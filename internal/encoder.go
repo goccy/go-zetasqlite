@@ -454,13 +454,6 @@ func CastValue(t types.Type, v Value) (Value, error) {
 			return nil, err
 		}
 		typ := t.AsStruct()
-		if typ.NumFields() != len(s.keys) {
-			return nil, fmt.Errorf(
-				"unexpected field number. struct type expected field number %d but got %d",
-				typ.NumFields(),
-				len(s.m),
-			)
-		}
 		anonymousStruct := true
 		for _, key := range s.keys {
 			if key != "" {
@@ -475,7 +468,9 @@ func CastValue(t types.Type, v Value) (Value, error) {
 			key := typ.Field(i).Name()
 			value, exists := s.m[key]
 			if !exists {
-				value = s.values[i]
+				ret.keys = append(ret.keys, key)
+				ret.values = append(ret.values, nil)
+				continue
 			}
 			casted, err := CastValue(typ.Field(i).Type(), value)
 			if err != nil {
