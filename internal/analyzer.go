@@ -84,6 +84,7 @@ func newAnalyzerOptions() *zetasql.AnalyzerOptions {
 		ast.CreateProcedureStmt,
 		ast.CreateFunctionStmt,
 		ast.CreateTableFunctionStmt,
+		ast.CreateViewStmt,
 	})
 	opt := zetasql.NewAnalyzerOptions()
 	opt.SetAllowUndeclaredParameters(true)
@@ -245,6 +246,9 @@ func (a *Analyzer) newStmtAction(ctx context.Context, query string, args []drive
 		return a.newCreateTableAsSelectStmtAction(ctx, query, args, node.(*ast.CreateTableAsSelectStmtNode))
 	case ast.CreateFunctionStmt:
 		return a.newCreateFunctionStmtAction(ctx, query, args, node.(*ast.CreateFunctionStmtNode))
+	case ast.CreateViewStmt:
+		ctx = withUseColumnID(ctx)
+		return a.newCreateViewStmtAction(ctx, query, args, node.(*ast.CreateViewStmtNode))
 	case ast.DropStmt:
 		return a.newDropStmtAction(ctx, query, args, node.(*ast.DropStmtNode))
 	case ast.InsertStmt, ast.UpdateStmt, ast.DeleteStmt:
@@ -324,6 +328,19 @@ func (a *Analyzer) newCreateFunctionStmtAction(ctx context.Context, query string
 		spec:    spec,
 		catalog: a.catalog,
 		funcMap: funcMapFromContext(ctx),
+	}, nil
+}
+
+func (a *Analyzer) newCreateViewStmtAction(ctx context.Context, query string, args []driver.NamedValue, node *ast.CreateViewStmtNode) (*CreateViewStmtAction, error) {
+	query, err := newNode(node.Query()).FormatSQL(ctx)
+	if err != nil {
+		return nil, err
+	}
+	spec := newTableAsViewSpec(a.namePath, query, node)
+	return &CreateViewStmtAction{
+		query:   query,
+		spec:    spec,
+		catalog: a.catalog,
 	}, nil
 }
 

@@ -104,6 +104,7 @@ func (s *FunctionSpec) CallSQL(ctx context.Context, callNode *ast.BaseFunctionCa
 
 type TableSpec struct {
 	IsTemp     bool           `json:"isTemp"`
+	IsView     bool           `json:"isView"`
 	NamePath   []string       `json:"namePath"`
 	Columns    []*ColumnSpec  `json:"columns"`
 	PrimaryKey []string       `json:"primaryKey"`
@@ -127,6 +128,9 @@ func (s *TableSpec) TableName() string {
 }
 
 func (s *TableSpec) SQLiteSchema() string {
+	if s.IsView {
+		return viewSQLiteSchema(s)
+	}
 	if s.Query != "" {
 		return fmt.Sprintf("CREATE TABLE `%s` AS %s", s.TableName(), s.Query)
 	}
@@ -150,6 +154,19 @@ func (s *TableSpec) SQLiteSchema() string {
 		stmt = "CREATE TABLE IF NOT EXISTS"
 	}
 	return fmt.Sprintf("%s `%s` (%s)", stmt, s.TableName(), strings.Join(columns, ","))
+}
+
+func viewSQLiteSchema(s *TableSpec) string {
+	var stmt string
+	switch s.CreateMode {
+	case ast.CreateDefaultMode:
+		stmt = "CREATE VIEW"
+	case ast.CreateOrReplaceMode:
+		stmt = "CREATE VIEW"
+	case ast.CreateIfNotExistsMode:
+		stmt = "CREATE VIEW IF NOT EXISTS"
+	}
+	return fmt.Sprintf("%s `%s` AS %s", stmt, s.TableName(), s.Query)
 }
 
 type ColumnSpec struct {
@@ -478,6 +495,19 @@ func newColumnsFromDef(def []*ast.ColumnDefinitionNode) []*ColumnSpec {
 	return columns
 }
 
+func newColumnsFromDefFromOutputColumn(def []*ast.OutputColumnNode) []*ColumnSpec {
+	columns := []*ColumnSpec{}
+	for _, columnNode := range def {
+		column := columnNode.Column()
+
+		columns = append(columns, &ColumnSpec{
+			Name: columnNode.Name(),
+			Type: newType(column.Type()),
+		})
+	}
+	return columns
+}
+
 func newPrimaryKey(key *ast.PrimaryKeyNode) []string {
 	if key == nil {
 		return nil
@@ -493,6 +523,30 @@ func newTableSpec(namePath []string, stmt *ast.CreateTableStmtNode) *TableSpec {
 		Columns:    newColumnsFromDef(stmt.ColumnDefinitionList()),
 		PrimaryKey: newPrimaryKey(stmt.PrimaryKey()),
 		CreateMode: stmt.CreateMode(),
+		UpdatedAt:  now,
+		CreatedAt:  now,
+	}
+}
+
+func newTableAsViewSpec(namePath []string, query string, stmt *ast.CreateViewStmtNode) *TableSpec {
+	var outputColumns []string
+	for _, column := range stmt.OutputColumnList() {
+		colName := column.Name()
+		refColumnName := column.Column().Name()
+		colID := column.Column().ColumnID()
+		outputColumns = append(
+			outputColumns,
+			fmt.Sprintf("`%s#%d` AS `%s`", refColumnName, colID, colName),
+		)
+	}
+	now := time.Now()
+	return &TableSpec{
+		IsTemp:     stmt.CreateScope() == ast.CreateScopeTemp,
+		IsView:     true,
+		NamePath:   MergeNamePath(namePath, stmt.NamePath()),
+		Columns:    newColumnsFromDefFromOutputColumn(stmt.OutputColumnList()),
+		CreateMode: stmt.CreateMode(),
+		Query:      fmt.Sprintf("SELECT %s FROM (%s)", strings.Join(outputColumns, ","), query),
 		UpdatedAt:  now,
 		CreatedAt:  now,
 	}
