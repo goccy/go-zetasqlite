@@ -495,7 +495,7 @@ func newColumnsFromDef(def []*ast.ColumnDefinitionNode) []*ColumnSpec {
 	return columns
 }
 
-func newColumnsFromDefFromOutputColumn(def []*ast.OutputColumnNode) []*ColumnSpec {
+func newColumnsFromOutputColumns(def []*ast.OutputColumnNode) []*ColumnSpec {
 	columns := []*ColumnSpec{}
 	for _, columnNode := range def {
 		column := columnNode.Column()
@@ -544,7 +544,7 @@ func newTableAsViewSpec(namePath []string, query string, stmt *ast.CreateViewStm
 		IsTemp:     stmt.CreateScope() == ast.CreateScopeTemp,
 		IsView:     true,
 		NamePath:   MergeNamePath(namePath, stmt.NamePath()),
-		Columns:    newColumnsFromDefFromOutputColumn(stmt.OutputColumnList()),
+		Columns:    newColumnsFromOutputColumns(stmt.OutputColumnList()),
 		CreateMode: stmt.CreateMode(),
 		Query:      fmt.Sprintf("SELECT %s FROM (%s)", strings.Join(outputColumns, ","), query),
 		UpdatedAt:  now,
