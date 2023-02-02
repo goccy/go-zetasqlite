@@ -117,6 +117,81 @@ func (a *CreateTableStmtAction) Cleanup(ctx context.Context, conn *Conn) error {
 	return nil
 }
 
+type CreateViewStmtAction struct {
+	query   string
+	spec    *TableSpec
+	catalog *Catalog
+}
+
+func (a *CreateViewStmtAction) Prepare(ctx context.Context, conn *Conn) (driver.Stmt, error) {
+	if a.spec.CreateMode == ast.CreateOrReplaceMode {
+		if _, err := conn.ExecContext(
+			ctx,
+			fmt.Sprintf("DROP VIEW IF EXISTS `%s`", a.spec.TableName()),
+		); err != nil {
+			return nil, err
+		}
+	}
+	stmt, err := conn.PrepareContext(ctx, a.spec.SQLiteSchema())
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare %s: %w", a.query, err)
+	}
+	return newCreateViewStmt(stmt, conn, a.catalog, a.spec), nil
+}
+
+func (a *CreateViewStmtAction) exec(ctx context.Context, conn *Conn) error {
+	if a.spec.CreateMode == ast.CreateOrReplaceMode {
+		if _, err := conn.ExecContext(
+			ctx,
+			fmt.Sprintf("DROP VIEW IF EXISTS `%s`", a.spec.TableName()),
+		); err != nil {
+			return err
+		}
+	}
+	if _, err := conn.ExecContext(ctx, a.spec.SQLiteSchema()); err != nil {
+		return fmt.Errorf("failed to exec %s: %w", a.query, err)
+	}
+
+	if err := a.catalog.AddNewTableSpec(ctx, conn, a.spec); err != nil {
+		return fmt.Errorf("failed to add new view spec: %w", err)
+	}
+	return nil
+}
+
+func (a *CreateViewStmtAction) ExecContext(ctx context.Context, conn *Conn) (driver.Result, error) {
+	if err := a.exec(ctx, conn); err != nil {
+		return nil, err
+	}
+	return nil, nil
+}
+
+func (a *CreateViewStmtAction) QueryContext(ctx context.Context, conn *Conn) (*Rows, error) {
+	if err := a.exec(ctx, conn); err != nil {
+		return nil, err
+	}
+	return nil, nil
+}
+
+func (a *CreateViewStmtAction) Cleanup(ctx context.Context, conn *Conn) error {
+	if !a.spec.IsTemp {
+		return nil
+	}
+	if _, err := conn.ExecContext(
+		ctx,
+		fmt.Sprintf("DROP VIEW IF EXISTS `%s`", a.spec.TableName()),
+	); err != nil {
+		return fmt.Errorf("failed to cleanup view %s: %w", a.spec.TableName(), err)
+	}
+	if err := a.catalog.DeleteTableSpec(ctx, conn, a.spec.TableName()); err != nil {
+		return fmt.Errorf("failed to delete table spec: %w", err)
+	}
+	return nil
+}
+
+func (a *CreateViewStmtAction) Args() []interface{} {
+	return nil
+}
+
 type CreateFunctionStmtAction struct {
 	spec    *FunctionSpec
 	catalog *Catalog

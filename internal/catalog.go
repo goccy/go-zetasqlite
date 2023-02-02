@@ -49,6 +49,7 @@ type CatalogSpecKind string
 
 const (
 	TableSpecKind    CatalogSpecKind = "table"
+	ViewSpecKind     CatalogSpecKind = "view"
 	FunctionSpecKind CatalogSpecKind = "function"
 	catalogName                      = "zetasqlite"
 )
@@ -198,6 +199,7 @@ func (c *Catalog) Sync(ctx context.Context, conn *Conn) error {
 		}
 		switch kind {
 		case TableSpecKind:
+		case ViewSpecKind:
 			if err := c.loadTableSpec(spec); err != nil {
 				return fmt.Errorf("failed to load table spec: %w", err)
 			}
@@ -332,11 +334,15 @@ func (c *Catalog) saveTableSpec(ctx context.Context, conn *Conn, spec *TableSpec
 		return fmt.Errorf("failed to encode table spec: %w", err)
 	}
 	now := time.Now()
+	kind := string(TableSpecKind)
+	if spec.IsView {
+		kind = string(ViewSpecKind)
+	}
 	if _, err := conn.ExecContext(
 		ctx,
 		upsertCatalogQuery,
 		sql.Named("name", spec.TableName()),
-		sql.Named("kind", string(TableSpecKind)),
+		sql.Named("kind", kind),
 		sql.Named("spec", string(encoded)),
 		sql.Named("updatedAt", now),
 		sql.Named("createdAt", now),

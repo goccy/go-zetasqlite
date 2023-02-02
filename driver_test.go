@@ -40,6 +40,24 @@ CREATE TABLE IF NOT EXISTS Singers (
 	if singerID != 1 || firstName != "John" || lastName != "Titor" {
 		t.Fatalf("failed to find row %v %v %v", singerID, firstName, lastName)
 	}
+	if _, err := db.Exec(`
+CREATE VIEW IF NOT EXISTS SingerNames AS SELECT FirstName || ' ' || LastName AS Name FROM Singers`); err != nil {
+		t.Fatal(err)
+	}
+
+	viewRow := db.QueryRow("SELECT Name FROM SingerNames LIMIT 1")
+	if viewRow.Err() != nil {
+		t.Fatal(viewRow.Err())
+	}
+
+	var name string
+
+	if err := viewRow.Scan(&name); err != nil {
+		t.Fatal(err)
+	}
+	if name != "John Titor" {
+		t.Fatalf("failed to find view row")
+	}
 }
 
 func TestRegisterCustomDriver(t *testing.T) {

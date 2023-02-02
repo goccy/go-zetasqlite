@@ -23,6 +23,13 @@ type CreateTableStmt struct {
 	spec    *TableSpec
 }
 
+type CreateViewStmt struct {
+	stmt    *sql.Stmt
+	conn    *Conn
+	catalog *Catalog
+	spec    *TableSpec
+}
+
 func (s *CreateTableStmt) Close() error {
 	return s.stmt.Close()
 }
@@ -52,6 +59,37 @@ func newCreateTableStmt(stmt *sql.Stmt, conn *Conn, catalog *Catalog, spec *Tabl
 		catalog: catalog,
 		spec:    spec,
 	}
+}
+
+func newCreateViewStmt(stmt *sql.Stmt, conn *Conn, catalog *Catalog, spec *TableSpec) *CreateViewStmt {
+	return &CreateViewStmt{
+		stmt:    stmt,
+		conn:    conn,
+		catalog: catalog,
+		spec:    spec,
+	}
+}
+
+func (s *CreateViewStmt) Close() error {
+	return s.stmt.Close()
+}
+
+func (s *CreateViewStmt) NumInput() int {
+	return 0
+}
+
+func (s *CreateViewStmt) Exec(args []driver.Value) (driver.Result, error) {
+	if _, err := s.stmt.Exec(args); err != nil {
+		return nil, err
+	}
+	if err := s.catalog.AddNewTableSpec(context.Background(), s.conn, s.spec); err != nil {
+		return nil, fmt.Errorf("failed to add new table spec: %w", err)
+	}
+	return nil, nil
+}
+
+func (s *CreateViewStmt) Query(args []driver.Value) (driver.Rows, error) {
+	return nil, fmt.Errorf("failed to query for CreateViewStmt")
 }
 
 type CreateFunctionStmt struct {
