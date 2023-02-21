@@ -359,7 +359,7 @@ func COALESCE(args ...Value) (Value, error) {
 		}
 		return arg, nil
 	}
-	return nil, fmt.Errorf("COALESCE required arguments")
+	return nil, nil
 }
 
 func IF(cond, trueV, falseV Value) (Value, error) {
