@@ -99,7 +99,7 @@ func DATE_DIFF(a, b time.Time, part string) (Value, error) {
 func DATE_TRUNC(t time.Time, part string) (Value, error) {
 	switch part {
 	case "DAY":
-		return nil, fmt.Errorf("currently unsupported DATE_TRUNC with DAY")
+		return DateValue(time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())), nil
 	case "ISOWEEK":
 		return nil, fmt.Errorf("currently unsupported DATE_TRUNC with ISO_WEEK")
 	case "WEEK":

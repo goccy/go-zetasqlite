@@ -3535,6 +3535,26 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			expectedRows: [][]interface{}{{"2008-12-25"}},
 		},
 		{
+			name:         "date_trunc with day",
+			query:        `SELECT DATE_TRUNC(DATE "2008-12-25", DAY)`,
+			expectedRows: [][]interface{}{{"2008-12-25"}},
+		},
+		{
+			name:         "date_trunc with week",
+			query:        `SELECT DATE_TRUNC(DATE "2017-11-07", WEEK)`,
+			expectedRows: [][]interface{}{{"2017-11-05"}},
+		},
+		{
+			name:         "date_trunc with month",
+			query:        `SELECT DATE_TRUNC(DATE "2017-11-05", MONTH)`,
+			expectedRows: [][]interface{}{{"2017-11-01"}},
+		},
+		{
+			name:         "date_trunc with year",
+			query:        `SELECT DATE_TRUNC(DATE "2017-11-05", YEAR)`,
+			expectedRows: [][]interface{}{{"2017-01-01"}},
+		},
+		{
 			name:         "format_date with %x",
 			query:        `SELECT FORMAT_DATE("%x", DATE "2008-12-25")`,
 			expectedRows: [][]interface{}{{"12/25/08"}},
