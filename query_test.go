@@ -434,6 +434,11 @@ FROM UNNEST([1, 2, 3, 4]) AS val`,
 			expectedRows: [][]interface{}{{"B"}},
 		},
 		{
+			name:         "coalesce with all nulls",
+			query:        `SELECT COALESCE(NULL, NULL, NULL)`,
+			expectedRows: [][]interface{}{{nil}},
+		},
+		{
 			name:         "if return int64",
 			query:        `SELECT IF("a" = "b", 1, 2)`,
 			expectedRows: [][]interface{}{{int64(2)}},
