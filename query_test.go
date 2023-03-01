@@ -3530,6 +3530,11 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			expectedRows: [][]interface{}{{"2015-12-23", int64(2015), int64(2015), int64(12), int64(52), int64(51), int64(23)}},
 		},
 		{
+			name:         "date_diff with week",
+			query:        `SELECT DATE_DIFF(DATE '2017-10-17', DATE '2017-10-12', WEEK) AS weeks_diff`,
+			expectedRows: [][]interface{}{{int64(1)}},
+		},
+		{
 			name:         "date_from_unix_date",
 			query:        `SELECT DATE_FROM_UNIX_DATE(14238) AS date_from_epoch`,
 			expectedRows: [][]interface{}{{"2008-12-25"}},
