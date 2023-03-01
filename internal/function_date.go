@@ -88,6 +88,8 @@ func DATE_DIFF(a, b time.Time, part string) (Value, error) {
 	switch part {
 	case "DAY":
 		return IntValue(a.Day() - b.Day()), nil
+	case "WEEK":
+		return IntValue(a.Weekday() - b.Weekday()), nil
 	case "MONTH":
 		return IntValue(a.Month() - b.Month()), nil
 	case "YEAR":
