@@ -66,6 +66,14 @@ INSERT recreate_table (b) VALUES ('hello');
 `,
 		},
 		{
+			name: "insert select",
+			query: `
+CREATE OR REPLACE TABLE TableA(product string, quantity int64);
+INSERT TableA (product, quantity) SELECT 'top load washer', 10;
+INSERT INTO TableA (product, quantity) SELECT * FROM UNNEST([('microwave', 20), ('dishwasher', 30)]);
+`,
+		},
+		{
 			name: "transaction",
 			query: `
 CREATE OR REPLACE TABLE Inventory
