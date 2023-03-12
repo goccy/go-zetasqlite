@@ -1584,10 +1584,21 @@ func (n *InsertStmtNode) FormatSQL(ctx context.Context) (string, error) {
 		}
 		rows = append(rows, fmt.Sprintf("(%s)", sql))
 	}
-	return fmt.Sprintf("INSERT INTO `%s` (%s) VALUES %s",
+	if len(rows) > 0 {
+		return fmt.Sprintf("INSERT INTO `%s` (%s) VALUES %s",
+			table,
+			strings.Join(columns, ","),
+			strings.Join(rows, ","),
+		), nil
+	}
+	selectStatement, err := newNode(n.node.Query()).FormatSQL(ctx)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("INSERT INTO `%s` (%s) %s",
 		table,
 		strings.Join(columns, ","),
-		strings.Join(rows, ","),
+		selectStatement,
 	), nil
 }
 
