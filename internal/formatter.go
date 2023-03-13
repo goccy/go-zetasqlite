@@ -1576,6 +1576,18 @@ func (n *InsertStmtNode) FormatSQL(ctx context.Context) (string, error) {
 	for _, col := range n.node.InsertColumnList() {
 		columns = append(columns, fmt.Sprintf("`%s`", col.Name()))
 	}
+	query := n.node.Query()
+	if query != nil {
+		stmt, err := newNode(query).FormatSQL(ctx)
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("INSERT INTO `%s` (%s) %s",
+			table,
+			strings.Join(columns, ","),
+			stmt,
+		), nil
+	}
 	rows := []string{}
 	for _, row := range n.node.RowList() {
 		sql, err := newNode(row).FormatSQL(ctx)
@@ -1584,21 +1596,10 @@ func (n *InsertStmtNode) FormatSQL(ctx context.Context) (string, error) {
 		}
 		rows = append(rows, fmt.Sprintf("(%s)", sql))
 	}
-	if len(rows) > 0 {
-		return fmt.Sprintf("INSERT INTO `%s` (%s) VALUES %s",
-			table,
-			strings.Join(columns, ","),
-			strings.Join(rows, ","),
-		), nil
-	}
-	selectStatement, err := newNode(n.node.Query()).FormatSQL(ctx)
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("INSERT INTO `%s` (%s) %s",
+	return fmt.Sprintf("INSERT INTO `%s` (%s) VALUES %s",
 		table,
 		strings.Join(columns, ","),
-		selectStatement,
+		strings.Join(rows, ","),
 	), nil
 }
 
