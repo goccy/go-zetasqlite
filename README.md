@@ -215,7 +215,7 @@ A list of ZetaSQL ( Google Standard SQL ) specifications and features supported 
 - [ ] CREATE TABLE COPY
 - [ ] CREATE SNAPSHOT TABLE
 - [ ] CREATE TABLE CLONE
-- [ ] CREATE VIEW
+- [x] CREATE VIEW
 - [ ] CREATE MATERIALIZED VIEW
 - [ ] CREATE EXTERNAL TABLE
 - [x] CREATE FUNCTION
