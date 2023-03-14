@@ -1576,6 +1576,18 @@ func (n *InsertStmtNode) FormatSQL(ctx context.Context) (string, error) {
 	for _, col := range n.node.InsertColumnList() {
 		columns = append(columns, fmt.Sprintf("`%s`", col.Name()))
 	}
+	query := n.node.Query()
+	if query != nil {
+		stmt, err := newNode(query).FormatSQL(withUseColumnID(ctx))
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("INSERT INTO `%s` (%s) %s",
+			table,
+			strings.Join(columns, ","),
+			stmt,
+		), nil
+	}
 	rows := []string{}
 	for _, row := range n.node.RowList() {
 		sql, err := newNode(row).FormatSQL(ctx)
