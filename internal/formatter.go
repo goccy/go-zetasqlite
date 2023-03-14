@@ -1578,7 +1578,7 @@ func (n *InsertStmtNode) FormatSQL(ctx context.Context) (string, error) {
 	}
 	query := n.node.Query()
 	if query != nil {
-		stmt, err := newNode(query).FormatSQL(ctx)
+		stmt, err := newNode(query).FormatSQL(withUseColumnID(ctx))
 		if err != nil {
 			return "", err
 		}
