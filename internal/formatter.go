@@ -592,7 +592,7 @@ func (n *SubqueryExprNode) FormatSQL(ctx context.Context) (string, error) {
 			return "", fmt.Errorf("failed to find computed column names for array subquery")
 		}
 		colName := uniqueColumnName(ctx, n.node.Subquery().ColumnList()[0])
-		return fmt.Sprintf("zetasqlite_array(`%s`) FROM (%s)", colName, sql), nil
+		return fmt.Sprintf("(SELECT zetasqlite_array(`%s`) FROM (%s))", colName, sql), nil
 	case ast.SubqueryTypeExists:
 		return fmt.Sprintf("EXISTS (%s)", sql), nil
 	case ast.SubqueryTypeIn:

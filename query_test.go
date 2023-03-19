@@ -2144,6 +2144,22 @@ FROM UNNEST([
 			},
 		},
 		{
+			name: "array function with other column",
+			query: `
+SELECT ARRAY (
+	SELECT 1
+) AS new_array,
+1 as new_column
+`,
+			expectedRows: [][]interface{}{
+				{
+					[]interface{}{
+						int64(1),
+					},
+					int64(1),
+				},
+			},
+		}, {
 			name:  "array_concat function",
 			query: `SELECT ARRAY_CONCAT([1, 2], [3, 4], [5, 6]) as count_to_six`,
 			expectedRows: [][]interface{}{
