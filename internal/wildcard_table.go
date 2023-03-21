@@ -175,9 +175,15 @@ func (c *Catalog) createWildcardTable(path []string) (types.Table, error) {
 	wildcardTable.NamePath[len(spec.NamePath)-1] = fmt.Sprintf(
 		"%s_wildcard_%d", lastNamePath, time.Now().Unix(),
 	)
+	projectID := spec.NamePath[0]
+	prefix := name
+	if !strings.HasPrefix(prefix, projectID+".") {
+		prefix = projectID + "." + prefix
+	}
+
 	return &WildcardTable{
 		spec:   wildcardTable,
 		tables: matchedSpecs,
-		prefix: name,
+		prefix: prefix,
 	}, nil
 }
