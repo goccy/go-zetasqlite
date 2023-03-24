@@ -209,7 +209,7 @@ A list of ZetaSQL ( Google Standard SQL ) specifications and features supported 
 
 ### DDL ( Data Definition Language )
 
-- CREATE SCHEMA
+- [ ] CREATE SCHEMA
 - [x] CREATE TABLE
 - [ ] CREATE TABLE LIKE
 - [ ] CREATE TABLE COPY
