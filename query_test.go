@@ -3596,6 +3596,12 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			expectedRows: [][]interface{}{{"Dec 2008"}},
 		},
 		{
+			name:         "format_date with %E4Y",
+			query:        `SELECT FORMAT_DATE("%E4Y", DATE "2008-12-25")`,
+			expectedRows: [][]interface{}{{"2008"}},
+		},
+
+		{
 			name:         "last_day",
 			query:        `SELECT LAST_DAY(DATE '2008-11-25') AS last_day`,
 			expectedRows: [][]interface{}{{"2008-11-30"}},
@@ -3736,6 +3742,21 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			expectedRows: [][]interface{}{{"Dec 2008"}},
 		},
 		{
+			name:         "format_datetime with %E3S",
+			query:        `SELECT FORMAT_DATETIME("%E3S", DATETIME "2008-12-25 15:30:12.345678")`,
+			expectedRows: [][]interface{}{{"12.345"}},
+		},
+		{
+			name:         "format_datetime with %E*S",
+			query:        `SELECT FORMAT_DATETIME("%E*S", DATETIME "2008-12-25 15:30:12.345678")`,
+			expectedRows: [][]interface{}{{"12.345678"}},
+		},
+		{
+			name:         "format_datetime with %E4Y",
+			query:        `SELECT FORMAT_DATETIME("%E4Y", DATETIME "2008-12-25 15:30:12.345678")`,
+			expectedRows: [][]interface{}{{"2008"}},
+		},
+		{
 			name:         "parse datetime",
 			query:        `SELECT PARSE_DATETIME("%a %b %e %I:%M:%S %Y", "Thu Dec 25 07:30:00 2008")`,
 			expectedRows: [][]interface{}{{"2008-12-25T07:30:00"}},
@@ -3761,7 +3782,7 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			name:  "current_time",
 			query: `SELECT CURRENT_TIME()`,
 			expectedRows: [][]interface{}{
-				{now.Format("15:04:05")},
+				{now.Format("15:04:05.999999")},
 			},
 		},
 		{
@@ -3800,6 +3821,16 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			name:         "format_time with %R",
 			query:        `SELECT FORMAT_TIME("%R", TIME "15:30:00")`,
 			expectedRows: [][]interface{}{{"15:30"}},
+		},
+		{
+			name:         "format_time with %E3S",
+			query:        `SELECT FORMAT_TIME("%E3S", TIME "15:30:12.345678")`,
+			expectedRows: [][]interface{}{{"12.345"}},
+		},
+		{
+			name:         "format_time with %E*S",
+			query:        `SELECT FORMAT_TIME("%E*S", TIME "15:30:12.345678")`,
+			expectedRows: [][]interface{}{{"12.345678"}},
 		},
 		{
 			name:         "parse time with %I:%M:%S",
@@ -3924,6 +3955,26 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			expectedRows: [][]interface{}{{"2008-12-26 00:30:21"}},
 		},
 		{
+			name:         "format_timestamp with %E3S",
+			query:        `SELECT FORMAT_TIMESTAMP("%E3S", TIMESTAMP "2008-12-25 15:30:12.345678+00")`,
+			expectedRows: [][]interface{}{{"12.345"}},
+		},
+		{
+			name:         "format_timestamp with %E*S",
+			query:        `SELECT FORMAT_TIMESTAMP("%E*S", TIMESTAMP "2008-12-25 15:30:12.345678+00")`,
+			expectedRows: [][]interface{}{{"12.345678"}},
+		},
+		{
+			name:         "format_timestamp with %E4Y",
+			query:        `SELECT FORMAT_TIMESTAMP("%E4Y", TIMESTAMP "2008-12-25 15:30:12.345678+00")`,
+			expectedRows: [][]interface{}{{"2008"}},
+		},
+		{
+			name:         "format_timestamp with %Ez",
+			query:        `SELECT FORMAT_TIMESTAMP("%Ez", TIMESTAMP "2008-12-25 15:30:12.345678+00")`,
+			expectedRows: [][]interface{}{{"+00:00"}},
+		},
+		{
 			name:         "parse timestamp with %a %b %e %I:%M:%S %Y",
 			query:        `SELECT PARSE_TIMESTAMP("%a %b %e %I:%M:%S %Y", "Thu Dec 25 07:30:00 2008")`,
 			expectedRows: [][]interface{}{{createTimestampFormatFromString("2008-12-25 07:30:00+00")}},
@@ -3993,7 +4044,7 @@ SELECT
   DATETIME "2021-06-01 12:34:56.789" - DATETIME "2021-05-31 00:00:00",
   TIMESTAMP "2021-06-01 12:34:56.789" - TIMESTAMP "2021-05-31 00:00:00"`,
 			expectedRows: [][]interface{}{
-				{"0-0 396 0:0:0", "0-0 0 36:34:56", "0-0 0 36:34:56.789"},
+				{"0-0 396 0:0:0", "0-0 0 36:34:56.789", "0-0 0 36:34:56.789"},
 			},
 		},
 		{

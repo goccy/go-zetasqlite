@@ -1096,11 +1096,11 @@ func parseTimeFormat(formatStr, targetStr string, typ TimeFormatType) (*time.Tim
 				if formatIdx >= len(format) {
 					return nil, fmt.Errorf("invalid time format")
 				}
-				cInfo, formatProgress, err := combinationPatternInfo(format[formatIdx:])
+				info, formatProgress, err := combinationPatternInfo(format[formatIdx:])
 				if err != nil {
 					return nil, err
 				}
-				if !cInfo.Available(typ) {
+				if !info.Available(typ) {
 					return nil, fmt.Errorf("unavailable format by %s type", typ)
 				}
 				if targetIdx >= len(target) {
@@ -1109,7 +1109,10 @@ func parseTimeFormat(formatStr, targetStr string, typ TimeFormatType) (*time.Tim
 				if formatIdx >= len(format) {
 					return nil, fmt.Errorf("invalid format text")
 				}
-				progress, err := cInfo.Parse(target[targetIdx:], format[formatIdx:], ret)
+				progress, err := info.Parse(target[targetIdx:], ret)
+				if err != nil {
+					return nil, err
+				}
 				targetIdx += progress
 				formatIdx += formatProgress
 				continue
@@ -1152,6 +1155,26 @@ func formatTime(formatStr string, t *time.Time, typ TimeFormatType) (string, err
 				return "", fmt.Errorf("invalid time format")
 			}
 			c = format[i]
+			if c == 'E' {
+				i++
+				if i >= len(format) {
+					return "", fmt.Errorf("invalid time format")
+				}
+				info, formatProgress, err := combinationPatternInfo(format[i:])
+				if err != nil {
+					return "", err
+				}
+				if !info.Available(typ) {
+					return "", fmt.Errorf("unavailable format by %s type", typ)
+				}
+				formatted, err := info.Format(t)
+				if err != nil {
+					return "", err
+				}
+				ret = append(ret, formatted...)
+				i += formatProgress
+				continue
+			}
 			info := formatPatternMap[c]
 			if info == nil {
 				return "", fmt.Errorf("unexpected format type %%%c", c)
@@ -1173,8 +1196,8 @@ func formatTime(formatStr string, t *time.Time, typ TimeFormatType) (string, err
 
 type CombinationFormatTimeInfo struct {
 	AvailableTypes []TimeFormatType
-	Parse          func([]rune, []rune, *time.Time) (int, error)
-	Format         func(*time.Time) ([]rune, []rune, error)
+	Parse          func([]rune, *time.Time) (int, error)
+	Format         func(*time.Time) ([]rune, error)
 }
 
 func (i *CombinationFormatTimeInfo) Available(typ TimeFormatType) bool {
@@ -1186,24 +1209,83 @@ func (i *CombinationFormatTimeInfo) Available(typ TimeFormatType) bool {
 	return false
 }
 
-var combinationFormatPatternMap = map[string]*CombinationFormatTimeInfo{
-	"z": &CombinationFormatTimeInfo{
-		AvailableTypes: []TimeFormatType{
-			FormatTypeDatetime, FormatTypeTimestamp,
-		},
-		Parse:  timeZoneRFC3339Parser,
-		Format: timeZoneRFC3339Formatter,
-	},
-}
-
 func combinationPatternInfo(format []rune) (*CombinationFormatTimeInfo, int, error) {
-	if format[0] == 'z' {
-		return combinationFormatPatternMap["z"], 1, nil
+	switch format[0] {
+	case 'z':
+		return &CombinationFormatTimeInfo{
+			AvailableTypes: []TimeFormatType{
+				FormatTypeTimestamp,
+			},
+			Parse:  timeZoneRFC3339Parser,
+			Format: timeZoneRFC3339Formatter,
+		}, 1, nil
+	case '1', '2', '3', '5', '6':
+		if len(format) > 1 && format[1] == 'S' {
+			precision, _ := strconv.Atoi(string(format[0]))
+			return &CombinationFormatTimeInfo{
+				AvailableTypes: []TimeFormatType{
+					FormatTypeTime,
+					FormatTypeDatetime,
+					FormatTypeTimestamp,
+				},
+				Parse: func(target []rune, ret *time.Time) (int, error) {
+					return timePrecisionParser(precision, target, ret)
+				},
+				Format: func(t *time.Time) ([]rune, error) {
+					return timePrecisionFormatter(precision, t)
+				},
+			}, 2, nil
+		}
+	case '4':
+		if len(format) > 1 {
+			switch format[1] {
+			case 'S':
+				return &CombinationFormatTimeInfo{
+					AvailableTypes: []TimeFormatType{
+						FormatTypeTime,
+						FormatTypeDatetime,
+						FormatTypeTimestamp,
+					},
+					Parse: func(target []rune, ret *time.Time) (int, error) {
+						return timePrecisionParser(4, target, ret)
+					},
+					Format: func(t *time.Time) ([]rune, error) {
+						return timePrecisionFormatter(4, t)
+					},
+				}, 2, nil
+			case 'Y':
+				return &CombinationFormatTimeInfo{
+					AvailableTypes: []TimeFormatType{
+						FormatTypeDate,
+						FormatTypeDatetime,
+						FormatTypeTimestamp,
+					},
+					Parse:  yearParser,
+					Format: timeYear4Formatter,
+				}, 2, nil
+			}
+		}
+	case '*':
+		if len(format) > 1 && format[1] == 'S' {
+			return &CombinationFormatTimeInfo{
+				AvailableTypes: []TimeFormatType{
+					FormatTypeTime,
+					FormatTypeDatetime,
+					FormatTypeTimestamp,
+				},
+				Parse: func(target []rune, ret *time.Time) (int, error) {
+					return timePrecisionParser(6, target, ret)
+				},
+				Format: func(t *time.Time) ([]rune, error) {
+					return timePrecisionFormatter(6, t)
+				},
+			}, 2, nil
+		}
 	}
 	return nil, 0, fmt.Errorf("unexpected format type %%%c", format[0])
 }
 
-func timeZoneRFC3339Parser(target []rune, format []rune, t *time.Time) (int, error) {
+func timeZoneRFC3339Parser(target []rune, t *time.Time) (int, error) {
 	targetIdx := 0
 	if target[targetIdx] == 'Z' {
 		targetIdx++
@@ -1263,6 +1345,18 @@ func timeZoneRFC3339Parser(target []rune, format []rune, t *time.Time) (int, err
 	return 0, fmt.Errorf("unexpected offset format: %%%c", target[targetIdx])
 }
 
-func timeZoneRFC3339Formatter(t *time.Time) ([]rune, []rune, error) {
-	return nil, nil, fmt.Errorf("unimplemented time zone formatter")
+func timeZoneRFC3339Formatter(t *time.Time) ([]rune, error) {
+	return []rune(t.Format("-07:00")), nil
+}
+
+func timePrecisionParser(precision int, target []rune, t *time.Time) (int, error) {
+	return 0, fmt.Errorf("unimplemented time precision matcher")
+}
+
+func timePrecisionFormatter(precision int, t *time.Time) ([]rune, error) {
+	return []rune(t.Format(fmt.Sprintf("05.%s", strings.Repeat("0", precision)))), nil
+}
+
+func timeYear4Formatter(t *time.Time) ([]rune, error) {
+	return []rune(t.Format("2006")), nil
 }
