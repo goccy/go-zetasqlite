@@ -1841,7 +1841,7 @@ func (t TimeValue) ToInt64() (int64, error) {
 }
 
 func (t TimeValue) ToString() (string, error) {
-	return time.Time(t).Format("15:04:05"), nil
+	return time.Time(t).Format("15:04:05.999999"), nil
 }
 
 func (t TimeValue) ToBytes() ([]byte, error) {
@@ -1881,7 +1881,7 @@ func (t TimeValue) ToRat() (*big.Rat, error) {
 }
 
 func (t TimeValue) Format(verb rune) string {
-	formatted := time.Time(t).Format("15:04:05")
+	formatted := time.Time(t).Format("15:04:05.999999")
 	switch verb {
 	case 't':
 		return formatted
@@ -1892,7 +1892,7 @@ func (t TimeValue) Format(verb rune) string {
 }
 
 func (t TimeValue) Interface() interface{} {
-	return time.Time(t).Format("15:04:05")
+	return time.Time(t).Format("15:04:05.999999")
 }
 
 type TimestampValue time.Time

@@ -232,19 +232,19 @@ func dateValueFromLiteral(days int64) (DateValue, error) {
 }
 
 const (
-	microSecondShift = 20
-	secShift         = 0
-	minShift         = 6
-	hourShift        = 12
-	dayShift         = 17
-	monthShift       = 22
-	yearShift        = 26
-	secMask          = 0b111111
-	minMask          = 0b111111 << minShift
-	hourMask         = 0b11111 << hourShift
-	dayMask          = 0b11111 << dayShift
-	monthMask        = 0b1111 << monthShift
-	yearMask         = 0x3FFF << yearShift
+	secShift     = 0
+	minShift     = 6
+	hourShift    = 12
+	dayShift     = 17
+	monthShift   = 22
+	yearShift    = 26
+	microSecMask = 0xFFFFF
+	secMask      = 0b111111
+	minMask      = 0b111111 << minShift
+	hourMask     = 0b11111 << hourShift
+	dayMask      = 0b11111 << dayShift
+	monthMask    = 0b1111 << monthShift
+	yearMask     = 0x3FFF << yearShift
 )
 
 func datetimeValueFromLiteral(bit int64) (DatetimeValue, error) {
@@ -255,6 +255,7 @@ func datetimeValueFromLiteral(bit int64) (DatetimeValue, error) {
 	hour := (b & hourMask) >> hourShift
 	min := (b & minMask) >> minShift
 	sec := (b & secMask) >> secShift
+	microSec := (bit & microSecMask) >> 0
 	t := time.Date(
 		int(year),
 		time.Month(month),
@@ -262,7 +263,7 @@ func datetimeValueFromLiteral(bit int64) (DatetimeValue, error) {
 		int(hour),
 		int(min),
 		int(sec),
-		0, time.UTC,
+		int(microSec)*1000, time.UTC,
 	)
 	return DatetimeValue(t), nil
 }
@@ -272,7 +273,8 @@ func timeValueFromLiteral(bit int64) (TimeValue, error) {
 	hour := (b & hourMask) >> hourShift
 	min := (b & minMask) >> minShift
 	sec := (b & secMask) >> secShift
-	t := time.Date(0, 0, 0, int(hour), int(min), int(sec), 0, time.UTC)
+	microSec := (bit & microSecMask) >> 0
+	t := time.Date(0, 0, 0, int(hour), int(min), int(sec), int(microSec)*1000, time.UTC)
 	return TimeValue(t), nil
 }
 
