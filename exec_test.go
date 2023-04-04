@@ -250,41 +250,80 @@ func TestWildcardTable(t *testing.T) {
 	); err != nil {
 		t.Fatal(err)
 	}
-	rows, err := db.QueryContext(ctx, "SELECT name, _TABLE_SUFFIX FROM `project.dataset.table_*` WHERE name LIKE 'alice%' OR name IS NULL")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer rows.Close()
-	type queryRow struct {
-		Name   *string
-		Suffix string
-	}
-	var results []*queryRow
-	for rows.Next() {
-		var (
-			name   *string
-			suffix string
-		)
-		if err := rows.Scan(&name, &suffix); err != nil {
+	t.Run("with first identifier", func(t *testing.T) {
+		rows, err := db.QueryContext(ctx, "SELECT name, _TABLE_SUFFIX FROM `project.dataset.table_*` WHERE name LIKE 'alice%' OR name IS NULL")
+		if err != nil {
 			t.Fatal(err)
 		}
-		results = append(results, &queryRow{
-			Name:   name,
-			Suffix: suffix,
-		})
-	}
-	if err := rows.Err(); err != nil {
-		t.Fatal(err)
-	}
-	stringPtr := func(v string) *string { return &v }
-	if diff := cmp.Diff(results, []*queryRow{
-		{Name: stringPtr("alice_c"), Suffix: "c"},
-		{Name: stringPtr("alice_b"), Suffix: "b"},
-		{Name: nil, Suffix: "a"},
-		{Name: nil, Suffix: "a"},
-	}); diff != "" {
-		t.Errorf("(-want +got):\n%s", diff)
-	}
+		defer rows.Close()
+		type queryRow struct {
+			Name   *string
+			Suffix string
+		}
+		var results []*queryRow
+		for rows.Next() {
+			var (
+				name   *string
+				suffix string
+			)
+			if err := rows.Scan(&name, &suffix); err != nil {
+				t.Fatal(err)
+			}
+			results = append(results, &queryRow{
+				Name:   name,
+				Suffix: suffix,
+			})
+		}
+		if err := rows.Err(); err != nil {
+			t.Fatal(err)
+		}
+		stringPtr := func(v string) *string { return &v }
+		if diff := cmp.Diff(results, []*queryRow{
+			{Name: stringPtr("alice_c"), Suffix: "c"},
+			{Name: stringPtr("alice_b"), Suffix: "b"},
+			{Name: nil, Suffix: "a"},
+			{Name: nil, Suffix: "a"},
+		}); diff != "" {
+			t.Errorf("(-want +got):\n%s", diff)
+		}
+	})
+	t.Run("without first identifier", func(t *testing.T) {
+		rows, err := db.QueryContext(ctx, "SELECT name, _TABLE_SUFFIX FROM `dataset.table_*` WHERE name LIKE 'alice%' OR name IS NULL")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer rows.Close()
+		type queryRow struct {
+			Name   *string
+			Suffix string
+		}
+		var results []*queryRow
+		for rows.Next() {
+			var (
+				name   *string
+				suffix string
+			)
+			if err := rows.Scan(&name, &suffix); err != nil {
+				t.Fatal(err)
+			}
+			results = append(results, &queryRow{
+				Name:   name,
+				Suffix: suffix,
+			})
+		}
+		if err := rows.Err(); err != nil {
+			t.Fatal(err)
+		}
+		stringPtr := func(v string) *string { return &v }
+		if diff := cmp.Diff(results, []*queryRow{
+			{Name: stringPtr("alice_c"), Suffix: "c"},
+			{Name: stringPtr("alice_b"), Suffix: "b"},
+			{Name: nil, Suffix: "a"},
+			{Name: nil, Suffix: "a"},
+		}); diff != "" {
+			t.Errorf("(-want +got):\n%s", diff)
+		}
+	})
 }
 
 func TestTemplatedArgFunc(t *testing.T) {
