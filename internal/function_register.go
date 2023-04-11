@@ -490,7 +490,7 @@ func RegisterFunctions(conn *sqlite3.SQLiteConn) error {
 
 func setupNormalFuncMap(info *FuncInfo) error {
 	normalFuncMap[info.Name] = append(normalFuncMap[info.Name], &NameAndFunc{
-		Name: fmt.Sprintf("zetasqlite_%s", info.Name),
+		Name: fmt.Sprintf("zetasqlite_default_%s", info.Name),
 		Func: func(args ...interface{}) (interface{}, error) {
 			values, err := convertArgs(args...)
 			if err != nil {
@@ -502,13 +502,29 @@ func setupNormalFuncMap(info *FuncInfo) error {
 			}
 			return EncodeValue(ret)
 		},
+	}, &NameAndFunc{
+		Name: fmt.Sprintf("zetasqlite_safe_%s", info.Name),
+		Func: func(args ...interface{}) (interface{}, error) {
+			values, err := convertArgs(args...)
+			if err != nil {
+				return nil, err
+			}
+			ret, err := info.BindFunc(values...)
+			if err != nil {
+				return nil, nil
+			}
+			return EncodeValue(ret)
+		},
 	})
 	return nil
 }
 
 func setupAggregateFuncMap(info *AggregateFuncInfo) error {
 	aggregateFuncMap[info.Name] = append(aggregateFuncMap[info.Name], &NameAndFunc{
-		Name: fmt.Sprintf("zetasqlite_%s", info.Name),
+		Name: fmt.Sprintf("zetasqlite_default_%s", info.Name),
+		Func: info.BindFunc(),
+	}, &NameAndFunc{
+		Name: fmt.Sprintf("zetasqlite_safe_%s", info.Name),
 		Func: info.BindFunc(),
 	})
 	return nil
@@ -516,7 +532,10 @@ func setupAggregateFuncMap(info *AggregateFuncInfo) error {
 
 func setupWindowFuncMap(info *WindowFuncInfo) error {
 	windowFuncMap[info.Name] = append(windowFuncMap[info.Name], &NameAndFunc{
-		Name: fmt.Sprintf("zetasqlite_window_%s", info.Name),
+		Name: fmt.Sprintf("zetasqlite_window_default_%s", info.Name),
+		Func: info.BindFunc(),
+	}, &NameAndFunc{
+		Name: fmt.Sprintf("zetasqlite_window_safe_%s", info.Name),
 		Func: info.BindFunc(),
 	})
 	return nil

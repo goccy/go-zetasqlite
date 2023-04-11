@@ -189,19 +189,19 @@ func getFuncNameAndArgs(ctx context.Context, node *ast.BaseFunctionCallNode, isW
 		}
 		args = append(args, arg)
 	}
-	funcName := node.Function().FullName(false)
-	funcName = strings.Replace(funcName, ".", "_", -1)
+	funcNameBase := node.Function().FullName(false)
+	funcNameBase = strings.Replace(funcNameBase, ".", "_", -1)
 
-	_, existsCurrentTimeFunc := currentTimeFuncMap[funcName]
-	_, existsNormalFunc := normalFuncMap[funcName]
-	_, existsAggregateFunc := aggregateFuncMap[funcName]
-	_, existsWindowFunc := windowFuncMap[funcName]
+	_, existsCurrentTimeFunc := currentTimeFuncMap[funcNameBase]
+	_, existsNormalFunc := normalFuncMap[funcNameBase]
+	_, existsAggregateFunc := aggregateFuncMap[funcNameBase]
+	_, existsWindowFunc := windowFuncMap[funcNameBase]
 	currentTime := CurrentTime(ctx)
-	if strings.HasPrefix(funcName, "$") {
+	if strings.HasPrefix(funcNameBase, "$") {
 		if isWindowFunc {
-			funcName = fmt.Sprintf("zetasqlite_window_%s", funcName[1:])
+			funcNameBase = fmt.Sprintf("window_%s", funcNameBase[1:])
 		} else {
-			funcName = fmt.Sprintf("zetasqlite_%s", funcName[1:])
+			funcNameBase = funcNameBase[1:]
 		}
 	} else if existsCurrentTimeFunc {
 		if currentTime != nil {
@@ -210,24 +210,25 @@ func getFuncNameAndArgs(ctx context.Context, node *ast.BaseFunctionCallNode, isW
 				fmt.Sprint(currentTime.UnixNano()),
 			)
 		}
-		funcName = fmt.Sprintf("zetasqlite_%s", funcName)
-	} else if existsNormalFunc {
-		funcName = fmt.Sprintf("zetasqlite_%s", funcName)
-	} else if !isWindowFunc && existsAggregateFunc {
-		funcName = fmt.Sprintf("zetasqlite_%s", funcName)
-	} else if isWindowFunc && existsWindowFunc {
-		funcName = fmt.Sprintf("zetasqlite_window_%s", funcName)
-	} else {
-		if node.Function().IsZetaSQLBuiltin() {
-			return "", nil, fmt.Errorf("%s function is unimplemented", funcName)
+	} else if !existsNormalFunc && (isWindowFunc || !existsAggregateFunc) {
+		if isWindowFunc && existsWindowFunc {
+			funcNameBase = fmt.Sprintf("window_%s", funcNameBase)
+		} else {
+			if node.Function().IsZetaSQLBuiltin() {
+				return "", nil, fmt.Errorf("%s function is unimplemented", funcNameBase)
+			}
+			fname, err := getFuncName(ctx, node)
+			if err != nil {
+				return "", nil, err
+			}
+			funcNameBase = fname
 		}
-		fname, err := getFuncName(ctx, node)
-		if err != nil {
-			return "", nil, err
-		}
-		funcName = fname
 	}
-	return funcName, args, nil
+	errorModePrefix := "default"
+	if node.ErrorMode() == ast.SafeErrorMode {
+		errorModePrefix = "safe"
+	}
+	return fmt.Sprintf("zetasqlite_%s_%s", errorModePrefix, funcNameBase), args, nil
 }
 
 func (n *LiteralNode) FormatSQL(ctx context.Context) (string, error) {

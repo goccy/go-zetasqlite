@@ -3652,6 +3652,11 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			expectedErr: "unexpected year number",
 		},
 		{
+			name:        "safe parse date ( the year element is in different locations )",
+			query:       `SELECT SAFE.PARSE_DATE("%Y %A %b %e", "Thursday Dec 25 2008")`,
+			expectedRows: [][]interface{}{{nil}},
+		},
+		{
 			name:        "parse date ( one of the year elements is missing )",
 			query:       `SELECT PARSE_DATE("%A %b %e", "Thursday Dec 25 2008")`,
 			expectedErr: `found unused format element [' ' '2' '0' '0' '8']`,
