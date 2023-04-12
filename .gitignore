@@ -12,6 +12,5 @@
 *.out
 
 # Dependency directories (remove the comment below to include it)
-vendor/
-.vscode/
+# vendor/
 .zetasqlite_history

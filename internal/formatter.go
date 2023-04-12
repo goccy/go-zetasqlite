@@ -200,6 +200,9 @@ func getFuncNameAndArgs(ctx context.Context, node *ast.BaseFunctionCallNode, isW
 
 	funcPrefix := "zetasqlite"
 	if node.ErrorMode() == ast.SafeErrorMode {
+		if !existsNormalFunc {
+			return "", nil, fmt.Errorf("SAFE is not supported for function %s", funcName)
+		}
 		funcPrefix = "zetasqlite_safe"
 	}
 
