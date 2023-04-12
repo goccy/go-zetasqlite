@@ -469,9 +469,6 @@ func (a *Analyzer) newQueryStmtAction(ctx context.Context, query string, args []
 		})
 	}
 	formattedQuery, err := newNode(node).FormatSQL(ctx)
-	// if formattedQuery != "" {
-	// 	return nil, fmt.Errorf("query: %s", formattedQuery)
-	// }
 	if err != nil {
 		return nil, fmt.Errorf("failed to format query %s: %w", query, err)
 	}
