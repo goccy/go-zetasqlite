@@ -8,22 +8,23 @@ import (
 	"net"
 	"net/netip"
 	"net/url"
+	"regexp"
 	"strings"
 )
 
 func NET_HOST(v string) (Value, error) {
-	parsed, err := parse_url(v)
-	if err != nil {
-		return nil, err
+	parsed_url := parse_url(v)
+	if parsed_url == nil {
+		return nil, nil
 	}
-	hostname := parsed.Hostname()
+	hostname := parsed_url.Hostname()
 	if hostname == "" {
 		return nil, nil
 	}
-	if strings.HasPrefix(parsed.Host, "[") {
+	if strings.HasPrefix(parsed_url.Host, "[") {
 		return StringValue("[" + hostname + "]"), nil
 	}
-	return StringValue(parsed.Hostname()), nil
+	return StringValue(hostname), nil
 }
 
 func NET_IP_FROM_STRING(v string) (Value, error) {
@@ -34,13 +35,13 @@ func NET_IP_FROM_STRING(v string) (Value, error) {
 	return BytesValue(ip), nil
 }
 
-func NET_IP_NET_MASK(numOutputBytes, prefixLength int64) (Value, error) {
-	result := net.CIDRMask(int(prefixLength), int(numOutputBytes)*8)
-	if numOutputBytes != 4 && numOutputBytes != 16 {
+func NET_IP_NET_MASK(output, prefix int64) (Value, error) {
+	result := net.CIDRMask(int(prefix), int(output)*8)
+	if output != 4 && output != 16 {
 		return nil, fmt.Errorf("NET.IP_NET_MASK: the first argument must be either 4 or 16")
 	}
-	if prefixLength < 0 || prefixLength > numOutputBytes*8 {
-		return nil, fmt.Errorf("NET.IP_NET_MASK: the second argument must be in the range from 0 to %d", numOutputBytes*8)
+	if prefix < 0 || prefix > output*8 {
+		return nil, fmt.Errorf("NET.IP_NET_MASK: the second argument must be in the range from 0 to %d", output*8)
 	}
 	return BytesValue(result), nil
 }
@@ -52,7 +53,7 @@ func NET_IP_TO_STRING(v []byte) (Value, error) {
 	if len(v) == 16 {
 		return StringValue(netip.AddrFrom16(*(*[16]byte)(v)).String()), nil
 	}
-	return nil, fmt.Errorf("NET.IP_TO_STRING: invalid bytes length %d", len(v))
+	return nil, fmt.Errorf("NET.IP_TO_STRING: invalid byte length %d", len(v))
 }
 
 func NET_IP_TRUNC(v []byte, length int64) (Value, error) {
@@ -62,8 +63,8 @@ func NET_IP_TRUNC(v []byte, length int64) (Value, error) {
 	if length < 0 || int(length) > len(v)*8 {
 		return nil, fmt.Errorf("NET.IP_TRUNC: length must be in the range from 0 to %d", len(v)*8)
 	}
-	mask := net.CIDRMask(int(length), len(v)*8)
 	ip := net.IP(v)
+	mask := net.CIDRMask(int(length), len(v)*8)
 	return BytesValue(ip.Mask(mask)), nil
 }
 
@@ -81,9 +82,9 @@ func NET_IPV4_TO_INT64(v []byte) (Value, error) {
 }
 
 func NET_PUBLIC_SUFFIX(v string) (Value, error) {
-	parsed, err := parse_url(v)
-	if err != nil {
-		return nil, err
+	parsed := parse_url(v)
+	if parsed == nil {
+		return nil, nil
 	}
 	host := parsed.Hostname()
 	suffix := public_suffix(host)
@@ -94,9 +95,9 @@ func NET_PUBLIC_SUFFIX(v string) (Value, error) {
 }
 
 func NET_REG_DOMAIN(v string) (Value, error) {
-	parsed, err := parse_url(v)
-	if err != nil {
-		return nil, err
+	parsed := parse_url(v)
+	if parsed == nil {
+		return nil, nil
 	}
 	host := parsed.Hostname()
 	split_host := strings.Split(host, ".")
@@ -116,21 +117,25 @@ func NET_SAFE_IP_FROM_STRING(v string) (Value, error) {
 	return BytesValue(ip), nil
 }
 
-func parse_url(v string) (*url.URL, error) {
+func parse_url(v string) *url.URL {
 	parsed, err := url.Parse(v)
 	if err != nil {
-		return nil, err
+		return nil
 	}
 	if parsed.Host == "" {
 		parsed, err = url.Parse("//" + strings.TrimSpace(v))
 		if err != nil {
-			return nil, err
+			return nil
 		}
 	}
-	return parsed, nil
+	return parsed
 }
 
 func public_suffix(host string) string {
+	reg, _ := regexp.Compile(`[^.]\.{2,}[^.]`)
+	if reg.MatchString(host) {
+		return ""
+	}
 	split_host := strings.Split(host, ".")
 	encoded, err := idna.ToASCII(strings.ToLower(host))
 	if err != nil {

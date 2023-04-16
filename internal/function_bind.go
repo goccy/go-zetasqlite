@@ -2897,15 +2897,15 @@ func bindNetIpNetMask(args ...Value) (Value, error) {
 	if args[0] == nil || args[1] == nil {
 		return nil, nil
 	}
-	numOutputBytes, err := args[0].ToInt64()
+	output, err := args[0].ToInt64()
 	if err != nil {
 		return nil, err
 	}
-	prefixLength, err := args[1].ToInt64()
+	prefix, err := args[1].ToInt64()
 	if err != nil {
 		return nil, err
 	}
-	return NET_IP_NET_MASK(numOutputBytes, prefixLength)
+	return NET_IP_NET_MASK(output, prefix)
 }
 
 func bindNetIpToString(args ...Value) (Value, error) {

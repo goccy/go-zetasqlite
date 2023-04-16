@@ -4720,6 +4720,7 @@ SELECT
 FROM (
   SELECT "" AS url UNION ALL
   SELECT "http://abc.xyz" UNION ALL
+  SELECT "http://abc..xyz" UNION ALL
   SELECT "//user:password@a.b:80/path?query" UNION ALL
   SELECT "https://[::1]:80" UNION ALL
   SELECT "http://例子.卷筒纸.中国" UNION ALL
@@ -4729,6 +4730,7 @@ FROM (
 			expectedRows: [][]interface{}{
 				{nil, nil, nil},
 				{"abc.xyz", "xyz", "abc.xyz"},
+				{"abc..xyz", nil, nil},
 				{"a.b", nil, nil},
 				{"[::1]", nil, nil},
 				{"例子.卷筒纸.中国", "中国", "卷筒纸.中国"},
@@ -4743,15 +4745,17 @@ SELECT
   FORMAT("%T", NET.IP_FROM_STRING(ip))
 FROM (
   SELECT "48.49.50.51" AS ip UNION ALL
-  SELECT "::1" AS ip UNION ALL
-  SELECT "3031:3233:3435:3637:3839:4041:4243:4445" AS ip UNION ALL
-  SELECT "::ffff:192.0.2.128" AS ip
+  SELECT "::1" UNION ALL
+  SELECT "3031:3233:3435:3637:3839:4041:4243:4445" UNION ALL
+  SELECT "::ffff:192.0.2.128" UNION ALL
+  SELECT NULL
 )`,
 			expectedRows: [][]interface{}{
 				{`b"0123"`},
 				{`b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01"`},
 				{`b"0123456789@ABCDE"`},
 				{`b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xc0\x00\x02\x80"`},
+				{nil},
 			},
 		},
 		{
