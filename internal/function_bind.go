@@ -2947,7 +2947,7 @@ func bindNetIpv4FromInt64(args ...Value) (Value, error) {
 
 func bindNetIpv4ToInt64(args ...Value) (Value, error) {
 	if len(args) != 1 {
-		return nil, fmt.Errorf("NET.IPV4_FROM_INT64: invalid argument num %d", len(args))
+		return nil, fmt.Errorf("NET.IPV4_TO_INT64: invalid argument num %d", len(args))
 	}
 	v, err := args[0].ToBytes()
 	if err != nil {
@@ -2980,7 +2980,7 @@ func bindNetRegDomain(args ...Value) (Value, error) {
 
 func bindNetSafeIpFromString(args ...Value) (Value, error) {
 	if len(args) != 1 {
-		return nil, fmt.Errorf("NET.IP_FROM_STRING: invalid argument num %d", len(args))
+		return nil, fmt.Errorf("NET.IP_SAFE_FROM_STRING: invalid argument num %d", len(args))
 	}
 	if args[0] == nil {
 		return nil, nil
