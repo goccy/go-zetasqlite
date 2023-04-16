@@ -694,16 +694,16 @@ A list of ZetaSQL ( Google Standard SQL ) specifications and features supported 
 
 ### Net functions
 
-- [ ] NET.IP_FROM_STRING
-- [ ] NET.SAFE_IP_FROM_STRING
-- [ ] NET.IP_TO_STRING
-- [ ] NET.IP_NET_MASK
-- [ ] NET.IP_TRUNC
-- [ ] NET.IPV4_FROM_INT64
-- [ ] NET.IPV4_TO_INT64
-- [ ] NET.HOST
-- [ ] NET.PUBLIC_SUFFIX
-- [ ] NET.REG_DOMAIN
+- [x] NET.IP_FROM_STRING
+- [x] NET.SAFE_IP_FROM_STRING
+- [x] NET.IP_TO_STRING
+- [x] NET.IP_NET_MASK
+- [x] NET.IP_TRUNC
+- [x] NET.IPV4_FROM_INT64
+- [x] NET.IPV4_TO_INT64
+- [x] NET.HOST
+- [x] NET.PUBLIC_SUFFIX
+- [x] NET.REG_DOMAIN
 
 ### Debugging functions
 
