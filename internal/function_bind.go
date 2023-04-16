@@ -2862,6 +2862,136 @@ func bindEvalJavaScript(args ...Value) (Value, error) {
 	return EVAL_JAVASCRIPT(code, &typ, names, args[3:])
 }
 
+func bindNetHost(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("NET.HOST: invalid argument num %d", len(args))
+	}
+	if args[0] == nil {
+		return nil, nil
+	}
+	v, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return NET_HOST(v)
+}
+
+func bindNetIpFromString(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("NET.IP_FROM_STRING: invalid argument num %d", len(args))
+	}
+	if args[0] == nil {
+		return nil, nil
+	}
+	v, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return NET_IP_FROM_STRING(v)
+}
+
+func bindNetIpNetMask(args ...Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("NET.IP_NET_MASK: invalid argument num %d", len(args))
+	}
+	if args[0] == nil || args[1] == nil {
+		return nil, nil
+	}
+	numOutputBytes, err := args[0].ToInt64()
+	if err != nil {
+		return nil, err
+	}
+	prefixLength, err := args[1].ToInt64()
+	if err != nil {
+		return nil, err
+	}
+	return NET_IP_NET_MASK(numOutputBytes, prefixLength)
+}
+
+func bindNetIpToString(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("NET.IP_TO_STRING: invalid argument num %d", len(args))
+	}
+	v, err := args[0].ToBytes()
+	if err != nil {
+		return nil, err
+	}
+	return NET_IP_TO_STRING(v)
+}
+
+func bindNetIpTrunc(args ...Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("NET.IP_TRUNC: invalid argument num %d", len(args))
+	}
+	v, err := args[0].ToBytes()
+	if err != nil {
+		return nil, err
+	}
+	length, err := args[1].ToInt64()
+	if err != nil {
+		return nil, err
+	}
+	return NET_IP_TRUNC(v, length)
+}
+
+func bindNetIpv4FromInt64(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("NET.IPV4_FROM_INT64: invalid argument num %d", len(args))
+	}
+	v, err := args[0].ToInt64()
+	if err != nil {
+		return nil, err
+	}
+	return NET_IPV4_FROM_INT64(v)
+}
+
+func bindNetIpv4ToInt64(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("NET.IPV4_FROM_INT64: invalid argument num %d", len(args))
+	}
+	v, err := args[0].ToBytes()
+	if err != nil {
+		return nil, err
+	}
+	return NET_IPV4_TO_INT64(v)
+}
+
+func bindNetPublicSuffix(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("NET.PUBLIC_SUFFIX: invalid argument num %d", len(args))
+	}
+	v, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return NET_PUBLIC_SUFFIX(v)
+}
+
+func bindNetRegDomain(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("NET.REG_DOMAIN: invalid argument num %d", len(args))
+	}
+	v, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return NET_REG_DOMAIN(v)
+}
+
+func bindNetSafeIpFromString(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("NET.IP_FROM_STRING: invalid argument num %d", len(args))
+	}
+	if args[0] == nil {
+		return nil, nil
+	}
+	v, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
+	return NET_SAFE_IP_FROM_STRING(v)
+}
+
 func bindArray() func() *Aggregator {
 	return func() *Aggregator {
 		fn := &ARRAY{}

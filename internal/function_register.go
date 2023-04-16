@@ -273,6 +273,18 @@ var normalFuncs = []*FuncInfo{
 
 	// javascript funcs
 	{Name: "eval_javascript", BindFunc: bindEvalJavaScript},
+
+	// net funcs
+	{Name: "net_host", BindFunc: bindNetHost},
+	{Name: "net_ip_from_string", BindFunc: bindNetIpFromString},
+	{Name: "net_ip_net_mask", BindFunc: bindNetIpNetMask},
+	{Name: "net_ip_to_string", BindFunc: bindNetIpToString},
+	{Name: "net_ip_trunc", BindFunc: bindNetIpTrunc},
+	{Name: "net_ipv4_from_int64", BindFunc: bindNetIpv4FromInt64},
+	{Name: "net_ipv4_to_int64", BindFunc: bindNetIpv4ToInt64},
+	{Name: "net_public_suffix", BindFunc: bindNetPublicSuffix},
+	{Name: "net_reg_domain", BindFunc: bindNetRegDomain},
+	{Name: "net_safe_ip_from_string", BindFunc: bindNetSafeIpFromString},
 }
 
 var aggregateFuncs = []*AggregateFuncInfo{
