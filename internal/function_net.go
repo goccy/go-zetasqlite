@@ -13,15 +13,15 @@ import (
 )
 
 func NET_HOST(v string) (Value, error) {
-	parsed_url := parse_url(v)
-	if parsed_url == nil {
+	parsed := parse_url(v)
+	if parsed == nil {
 		return nil, nil
 	}
-	hostname := parsed_url.Hostname()
+	hostname := parsed.Hostname()
 	if hostname == "" {
 		return nil, nil
 	}
-	if strings.HasPrefix(parsed_url.Host, "[") {
+	if strings.HasPrefix(parsed.Host, "[") {
 		return StringValue("[" + hostname + "]"), nil
 	}
 	return StringValue(hostname), nil
