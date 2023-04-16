@@ -47,13 +47,11 @@ func NET_IP_NET_MASK(output, prefix int64) (Value, error) {
 }
 
 func NET_IP_TO_STRING(v []byte) (Value, error) {
-	if len(v) == 4 {
-		return StringValue(netip.AddrFrom4(*(*[4]byte)(v)).String()), nil
+	ip, ok := netip.AddrFromSlice(v)
+	if !ok {
+		return nil, fmt.Errorf("NET.IP_TO_STRING: invalid byte array")
 	}
-	if len(v) == 16 {
-		return StringValue(netip.AddrFrom16(*(*[16]byte)(v)).String()), nil
-	}
-	return nil, fmt.Errorf("NET.IP_TO_STRING: invalid byte length %d", len(v))
+	return StringValue(ip.String()), nil
 }
 
 func NET_IP_TRUNC(v []byte, length int64) (Value, error) {
@@ -149,17 +147,10 @@ func public_suffix(host string) string {
 	return strings.Join(split_host[len(split_host)-len(split_suffix):], ".")
 }
 
-func parse_ip(v string) net.IP {
-	ip := net.ParseIP(v)
-	if ip != nil {
-		for i := 0; i < len(v); i++ {
-			switch v[i] {
-			case '.':
-				return ip.To4()
-			case ':':
-				return ip
-			}
-		}
+func parse_ip(v string) []byte {
+	ip, err := netip.ParseAddr(v)
+	if err != nil {
+		return nil
 	}
-	return nil
+	return ip.AsSlice()
 }
