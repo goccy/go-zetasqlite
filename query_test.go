@@ -893,6 +893,11 @@ SELECT ARRAY_CONCAT_AGG(x) AS array_concat_agg FROM (
 			expectedRows: [][]interface{}{{nil}},
 		},
 		{
+			name:        "safe sum",
+			query:       `SELECT SAFE.SUM(x) AS sum FROM UNNEST([1, 2, 3, 4, 5, 4, 3, 2, 1]) AS x`,
+			expectedErr: "SAFE is not supported for function SUM",
+		},
+		{
 			name:         "approx_count_distinct",
 			query:        `SELECT APPROX_COUNT_DISTINCT(x) FROM UNNEST([0, 1, 1, 2, 3, 5]) as x`,
 			expectedRows: [][]interface{}{{int64(5)}},
@@ -3650,6 +3655,11 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			name:        "parse date ( the year element is in different locations )",
 			query:       `SELECT PARSE_DATE("%Y %A %b %e", "Thursday Dec 25 2008")`,
 			expectedErr: "unexpected year number",
+		},
+		{
+			name:         "safe parse date ( the year element is in different locations )",
+			query:        `SELECT SAFE.PARSE_DATE("%Y %A %b %e", "Thursday Dec 25 2008")`,
+			expectedRows: [][]interface{}{{nil}},
 		},
 		{
 			name:        "parse date ( one of the year elements is missing )",

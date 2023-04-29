@@ -502,6 +502,22 @@ func setupNormalFuncMap(info *FuncInfo) error {
 			}
 			return EncodeValue(ret)
 		},
+	}, &NameAndFunc{
+		Name: fmt.Sprintf("zetasqlite_safe_%s", info.Name),
+		Func: func(args ...interface{}) (interface{}, error) {
+			values, err := convertArgs(args...)
+			if err != nil {
+				return nil, err
+			}
+			ret, err := info.BindFunc(values...)
+			if err != nil {
+				// Note, this should only suppress semantic errors based on the
+				// input data. See
+				// https://github.com/google/zetasql/blob/master/docs/resolved_ast.md#resolvedfunctioncallbase
+				return nil, nil
+			}
+			return EncodeValue(ret)
+		},
 	})
 	return nil
 }
