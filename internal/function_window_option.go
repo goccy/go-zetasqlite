@@ -556,68 +556,78 @@ func (s *WindowFuncAggregatedStatus) getIndexFromBoundaryByRange(boundary *Windo
 		if err != nil {
 			return 0, err
 		}
-		return s.lookupMinIndexFromRangeValue(value - boundary.Offset)
+		sub, err := value.Sub(IntValue(boundary.Offset))
+		if err != nil {
+			return 0, err
+		}
+		return s.lookupMinIndexFromRangeValue(sub)
 	case WindowOffsetFollowingType:
 		value, err := s.currentRangeValue()
 		if err != nil {
 			return 0, err
 		}
-		return s.lookupMaxIndexFromRangeValue(value + boundary.Offset)
+		add, err := value.Add(IntValue(boundary.Offset))
+		if err != nil {
+			return 0, err
+		}
+		return s.lookupMaxIndexFromRangeValue(add)
 	}
 	return 0, fmt.Errorf("unsupported boundary type %d", boundary.Type)
 }
 
-func (s *WindowFuncAggregatedStatus) currentRangeValue() (int64, error) {
+func (s *WindowFuncAggregatedStatus) currentRangeValue() (Value, error) {
 	if len(s.PartitionedValues) != 0 {
 		return s.partitionedCurrentRangeValue()
 	}
 	curRowID := int(s.RowID - 1)
 	curValue := s.Values[curRowID]
 	if len(curValue.OrderBy) == 0 {
-		return 0, fmt.Errorf("required order by column for analytic range scanning")
+		return nil, fmt.Errorf("required order by column for analytic range scanning")
 	}
-	return curValue.OrderBy[len(curValue.OrderBy)-1].Value.ToInt64()
+	return curValue.OrderBy[len(curValue.OrderBy)-1].Value, nil
 }
 
-func (s *WindowFuncAggregatedStatus) partitionedCurrentRangeValue() (int64, error) {
+func (s *WindowFuncAggregatedStatus) partitionedCurrentRangeValue() (Value, error) {
 	curRowID := int(s.RowID - 1)
 	curValue := s.PartitionedValues[curRowID]
 	if len(curValue.Value.OrderBy) == 0 {
-		return 0, fmt.Errorf("required order by column for analytic range scanning")
+		return nil, fmt.Errorf("required order by column for analytic range scanning")
 	}
-	return curValue.Value.OrderBy[len(curValue.Value.OrderBy)-1].Value.ToInt64()
+	return curValue.Value.OrderBy[len(curValue.Value.OrderBy)-1].Value, nil
 }
 
-func (s *WindowFuncAggregatedStatus) lookupMinIndexFromRangeValue(rangeValue int64) (int, error) {
+func (s *WindowFuncAggregatedStatus) lookupMinIndexFromRangeValue(rangeValue Value) (int, error) {
 	minIndex := -1
 	for idx := len(s.SortedValues) - 1; idx >= 0; idx-- {
 		value := s.SortedValues[idx]
 		if len(value.OrderBy) == 0 {
 			continue
 		}
-		target, err := value.OrderBy[len(value.OrderBy)-1].Value.ToInt64()
+		target := value.OrderBy[len(value.OrderBy)-1].Value
+		cond, err := rangeValue.LTE(target)
 		if err != nil {
 			return 0, err
 		}
-		if rangeValue <= target {
+		if cond {
 			minIndex = idx
 		}
 	}
 	return minIndex, nil
 }
 
-func (s *WindowFuncAggregatedStatus) lookupMaxIndexFromRangeValue(rangeValue int64) (int, error) {
+func (s *WindowFuncAggregatedStatus) lookupMaxIndexFromRangeValue(rangeValue Value) (int, error) {
 	maxIndex := -1
 	for idx := 0; idx < len(s.SortedValues); idx++ {
 		value := s.SortedValues[idx]
 		if len(value.OrderBy) == 0 {
 			continue
 		}
-		target, err := value.OrderBy[len(value.OrderBy)-1].Value.ToInt64()
+		target := value.OrderBy[len(value.OrderBy)-1].Value
+		cond, err := rangeValue.GTE(target)
 		if err != nil {
 			return 0, err
 		}
-		if rangeValue >= target {
+		if cond {
 			maxIndex = idx
 		}
 	}
