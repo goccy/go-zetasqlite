@@ -218,18 +218,6 @@ func tableNameToColumnListMap(ctx context.Context) map[string][]*ast.Column {
 	return value.(map[string][]*ast.Column)
 }
 
-func withRowIDColumn(ctx context.Context) context.Context {
-	return context.WithValue(ctx, rowIDColumnKey{}, true)
-}
-
-func needsRowIDColumn(ctx context.Context) bool {
-	value := ctx.Value(rowIDColumnKey{})
-	if value == nil {
-		return false
-	}
-	return value.(bool)
-}
-
 func WithCurrentTime(ctx context.Context, now time.Time) context.Context {
 	return context.WithValue(ctx, currentTimeKey{}, &now)
 }

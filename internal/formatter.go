@@ -668,7 +668,7 @@ func (n *JoinScanNode) FormatSQL(ctx context.Context) (string, error) {
 	if n.node == nil {
 		return "", nil
 	}
-	left, err := newNode(n.node.LeftScan()).FormatSQL(withRowIDColumn(ctx))
+	left, err := newNode(n.node.LeftScan()).FormatSQL(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -695,30 +695,9 @@ func (n *JoinScanNode) FormatSQL(ctx context.Context) (string, error) {
 	case ast.JoinTypeLeft:
 		return fmt.Sprintf("%s LEFT JOIN %s ON %s", left, right, joinExpr), nil
 	case ast.JoinTypeRight:
-		// SQLite doesn't support RIGHT JOIN at v3.38.0, so emulate by using LEFT JOIN.
-		// ROW_NUMBER() OVER() AS `row_id`
-		return fmt.Sprintf("%s LEFT JOIN %s ON %s ORDER BY `row_id` NULLS LAST", right, left, joinExpr), nil
+		return fmt.Sprintf("%s RIGHT JOIN %s ON %s", left, right, joinExpr), nil
 	case ast.JoinTypeFull:
-		// SQLite doesn't support FULL OUTER JOIN at v3.38.0,
-		// so emulate by combination of LEFT JOIN and UNION ALL and DISTINCT.
-		var (
-			columns   []string
-			columnMap = columnRefMap(ctx)
-		)
-		for _, col := range n.node.ColumnList() {
-			colName := uniqueColumnName(ctx, col)
-			if ref, exists := columnMap[colName]; exists {
-				columns = append(columns, ref)
-				delete(columnMap, colName)
-			} else {
-				columns = append(columns, fmt.Sprintf("`%s`", colName))
-			}
-		}
-		return fmt.Sprintf(
-			"SELECT DISTINCT %[1]s FROM (SELECT %[1]s FROM %[2]s LEFT JOIN %[3]s ON %[4]s UNION ALL SELECT %[1]s FROM %[3]s LEFT JOIN %[2]s ON %[4]s)",
-			strings.Join(columns, ","),
-			left, right, joinExpr,
-		), nil
+		return fmt.Sprintf("%s FULL OUTER JOIN %s ON %s", left, right, joinExpr), nil
 	}
 	return "", fmt.Errorf("unexpected join type %d", n.node.JoinType())
 }
@@ -824,12 +803,6 @@ func (n *AggregateScanNode) FormatSQL(ctx context.Context) (string, error) {
 		} else {
 			columns = append(columns, fmt.Sprintf("`%s`", colName))
 		}
-	}
-	if needsRowIDColumn(ctx) {
-		columns = append(
-			columns,
-			"ROW_NUMBER() OVER() AS `row_id`",
-		)
 	}
 	if len(n.node.GroupingSetList()) != 0 {
 		columnPatterns := [][]string{}
@@ -1105,12 +1078,6 @@ func (n *WithRefScanNode) FormatSQL(ctx context.Context) (string, error) {
 			fmt.Sprintf("`%s` AS `%s`", uniqueColumnName(ctx, columnDefs[i]), uniqueColumnName(ctx, columns[i])),
 		)
 	}
-	if needsRowIDColumn(ctx) {
-		formattedColumns = append(
-			formattedColumns,
-			"ROW_NUMBER() OVER() AS `row_id`",
-		)
-	}
 	return fmt.Sprintf("(SELECT %s FROM `%s`)", strings.Join(formattedColumns, ","), tableName), nil
 }
 
@@ -1300,12 +1267,6 @@ func (n *ProjectScanNode) FormatSQL(ctx context.Context) (string, error) {
 				fmt.Sprintf("`%s`", colName),
 			)
 		}
-	}
-	if needsRowIDColumn(ctx) {
-		columns = append(
-			columns,
-			"ROW_NUMBER() OVER() AS `row_id`",
-		)
 	}
 	formattedInput, err := formatInput(input)
 	if err != nil {

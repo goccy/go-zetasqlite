@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	github.com/goccy/go-zetasql v0.5.1
-	github.com/mattn/go-sqlite3 v1.14.14
+	github.com/mattn/go-sqlite3 v1.14.16
 )
 
 require github.com/google/go-cmp v0.5.8
