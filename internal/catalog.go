@@ -198,8 +198,7 @@ func (c *Catalog) Sync(ctx context.Context, conn *Conn) error {
 			return fmt.Errorf("failed to scan catalog values: %w", err)
 		}
 		switch kind {
-		case TableSpecKind:
-		case ViewSpecKind:
+		case TableSpecKind, ViewSpecKind:
 			if err := c.loadTableSpec(spec); err != nil {
 				return fmt.Errorf("failed to load table spec: %w", err)
 			}
