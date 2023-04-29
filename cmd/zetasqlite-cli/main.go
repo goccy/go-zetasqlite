@@ -73,7 +73,7 @@ func run(ctx context.Context) exitCode {
 		isExplainMode:   opt.ExplainMode,
 	}
 	if err := cli.run(ctx); err != nil {
-		fmt.Fprintf(os.Stderr, err.Error())
+		fmt.Fprintf(os.Stderr, "%v\n", err.Error())
 		return exitError
 	}
 	return exitOK
@@ -262,16 +262,18 @@ func (cli *CLI) defaultCommand(ctx context.Context, query string) error {
 	if err != nil {
 		return fmt.Errorf("failed to get connection: %w", err)
 	}
-	if err := conn.Raw(func(c interface{}) error {
-		zetasqliteConn, ok := c.(*zetasqlite.ZetaSQLiteConn)
-		if !ok {
-			return fmt.Errorf("failed to get ZetaSQLiteConn from %T", c)
+	if !cli.isRawMode {
+		if err := conn.Raw(func(c interface{}) error {
+			zetasqliteConn, ok := c.(*zetasqlite.ZetaSQLiteConn)
+			if !ok {
+				return fmt.Errorf("failed to get ZetaSQLiteConn from %T", c)
+			}
+			zetasqliteConn.SetExplainMode(cli.isExplainMode)
+			zetasqliteConn.SetAutoIndexMode(cli.isAutoIndexMode)
+			return nil
+		}); err != nil {
+			return fmt.Errorf("failed to setup connection: %w", err)
 		}
-		zetasqliteConn.SetExplainMode(cli.isExplainMode)
-		zetasqliteConn.SetAutoIndexMode(cli.isAutoIndexMode)
-		return nil
-	}); err != nil {
-		return fmt.Errorf("failed to setup connection: %w", err)
 	}
 	rows, err := conn.QueryContext(ctx, query)
 	if err != nil {
