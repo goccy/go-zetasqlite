@@ -1120,7 +1120,7 @@ func TO_CODE_POINTS(v Value) (Value, error) {
 			return nil, err
 		}
 		ret := &ArrayValue{}
-		for _, r := range []rune(s) {
+		for _, r := range s {
 			ret.values = append(ret.values, IntValue(r))
 		}
 		return ret, nil

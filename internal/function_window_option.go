@@ -404,9 +404,7 @@ func (s *WindowFuncAggregatedStatus) Done(cb func([]Value, int, int) error) erro
 	}
 	values := s.FilteredValues()
 	sortedValues := make([]*WindowOrderedValue, len(values))
-	for i := 0; i < len(values); i++ {
-		sortedValues[i] = values[i]
-	}
+	copy(sortedValues, values)
 	if len(sortedValues) != 0 {
 		for orderBy := 0; orderBy < len(sortedValues[0].OrderBy); orderBy++ {
 			isAsc := sortedValues[0].OrderBy[orderBy].IsAsc

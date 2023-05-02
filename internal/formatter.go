@@ -115,17 +115,6 @@ func uniqueColumnName(ctx context.Context, col *ast.Column) string {
 	return colName
 }
 
-func existsJoinExpr(node ast.Node) bool {
-	var exists bool
-	ast.Walk(node, func(n ast.Node) error {
-		if _, ok := n.(*ast.JoinScanNode); ok {
-			exists = true
-		}
-		return nil
-	})
-	return exists
-}
-
 type InputPattern int
 
 const (
@@ -439,8 +428,6 @@ func (n *AnalyticFunctionCallNode) FormatSQL(ctx context.Context) (string, error
 		strings.Join(args, ","),
 		input,
 	), nil
-
-	return "", nil
 }
 
 func (n *AnalyticFunctionCallNode) getWindowBoundaryOptionFuncSQL(ctx context.Context, expr *ast.WindowFrameExprNode, isStart bool) (string, error) {
@@ -1112,14 +1099,9 @@ func (n *AnalyticScanNode) FormatSQL(ctx context.Context) (string, error) {
 			ctx = withAnalyticPartitionColumnNames(ctx, partitionColumns)
 		}
 		if group.OrderBy() != nil {
-			var orderByColumns []string
 			for _, item := range group.OrderBy().OrderByItemList() {
 				colName := uniqueColumnName(ctx, item.ColumnRef().Column())
 				formattedColName := fmt.Sprintf("`%s`", colName)
-				orderByColumns = append(
-					orderByColumns,
-					formattedColName,
-				)
 				orderColumnNames.values = append(orderColumnNames.values, &analyticOrderBy{
 					column: formattedColName,
 					isAsc:  !item.IsDescending(),
@@ -1531,7 +1513,7 @@ func (n *InsertRowNode) FormatSQL(ctx context.Context) (string, error) {
 		}
 		values = append(values, sql)
 	}
-	return fmt.Sprintf("%s", strings.Join(values, ",")), nil
+	return strings.Join(values, ","), nil
 }
 
 func (n *InsertStmtNode) FormatSQL(ctx context.Context) (string, error) {

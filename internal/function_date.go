@@ -53,7 +53,6 @@ func DATE(args ...Value) (Value, error) {
 		}
 		return DateValue(t), nil
 	}
-	return nil, fmt.Errorf("DATE: unsupported arguments type %v", args)
 }
 
 func DATE_ADD(t time.Time, v int64, part string) (Value, error) {

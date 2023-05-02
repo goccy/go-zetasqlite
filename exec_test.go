@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/goccy/go-zetasqlite"
+	zetasqlite "github.com/goccy/go-zetasqlite"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -346,15 +346,13 @@ func TestTemplatedArgFunc(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer rows.Close()
-			for rows.Next() {
-				var num float64
-				if err := rows.Scan(&num); err != nil {
-					t.Fatal(err)
-				}
-				if fmt.Sprint(num) != "1.75" {
-					t.Fatalf("failed to get max number. got %f", num)
-				}
-				break
+			rows.Next()
+			var num float64
+			if err := rows.Scan(&num); err != nil {
+				t.Fatal(err)
+			}
+			if fmt.Sprint(num) != "1.75" {
+				t.Fatalf("failed to get max number. got %f", num)
 			}
 			if rows.Err() != nil {
 				t.Fatal(rows.Err())
@@ -366,15 +364,13 @@ func TestTemplatedArgFunc(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer rows.Close()
-			for rows.Next() {
-				var num float64
-				if err := rows.Scan(&num); err != nil {
-					t.Fatal(err)
-				}
-				if num != 2.0 {
-					t.Fatalf("failed to get max number. got %f", num)
-				}
-				break
+			rows.Next()
+			var num float64
+			if err := rows.Scan(&num); err != nil {
+				t.Fatal(err)
+			}
+			if num != 2.0 {
+				t.Fatalf("failed to get max number. got %f", num)
 			}
 			if rows.Err() != nil {
 				t.Fatal(rows.Err())
@@ -394,15 +390,13 @@ func TestTemplatedArgFunc(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer rows.Close()
-			for rows.Next() {
-				var num int64
-				if err := rows.Scan(&num); err != nil {
-					t.Fatal(err)
-				}
-				if num != 4 {
-					t.Fatalf("failed to get max number. got %d", num)
-				}
-				break
+			rows.Next()
+			var num int64
+			if err := rows.Scan(&num); err != nil {
+				t.Fatal(err)
+			}
+			if num != 4 {
+				t.Fatalf("failed to get max number. got %d", num)
 			}
 			if rows.Err() != nil {
 				t.Fatal(rows.Err())
@@ -414,15 +408,13 @@ func TestTemplatedArgFunc(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer rows.Close()
-			for rows.Next() {
-				var num float64
-				if err := rows.Scan(&num); err != nil {
-					t.Fatal(err)
-				}
-				if fmt.Sprint(num) != "4.567" {
-					t.Fatalf("failed to get max number. got %f", num)
-				}
-				break
+			rows.Next()
+			var num float64
+			if err := rows.Scan(&num); err != nil {
+				t.Fatal(err)
+			}
+			if fmt.Sprint(num) != "4.567" {
+				t.Fatalf("failed to get max number. got %f", num)
 			}
 			if rows.Err() != nil {
 				t.Fatal(rows.Err())

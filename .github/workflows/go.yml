@@ -4,9 +4,13 @@ on:
     branches:
       - main
   pull_request:
+
+env:
+  CC: clang
+  CXX: clang++
 jobs:
   test:
-    name: Test
+    name: test
     strategy:
       matrix:
         os: [ "ubuntu-latest", "macos-latest" ]
@@ -19,32 +23,41 @@ jobs:
         go-version: ${{ matrix.go-version }}
     - name: checkout
       uses: actions/checkout@v3
-    - name: cache for linux
-      uses: actions/cache@v3
-      if: runner.os == 'Linux'
       with:
-        path: |
-          ~/.cache/go-build
-          ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go-
-    - name: cache for macOS
-      uses: actions/cache@v3
-      if: runner.os == 'macOS'
-      with:
-        path: |
-          ~/Library/Caches/go-build
-          ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go-
-    - name: download modules
-      run: |
-        go mod download
-    - uses: rui314/setup-mold@v1
+        cache: true
     - name: test
       run: go test -v ./... -count=1
-      env:
-        CC: clang
-        CXX: clang++
+  coverage:
+    name: coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: setup Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: '1.20'
+      - name: checkout
+        uses: actions/checkout@v3
+        with:
+          cache: true
+      - name: measure coverage
+        run: |
+          make cover
+      - uses: codecov/codecov-action@v3
+        with:
+          fail_ci_if_error: false
+          verbose: true
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: setup Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: '1.20'
+      - name: checkout
+        uses: actions/checkout@v3
+        with:
+          cache: true
+      - name: run linter
+        run: |
+          make lint
