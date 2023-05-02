@@ -18,13 +18,12 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
     - name: setup Go ${{ matrix.go-version }}
-      uses: actions/setup-go@v2
+      uses: actions/setup-go@v3
       with:
         go-version: ${{ matrix.go-version }}
+        cache: true
     - name: checkout
       uses: actions/checkout@v3
-      with:
-        cache: true
     - name: test
       run: go test -v ./... -count=1
   coverage:
@@ -35,10 +34,9 @@ jobs:
         uses: actions/setup-go@v3
         with:
           go-version: '1.20'
+          cache: true
       - name: checkout
         uses: actions/checkout@v3
-        with:
-          cache: true
       - name: measure coverage
         run: |
           make cover
@@ -54,10 +52,9 @@ jobs:
         uses: actions/setup-go@v3
         with:
           go-version: '1.20'
+          cache: true
       - name: checkout
         uses: actions/checkout@v3
-        with:
-          cache: true
       - name: run linter
         run: |
           make lint
