@@ -3549,6 +3549,23 @@ WITH example AS (
 			},
 		},
 		{
+			name:         "date_add",
+			query:        `SELECT DATE_ADD('2023-01-29', INTERVAL 1 MONTH)`,
+			expectedRows: [][]interface{}{{"2023-02-28"}},
+		},
+		{
+			name:         "date_sub",
+			query:        `SELECT DATE_SUB('2023-03-31', INTERVAL 1 MONTH)`,
+			expectedRows: [][]interface{}{{"2023-02-28"}},
+		},
+		{
+			name:  "current_date",
+			query: `SELECT CURRENT_DATE()`,
+			expectedRows: [][]interface{}{
+				{now.Format("2006-01-02")},
+			},
+		},
+		{
 			name: "extract date",
 			query: `
 SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH FROM date),
@@ -3695,11 +3712,21 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			},
 		},
 		{
+			name:         "datetime_add",
+			query:        `SELECT DATETIME_ADD(DATETIME '2023-01-29 00:00:00', INTERVAL 1 MONTH)`,
+			expectedRows: [][]interface{}{{"2023-02-28T00:00:00"}},
+		},
+		{
 			name:  "datetime_sub",
 			query: `SELECT DATETIME "2008-12-25 15:30:00", DATETIME_SUB(DATETIME "2008-12-25 15:30:00", INTERVAL 10 MINUTE)`,
 			expectedRows: [][]interface{}{
 				{"2008-12-25T15:30:00", "2008-12-25T15:20:00"},
 			},
+		},
+		{
+			name:         "datetime_sub",
+			query:        `SELECT DATETIME_SUB(DATETIME '2023-03-31 00:00:00', INTERVAL 1 MONTH)`,
+			expectedRows: [][]interface{}{{"2023-02-28T00:00:00"}},
 		},
 		{
 			name:         "datetime_diff with day",
