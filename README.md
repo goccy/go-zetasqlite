@@ -2,6 +2,7 @@
 
 ![Go](https://github.com/goccy/go-zetasqlite/workflows/Go/badge.svg)
 [![GoDoc](https://godoc.org/github.com/goccy/go-zetasqlite?status.svg)](https://pkg.go.dev/github.com/goccy/go-zetasqlite?tab=doc)
+[![codecov](https://codecov.io/gh/goccy/go-zetasqlite/branch/main/graph/badge.svg)](https://codecov.io/gh/goccy/go-zetasqlite)
 
 A database driver library that interprets ZetaSQL queries and runs them using SQLite3
 
