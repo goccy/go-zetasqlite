@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/goccy/go-zetasqlite"
+	zetasqlite "github.com/goccy/go-zetasqlite"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -1926,6 +1926,32 @@ FROM Numbers`,
 				{int64(8), int64(5)},
 				{int64(10), int64(6)},
 				{int64(10), int64(7)},
+			},
+		},
+		{
+			name: "row_number nest",
+			query: `
+WITH Produce AS
+ (SELECT 'kale' as item, 23 as purchases, 'vegetable' as category
+  UNION ALL SELECT 'banana', 2, 'fruit'
+  UNION ALL SELECT 'cabbage', 9, 'vegetable'
+  UNION ALL SELECT 'apple', 8, 'fruit'
+  UNION ALL SELECT 'leek', 2, 'vegetable'
+  UNION ALL SELECT 'lettuce', 10, 'vegetable')
+, Numbers AS (
+  SELECT item, purchases, category, ROW_NUMBER() OVER(PARTITION BY category) AS num
+    FROM Produce
+) SELECT p.item, p.category, p.purchases, n.num,
+    ROW_NUMBER() OVER (PARTITION BY p.category ORDER BY p.purchases ASC) AS num2
+    FROM Produce p JOIN Numbers n ON p.item = n.item AND p.category = n.category
+`,
+			expectedRows: [][]interface{}{
+				[]interface{}{"banana", "fruit", int64(2), int64(1), int64(1)},
+				[]interface{}{"apple", "fruit", int64(8), int64(2), int64(2)},
+				[]interface{}{"leek", "vegetable", int64(2), int64(3), int64(1)},
+				[]interface{}{"cabbage", "vegetable", int64(9), int64(2), int64(2)},
+				[]interface{}{"lettuce", "vegetable", int64(10), int64(4), int64(3)},
+				[]interface{}{"kale", "vegetable", int64(23), int64(1), int64(4)},
 			},
 		},
 		{

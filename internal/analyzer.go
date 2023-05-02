@@ -139,7 +139,7 @@ func (a *Analyzer) getParameterMode(stmt parsed_ast.StatementNode) (zetasql.Para
 		enabledNamedParameter      bool
 		enabledPositionalParameter bool
 	)
-	parsed_ast.Walk(stmt, func(node parsed_ast.Node) error {
+	_ = parsed_ast.Walk(stmt, func(node parsed_ast.Node) error {
 		switch n := node.(type) {
 		case *parsed_ast.ParameterExprNode:
 			if n.Position() > 0 {
@@ -285,7 +285,7 @@ func (a *Analyzer) newCreateTableStmtAction(ctx context.Context, query string, a
 	}, nil
 }
 
-func (a *Analyzer) newCreateTableAsSelectStmtAction(ctx context.Context, query string, args []driver.NamedValue, node *ast.CreateTableAsSelectStmtNode) (*CreateTableStmtAction, error) {
+func (a *Analyzer) newCreateTableAsSelectStmtAction(ctx context.Context, _ string, args []driver.NamedValue, node *ast.CreateTableAsSelectStmtNode) (*CreateTableStmtAction, error) {
 	query, err := newNode(node.Query()).FormatSQL(ctx)
 	if err != nil {
 		return nil, err
@@ -331,7 +331,7 @@ func (a *Analyzer) newCreateFunctionStmtAction(ctx context.Context, query string
 	}, nil
 }
 
-func (a *Analyzer) newCreateViewStmtAction(ctx context.Context, query string, args []driver.NamedValue, node *ast.CreateViewStmtNode) (*CreateViewStmtAction, error) {
+func (a *Analyzer) newCreateViewStmtAction(ctx context.Context, _ string, args []driver.NamedValue, node *ast.CreateViewStmtNode) (*CreateViewStmtAction, error) {
 	query, err := newNode(node.Query()).FormatSQL(ctx)
 	if err != nil {
 		return nil, err
@@ -646,7 +646,7 @@ func getParamsFromNode(node ast.Node) []*ast.ParameterNode {
 		params       []*ast.ParameterNode
 		paramNameMap = map[string]struct{}{}
 	)
-	ast.Walk(node, func(n ast.Node) error {
+	_ = ast.Walk(node, func(n ast.Node) error {
 		param, ok := n.(*ast.ParameterNode)
 		if ok {
 			name := param.Name()

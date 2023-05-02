@@ -1,8 +1,6 @@
 package internal
 
 import (
-	"fmt"
-
 	"github.com/goccy/go-json"
 )
 
@@ -150,8 +148,4 @@ func parseAggregateOptions(args ...Value) ([]Value, *AggregatorOption, error) {
 		}
 	}
 	return filteredArgs, opt, nil
-}
-
-func getAggregateLimitOptionFuncSQL(limit int64) string {
-	return fmt.Sprintf("zetasqlite_limit_string(%d)", limit)
 }

@@ -339,8 +339,6 @@ func (f *WINDOW_STRING_AGG) Done(agg *WindowFuncAggregatedStatus) (Value, error)
 }
 
 type WINDOW_SUM struct {
-	initialized bool
-	once        sync.Once
 }
 
 func (f *WINDOW_SUM) Step(v Value, opt *WindowFuncStatus, agg *WindowFuncAggregatedStatus) error {

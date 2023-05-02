@@ -892,7 +892,7 @@ func (f *APPROX_TOP_SUM) Done() (Value, error) {
 }
 
 func init() {
-	hll.Defaults(hll.Settings{
+	_ = hll.Defaults(hll.Settings{
 		Log2m:             15,
 		Regwidth:          8,
 		ExplicitThreshold: hll.AutoExplicitThreshold,

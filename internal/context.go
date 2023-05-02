@@ -16,17 +16,12 @@ type (
 	funcMapKey                      struct{}
 	analyticOrderColumnNamesKey     struct{}
 	analyticPartitionColumnNamesKey struct{}
-	analyticTableNameKey            struct{}
 	analyticInputScanKey            struct{}
 	arraySubqueryColumnNameKey      struct{}
 	currentTimeKey                  struct{}
-	needsTableNameForColumnKey      struct{}
 	tableNameToColumnListMapKey     struct{}
 	useColumnIDKey                  struct{}
-	rowIDColumnKey                  struct{}
 	useTableNameForColumnKey        struct{}
-	withEntriesKey                  struct{}
-	withSubqueryKey                 struct{}
 )
 
 func analyzerFromContext(ctx context.Context) *Analyzer {
@@ -122,18 +117,6 @@ func analyticPartitionColumnNamesFromContext(ctx context.Context) []string {
 	return value.([]string)
 }
 
-func withAnalyticTableName(ctx context.Context, name string) context.Context {
-	return context.WithValue(ctx, analyticTableNameKey{}, name)
-}
-
-func analyticTableNameFromContext(ctx context.Context) string {
-	value := ctx.Value(analyticTableNameKey{})
-	if value == nil {
-		return ""
-	}
-	return value.(string)
-}
-
 func withAnalyticInputScan(ctx context.Context, input string) context.Context {
 	return context.WithValue(ctx, analyticInputScanKey{}, input)
 }
@@ -162,18 +145,6 @@ func arraySubqueryColumnNameFromContext(ctx context.Context) *arraySubqueryColum
 	return value.(*arraySubqueryColumnNames)
 }
 
-func withNeedsTableNameForColumn(ctx context.Context) context.Context {
-	return context.WithValue(ctx, needsTableNameForColumnKey{}, true)
-}
-
-func needsTableNameForColumn(ctx context.Context) bool {
-	value := ctx.Value(needsTableNameForColumnKey{})
-	if value == nil {
-		return false
-	}
-	return value.(bool)
-}
-
 func withUseColumnID(ctx context.Context) context.Context {
 	return context.WithValue(ctx, useColumnIDKey{}, true)
 }
@@ -188,10 +159,6 @@ func useColumnID(ctx context.Context) bool {
 
 func unuseColumnID(ctx context.Context) context.Context {
 	return context.WithValue(ctx, useColumnIDKey{}, false)
-}
-
-func withUseTableNameForColumn(ctx context.Context) context.Context {
-	return context.WithValue(ctx, useTableNameForColumnKey{}, true)
 }
 
 func withoutUseTableNameForColumn(ctx context.Context) context.Context {
