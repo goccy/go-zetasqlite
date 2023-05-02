@@ -122,11 +122,11 @@ func DATETIME_ADD(t time.Time, v int64, part string) (Value, error) {
 	case "WEEK":
 		return DatetimeValue(t.AddDate(0, 0, int(v*7))), nil
 	case "MONTH":
-		return DatetimeValue(t.AddDate(0, int(v), 0)), nil
+		return DatetimeValue(addMonth(t, int(v))), nil
 	case "QUARTER":
-		return DatetimeValue(t.AddDate(0, 3*int(v), 0)), nil
+		return DatetimeValue(addMonth(t, 3*int(v))), nil
 	case "YEAR":
-		return DatetimeValue(t.AddDate(int(v), 0, 0)), nil
+		return DatetimeValue(addYear(t, int(v))), nil
 	}
 	return nil, fmt.Errorf("DATETIME_ADD: unexpected part value %s", part)
 }
@@ -148,11 +148,11 @@ func DATETIME_SUB(t time.Time, v int64, part string) (Value, error) {
 	case "WEEK":
 		return DatetimeValue(t.AddDate(0, 0, -int(v*7))), nil
 	case "MONTH":
-		return DatetimeValue(t.AddDate(0, -int(v), 0)), nil
+		return DatetimeValue(addMonth(t, -int(v))), nil
 	case "QUARTER":
-		return DatetimeValue(t.AddDate(0, -3*int(v), 0)), nil
+		return DatetimeValue(addMonth(t, -3*int(v))), nil
 	case "YEAR":
-		return DatetimeValue(t.AddDate(-int(v), 0, 0)), nil
+		return DatetimeValue(addYear(t, -int(v))), nil
 	}
 	return nil, fmt.Errorf("DATETIME_SUB: unexpected part value %s", part)
 }

@@ -63,9 +63,9 @@ func DATE_ADD(t time.Time, v int64, part string) (Value, error) {
 	case "WEEK":
 		return DateValue(t.AddDate(0, 0, int(v*7))), nil
 	case "MONTH":
-		return DateValue(t.AddDate(0, int(v), 0)), nil
+		return DateValue(addMonth(t, int(v))), nil
 	case "YEAR":
-		return DateValue(t.AddDate(int(v), 0, 0)), nil
+		return DateValue(addYear(t, int(v))), nil
 	}
 	return nil, fmt.Errorf("unexpected part value %s", part)
 }
@@ -77,9 +77,9 @@ func DATE_SUB(t time.Time, v int64, part string) (Value, error) {
 	case "WEEK":
 		return DateValue(t.AddDate(0, 0, int(-v*7))), nil
 	case "MONTH":
-		return DateValue(t.AddDate(0, int(-v), 0)), nil
+		return DateValue(addMonth(t, int(-v))), nil
 	case "YEAR":
-		return DateValue(t.AddDate(int(-v), 0, 0)), nil
+		return DateValue(addYear(t, int(-v))), nil
 	}
 	return nil, fmt.Errorf("unexpected part value %s", part)
 }
@@ -173,4 +173,28 @@ func PARSE_DATE(format, date string) (Value, error) {
 
 func UNIX_DATE(t time.Time) (Value, error) {
 	return IntValue(t.Unix() / int64(24*time.Hour/time.Second)), nil
+}
+
+func addMonth(t time.Time, m int) time.Time {
+	curYear, curMonth, curDay := t.Date()
+
+	first := time.Date(curYear, curMonth, 1, 0, 0, 0, 0, t.Location())
+	year, month, _ := first.AddDate(0, m, 0).Date()
+	after := time.Date(year, month, curDay, 0, 0, 0, 0, time.UTC)
+	if month != after.Month() {
+		return first.AddDate(0, m+1, -1)
+	}
+	return t.AddDate(0, m, 0)
+}
+
+func addYear(t time.Time, y int) time.Time {
+	curYear, curMonth, curDay := t.Date()
+
+	first := time.Date(curYear, curMonth, 1, 0, 0, 0, 0, t.Location())
+	year, month, _ := first.AddDate(y, 0, 0).Date()
+	after := time.Date(year, month, curDay, 0, 0, 0, 0, t.Location())
+	if month != after.Month() {
+		return first.AddDate(y, 1, -1)
+	}
+	return t.AddDate(y, 0, 0)
 }
