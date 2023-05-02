@@ -22,7 +22,7 @@ cover-html: cover
 
 .PHONY: lint
 lint: lint/install
-	$(GOBIN)/golangci-lint run
+	$(GOBIN)/golangci-lint run --timeout 30m
 
 lint/install: | $(GOBIN)
 	GOBIN=$(GOBIN) go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.52.2
