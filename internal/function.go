@@ -420,7 +420,7 @@ func MAKE_STRUCT(args ...Value) (Value, error) {
 	}, nil
 }
 
-func EXTRACT(v Value, part string) (Value, error) {
+func EXTRACT(v Value, part, zone string) (Value, error) {
 	switch vv := v.(type) {
 	case *IntervalValue:
 		switch part {
@@ -446,6 +446,13 @@ func EXTRACT(v Value, part string) (Value, error) {
 		t, err := v.ToTime()
 		if err != nil {
 			return nil, err
+		}
+		if _, ok := v.(TimestampValue); ok {
+			loc, err := toLocation(zone)
+			if err != nil {
+				return nil, err
+			}
+			t = t.In(loc)
 		}
 		switch part {
 		case "ISOYEAR":

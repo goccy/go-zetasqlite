@@ -48,6 +48,7 @@ var normalFuncs = []*FuncInfo{
 	// date functions
 	{Name: "current_date", BindFunc: bindCurrentDate},
 	{Name: "extract", BindFunc: bindExtract},
+	{Name: "extract_date", BindFunc: bindExtractDate},
 	{Name: "date", BindFunc: bindDate},
 	{Name: "date_add", BindFunc: bindDateAdd},
 	{Name: "date_sub", BindFunc: bindDateSub},

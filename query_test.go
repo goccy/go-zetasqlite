@@ -4097,6 +4097,19 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			query:        `SELECT UNIX_MICROS(TIMESTAMP "2008-12-25 15:30:00+00")`,
 			expectedRows: [][]interface{}{{int64(1230219000000000)}},
 		},
+		{
+			name: "extract from timestamp",
+			query: `
+WITH Input AS (SELECT TIMESTAMP("2008-12-25 05:30:00+00") AS timestamp_value)
+SELECT
+  EXTRACT(DAY FROM timestamp_value AT TIME ZONE "UTC"),
+  EXTRACT(DAY FROM timestamp_value AT TIME ZONE "America/Los_Angeles"),
+  EXTRACT(DATE FROM timestamp_value)
+FROM Input`,
+			expectedRows: [][]interface{}{
+				{int64(25), int64(24), "2008-12-25"},
+			},
+		},
 
 		// interval functions
 		{
