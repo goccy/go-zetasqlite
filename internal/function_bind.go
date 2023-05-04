@@ -381,7 +381,30 @@ func bindExtract(args ...Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return EXTRACT(args[0], part)
+	zone := "UTC"
+	if len(args) == 3 {
+		timeZone, err := args[2].ToString()
+		if err != nil {
+			return nil, err
+		}
+		zone = timeZone
+	}
+	return EXTRACT(args[0], part, zone)
+}
+
+func bindExtractDate(args ...Value) (Value, error) {
+	if existsNull(args) {
+		return nil, nil
+	}
+	zone := "UTC"
+	if len(args) == 2 {
+		timeZone, err := args[1].ToString()
+		if err != nil {
+			return nil, err
+		}
+		zone = timeZone
+	}
+	return EXTRACT(args[0], "DATE", zone)
 }
 
 func bindSessionUser(_ ...Value) (Value, error) {
