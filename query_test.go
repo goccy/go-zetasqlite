@@ -2739,6 +2739,11 @@ SELECT item FROM Produce WHERE Produce.category = 'vegetable' QUALIFY RANK() OVE
 			query:        `SELECT SAFE_CAST("apple" AS INT64) AS not_a_number`,
 			expectedRows: [][]interface{}{{nil}},
 		},
+		{
+			name:         "cast string to int64",
+			query:        `SELECT CAST('0x87a' as INT64), CAST(CONCAT('0x', '87a') as INT64), CAST(SUBSTR('q0x87a', 2) as INT64), CAST(s AS INT64) FROM (SELECT CONCAT('0x', '87a') AS s)`,
+			expectedRows: [][]interface{}{{int64(2170), int64(2170), int64(2170), int64(2170)}},
+		},
 
 		// hash functions
 		{

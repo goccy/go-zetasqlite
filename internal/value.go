@@ -244,7 +244,7 @@ func (sv StringValue) ToInt64() (int64, error) {
 	if sv == "" {
 		return 0, nil
 	}
-	return strconv.ParseInt(string(sv), 10, 64)
+	return strconv.ParseInt(string(sv), 0, 64)
 }
 
 func (sv StringValue) ToString() (string, error) {
@@ -940,7 +940,7 @@ func (jv JsonValue) LTE(v Value) (bool, error) {
 }
 
 func (jv JsonValue) ToInt64() (int64, error) {
-	return strconv.ParseInt(string(jv), 10, 64)
+	return strconv.ParseInt(string(jv), 0, 64)
 }
 
 func (jv JsonValue) ToString() (string, error) {
@@ -976,7 +976,7 @@ func (jv JsonValue) ToTime() (time.Time, error) {
 }
 
 func (jv JsonValue) ToRat() (*big.Rat, error) {
-	i64, err := strconv.ParseInt(string(jv), 10, 64)
+	i64, err := strconv.ParseInt(string(jv), 0, 64)
 	if err != nil {
 		return nil, err
 	}
