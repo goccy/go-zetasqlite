@@ -30,7 +30,7 @@ func NET_HOST(v string) (Value, error) {
 func NET_IP_FROM_STRING(v string) (Value, error) {
 	ip, err := parseIP(v)
 	if err != nil {
-		return nil, fmt.Errorf("NET.IP_FROM_STRING: invalid ip address %T", v)
+		return nil, fmt.Errorf("NET.IP_FROM_STRING: invalid ip address %v", v)
 	}
 	return BytesValue(ip), nil
 }
