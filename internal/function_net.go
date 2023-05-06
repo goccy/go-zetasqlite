@@ -13,7 +13,7 @@ import (
 )
 
 func NET_HOST(v string) (Value, error) {
-	parsed := parse_url(v)
+	parsed := parseURL(v)
 	if parsed == nil {
 		return nil, nil
 	}
@@ -28,7 +28,7 @@ func NET_HOST(v string) (Value, error) {
 }
 
 func NET_IP_FROM_STRING(v string) (Value, error) {
-	ip := parse_ip(v)
+	ip := parseIP(v)
 	if ip == nil {
 		return nil, fmt.Errorf("NET.IP_FROM_STRING: invalid ip address %T", v)
 	}
@@ -80,12 +80,12 @@ func NET_IPV4_TO_INT64(v []byte) (Value, error) {
 }
 
 func NET_PUBLIC_SUFFIX(v string) (Value, error) {
-	parsed := parse_url(v)
+	parsed := parseURL(v)
 	if parsed == nil {
 		return nil, nil
 	}
 	host := parsed.Hostname()
-	suffix := public_suffix(host)
+	suffix := publicSuffix(host)
 	if suffix == "" {
 		return nil, nil
 	}
@@ -93,29 +93,29 @@ func NET_PUBLIC_SUFFIX(v string) (Value, error) {
 }
 
 func NET_REG_DOMAIN(v string) (Value, error) {
-	parsed := parse_url(v)
+	parsed := parseURL(v)
 	if parsed == nil {
 		return nil, nil
 	}
 	host := parsed.Hostname()
-	split_host := strings.Split(host, ".")
-	suffix := public_suffix(host)
-	split_suffix := strings.Split(suffix, ".")
-	if host == "" || suffix == "" || len(split_host) <= len(split_suffix) {
+	splitHost := strings.Split(host, ".")
+	suffix := publicSuffix(host)
+	splitSuffix := strings.Split(suffix, ".")
+	if host == "" || suffix == "" || len(splitHost) <= len(splitSuffix) {
 		return nil, nil
 	}
-	return StringValue(strings.Join(split_host[len(split_host)-len(split_suffix)-1:], ".")), nil
+	return StringValue(strings.Join(splitHost[len(splitHost)-len(splitSuffix)-1:], ".")), nil
 }
 
 func NET_SAFE_IP_FROM_STRING(v string) (Value, error) {
-	ip := parse_ip(v)
+	ip := parseIP(v)
 	if ip == nil {
 		return nil, nil
 	}
 	return BytesValue(ip), nil
 }
 
-func parse_url(v string) *url.URL {
+func parseURL(v string) *url.URL {
 	parsed, err := url.Parse(v)
 	if err != nil {
 		return nil
@@ -129,12 +129,12 @@ func parse_url(v string) *url.URL {
 	return parsed
 }
 
-func public_suffix(host string) string {
+func publicSuffix(host string) string {
 	reg, _ := regexp.Compile(`[^.]\.{2,}[^.]`)
 	if reg.MatchString(host) {
 		return ""
 	}
-	split_host := strings.Split(host, ".")
+	splitHost := strings.Split(host, ".")
 	encoded, err := idna.ToASCII(strings.ToLower(host))
 	if err != nil {
 		return ""
@@ -143,11 +143,11 @@ func public_suffix(host string) string {
 	if !icann {
 		return ""
 	}
-	split_suffix := strings.Split(suffix, ".")
-	return strings.Join(split_host[len(split_host)-len(split_suffix):], ".")
+	splitSuffix := strings.Split(suffix, ".")
+	return strings.Join(splitHost[len(splitHost)-len(splitSuffix):], ".")
 }
 
-func parse_ip(v string) []byte {
+func parseIP(v string) []byte {
 	ip, err := netip.ParseAddr(v)
 	if err != nil {
 		return nil
