@@ -12,6 +12,10 @@ import (
 	"strings"
 )
 
+var (
+	publicSuffixMatcher = regexp.MustCompile(`[^.]\.{2,}[^.]`)
+)
+
 func NET_HOST(v string) (Value, error) {
 	parsed := parseURL(v)
 	if parsed == nil {
@@ -130,8 +134,7 @@ func parseURL(v string) *url.URL {
 }
 
 func publicSuffix(host string) string {
-	reg, _ := regexp.Compile(`[^.]\.{2,}[^.]`)
-	if reg.MatchString(host) {
+	if publicSuffixMatcher.MatchString(host) {
 		return ""
 	}
 	splitHost := strings.Split(host, ".")
