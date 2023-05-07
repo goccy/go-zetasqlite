@@ -12,6 +12,10 @@ COVERPKG_OPT := $(subst $(SPACE),$(COMMA),$(COVER_PKGS))
 $(GOBIN):
 	@mkdir -p $(GOBIN)
 
+.PHONY: build
+build:
+	cd ./cmd/zetasqlite-cli && go build .
+
 .PHONY: cover
 cover:
 	go test -coverpkg=$(COVERPKG_OPT) -coverprofile=cover.out ./...
