@@ -4789,6 +4789,194 @@ WITH tmp as (
 `,
 			expectedRows: [][]interface{}{{int64(1), "hello"}},
 		},
+
+		// net
+		{
+			name: "net_host",
+			query: `
+SELECT
+  NET.HOST(url),
+  NET.PUBLIC_SUFFIX(url),
+  NET.REG_DOMAIN(url)
+FROM (
+  SELECT "" AS url UNION ALL
+  SELECT "http://abc.xyz" UNION ALL
+  SELECT "http://abc..xyz" UNION ALL
+  SELECT "//user:password@a.b:80/path?query" UNION ALL
+  SELECT "https://[::1]:80" UNION ALL
+  SELECT "http://例子.卷筒纸.中国" UNION ALL
+  SELECT "    www.Example.Co.UK    " UNION ALL
+  SELECT "amazon.co.uk"
+)`,
+			expectedRows: [][]interface{}{
+				{nil, nil, nil},
+				{"abc.xyz", "xyz", "abc.xyz"},
+				{"abc..xyz", nil, nil},
+				{"a.b", nil, nil},
+				{"[::1]", nil, nil},
+				{"例子.卷筒纸.中国", "中国", "卷筒纸.中国"},
+				{"www.Example.Co.UK", "Co.UK", "Example.Co.UK"},
+				{"amazon.co.uk", "co.uk", "amazon.co.uk"},
+			},
+		},
+		{
+			name: "net_ip_from_string",
+			query: `
+SELECT
+  FORMAT("%T", NET.IP_FROM_STRING(ip))
+FROM (
+  SELECT "48.49.50.51" AS ip UNION ALL
+  SELECT "::1" UNION ALL
+  SELECT "3031:3233:3435:3637:3839:4041:4243:4445" UNION ALL
+  SELECT "::ffff:192.0.2.128" UNION ALL
+  SELECT NULL
+)`,
+			expectedRows: [][]interface{}{
+				{`b"0123"`},
+				{`b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01"`},
+				{`b"0123456789@ABCDE"`},
+				{`b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xc0\x00\x02\x80"`},
+				{nil},
+			},
+		},
+		{
+			name: "net_ip_net_mask",
+			query: `
+SELECT FORMAT("%T", NET.IP_NET_MASK(4, 0)) UNION ALL
+SELECT FORMAT("%T", NET.IP_NET_MASK(4, 20)) UNION ALL
+SELECT FORMAT("%T", NET.IP_NET_MASK(4, 32)) UNION ALL
+SELECT FORMAT("%T", NET.IP_NET_MASK(16, 0)) UNION ALL
+SELECT FORMAT("%T", NET.IP_NET_MASK(16, 1)) UNION ALL
+SELECT FORMAT("%T", NET.IP_NET_MASK(16, 128))`,
+			expectedRows: [][]interface{}{
+				{`b"\x00\x00\x00\x00"`},
+				{`b"\xff\xff\xf0\x00"`},
+				{`b"\xff\xff\xff\xff"`},
+				{`b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"`},
+				{`b"\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"`},
+				{`b"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff"`},
+			},
+		},
+		{
+			name:        "net_ip_net_mask with invalid output bytes",
+			query:       `SELECT NET.IP_NET_MASK(1, 0)`,
+			expectedErr: "NET.IP_NET_MASK: the first argument must be either 4 or 16",
+		},
+		{
+			name:        "net_ip_net_mask with invalid prefix length",
+			query:       `SELECT NET.IP_NET_MASK(4, 33)`,
+			expectedErr: "NET.IP_NET_MASK: the second argument must be in the range from 0 to 32",
+		},
+		{
+			name: "net_ip_to_string",
+			query: `
+SELECT
+  NET.IP_TO_STRING(bin)
+FROM (
+  SELECT b"0123" AS bin UNION ALL
+  SELECT b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01" UNION ALL
+  SELECT b"0123456789@ABCDE" UNION ALL
+  SELECT b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xc0\x00\x02\x80"
+)`,
+			expectedRows: [][]interface{}{
+				{"48.49.50.51"},
+				{"::1"},
+				{"3031:3233:3435:3637:3839:4041:4243:4445"},
+				{"::ffff:192.0.2.128"},
+			},
+		},
+		{
+			name: "net_ip_trunc",
+			query: `
+SELECT
+  FORMAT("%T", NET.IP_TRUNC(x, prefix_length))
+FROM (
+  SELECT b"\xAA\xBB\xCC\xDD" as x, 0 as prefix_length UNION ALL
+  SELECT b"\xAA\xBB\xCC\xDD", 11 UNION ALL
+  SELECT b"\xAA\xBB\xCC\xDD", 12 UNION ALL
+  SELECT b"\xAA\xBB\xCC\xDD", 24 UNION ALL
+  SELECT b"\xAA\xBB\xCC\xDD", 32 UNION ALL
+  SELECT b'0123456789@ABCDE', 80
+)`,
+			expectedRows: [][]interface{}{
+				{`b"\x00\x00\x00\x00"`},
+				{`b"\xaa\xa0\x00\x00"`},
+				{`b"\xaa\xb0\x00\x00"`},
+				{`b"\xaa\xbb\xcc\x00"`},
+				{`b"\xaa\xbb\xcc\xdd"`},
+				{`b"0123456789\x00\x00\x00\x00\x00\x00"`},
+			},
+		},
+		{
+			name:        "net_ip_trunc with invalid ip address",
+			query:       `SELECT NET.IP_TRUNC(b"\xAA\xbb\xCC", 0)`,
+			expectedErr: "NET.IP_TRUNC: length of the first argument must be either 4 or 16",
+		},
+		{
+			name:        "net_ip_trunc with invalid length",
+			query:       `SELECT NET.IP_TRUNC(b"\xAA\xbb\xCC\xDD", 33)`,
+			expectedErr: "NET.IP_TRUNC: length must be in the range from 0 to 32",
+		},
+		{
+			name: "net_ipv4_from_int64",
+			query: `
+SELECT
+  FORMAT("%T", NET.IPV4_FROM_INT64(v))
+FROM (
+  SELECT 0 AS v UNION ALL
+  SELECT 11259375 UNION ALL
+  SELECT 4294967295 UNION ALL
+  SELECT -1 UNION ALL
+  SELECT -2
+)`,
+			expectedRows: [][]interface{}{
+				{`b"\x00\x00\x00\x00"`},
+				{`b"\x00\xab\xcd\xef"`},
+				{`b"\xff\xff\xff\xff"`},
+				{`b"\xff\xff\xff\xff"`},
+				{`b"\xff\xff\xff\xfe"`},
+			},
+		},
+		{
+			name: "net_ipv4_to_int64",
+			query: `
+SELECT
+  FORMAT("0x%X", NET.IPV4_TO_INT64(v))
+FROM (
+ SELECT b"\x00\x00\x00\x00" AS v UNION ALL
+ SELECT b"\x00\xab\xcd\xef" UNION ALL
+ SELECT b"\xff\xff\xff\xff"
+)`,
+			expectedRows: [][]interface{}{
+				{"0x0"},
+				{"0xABCDEF"},
+				{"0xFFFFFFFF"},
+			},
+		},
+		{
+			name: "net_safe_if_from_string",
+			query: `
+SELECT
+  FORMAT("%T", NET.SAFE_IP_FROM_STRING(v))
+FROM (
+  SELECT "48.49.50.51" AS v UNION ALL
+  SELECT "::1" UNION ALL
+  SELECT "3031:3233:3435:3637:3839:4041:4243:4445" UNION ALL
+  SELECT "::ffff:192.0.2.128" UNION ALL
+  SELECT "48.49.50.51/32" UNION ALL
+  SELECT "48.49.50" UNION ALL
+  SELECT "::wxyz"
+)`,
+			expectedRows: [][]interface{}{
+				{`b"0123"`},
+				{`b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01"`},
+				{`b"0123456789@ABCDE"`},
+				{`b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xc0\x00\x02\x80"`},
+				{nil},
+				{nil},
+				{nil},
+			},
+		},
 	} {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
