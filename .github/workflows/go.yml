@@ -9,6 +9,24 @@ env:
   CC: clang
   CXX: clang++
 jobs:
+  build:
+    name: build
+    strategy:
+      matrix:
+        os: [ "ubuntu-latest", "macos-latest" ]
+        go-version: [ "1.18" ]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - name: checkout
+      uses: actions/checkout@v3
+    - name: setup Go ${{ matrix.go-version }}
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ matrix.go-version }}
+        cache: true
+    - name: build
+      run: |
+        make build
   test:
     name: test
     strategy:
