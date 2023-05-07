@@ -19,10 +19,13 @@ Application Options:
       --history=   specify the history file for used queries (default: .zetasqlite_history)
       --autoindex  specify the auto index mode. automatically create an index when creating a table
       --explain    specify the explain mode. show results using sqlite3's explain query plan instead of executing the query
+      --no-color   specify the not color mode
 
 Help Options:
   -h, --help     Show this help message
 ```
+
+If you specify the name of a database file after the command, it will execute the query against that file.
 
 ## Commands
 
@@ -32,3 +35,8 @@ Help Options:
 - `.functions` : show all functions
 - `.autoindex` : automatically create an index when creating a table
 - `.explain` : show results using sqlite3's explain query plan instead of executing the query
+
+## Print Mode
+
+Usually table view mode.
+Group view is also available by adding `\G` suffix at the end of the query.
