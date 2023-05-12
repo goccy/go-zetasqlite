@@ -169,7 +169,7 @@ func (a *CreateViewStmtAction) QueryContext(ctx context.Context, conn *Conn) (*R
 	if err := a.exec(ctx, conn); err != nil {
 		return nil, err
 	}
-	return nil, nil
+	return &Rows{}, nil
 }
 
 func (a *CreateViewStmtAction) Cleanup(ctx context.Context, conn *Conn) error {
