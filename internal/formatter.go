@@ -1390,7 +1390,7 @@ func (n *DropStmtNode) FormatSQL(ctx context.Context) (string, error) {
 	if n.node.IsIfExists() {
 		return fmt.Sprintf("DROP %s IF EXISTS `%s`", n.node.ObjectType(), tableName), nil
 	}
-	return fmt.Sprintf("DROP %s `%s`", tableName), nil
+	return fmt.Sprintf("DROP %s `%s`", n.node.ObjectType(), tableName), nil
 }
 
 func (n *DropMaterializedViewStmtNode) FormatSQL(ctx context.Context) (string, error) {
