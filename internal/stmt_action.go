@@ -252,7 +252,7 @@ type DropStmtAction struct {
 
 func (a *DropStmtAction) exec(ctx context.Context, conn *Conn) error {
 	switch a.objectType {
-	case "TABLE":
+	case "TABLE", "VIEW":
 		if _, err := conn.ExecContext(ctx, a.formattedQuery, a.args...); err != nil {
 			return fmt.Errorf("failed to exec %s: %w", a.query, err)
 		}
