@@ -100,7 +100,7 @@ func DATETIME(args ...Value) (Value, error) {
 			}
 			return DatetimeValue(t.In(loc)), nil
 		}
-		return DatetimeValue(t), nil
+		return DatetimeValue(t.UTC()), nil
 	}
 	return nil, fmt.Errorf("DATETIME: first argument must be DATE or TIMESTAMP type")
 }

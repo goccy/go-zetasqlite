@@ -3750,6 +3750,12 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 		},
 
 		{
+			name:         "cast date as string",
+			query:        `SELECT CAST(DATE("2022-08-01 06:47:51.123456-07:00") AS STRING)`,
+			expectedRows: [][]interface{}{{"2022-08-01"}},
+		},
+
+		{
 			name:         "last_day",
 			query:        `SELECT LAST_DAY(DATE '2008-11-25') AS last_day`,
 			expectedRows: [][]interface{}{{"2008-11-30"}},
@@ -3966,6 +3972,16 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			expectedRows: [][]interface{}{{"2008"}},
 		},
 		{
+			name:         "cast datetime as string",
+			query:        `SELECT CAST(DATETIME(TIMESTAMP("2022-08-01 06:47:51.123456-07:00")) AS STRING)`,
+			expectedRows: [][]interface{}{{"2022-08-01 13:47:51.123456"}},
+		},
+		{
+			name:         "cast date as datetime",
+			query:        `SELECT CAST(DATE("1987-01-25") AS DATETIME)`,
+			expectedRows: [][]interface{}{{"1987-01-25T00:00:00"}},
+		},
+		{
 			name:         "parse datetime",
 			query:        `SELECT PARSE_DATETIME("%a %b %e %I:%M:%S %Y", "Thu Dec 25 07:30:00 2008")`,
 			expectedRows: [][]interface{}{{"2008-12-25T07:30:00"}},
@@ -4061,6 +4077,21 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			name:         "format_time with %E*S",
 			query:        `SELECT FORMAT_TIME("%E*S", TIME "15:30:12.345678")`,
 			expectedRows: [][]interface{}{{"12.345678"}},
+		},
+		{
+			name:         "cast time as string",
+			query:        `SELECT CAST(TIME("2022-08-01 06:47:51.123456-04:00") AS STRING)`,
+			expectedRows: [][]interface{}{{"10:47:51.123456"}},
+		},
+		{
+			name:         "cast time with timezone as string",
+			query:        `SELECT CAST(TIME("2022-08-01 06:47:51.123456-04:00", "America/Los_Angeles") AS STRING)`,
+			expectedRows: [][]interface{}{{"03:47:51.123456"}},
+		},
+		{
+			name:         "cast time from datetime as string",
+			query:        `SELECT CAST(TIME(DATETIME(TIMESTAMP("2022-08-01 06:47:51.123456-04:00"))) AS STRING)`,
+			expectedRows: [][]interface{}{{"10:47:51.123456"}},
 		},
 		{
 			name:         "parse time with %I:%M:%S",
@@ -4213,6 +4244,11 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			name:         "format_timestamp with %Ez",
 			query:        `SELECT FORMAT_TIMESTAMP("%Ez", TIMESTAMP "2008-12-25 15:30:12.345678+00")`,
 			expectedRows: [][]interface{}{{"+00:00"}},
+		},
+		{
+			name:         "cast timestamp as string",
+			query:        `SELECT CAST(TIMESTAMP("2022-08-01 06:47:51.123456-07:00") AS STRING);`,
+			expectedRows: [][]interface{}{{"2022-08-01 13:47:51.123456+00"}},
 		},
 		{
 			name:         "parse timestamp with %a %b %e %I:%M:%S %Y",
