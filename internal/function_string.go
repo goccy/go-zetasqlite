@@ -415,6 +415,9 @@ func LPAD(originalValue Value, returnLength int64, pattern Value) (Value, error)
 }
 
 func LOWER(v Value) (Value, error) {
+	if v == nil {
+		return nil, nil
+	}
 	switch v.(type) {
 	case StringValue:
 		s, err := v.ToString()
@@ -697,7 +700,7 @@ func REGEXP_REPLACE(value, exprValue, replacementValue Value) (Value, error) {
 		}
 		return BytesValue(re.ReplaceAll(v, []byte(normalizeReplacement(string(replacement))))), nil
 	}
-	return nil, fmt.Errorf("REGEXP_REPLACE: value must be STRING or BYTES")
+	return nil, fmt.Errorf("REGEXP_REPLACE: value must be STRING or BYTES, %s", value)
 }
 
 func REPLACE(originalValue, fromValue, toValue Value) (Value, error) {
