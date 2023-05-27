@@ -841,7 +841,6 @@ SELECT ARRAY_CONCAT_AGG(x) AS array_concat_agg FROM (
 			name:  "string_agg with window",
 			query: `SELECT fruit, STRING_AGG(fruit, " & ") OVER (ORDER BY LENGTH(fruit)) FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit`,
 			expectedRows: [][]interface{}{
-				{nil, nil},
 				{"pear", "pear & pear"},
 				{"pear", "pear & pear"},
 				{"apple", "pear & pear & apple"},
