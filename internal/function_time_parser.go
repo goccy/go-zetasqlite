@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -1349,8 +1350,42 @@ func timeZoneRFC3339Formatter(t *time.Time) ([]rune, error) {
 	return []rune(t.Format("-07:00")), nil
 }
 
-func timePrecisionParser(precision int, target []rune, t *time.Time) (int, error) {
-	return 0, fmt.Errorf("unimplemented time precision matcher")
+func timePrecisionParser(precision int, text []rune, t *time.Time) (int, error) {
+	re := regexp.MustCompile(`[0-9]{2}\.?[0-9]*`)
+	extracted := re.FindString(string(text))
+	if len(extracted) == 0 {
+		return 0, fmt.Errorf("unexpected hour:minute:second.nanoSecond format")
+	}
+	fmtLen := len(extracted)
+	seconds := strings.Split(extracted, ".")
+	second := seconds[0]
+	nanoSecond := strconv.Itoa(t.Nanosecond())
+	if len(seconds) == 2 {
+		nanoSecond = seconds[1]
+		if len(nanoSecond) > precision {
+			nanoSecond = nanoSecond[:precision]
+		}
+		nanoSecond = nanoSecond + strings.Repeat("0", 9-len(nanoSecond))
+	}
+	s, err := strconv.ParseInt(second, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("unexpected hour:minute:second.nanoSecond format: %w", err)
+	}
+	n, err := strconv.ParseInt(nanoSecond, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("unexpected hour:minute:second.nanoSecond format: %w", err)
+	}
+	*t = time.Date(
+		int(t.Year()),
+		t.Month(),
+		int(t.Day()),
+		int(t.Hour()),
+		int(t.Minute()),
+		int(s),
+		int(n),
+		t.Location(),
+	)
+	return fmtLen, nil
 }
 
 func timePrecisionFormatter(precision int, t *time.Time) ([]rune, error) {
