@@ -262,13 +262,10 @@ func MOD(x, y Value) (Value, error) {
 	return FloatValue(math.Mod(xv, yv)), nil
 }
 
-func ROUND(x Value, precision int, roundMode string) (Value, error) {
+func ROUND(x Value, precision int) (Value, error) {
 	xv, err := x.ToFloat64()
 	if err != nil {
 		return nil, err
-	}
-	if roundMode == "ROUND_HALF_EVEN" {
-		return FloatValue(scalar.RoundEven(xv, precision)), nil
 	}
 	return FloatValue(scalar.Round(xv, precision)), nil
 }

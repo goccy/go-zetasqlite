@@ -1679,32 +1679,23 @@ func bindMod(args ...Value) (Value, error) {
 }
 
 func bindRound(args ...Value) (Value, error) {
-	if len(args) != 1 && len(args) != 2 && len(args) != 3 {
+	if len(args) != 1 && len(args) != 2 {
 		return nil, fmt.Errorf("ROUND: invalid argument num %d", len(args))
 	}
-	var precision = 0
-	var roundMode = "ROUND_HALF_AWAY_FROM_ZERO"
-	if len(args) > 1 {
-		precision, err := args[1].ToInt64()
+	var precision int = 0
+	if len(args) == 2 {
+		i64, err := args[1].ToInt64()
 		if err != nil {
 			return nil, err
 		}
+		precision = int(i64)
 	}
-	if len(args) == 3 {
-		mode, err := args[2].ToString()
-		if err != nil {
-			return nil, err
-		}
-		if mode != "ROUND_HALF_AWAY_FROM_ZERO" && mode != "ROUND_HALF_EVEN" {
-			return nil, fmt.Errorf("ROUND: invalid rounding_mode")
-		}
-		roundMode = mode
-	}
+
 	if existsNull(args) {
 		return nil, nil
 	}
 
-	return ROUND(args[0], precision, roundMode)
+	return ROUND(args[0], precision)
 }
 
 func bindTrunc(args ...Value) (Value, error) {
