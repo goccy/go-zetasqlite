@@ -22,10 +22,13 @@ type (
 // ChangedCatalogFromRows retrieve modified catalog information from sql.Rows.
 // NOTE: This API relies on the internal structure of sql.Rows, so not will work for all Go versions.
 func ChangedCatalogFromRows(rows *sql.Rows) (*ChangedCatalog, error) {
-	rv := reflect.ValueOf(*rows)
-	rowsi := rv.FieldByName("rowsi")
+	if rows == nil {
+		return nil, fmt.Errorf("zetasqlite: sql.Rows instance required not nil")
+	}
+	rv := reflect.ValueOf(rows)
+	rowsi := rv.Elem().FieldByName("rowsi")
 	if !rowsi.IsValid() {
-		return nil, fmt.Errorf("unexpected sql.Rows layout")
+		return nil, fmt.Errorf("zetasqlite: unexpected sql.Rows layout")
 	}
 	driverValue := rowsi.Elem()
 	if driverValue.Type() != reflect.TypeOf(new(internal.Rows)) {
@@ -44,7 +47,7 @@ func ChangedCatalogFromResult(result sql.Result) (*ChangedCatalog, error) {
 	}
 	resi := rv.FieldByName("resi")
 	if !resi.IsValid() {
-		return nil, fmt.Errorf("unexpected sql.Result layout")
+		return nil, fmt.Errorf("zetasqlite: unexpected sql.Result layout")
 	}
 	driverValue := resi.Elem()
 	if driverValue.Type() != reflect.TypeOf(new(internal.Result)) {

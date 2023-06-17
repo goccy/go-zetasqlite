@@ -80,6 +80,9 @@ func (a *CreateTableStmtAction) exec(ctx context.Context, conn *Conn) error {
 	if err := a.catalog.AddNewTableSpec(ctx, conn, a.spec); err != nil {
 		return fmt.Errorf("failed to add new table spec: %w", err)
 	}
+	if !a.spec.IsTemp {
+		conn.addTable(a.spec)
+	}
 	return nil
 }
 
@@ -103,9 +106,9 @@ func (a *CreateTableStmtAction) Args() []interface{} {
 
 func (a *CreateTableStmtAction) Cleanup(ctx context.Context, conn *Conn) error {
 	if !a.spec.IsTemp {
-		conn.addTable(a.spec)
 		return nil
 	}
+
 	if _, err := conn.ExecContext(
 		ctx,
 		fmt.Sprintf("DROP TABLE IF EXISTS `%s`", a.spec.TableName()),
@@ -209,6 +212,7 @@ func (a *CreateFunctionStmtAction) exec(ctx context.Context, conn *Conn) error {
 		return fmt.Errorf("failed to add new function spec: %w", err)
 	}
 	a.funcMap[a.spec.FuncName()] = a.spec
+	conn.addFunction(a.spec)
 	return nil
 }
 
@@ -232,7 +236,6 @@ func (a *CreateFunctionStmtAction) Args() []interface{} {
 
 func (a *CreateFunctionStmtAction) Cleanup(ctx context.Context, conn *Conn) error {
 	if !a.spec.IsTemp {
-		conn.addFunction(a.spec)
 		return nil
 	}
 	funcName := a.spec.FuncName()

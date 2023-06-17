@@ -80,6 +80,7 @@ func (c *Conn) addTable(spec *TableSpec) {
 	c.cc.Table.Added = append(c.cc.Table.Added, spec)
 }
 
+//nolint: unused
 func (c *Conn) updateTable(spec *TableSpec) {
 	c.cc.Table.Updated = append(c.cc.Table.Updated, spec)
 }
