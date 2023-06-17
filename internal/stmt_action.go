@@ -80,6 +80,9 @@ func (a *CreateTableStmtAction) exec(ctx context.Context, conn *Conn) error {
 	if err := a.catalog.AddNewTableSpec(ctx, conn, a.spec); err != nil {
 		return fmt.Errorf("failed to add new table spec: %w", err)
 	}
+	if !a.spec.IsTemp {
+		conn.addTable(a.spec)
+	}
 	return nil
 }
 
@@ -87,14 +90,14 @@ func (a *CreateTableStmtAction) ExecContext(ctx context.Context, conn *Conn) (dr
 	if err := a.exec(ctx, conn); err != nil {
 		return nil, err
 	}
-	return nil, nil
+	return &Result{conn: conn}, nil
 }
 
 func (a *CreateTableStmtAction) QueryContext(ctx context.Context, conn *Conn) (*Rows, error) {
 	if err := a.exec(ctx, conn); err != nil {
 		return nil, err
 	}
-	return &Rows{}, nil
+	return &Rows{conn: conn}, nil
 }
 
 func (a *CreateTableStmtAction) Args() []interface{} {
@@ -105,6 +108,7 @@ func (a *CreateTableStmtAction) Cleanup(ctx context.Context, conn *Conn) error {
 	if !a.spec.IsTemp {
 		return nil
 	}
+
 	if _, err := conn.ExecContext(
 		ctx,
 		fmt.Sprintf("DROP TABLE IF EXISTS `%s`", a.spec.TableName()),
@@ -162,18 +166,19 @@ func (a *CreateViewStmtAction) ExecContext(ctx context.Context, conn *Conn) (dri
 	if err := a.exec(ctx, conn); err != nil {
 		return nil, err
 	}
-	return nil, nil
+	return &Result{conn: conn}, nil
 }
 
 func (a *CreateViewStmtAction) QueryContext(ctx context.Context, conn *Conn) (*Rows, error) {
 	if err := a.exec(ctx, conn); err != nil {
 		return nil, err
 	}
-	return nil, nil
+	return &Rows{conn: conn}, nil
 }
 
 func (a *CreateViewStmtAction) Cleanup(ctx context.Context, conn *Conn) error {
 	if !a.spec.IsTemp {
+		conn.addTable(a.spec)
 		return nil
 	}
 	if _, err := conn.ExecContext(
@@ -207,6 +212,7 @@ func (a *CreateFunctionStmtAction) exec(ctx context.Context, conn *Conn) error {
 		return fmt.Errorf("failed to add new function spec: %w", err)
 	}
 	a.funcMap[a.spec.FuncName()] = a.spec
+	conn.addFunction(a.spec)
 	return nil
 }
 
@@ -214,14 +220,14 @@ func (a *CreateFunctionStmtAction) ExecContext(ctx context.Context, conn *Conn) 
 	if err := a.exec(ctx, conn); err != nil {
 		return nil, err
 	}
-	return nil, nil
+	return &Result{conn: conn}, nil
 }
 
 func (a *CreateFunctionStmtAction) QueryContext(ctx context.Context, conn *Conn) (*Rows, error) {
 	if err := a.exec(ctx, conn); err != nil {
 		return nil, err
 	}
-	return &Rows{}, nil
+	return &Rows{conn: conn}, nil
 }
 
 func (a *CreateFunctionStmtAction) Args() []interface{} {
@@ -256,13 +262,16 @@ func (a *DropStmtAction) exec(ctx context.Context, conn *Conn) error {
 		if _, err := conn.ExecContext(ctx, a.formattedQuery, a.args...); err != nil {
 			return fmt.Errorf("failed to exec %s: %w", a.query, err)
 		}
+		spec := a.catalog.tableMap[a.name]
 		if err := a.catalog.DeleteTableSpec(ctx, conn, a.name); err != nil {
 			return fmt.Errorf("failed to delete table spec: %w", err)
 		}
+		conn.deleteTable(spec)
 	case "FUNCTION":
 		if err := a.catalog.DeleteFunctionSpec(ctx, conn, a.name); err != nil {
 			return fmt.Errorf("failed to delete function spec: %w", err)
 		}
+		conn.deleteFunction(a.funcMap[a.name])
 		delete(a.funcMap, a.name)
 	default:
 		return fmt.Errorf("currently unsupported DROP %s statement", a.objectType)
@@ -278,14 +287,14 @@ func (a *DropStmtAction) ExecContext(ctx context.Context, conn *Conn) (driver.Re
 	if err := a.exec(ctx, conn); err != nil {
 		return nil, err
 	}
-	return nil, nil
+	return &Result{conn: conn}, nil
 }
 
 func (a *DropStmtAction) QueryContext(ctx context.Context, conn *Conn) (*Rows, error) {
 	if err := a.exec(ctx, conn); err != nil {
 		return nil, err
 	}
-	return &Rows{}, nil
+	return &Rows{conn: conn}, nil
 }
 
 func (a *DropStmtAction) Args() []interface{} {
@@ -311,25 +320,27 @@ func (a *DMLStmtAction) Prepare(ctx context.Context, conn *Conn) (driver.Stmt, e
 	return newDMLStmt(s, a.params, a.formattedQuery), nil
 }
 
-func (a *DMLStmtAction) exec(ctx context.Context, conn *Conn) error {
-	if _, err := conn.ExecContext(ctx, a.formattedQuery, a.args...); err != nil {
-		return fmt.Errorf("failed to exec %s: %w", a.formattedQuery, err)
+func (a *DMLStmtAction) exec(ctx context.Context, conn *Conn) (driver.Result, error) {
+	result, err := conn.ExecContext(ctx, a.formattedQuery, a.args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to exec %s: %w", a.formattedQuery, err)
 	}
-	return nil
+	return result, nil
 }
 
 func (a *DMLStmtAction) ExecContext(ctx context.Context, conn *Conn) (driver.Result, error) {
-	if err := a.exec(ctx, conn); err != nil {
+	result, err := a.exec(ctx, conn)
+	if err != nil {
 		return nil, err
 	}
-	return nil, nil
+	return &Result{conn: conn, result: result}, nil
 }
 
 func (a *DMLStmtAction) QueryContext(ctx context.Context, conn *Conn) (*Rows, error) {
-	if err := a.exec(ctx, conn); err != nil {
+	if _, err := a.exec(ctx, conn); err != nil {
 		return nil, err
 	}
-	return &Rows{}, nil
+	return &Rows{conn: conn}, nil
 }
 
 func (a *DMLStmtAction) Args() []interface{} {
@@ -361,7 +372,7 @@ func (a *QueryStmtAction) ExecContext(ctx context.Context, conn *Conn) (driver.R
 	if _, err := conn.ExecContext(ctx, a.formattedQuery, a.args...); err != nil {
 		return nil, fmt.Errorf("failed to query %s: %w", a.query, err)
 	}
-	return nil, nil
+	return &Result{conn: conn}, nil
 }
 
 func (a *QueryStmtAction) ExplainQueryPlan(ctx context.Context, conn *Conn) error {
@@ -396,7 +407,7 @@ func (a *QueryStmtAction) QueryContext(ctx context.Context, conn *Conn) (*Rows, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to query %s: %w", a.query, err)
 	}
-	return &Rows{rows: rows, columns: a.outputColumns}, nil
+	return &Rows{conn: conn, rows: rows, columns: a.outputColumns}, nil
 }
 
 func (a *QueryStmtAction) Args() []interface{} {
@@ -414,11 +425,11 @@ func (a *BeginStmtAction) Prepare(ctx context.Context, conn *Conn) (driver.Stmt,
 }
 
 func (a *BeginStmtAction) ExecContext(ctx context.Context, conn *Conn) (driver.Result, error) {
-	return nil, nil
+	return &Result{conn: conn}, nil
 }
 
 func (a *BeginStmtAction) QueryContext(ctx context.Context, conn *Conn) (*Rows, error) {
-	return &Rows{}, nil
+	return &Rows{conn: conn}, nil
 }
 
 func (a *BeginStmtAction) Args() []interface{} {
@@ -436,11 +447,11 @@ func (a *CommitStmtAction) Prepare(ctx context.Context, conn *Conn) (driver.Stmt
 }
 
 func (a *CommitStmtAction) ExecContext(ctx context.Context, conn *Conn) (driver.Result, error) {
-	return nil, nil
+	return &Result{conn: conn}, nil
 }
 
 func (a *CommitStmtAction) QueryContext(ctx context.Context, conn *Conn) (*Rows, error) {
-	return &Rows{}, nil
+	return &Rows{conn: conn}, nil
 }
 
 func (a *CommitStmtAction) Args() []interface{} {
@@ -470,14 +481,14 @@ func (a *TruncateStmtAction) ExecContext(ctx context.Context, conn *Conn) (drive
 	if err := a.exec(ctx, conn); err != nil {
 		return nil, err
 	}
-	return nil, nil
+	return &Result{conn: conn}, nil
 }
 
 func (a *TruncateStmtAction) QueryContext(ctx context.Context, conn *Conn) (*Rows, error) {
 	if err := a.exec(ctx, conn); err != nil {
 		return nil, err
 	}
-	return &Rows{}, nil
+	return &Rows{conn: conn}, nil
 }
 
 func (a *TruncateStmtAction) Args() []interface{} {
@@ -509,14 +520,14 @@ func (a *MergeStmtAction) ExecContext(ctx context.Context, conn *Conn) (driver.R
 	if err := a.exec(ctx, conn); err != nil {
 		return nil, err
 	}
-	return nil, nil
+	return &Result{conn: conn}, nil
 }
 
 func (a *MergeStmtAction) QueryContext(ctx context.Context, conn *Conn) (*Rows, error) {
 	if err := a.exec(ctx, conn); err != nil {
 		return nil, err
 	}
-	return &Rows{}, nil
+	return &Rows{conn: conn}, nil
 }
 
 func (a *MergeStmtAction) Args() []interface{} {

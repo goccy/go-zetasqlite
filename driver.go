@@ -187,7 +187,7 @@ func (c *ZetaSQLiteConn) QueryContext(ctx context.Context, query string, args []
 			// there is a possibility that the deleted table will be referenced when scanning from Rows,
 			// so cleanup action should be executed in the Close() process of Rows.
 			// For that, let Rows have a reference to actions ( and connection ).
-			rows.SetActions(actions, conn)
+			rows.SetActions(actions)
 		}
 	}()
 	for _, actionFunc := range actionFuncs {

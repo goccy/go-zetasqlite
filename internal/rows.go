@@ -20,8 +20,11 @@ type Rows struct {
 	actions []StmtAction
 }
 
-func (r *Rows) SetActions(actions []StmtAction, conn *Conn) {
-	r.conn = conn
+func (r *Rows) ChangedCatalog() *ChangedCatalog {
+	return r.conn.cc
+}
+
+func (r *Rows) SetActions(actions []StmtAction) {
 	r.actions = actions
 }
 
