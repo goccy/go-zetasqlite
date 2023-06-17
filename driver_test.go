@@ -1,10 +1,12 @@
 package zetasqlite_test
 
 import (
+	"context"
 	"database/sql"
 	"testing"
 
 	zetasqlite "github.com/goccy/go-zetasqlite"
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestDriver(t *testing.T) {
@@ -87,4 +89,93 @@ func TestRegisterCustomDriver(t *testing.T) {
 	if id != 1 {
 		t.Fatalf("failed to find row %v", id)
 	}
+}
+
+func TestChangedCatalog(t *testing.T) {
+	t.Run("table", func(t *testing.T) {
+		db, err := sql.Open("zetasqlite", ":memory:")
+		if err != nil {
+			t.Fatal(err)
+		}
+		result, err := db.Exec(`
+CREATE TABLE IF NOT EXISTS Singers (
+  SingerId   INT64 NOT NULL,
+  FirstName  STRING(1024),
+  LastName   STRING(1024),
+  SingerInfo BYTES(MAX)
+)`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rows, err := db.Query(`DROP TABLE Singers`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resultCatalog, err := zetasqlite.ChangedCatalogFromResult(result)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !resultCatalog.Changed() {
+			t.Fatal("failed to get changed catalog")
+		}
+		if len(resultCatalog.Table.Added) != 1 {
+			t.Fatal("failed to get created table spec")
+		}
+		if diff := cmp.Diff(resultCatalog.Table.Added[0].NamePath, []string{"Singers"}); diff != "" {
+			t.Errorf("(-want +got):\n%s", diff)
+		}
+		rowsCatalog, err := zetasqlite.ChangedCatalogFromRows(rows)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !rowsCatalog.Changed() {
+			t.Fatal("failed to get changed catalog")
+		}
+		if len(rowsCatalog.Table.Deleted) != 1 {
+			t.Fatal("failed to get deleted table spec")
+		}
+		if diff := cmp.Diff(rowsCatalog.Table.Deleted[0].NamePath, []string{"Singers"}); diff != "" {
+			t.Errorf("(-want +got):\n%s", diff)
+		}
+	})
+	t.Run("function", func(t *testing.T) {
+		db, err := sql.Open("zetasqlite", ":memory:")
+		if err != nil {
+			t.Fatal(err)
+		}
+		result, err := db.ExecContext(context.Background(), `CREATE FUNCTION ANY_ADD(x ANY TYPE, y ANY TYPE) AS ((x + 4) / y)`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rows, err := db.QueryContext(context.Background(), `DROP FUNCTION ANY_ADD`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resultCatalog, err := zetasqlite.ChangedCatalogFromResult(result)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !resultCatalog.Changed() {
+			t.Fatal("failed to get changed catalog")
+		}
+		if len(resultCatalog.Function.Added) != 1 {
+			t.Fatal("failed to get created function spec")
+		}
+		if diff := cmp.Diff(resultCatalog.Function.Added[0].NamePath, []string{"ANY_ADD"}); diff != "" {
+			t.Errorf("(-want +got):\n%s", diff)
+		}
+		rowsCatalog, err := zetasqlite.ChangedCatalogFromRows(rows)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !rowsCatalog.Changed() {
+			t.Fatal("failed to get changed catalog")
+		}
+		if len(rowsCatalog.Function.Deleted) != 1 {
+			t.Fatal("failed to get deleted function spec")
+		}
+		if diff := cmp.Diff(rowsCatalog.Function.Deleted[0].NamePath, []string{"ANY_ADD"}); diff != "" {
+			t.Errorf("(-want +got):\n%s", diff)
+		}
+	})
 }

@@ -85,6 +85,7 @@ func newAnalyzerOptions() *zetasql.AnalyzerOptions {
 		ast.CreateFunctionStmt,
 		ast.CreateTableFunctionStmt,
 		ast.CreateViewStmt,
+		ast.DropFunctionStmt,
 	})
 	opt := zetasql.NewAnalyzerOptions()
 	opt.SetAllowUndeclaredParameters(true)
@@ -251,6 +252,8 @@ func (a *Analyzer) newStmtAction(ctx context.Context, query string, args []drive
 		return a.newCreateViewStmtAction(ctx, query, args, node.(*ast.CreateViewStmtNode))
 	case ast.DropStmt:
 		return a.newDropStmtAction(ctx, query, args, node.(*ast.DropStmtNode))
+	case ast.DropFunctionStmt:
+		return a.newDropFunctionStmtAction(ctx, query, args, node.(*ast.DropFunctionStmtNode))
 	case ast.InsertStmt, ast.UpdateStmt, ast.DeleteStmt:
 		return a.newDMLStmtAction(ctx, query, args, node)
 	case ast.TruncateStmt:
@@ -436,6 +439,23 @@ func (a *Analyzer) newDropStmtAction(ctx context.Context, query string, args []d
 		query:          query,
 		formattedQuery: formattedQuery,
 		args:           queryArgs,
+	}, nil
+}
+
+func (a *Analyzer) newDropFunctionStmtAction(ctx context.Context, query string, args []driver.NamedValue, node *ast.DropFunctionStmtNode) (*DropStmtAction, error) {
+	params := getParamsFromNode(node)
+	queryArgs, err := getArgsFromParams(args, params)
+	if err != nil {
+		return nil, err
+	}
+	name := FormatName(MergeNamePath(a.namePath, node.NamePath()))
+	return &DropStmtAction{
+		name:       name,
+		objectType: "FUNCTION",
+		funcMap:    funcMapFromContext(ctx),
+		catalog:    a.catalog,
+		query:      query,
+		args:       queryArgs,
 	}, nil
 }
 
