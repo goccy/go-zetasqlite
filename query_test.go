@@ -469,6 +469,16 @@ FROM UNNEST([1, 2, 3, 4]) AS val`,
 			expectedRows: [][]interface{}{{int64(10)}},
 		},
 		{
+			name:         "rounding",
+			query:        `SELECT ROUND(2.0), ROUND(2.3), ROUND(2.8), ROUND(2.5), ROUND(-2.3), ROUND(-2.8), ROUND(-2.5)`,
+			expectedRows: [][]interface{}{{float64(2.0), float64(2.0), float64(3.0), float64(3.0), float64(-2.0), float64(-3.0), float64(-3.0)}},
+		},
+		{
+			name:         "rounding precision",
+			query:        `SELECT ROUND(123.7, -1), ROUND(1.235, 2)`,
+			expectedRows: [][]interface{}{{float64(120.0), float64(1.24)}},
+		},
+		{
 			name: "with clause",
 			query: `
 WITH sub1 AS (SELECT ["a", "b"]),

@@ -5,6 +5,8 @@ import (
 	"math"
 	"math/rand"
 	"time"
+
+	"gonum.org/v1/gonum/floats/scalar"
 )
 
 func ABS(a Value) (Value, error) {
@@ -260,12 +262,12 @@ func MOD(x, y Value) (Value, error) {
 	return FloatValue(math.Mod(xv, yv)), nil
 }
 
-func ROUND(x Value) (Value, error) {
+func ROUND(x Value, precision int) (Value, error) {
 	xv, err := x.ToFloat64()
 	if err != nil {
 		return nil, err
 	}
-	return FloatValue(math.Round(xv)), nil
+	return FloatValue(scalar.Round(xv, precision)), nil
 }
 
 func TRUNC(x Value) (Value, error) {
