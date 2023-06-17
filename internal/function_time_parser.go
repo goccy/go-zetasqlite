@@ -1350,30 +1350,32 @@ func timeZoneRFC3339Formatter(t *time.Time) ([]rune, error) {
 	return []rune(t.Format("-07:00")), nil
 }
 
+var timePrecisionMatcher = regexp.MustCompile(`[0-9]{2}\.?[0-9]*`)
+
 func timePrecisionParser(precision int, text []rune, t *time.Time) (int, error) {
-	re := regexp.MustCompile(`[0-9]{2}\.?[0-9]*`)
-	extracted := re.FindString(string(text))
+	const maxNanosecondsLength = 9
+	extracted := timePrecisionMatcher.FindString(string(text))
 	if len(extracted) == 0 {
-		return 0, fmt.Errorf("unexpected hour:minute:second.nanoSecond format")
+		return 0, fmt.Errorf("failed to parse seconds.nanoseconds for %s", string(text))
 	}
 	fmtLen := len(extracted)
-	seconds := strings.Split(extracted, ".")
-	second := seconds[0]
-	nanoSecond := strconv.Itoa(t.Nanosecond())
-	if len(seconds) == 2 {
-		nanoSecond = seconds[1]
-		if len(nanoSecond) > precision {
-			nanoSecond = nanoSecond[:precision]
+	splitted := strings.Split(extracted, ".")
+	seconds := splitted[0]
+	nanoseconds := strconv.Itoa(t.Nanosecond())
+	if len(splitted) == 2 {
+		nanoseconds = splitted[1]
+		if len(nanoseconds) > precision {
+			nanoseconds = nanoseconds[:precision]
 		}
-		nanoSecond = nanoSecond + strings.Repeat("0", 9-len(nanoSecond))
+		nanoseconds = nanoseconds + strings.Repeat("0", maxNanosecondsLength-len(nanoseconds))
 	}
-	s, err := strconv.ParseInt(second, 10, 64)
+	s, err := strconv.ParseInt(seconds, 10, 64)
 	if err != nil {
-		return 0, fmt.Errorf("unexpected hour:minute:second.nanoSecond format: %w", err)
+		return 0, fmt.Errorf("failed to parse seconds parameter for %s: %w", string(text), err)
 	}
-	n, err := strconv.ParseInt(nanoSecond, 10, 64)
+	n, err := strconv.ParseInt(nanoseconds, 10, 64)
 	if err != nil {
-		return 0, fmt.Errorf("unexpected hour:minute:second.nanoSecond format: %w", err)
+		return 0, fmt.Errorf("failed to parse nanoseconds parameter for %s: %w", string(text), err)
 	}
 	*t = time.Date(
 		int(t.Year()),
