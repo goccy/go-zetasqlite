@@ -4068,6 +4068,11 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			expectedRows: [][]interface{}{{createTimestampFormatFromString("2020-06-02 14:58:40+00")}},
 		},
 		{
+			name:         "parse timestamp with %Y-%m-%d %H:%M:%E*S%Ez",
+			query:        `SELECT PARSE_TIMESTAMP("%Y-%m-%d %H:%M:%E*S%Ez", "2020-06-02 23:58:40.123+09:00")`,
+			expectedRows: [][]interface{}{{createTimestampFormatFromString("2020-06-02 14:58:40.123+00")}},
+		},
+		{
 			name:        "parse timestamp ( the year element is in different locations )",
 			query:       `SELECT PARSE_TIMESTAMP("%a %b %e %Y %I:%M:%S", "Thu Dec 25 07:30:00 2008")`,
 			expectedErr: "unexpected year number",
@@ -5056,6 +5061,6 @@ func createTimestampFormatFromTime(t time.Time) string {
 }
 
 func createTimestampFormatFromString(v string) string {
-	t, _ := time.Parse("2006-01-02 15:04:05+00", v)
+	t, _ := time.Parse("2006-01-02 15:04:05.999999+00", v)
 	return createTimestampFormatFromTime(t)
 }
