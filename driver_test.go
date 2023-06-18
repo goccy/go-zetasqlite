@@ -64,8 +64,7 @@ CREATE VIEW IF NOT EXISTS SingerNames AS SELECT FirstName || ' ' || LastName AS 
 func TestRegisterCustomDriver(t *testing.T) {
 	sql.Register("zetasqlite-custom", &zetasqlite.ZetaSQLiteDriver{
 		ConnectHook: func(conn *zetasqlite.ZetaSQLiteConn) error {
-			conn.SetNamePath([]string{"project-id", "datasetID"})
-			return nil
+			return conn.SetNamePath([]string{"project-id", "datasetID"})
 		},
 	})
 	db, err := sql.Open("zetasqlite-custom", ":memory:")

@@ -99,16 +99,33 @@ func (c *ZetaSQLiteConn) SetExplainMode(enabled bool) {
 	c.analyzer.SetExplainMode(enabled)
 }
 
+// SetMaxNamePath specifies the maximum value of name path.
+// If the name path in the query is the maximum value, the name path set as prefix is not used.
+// Effective only when a value greater than zero is specified ( default zero ).
+func (c *ZetaSQLiteConn) SetMaxNamePath(num int) {
+	c.analyzer.SetMaxNamePath(num)
+}
+
+// MaxNamePath returns maximum value of name path.
+func (c *ZetaSQLiteConn) MaxNamePath() int {
+	return c.analyzer.MaxNamePath()
+}
+
+// SetNamePath set path to name path to be set as prefix.
+// If max name path is specified, an error is returned if the number is exceeded.
+func (c *ZetaSQLiteConn) SetNamePath(path []string) error {
+	return c.analyzer.SetNamePath(path)
+}
+
+// NamePath returns path to name path to be set as prefix.
 func (c *ZetaSQLiteConn) NamePath() []string {
 	return c.analyzer.NamePath()
 }
 
-func (c *ZetaSQLiteConn) SetNamePath(path []string) {
-	c.analyzer.SetNamePath(path)
-}
-
-func (c *ZetaSQLiteConn) AddNamePath(path string) {
-	c.analyzer.AddNamePath(path)
+// AddNamePath add path to name path to be set as prefix.
+// If max name path is specified, an error is returned if the number is exceeded.
+func (c *ZetaSQLiteConn) AddNamePath(path string) error {
+	return c.analyzer.AddNamePath(path)
 }
 
 func (s *ZetaSQLiteConn) CheckNamedValue(value *driver.NamedValue) error {

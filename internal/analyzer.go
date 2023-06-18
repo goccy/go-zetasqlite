@@ -13,7 +13,7 @@ import (
 )
 
 type Analyzer struct {
-	namePath        []string
+	namePath        *NamePath
 	isAutoIndexMode bool
 	isExplainMode   bool
 	catalog         *Catalog
@@ -22,8 +22,9 @@ type Analyzer struct {
 
 func NewAnalyzer(catalog *Catalog) *Analyzer {
 	return &Analyzer{
-		catalog: catalog,
-		opt:     newAnalyzerOptions(),
+		catalog:  catalog,
+		opt:      newAnalyzerOptions(),
+		namePath: &NamePath{},
 	}
 }
 
@@ -103,15 +104,25 @@ func (a *Analyzer) SetExplainMode(enabled bool) {
 }
 
 func (a *Analyzer) NamePath() []string {
-	return a.namePath
+	return a.namePath.path
 }
 
-func (a *Analyzer) SetNamePath(path []string) {
-	a.namePath = path
+func (a *Analyzer) SetNamePath(path []string) error {
+	return a.namePath.setPath(path)
 }
 
-func (a *Analyzer) AddNamePath(path string) {
-	a.namePath = append(a.namePath, path)
+func (a *Analyzer) SetMaxNamePath(num int) {
+	if num > 0 {
+		a.namePath.maxNum = num
+	}
+}
+
+func (a *Analyzer) MaxNamePath() int {
+	return a.namePath.maxNum
+}
+
+func (a *Analyzer) AddNamePath(path string) error {
+	return a.namePath.addPath(path)
 }
 
 func (a *Analyzer) parseScript(query string) ([]parsed_ast.StatementNode, error) {
@@ -430,7 +441,7 @@ func (a *Analyzer) newDropStmtAction(ctx context.Context, query string, args []d
 		return nil, err
 	}
 	objectType := node.ObjectType()
-	name := FormatName(MergeNamePath(a.namePath, node.NamePath()))
+	name := a.namePath.format(node.NamePath())
 	return &DropStmtAction{
 		name:           name,
 		objectType:     objectType,
@@ -448,7 +459,7 @@ func (a *Analyzer) newDropFunctionStmtAction(ctx context.Context, query string, 
 	if err != nil {
 		return nil, err
 	}
-	name := FormatName(MergeNamePath(a.namePath, node.NamePath()))
+	name := a.namePath.format(node.NamePath())
 	return &DropStmtAction{
 		name:       name,
 		objectType: "FUNCTION",
