@@ -46,7 +46,7 @@ type FunctionSpec struct {
 }
 
 func (s *FunctionSpec) FuncName() string {
-	return FormatName(s.NamePath)
+	return formatPath(s.NamePath)
 }
 
 func (s *FunctionSpec) SQL() string {
@@ -124,7 +124,7 @@ func (s *TableSpec) Column(name string) *ColumnSpec {
 }
 
 func (s *TableSpec) TableName() string {
-	return FormatName(s.NamePath)
+	return formatPath(s.NamePath)
 }
 
 func (s *TableSpec) SQLiteSchema() string {
@@ -336,7 +336,7 @@ func newTypeFromFunctionArgumentType(t *types.FunctionArgumentType) *Type {
 	return newType(t.Type())
 }
 
-func newFunctionSpec(ctx context.Context, namePath []string, stmt *ast.CreateFunctionStmtNode) (*FunctionSpec, error) {
+func newFunctionSpec(ctx context.Context, namePath *NamePath, stmt *ast.CreateFunctionStmtNode) (*FunctionSpec, error) {
 	args := []*NameWithType{}
 	signature := stmt.Signature()
 	for _, arg := range signature.Arguments() {
@@ -394,7 +394,7 @@ func newFunctionSpec(ctx context.Context, namePath []string, stmt *ast.CreateFun
 	now := time.Now()
 	return &FunctionSpec{
 		IsTemp:    stmt.CreateScope() == ast.CreateScopeTemp,
-		NamePath:  MergeNamePath(namePath, stmt.NamePath()),
+		NamePath:  namePath.mergePath(stmt.NamePath()),
 		Args:      args,
 		Return:    newType(stmt.ReturnType()),
 		Code:      stmt.Code(),
@@ -415,7 +415,7 @@ func newTypeFromFunctionArgumentTypeByRealType(t *types.FunctionArgumentType, re
 	return newType(t.Type())
 }
 
-func newTemplatedFunctionSpec(ctx context.Context, namePath []string, stmt *ast.CreateFunctionStmtNode, realStmts []*ast.CreateFunctionStmtNode) (*FunctionSpec, error) {
+func newTemplatedFunctionSpec(ctx context.Context, namePath *NamePath, stmt *ast.CreateFunctionStmtNode, realStmts []*ast.CreateFunctionStmtNode) (*FunctionSpec, error) {
 	signature := stmt.Signature()
 	arguments := signature.Arguments()
 	realStmt := realStmts[0]
@@ -462,7 +462,7 @@ func newTemplatedFunctionSpec(ctx context.Context, namePath []string, stmt *ast.
 	now := time.Now()
 	return &FunctionSpec{
 		IsTemp:    stmt.CreateScope() == ast.CreateScopeTemp,
-		NamePath:  MergeNamePath(namePath, stmt.NamePath()),
+		NamePath:  namePath.mergePath(stmt.NamePath()),
 		Args:      args,
 		Return:    retType,
 		Code:      stmt.Code(),
@@ -515,11 +515,11 @@ func newPrimaryKey(key *ast.PrimaryKeyNode) []string {
 	return key.ColumnNameList()
 }
 
-func newTableSpec(namePath []string, stmt *ast.CreateTableStmtNode) *TableSpec {
+func newTableSpec(namePath *NamePath, stmt *ast.CreateTableStmtNode) *TableSpec {
 	now := time.Now()
 	return &TableSpec{
 		IsTemp:     stmt.CreateScope() == ast.CreateScopeTemp,
-		NamePath:   MergeNamePath(namePath, stmt.NamePath()),
+		NamePath:   namePath.mergePath(stmt.NamePath()),
 		Columns:    newColumnsFromDef(stmt.ColumnDefinitionList()),
 		PrimaryKey: newPrimaryKey(stmt.PrimaryKey()),
 		CreateMode: stmt.CreateMode(),
@@ -528,7 +528,7 @@ func newTableSpec(namePath []string, stmt *ast.CreateTableStmtNode) *TableSpec {
 	}
 }
 
-func newTableAsViewSpec(namePath []string, query string, stmt *ast.CreateViewStmtNode) *TableSpec {
+func newTableAsViewSpec(namePath *NamePath, query string, stmt *ast.CreateViewStmtNode) *TableSpec {
 	var outputColumns []string
 	for _, column := range stmt.OutputColumnList() {
 		colName := column.Name()
@@ -543,7 +543,7 @@ func newTableAsViewSpec(namePath []string, query string, stmt *ast.CreateViewStm
 	return &TableSpec{
 		IsTemp:     stmt.CreateScope() == ast.CreateScopeTemp,
 		IsView:     true,
-		NamePath:   MergeNamePath(namePath, stmt.NamePath()),
+		NamePath:   namePath.mergePath(stmt.NamePath()),
 		Columns:    newColumnsFromOutputColumns(stmt.OutputColumnList()),
 		CreateMode: stmt.CreateMode(),
 		Query:      fmt.Sprintf("SELECT %s FROM (%s)", strings.Join(outputColumns, ","), query),
@@ -552,7 +552,7 @@ func newTableAsViewSpec(namePath []string, query string, stmt *ast.CreateViewStm
 	}
 }
 
-func newTableAsSelectSpec(namePath []string, query string, stmt *ast.CreateTableAsSelectStmtNode) *TableSpec {
+func newTableAsSelectSpec(namePath *NamePath, query string, stmt *ast.CreateTableAsSelectStmtNode) *TableSpec {
 	var outputColumns []string
 	for _, column := range stmt.OutputColumnList() {
 		colName := column.Name()
@@ -566,7 +566,7 @@ func newTableAsSelectSpec(namePath []string, query string, stmt *ast.CreateTable
 	now := time.Now()
 	return &TableSpec{
 		IsTemp:     stmt.CreateScope() == ast.CreateScopeTemp,
-		NamePath:   MergeNamePath(namePath, stmt.NamePath()),
+		NamePath:   namePath.mergePath(stmt.NamePath()),
 		Columns:    newColumnsFromDef(stmt.ColumnDefinitionList()),
 		PrimaryKey: newPrimaryKey(stmt.PrimaryKey()),
 		CreateMode: stmt.CreateMode(),

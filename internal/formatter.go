@@ -19,20 +19,6 @@ func New(node ast.Node) Formatter {
 	return newNode(node)
 }
 
-func FormatName(namePath []string) string {
-	namePath = FormatPath(namePath)
-	return strings.Join(namePath, "_")
-}
-
-func FormatPath(path []string) []string {
-	ret := []string{}
-	for _, p := range path {
-		splitted := strings.Split(p, ".")
-		ret = append(ret, splitted...)
-	}
-	return ret
-}
-
 func getTableName(ctx context.Context, n ast.Node) (string, error) {
 	nodeMap := nodeMapFromContext(ctx)
 	found := nodeMap.FindNodeFromResolvedNode(n)
@@ -43,12 +29,8 @@ func getTableName(ctx context.Context, n ast.Node) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to find path: %w", err)
 	}
-	return FormatName(
-		MergeNamePath(
-			namePathFromContext(ctx),
-			path,
-		),
-	), nil
+	namePath := namePathFromContext(ctx)
+	return namePath.format(path), nil
 }
 
 func getFuncName(ctx context.Context, n ast.Node) (string, error) {
@@ -73,12 +55,8 @@ func getFuncName(ctx context.Context, n ast.Node) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to find path: %w", err)
 	}
-	return FormatName(
-		MergeNamePath(
-			namePathFromContext(ctx),
-			path,
-		),
-	), nil
+	namePath := namePathFromContext(ctx)
+	return namePath.format(path), nil
 }
 
 func getPathFromNode(n parsed_ast.Node) ([]string, error) {
@@ -150,23 +128,6 @@ func formatInput(input string) (string, error) {
 		return fmt.Sprintf("FROM %s", input), nil
 	}
 	return "", fmt.Errorf("unexpected input pattern: %s", input)
-}
-
-func MergeNamePath(namePath []string, queryPath []string) []string {
-	namePath = FormatPath(namePath)
-	queryPath = FormatPath(queryPath)
-	if len(queryPath) == 0 {
-		return namePath
-	}
-
-	merged := []string{}
-	for _, path := range namePath {
-		if queryPath[0] == path {
-			break
-		}
-		merged = append(merged, path)
-	}
-	return append(merged, queryPath...)
 }
 
 func getFuncNameAndArgs(ctx context.Context, node *ast.BaseFunctionCallNode, isWindowFunc bool) (string, []string, error) {
@@ -1381,12 +1342,8 @@ func (n *DropStmtNode) FormatSQL(ctx context.Context) (string, error) {
 	if n.node == nil {
 		return "", nil
 	}
-	tableName := FormatName(
-		MergeNamePath(
-			namePathFromContext(ctx),
-			n.node.NamePath(),
-		),
-	)
+	namePath := namePathFromContext(ctx)
+	tableName := namePath.format(n.node.NamePath())
 	if n.node.IsIfExists() {
 		return fmt.Sprintf("DROP TABLE IF EXISTS `%s`", tableName), nil
 	}

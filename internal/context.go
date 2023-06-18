@@ -36,15 +36,15 @@ func withAnalyzer(ctx context.Context, analyzer *Analyzer) context.Context {
 	return context.WithValue(ctx, analyzerKey{}, analyzer)
 }
 
-func namePathFromContext(ctx context.Context) []string {
+func namePathFromContext(ctx context.Context) *NamePath {
 	value := ctx.Value(namePathKey{})
 	if value == nil {
 		return nil
 	}
-	return value.([]string)
+	return value.(*NamePath)
 }
 
-func withNamePath(ctx context.Context, namePath []string) context.Context {
+func withNamePath(ctx context.Context, namePath *NamePath) context.Context {
 	return context.WithValue(ctx, namePathKey{}, namePath)
 }
 

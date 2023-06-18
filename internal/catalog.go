@@ -151,11 +151,11 @@ func (c *Catalog) formatNamePath(path []string) string {
 	return strings.Join(path, "_")
 }
 
-func (c *Catalog) getFunctions(path []string) []*FunctionSpec {
-	if len(path) == 0 {
+func (c *Catalog) getFunctions(namePath *NamePath) []*FunctionSpec {
+	if namePath.empty() {
 		return c.functions
 	}
-	key := c.formatNamePath(path)
+	key := c.formatNamePath(namePath.path)
 	specs := make([]*FunctionSpec, 0, len(c.functions))
 	for _, fn := range c.functions {
 		if len(fn.NamePath) == 1 {
