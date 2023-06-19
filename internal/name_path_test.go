@@ -8,7 +8,9 @@ import (
 
 func TestNamePath(t *testing.T) {
 	namePath := new(NamePath)
-	namePath.setPath([]string{"project1", "dataset1"})
+	if err := namePath.setPath([]string{"project1", "dataset1"}); err != nil {
+		t.Fatal(err)
+	}
 	namePath.setMaxNum(3)
 	if diff := cmp.Diff(namePath.mergePath([]string{"project1", "dataset1", "table1"}), []string{"project1", "dataset1", "table1"}); diff != "" {
 		t.Errorf("(-want +got):\n%s", diff)
