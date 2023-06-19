@@ -112,9 +112,7 @@ func (a *Analyzer) SetNamePath(path []string) error {
 }
 
 func (a *Analyzer) SetMaxNamePath(num int) {
-	if num > 0 {
-		a.namePath.maxNum = num
-	}
+	a.namePath.setMaxNum(num)
 }
 
 func (a *Analyzer) MaxNamePath() int {
