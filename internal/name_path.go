@@ -10,6 +10,37 @@ type NamePath struct {
 	maxNum int
 }
 
+func (p *NamePath) isInformationSchema(path []string) bool {
+	if len(path) == 0 {
+		return false
+	}
+	// If INFORMATION_SCHEMA is at the end of path, ignore it.
+	for _, subPath := range path[:len(path)-1] {
+		if strings.ToLower(subPath) == "information_schema" {
+			return true
+		}
+	}
+	return false
+}
+
+func (p *NamePath) setMaxNum(num int) {
+	if num > 0 {
+		p.maxNum = num
+	}
+}
+
+func (p *NamePath) getMaxNum(path []string) int {
+	if p.maxNum == 0 {
+		return 0
+	}
+	// INFORMATION_SCHEMA is a special View.
+	// This means that one path is added to the rules for specifying a normal Table/Function.
+	if p.isInformationSchema(path) {
+		return p.maxNum + 1
+	}
+	return p.maxNum
+}
+
 func (p *NamePath) normalizePath(path []string) []string {
 	ret := []string{}
 	for _, p := range path {
@@ -21,7 +52,8 @@ func (p *NamePath) normalizePath(path []string) []string {
 
 func (p *NamePath) mergePath(path []string) []string {
 	path = p.normalizePath(path)
-	if p.maxNum > 0 && len(path) == p.maxNum {
+	maxNum := p.getMaxNum(path)
+	if maxNum > 0 && len(path) == maxNum {
 		return path
 	}
 	if len(path) == 0 {
@@ -30,6 +62,9 @@ func (p *NamePath) mergePath(path []string) []string {
 	merged := []string{}
 	for _, basePath := range p.path {
 		if path[0] == basePath {
+			break
+		}
+		if maxNum > 0 && len(merged)+len(path) >= maxNum {
 			break
 		}
 		merged = append(merged, basePath)
@@ -47,8 +82,9 @@ func formatPath(path []string) string {
 
 func (p *NamePath) setPath(path []string) error {
 	normalizedPath := p.normalizePath(path)
-	if p.maxNum > 0 && len(normalizedPath) > p.maxNum {
-		return fmt.Errorf("specified too many name paths %v(%d). max name path is %d", path, len(normalizedPath), p.maxNum)
+	maxNum := p.getMaxNum(path)
+	if maxNum > 0 && len(normalizedPath) > maxNum {
+		return fmt.Errorf("specified too many name paths %v(%d). max name path is %d", path, len(normalizedPath), maxNum)
 	}
 	p.path = normalizedPath
 	return nil
@@ -57,12 +93,13 @@ func (p *NamePath) setPath(path []string) error {
 func (p *NamePath) addPath(path string) error {
 	normalizedPath := p.normalizePath([]string{path})
 	totalPath := len(p.path) + len(normalizedPath)
-	if p.maxNum > 0 && totalPath > p.maxNum {
+	maxNum := p.getMaxNum(normalizedPath)
+	if maxNum > 0 && totalPath > maxNum {
 		return fmt.Errorf(
 			"specified too many name paths %v(%d). max name path is %d",
 			append(p.path, normalizedPath...),
 			totalPath,
-			p.maxNum,
+			maxNum,
 		)
 	}
 	p.path = append(p.path, normalizedPath...)
