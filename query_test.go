@@ -4992,6 +4992,65 @@ FROM (
 				{nil},
 			},
 		},
+
+		{
+			name: "single statement with named params",
+			query: `
+SELECT @a + @b;
+`,
+			args: []interface{}{
+				sql.NamedArg{Name: "a", Value: 1},
+				sql.NamedArg{Name: "b", Value: 2},
+			},
+			expectedRows: [][]interface{}{{int64(3)}},
+		},
+		{
+			name: "not enough named params given",
+			query: `
+SELECT @a + @b;
+`,
+			args:        []interface{}{sql.NamedArg{Name: "a", Value: 1}},
+			expectedErr: "not enough query arguments",
+		},
+		{
+			name: "multiple statements with named params",
+			query: `
+CREATE TEMP TABLE t1 AS SELECT @a c1;
+SELECT c1 * @b * @c FROM t1;
+`,
+			args: []interface{}{
+				sql.NamedArg{Name: "a", Value: 1},
+				sql.NamedArg{Name: "b", Value: 2},
+				sql.NamedArg{Name: "c", Value: 3},
+			},
+			expectedRows: [][]interface{}{{int64(6)}},
+		},
+
+		{
+			name: "single statement with positional params",
+			query: `
+SELECT ? + ?;
+`,
+			args:         []interface{}{int64(1), int64(2)},
+			expectedRows: [][]interface{}{{int64(3)}},
+		},
+		{
+			name: "not enough positional params given",
+			query: `
+SELECT ? + ?;
+`,
+			args:        []interface{}{int64(1)},
+			expectedErr: "not enough query arguments",
+		},
+		{
+			name: "multiple statements with positional params",
+			query: `
+CREATE TEMP TABLE t1 AS SELECT ? c1;
+SELECT c1 * ? * ? FROM t1;
+`,
+			args:         []interface{}{int64(1), int64(2), int64(3)},
+			expectedRows: [][]interface{}{{int64(6)}},
+		},
 	} {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
