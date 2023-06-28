@@ -208,7 +208,9 @@ func (a *Analyzer) Analyze(ctx context.Context, conn *Conn, query string, args [
 			if err != nil {
 				return nil, err
 			}
-			args = args[:len(action.Args())]
+			if mode == zetasql.ParameterPositional {
+				args = args[len(action.Args()):]
+			}
 			return action, nil
 		})
 	}
