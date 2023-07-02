@@ -1626,6 +1626,38 @@ FROM UNNEST([0, 3, NULL, 1, 2]) AS x LIMIT 1`,
 				{float64(0), float64(0.03), float64(1.5), float64(2.7), float64(3)},
 			},
 		},
+		{
+			name: `percentile_cont_non_zero_min_sorted`,
+			query: `
+WITH cte AS
+	(SELECT 20 as x UNION ALL SELECT 30 as x UNION ALL SELECT 40 as x)
+SELECT
+  PERCENTILE_CONT(x, 0) OVER() AS min,
+  PERCENTILE_CONT(x, 0.01) OVER() AS percentile1,
+  PERCENTILE_CONT(x, 0.5) OVER() AS median,
+  PERCENTILE_CONT(x, 0.9) OVER() AS percentile90,
+  PERCENTILE_CONT(x, 1) OVER() AS max
+FROM cte LIMIT 1`,
+			expectedRows: [][]interface{}{
+				{float64(20), float64(20.2), float64(30.0), float64(38), float64(40)},
+			},
+		},
+		{
+			name: `percentile_cont_non_zero_min_unsorted`,
+			query: `
+WITH cte AS
+	(SELECT 500 as x UNION ALL SELECT 50 as x UNION ALL SELECT 100 as x)
+SELECT
+  PERCENTILE_CONT(x, 0) OVER() AS min,
+  PERCENTILE_CONT(x, 0.01) OVER() AS percentile1,
+  PERCENTILE_CONT(x, 0.5) OVER() AS median,
+  PERCENTILE_CONT(x, 0.9) OVER() AS percentile90,
+  PERCENTILE_CONT(x, 1) OVER() AS max
+FROM cte LIMIT 1`,
+			expectedRows: [][]interface{}{
+				{float64(50.0), float64(51), float64(100), float64(420), float64(500)},
+			},
+		},
 		// TODO: support RESPECT NULLS
 		//		{
 		//			name: `percentile_cont with respect nulls`,

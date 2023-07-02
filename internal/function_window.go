@@ -575,8 +575,14 @@ func (f *WINDOW_PERCENTILE_CONT) Done(agg *WindowFuncAggregatedStatus) (Value, e
 		return nil, fmt.Errorf("PERCENTILE_CONT: percentile value must be less than one")
 	}
 	var (
-		maxValue Value
-		minValue Value
+		maxValue         Value
+		minValue         Value
+		floorValue       Value
+		ceilingValue     Value
+		rowNumber        float64
+		floorRowNumber   float64
+		ceilingRowNumber float64
+		nonNullValues    []int
 	)
 	if err := agg.Done(func(values []Value, start, end int) error {
 		if len(values) == 0 {
@@ -589,11 +595,31 @@ func (f *WINDOW_PERCENTILE_CONT) Done(agg *WindowFuncAggregatedStatus) (Value, e
 					continue
 				}
 			}
+			int64Val, err := value.ToInt64()
+			if err != nil {
+				return err
+			}
+			nonNullValues = append(nonNullValues, int(int64Val))
 			filteredValues = append(filteredValues, value)
 		}
 		if len(filteredValues) == 0 {
 			return nil
 		}
+
+		// Calculate row number at percentile
+		percentile, err := f.percentile.ToFloat64()
+		if err != nil {
+			return err
+		}
+		sort.Ints(nonNullValues)
+
+		// rowNumber = (1 + (percentile * (length of array - 1)
+		rowNumber = 1 + percentile*float64(len(nonNullValues)-1)
+		floorRowNumber = math.Floor(rowNumber)
+		floorValue = FloatValue(nonNullValues[int(floorRowNumber-1)])
+		ceilingRowNumber = math.Ceil(rowNumber)
+		ceilingValue = FloatValue(nonNullValues[int(ceilingRowNumber-1)])
+
 		maxValue = filteredValues[0]
 		minValue = filteredValues[0]
 		for _, value := range filteredValues {
@@ -624,11 +650,24 @@ func (f *WINDOW_PERCENTILE_CONT) Done(agg *WindowFuncAggregatedStatus) (Value, e
 	if cond, _ := maxValue.EQ(IntValue(0)); cond {
 		return FloatValue(0), nil
 	}
-	rangeValue, err := maxValue.Sub(minValue)
+
+	// if ceilingRowNumber = floorRowNumber = rowNumber, return value at rownNumber which is equivalent of floorValue
+	if ceilingRowNumber == floorRowNumber && ceilingRowNumber == rowNumber {
+		return floorValue, nil
+	}
+
+	// (value of row at ceilingRowNumber) * (rowNumber – floorRowNumber) +
+	// (value of row at floorRowNumber) * (ceilingRowNumber – rowNumber)
+	leftSide, err := ceilingValue.Mul(FloatValue(rowNumber - floorRowNumber))
 	if err != nil {
 		return nil, err
 	}
-	ret, err := f.percentile.Mul(rangeValue)
+	rightSide, err := floorValue.Mul(FloatValue(ceilingRowNumber - rowNumber))
+	if err != nil {
+		return nil, err
+	}
+
+	ret, err := leftSide.Add(rightSide)
 	if err != nil {
 		return nil, err
 	}
