@@ -86,13 +86,13 @@ func DATE_SUB(t time.Time, v int64, part string) (Value, error) {
 func DATE_DIFF(a, b time.Time, part string) (Value, error) {
 	switch part {
 	case "DAY":
-		return IntValue(a.Day() - b.Day()), nil
+		return IntValue(int64(a.Sub(b).Hours() / 24)), nil
 	case "WEEK":
 		_, aWeek := a.ISOWeek()
 		_, bWeek := b.ISOWeek()
 		return IntValue(aWeek - bWeek), nil
 	case "MONTH":
-		return IntValue(a.Month() - b.Month()), nil
+		return IntValue((a.Year() * 12 + int(a.Month())) - (b.Year() * 12 + int(b.Month()))), nil
 	case "YEAR":
 		return IntValue(a.Year() - b.Year()), nil
 	}
