@@ -323,8 +323,8 @@ var formatPatternMap = map[rune]*FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Parse:  weekNumberParser,
-		Format: weekNumberFormatter,
+		Parse:  weekOfDayParser,
+		Format: weekOfDayNumberFormatter,
 	},
 	'V': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
@@ -414,6 +414,10 @@ func weekOfDayParser(text []rune, t *time.Time) (int, error) {
 
 func weekOfDayFormatter(t *time.Time) ([]rune, error) {
 	return []rune(dayOfWeeks[int(t.Weekday())]), nil
+}
+
+func weekOfDayNumberFormatter(t *time.Time) ([]rune, error) {
+	return []rune(fmt.Sprint(int(t.Weekday())))
 }
 
 func shortWeekOfDayParser(text []rune, t *time.Time) (int, error) {
