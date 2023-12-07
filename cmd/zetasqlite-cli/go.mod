@@ -5,7 +5,7 @@ go 1.21
 require (
 	github.com/chzyer/readline v1.5.1
 	github.com/fatih/color v1.15.0
-	github.com/goccy/go-zetasql v0.5.1
+	github.com/goccy/go-zetasql v0.5.2
 	github.com/goccy/go-zetasqlite v0.4.0
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/olekukonko/tablewriter v0.0.5
