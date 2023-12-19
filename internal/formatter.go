@@ -1344,10 +1344,11 @@ func (n *DropStmtNode) FormatSQL(ctx context.Context) (string, error) {
 	}
 	namePath := namePathFromContext(ctx)
 	tableName := namePath.format(n.node.NamePath())
+	objectType := n.node.ObjectType()
 	if n.node.IsIfExists() {
-		return fmt.Sprintf("DROP TABLE IF EXISTS `%s`", tableName), nil
+		return fmt.Sprintf("DROP %s IF EXISTS `%s`", objectType, tableName), nil
 	}
-	return fmt.Sprintf("DROP TABLE `%s`", tableName), nil
+	return fmt.Sprintf("DROP %s `%s`", objectType, tableName), nil
 }
 
 func (n *DropMaterializedViewStmtNode) FormatSQL(ctx context.Context) (string, error) {
