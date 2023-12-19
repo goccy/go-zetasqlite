@@ -74,6 +74,18 @@ INSERT INTO TableA (product, quantity) SELECT * FROM UNNEST([('microwave', 20), 
 `,
 		},
 		{
+			name: "create view",
+			query: `
+CREATE VIEW _view_a AS SELECT * FROM TableA
+`,
+		},
+		{
+			name: "drop view",
+			query: `
+DROP VIEW IF EXISTS _view_a
+`,
+		},
+		{
 			name: "transaction",
 			query: `
 CREATE OR REPLACE TABLE Inventory

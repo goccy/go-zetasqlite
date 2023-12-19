@@ -249,7 +249,7 @@ A list of ZetaSQL ( Google Standard SQL ) specifications and features supported 
 - [x] DROP TABLE
 - [ ] DROP SNAPSHOT TABLE
 - [ ] DROP EXTERNAL TABLE
-- [ ] DROP VIEW
+- [x] DROP VIEW
 - [ ] DROP MATERIALIZED VIEW
 - [x] DROP FUNCTION
 - [ ] DROP TABLE FUNCTION
