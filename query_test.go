@@ -4498,6 +4498,11 @@ SELECT
 			expectedRows: [][]interface{}{{"world"}},
 		},
 		{
+			name:         "json_value with null",
+			query:        `SELECT JSON_VALUE(JSON 'null'), JSON_VALUE(NULL), JSON_VALUE(JSON '{}', '$.does_not_exist')`,
+			expectedRows: [][]interface{}{{nil, nil, nil}},
+		},
+		{
 			name:  "json_extract_array",
 			query: `SELECT JSON_EXTRACT_ARRAY(JSON '{"fruits":["apples","oranges","grapes"]}','$.fruits')`,
 			expectedRows: [][]interface{}{
@@ -4539,8 +4544,8 @@ SELECT
 		},
 		{
 			name:         "json_extract_array with null",
-			query:        `SELECT JSON_EXTRACT_ARRAY('{"a":"foo"}','$.a'), JSON_EXTRACT_ARRAY('{"a":"foo"}','$.b')`,
-			expectedRows: [][]interface{}{{nil, nil}},
+			query:        `SELECT JSON_EXTRACT_ARRAY('{"a":"foo"}','$.a'), JSON_EXTRACT_ARRAY('{"a":"foo"}','$.b'), JSON_EXTRACT_ARRAY(JSON 'null', '$')`,
+			expectedRows: [][]interface{}{{nil, nil, nil}},
 		},
 		{
 			name:         "json_extract_array with empty array",
@@ -4589,8 +4594,8 @@ SELECT
 		},
 		{
 			name:         "json_query_array with null",
-			query:        `SELECT JSON_QUERY_ARRAY('{"a":"foo"}','$.a'), JSON_EXTRACT_ARRAY('{"a":"foo"}','$.b')`,
-			expectedRows: [][]interface{}{{nil, nil}},
+			query:        `SELECT JSON_QUERY_ARRAY('{"a":"foo"}','$.a'), JSON_QUERY_ARRAY('{"a":"foo"}','$.b'), JSON_QUERY_ARRAY(JSON 'null', '$')`,
+			expectedRows: [][]interface{}{{nil, nil, nil}},
 		},
 		{
 			name:         "json_query_array with empty array",
@@ -4634,8 +4639,9 @@ SELECT
   JSON_EXTRACT_STRING_ARRAY('{"a":["foo","bar","baz"]}','$.b'),
   JSON_EXTRACT_STRING_ARRAY('{"a":"foo"}','$'),
   JSON_EXTRACT_STRING_ARRAY('{"a":[{"b":"foo","c":1},{"b":"bar","c":2}],"d":"baz"}','$.a'),
-  JSON_EXTRACT_STRING_ARRAY('{"a":[10, {"b": 20}]','$.a')`,
-			expectedRows: [][]interface{}{{nil, nil, nil, nil, nil, nil}},
+  JSON_EXTRACT_STRING_ARRAY('{"a":[10, {"b": 20}]','$.a'),
+  JSON_EXTRACT_STRING_ARRAY(JSON 'null', '$')`,
+			expectedRows: [][]interface{}{{nil, nil, nil, nil, nil, nil, nil}},
 		},
 		{
 			name:         "json_extract_string_array with empty array",
@@ -4679,8 +4685,9 @@ SELECT
   JSON_VALUE_ARRAY('{"a":["foo","bar","baz"]}','$.b'),
   JSON_VALUE_ARRAY('{"a":"foo"}','$'),
   JSON_VALUE_ARRAY('{"a":[{"b":"foo","c":1},{"b":"bar","c":2}],"d":"baz"}','$.a'),
-  JSON_VALUE_ARRAY('{"a":[10, {"b": 20}]','$.a')`,
-			expectedRows: [][]interface{}{{nil, nil, nil, nil, nil, nil}},
+  JSON_VALUE_ARRAY('{"a":[10, {"b": 20}]','$.a'),
+  JSON_VALUE_ARRAY(JSON 'null', '$')`,
+			expectedRows: [][]interface{}{{nil, nil, nil, nil, nil, nil, nil}},
 		},
 		{
 			name:         "json_value_array with empty array",
