@@ -160,7 +160,7 @@ func JSON_EXTRACT_STRING_ARRAY(v, path string) (Value, error) {
 	}
 	value := values[0]
 	rv := reflect.ValueOf(value)
-	if rv.Type().Kind() != reflect.Slice {
+	if !rv.IsValid() || rv.Type().Kind() != reflect.Slice {
 		return nil, nil
 	}
 	ret := &ArrayValue{}
@@ -223,6 +223,9 @@ func JSON_VALUE(v, path string) (Value, error) {
 		return nil, nil
 	}
 	value := values[0]
+	if !reflect.ValueOf(value).IsValid() {
+		return nil, nil
+	}
 	switch reflect.ValueOf(value).Type().Kind() {
 	case reflect.Map, reflect.Slice:
 		return nil, nil
@@ -284,7 +287,7 @@ func JSON_VALUE_ARRAY(v, path string) (Value, error) {
 	}
 	value := values[0]
 	rv := reflect.ValueOf(value)
-	if rv.Type().Kind() != reflect.Slice {
+	if !rv.IsValid() || rv.Type().Kind() != reflect.Slice {
 		return nil, nil
 	}
 	ret := &ArrayValue{}
