@@ -3618,6 +3618,16 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			query:        `SELECT DATE_DIFF(DATE '2017-10-17', DATE '2017-10-12', WEEK) AS weeks_diff`,
 			expectedRows: [][]interface{}{{int64(1)}},
 		},
+    {
+      name:         "date_diff with month",
+      query:        `SELECT DATE_DIFF(DATE '2018-01-01', DATE '2017-10-30', MONTH) AS months_diff`,
+      expectedRows: [][]interface{}{{int64(3)}},
+    },
+    {
+      name:         "date_diff with day",
+      query:        `SELECT DATE_DIFF(DATE '2021-06-06', DATE '2017-11-12', DAY) AS days_diff`,
+      expectedRows: [][]interface{}{{int64(1302)}},
+    },
 		{
 			name:         "date_from_unix_date",
 			query:        `SELECT DATE_FROM_UNIX_DATE(14238) AS date_from_epoch`,
