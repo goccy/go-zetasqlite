@@ -658,6 +658,16 @@ func (n *ArrayScanNode) FormatSQL(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	var onClause string
+	if n.node.JoinExpr() == nil {
+		onClause = ""
+	} else {
+		joinExpr, err := newNode(n.node.JoinExpr()).FormatSQL(ctx)
+		if err != nil {
+			return "", err
+		}
+		onClause = " ON " + joinExpr
+	}
 	colName := uniqueColumnName(ctx, n.node.ElementColumn())
 	if n.node.InputScan() != nil {
 		input, err := newNode(n.node.InputScan()).FormatSQL(ctx)
@@ -669,16 +679,18 @@ func (n *ArrayScanNode) FormatSQL(ctx context.Context) (string, error) {
 			return "", err
 		}
 		return fmt.Sprintf(
-			"SELECT *, json_each.value AS `%s` %s, json_each(zetasqlite_decode_array(%s))",
+			"SELECT *, json_each.value AS `%s` %s, json_each(zetasqlite_decode_array(%s))%s",
 			colName,
 			formattedInput,
 			arrayExpr,
+			onClause,
 		), nil
 	}
 	return fmt.Sprintf(
-		"SELECT json_each.value AS `%s` FROM json_each(zetasqlite_decode_array(%s))",
+		"SELECT json_each.value AS `%s` FROM json_each(zetasqlite_decode_array(%s))%s",
 		colName,
 		arrayExpr,
+		onClause,
 	), nil
 }
 
