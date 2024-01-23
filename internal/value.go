@@ -26,6 +26,7 @@ type Value interface {
 	GTE(Value) (bool, error)
 	LT(Value) (bool, error)
 	LTE(Value) (bool, error)
+	ToApiString() (string, error)
 	ToInt64() (int64, error)
 	ToString() (string, error)
 	ToBytes() ([]byte, error)
@@ -123,6 +124,10 @@ func (iv IntValue) ToInt64() (int64, error) {
 
 func (iv IntValue) ToString() (string, error) {
 	return fmt.Sprint(iv), nil
+}
+
+func (iv IntValue) ToApiString() (string, error) {
+	return iv.ToString()
 }
 
 func (iv IntValue) ToBytes() ([]byte, error) {
@@ -249,6 +254,10 @@ func (sv StringValue) ToInt64() (int64, error) {
 
 func (sv StringValue) ToString() (string, error) {
 	return string(sv), nil
+}
+
+func (sv StringValue) ToApiString() (string, error) {
+	return sv.ToString()
 }
 
 func (sv StringValue) ToBytes() ([]byte, error) {
@@ -401,6 +410,10 @@ func (bv BytesValue) ToInt64() (int64, error) {
 }
 
 func (bv BytesValue) ToString() (string, error) {
+	return string([]byte(bv)[:]), nil
+}
+
+func (bv BytesValue) ToApiString() (string, error) {
 	return base64.StdEncoding.EncodeToString([]byte(bv)), nil
 }
 
@@ -583,6 +596,10 @@ func (fv FloatValue) ToString() (string, error) {
 	return fmt.Sprint(fv), nil
 }
 
+func (fv FloatValue) ToApiString() (string, error) {
+	return fv.ToString()
+}
+
 func (fv FloatValue) ToBytes() ([]byte, error) {
 	return []byte(fmt.Sprint(fv)), nil
 }
@@ -752,6 +769,10 @@ func (nv *NumericValue) ToString() (string, error) {
 	return nv.toString(), nil
 }
 
+func (nv *NumericValue) ToApiString() (string, error) {
+	return nv.toString(), nil
+}
+
 func (nv *NumericValue) ToBytes() ([]byte, error) {
 	return []byte(nv.toString()), nil
 }
@@ -852,6 +873,10 @@ func (bv BoolValue) ToString() (string, error) {
 	return fmt.Sprint(bv), nil
 }
 
+func (bv BoolValue) ToApiString() (string, error) {
+	return bv.ToString()
+}
+
 func (bv BoolValue) ToBytes() ([]byte, error) {
 	return []byte(fmt.Sprint(bv)), nil
 }
@@ -945,6 +970,10 @@ func (jv JsonValue) ToInt64() (int64, error) {
 
 func (jv JsonValue) ToString() (string, error) {
 	return string(jv), nil
+}
+
+func (jv JsonValue) ToApiString() (string, error) {
+	return jv.ToString()
 }
 
 func (jv JsonValue) ToBytes() ([]byte, error) {
@@ -1178,6 +1207,10 @@ func (av *ArrayValue) ToString() (string, error) {
 	return fmt.Sprintf("[%s]", strings.Join(elems, ",")), nil
 }
 
+func (av *ArrayValue) ToApiString() (string, error) {
+	return "", fmt.Errorf("arrays do not have string-based API representations %v", av)
+}
+
 func (av *ArrayValue) ToBytes() ([]byte, error) {
 	v, err := av.ToString()
 	if err != nil {
@@ -1388,6 +1421,10 @@ func (sv *StructValue) ToString() (string, error) {
 	return fmt.Sprintf("{%s}", strings.Join(fields, ",")), nil
 }
 
+func (sv *StructValue) ToApiString() (string, error) {
+	return "", fmt.Errorf("Structs do not have string-based API representations %v", "")
+}
+
 func (sv *StructValue) ToBytes() ([]byte, error) {
 	v, err := sv.ToString()
 	if err != nil {
@@ -1575,6 +1612,8 @@ func (d DateValue) ToString() (string, error) {
 	return time.Time(d).Format("2006-01-02"), nil
 }
 
+func (d DateValue) ToApiString() (string, error) { return d.ToString() }
+
 func (d DateValue) ToBytes() ([]byte, error) {
 	v, err := d.ToString()
 	if err != nil {
@@ -1600,7 +1639,8 @@ func (d DateValue) ToStruct() (*StructValue, error) {
 }
 
 func (d DateValue) ToJSON() (string, error) {
-	return d.ToString()
+	val, err := d.ToString()
+	return strconv.Quote(val), err
 }
 
 func (d DateValue) ToTime() (time.Time, error) {
@@ -1627,7 +1667,8 @@ func (d DateValue) Interface() interface{} {
 }
 
 const (
-	datetimeFormat = "2006-01-02T15:04:05.999999"
+	datetimeDefaultFormat  = "2006-01-02T15:04:05.999999"
+	datetimeAsStringFormat = "2006-01-02 15:04:05.999999"
 )
 
 type DatetimeValue time.Time
@@ -1724,7 +1765,11 @@ func (d DatetimeValue) ToInt64() (int64, error) {
 }
 
 func (d DatetimeValue) ToString() (string, error) {
-	return time.Time(d).Format(datetimeFormat), nil
+	return time.Time(d).Format(datetimeAsStringFormat), nil
+}
+
+func (d DatetimeValue) ToApiString() (string, error) {
+	return time.Time(d).Format(datetimeDefaultFormat), nil
 }
 
 func (d DatetimeValue) ToBytes() ([]byte, error) {
@@ -1752,7 +1797,7 @@ func (d DatetimeValue) ToStruct() (*StructValue, error) {
 }
 
 func (d DatetimeValue) ToJSON() (string, error) {
-	return d.ToString()
+	return strconv.Quote(time.Time(d).Format(datetimeDefaultFormat)), nil
 }
 
 func (d DatetimeValue) ToTime() (time.Time, error) {
@@ -1764,7 +1809,7 @@ func (d DatetimeValue) ToRat() (*big.Rat, error) {
 }
 
 func (d DatetimeValue) Format(verb rune) string {
-	formatted := time.Time(d).Format(datetimeFormat)
+	formatted := time.Time(d).Format(datetimeDefaultFormat)
 	switch verb {
 	case 't':
 		return formatted
@@ -1775,7 +1820,7 @@ func (d DatetimeValue) Format(verb rune) string {
 }
 
 func (d DatetimeValue) Interface() interface{} {
-	return time.Time(d).Format(datetimeFormat)
+	return time.Time(d).Format(datetimeDefaultFormat)
 }
 
 type TimeValue time.Time
@@ -1844,6 +1889,10 @@ func (t TimeValue) ToString() (string, error) {
 	return time.Time(t).Format("15:04:05.999999"), nil
 }
 
+func (t TimeValue) ToApiString() (string, error) {
+	return t.ToString()
+}
+
 func (t TimeValue) ToBytes() ([]byte, error) {
 	v, err := t.ToString()
 	if err != nil {
@@ -1869,7 +1918,11 @@ func (t TimeValue) ToStruct() (*StructValue, error) {
 }
 
 func (t TimeValue) ToJSON() (string, error) {
-	return t.ToString()
+	val, err := t.ToString()
+	if err != nil {
+		return "", err
+	}
+	return strconv.Quote(val), nil
 }
 
 func (t TimeValue) ToTime() (time.Time, error) {
@@ -1896,6 +1949,10 @@ func (t TimeValue) Interface() interface{} {
 }
 
 type TimestampValue time.Time
+
+func (t TimestampValue) GetFormatString() string {
+	return "2006-01-02 15:04:05.999999-07"
+}
 
 func (t TimestampValue) AddValueWithPart(v time.Duration, part string) (Value, error) {
 	switch part {
@@ -2008,7 +2065,18 @@ func (t TimestampValue) ToInt64() (int64, error) {
 }
 
 func (t TimestampValue) ToString() (string, error) {
-	return time.Time(t).Format(time.RFC3339Nano), nil
+	return time.Time(t).Format("2006-01-02 15:04:05.999999-07"), nil
+}
+
+func (t TimestampValue) ToApiString() (string, error) {
+	ti, err := t.ToTime()
+	if err != nil {
+		return "", err
+	}
+	unixmicro := ti.UnixMicro()
+	sec := unixmicro / int64(time.Millisecond)
+	nsec := unixmicro - sec*int64(time.Millisecond)
+	return fmt.Sprintf("%d.%d", sec, nsec), nil
 }
 
 func (t TimestampValue) ToBytes() ([]byte, error) {
@@ -2036,7 +2104,7 @@ func (t TimestampValue) ToStruct() (*StructValue, error) {
 }
 
 func (t TimestampValue) ToJSON() (string, error) {
-	return t.ToString()
+	return strconv.Quote(time.Time(t).UTC().Format("2006-01-02T15:04:05.999999Z")), nil
 }
 
 func (t TimestampValue) ToTime() (time.Time, error) {
@@ -2112,6 +2180,10 @@ func (iv *IntervalValue) ToString() (string, error) {
 		return "-" + iv.String(), nil
 	}
 	return iv.String(), nil
+}
+
+func (iv *IntervalValue) ToApiString() (string, error) {
+	return iv.ToString()
 }
 
 func (iv *IntervalValue) ToBytes() ([]byte, error) {
@@ -2262,6 +2334,14 @@ func (v *SafeValue) ToString() (string, error) {
 	return ret, nil
 }
 
+func (v *SafeValue) ToApiString() (string, error) {
+	ret, err := v.value.ToApiString()
+	if err != nil {
+		return "", nil
+	}
+	return ret, nil
+}
+
 func (v *SafeValue) ToBytes() ([]byte, error) {
 	ret, err := v.value.ToBytes()
 	if err != nil {
@@ -2368,7 +2448,7 @@ func parseDate(date string) (time.Time, error) {
 }
 
 func parseDatetime(datetime string) (time.Time, error) {
-	if t, err := time.Parse(datetimeFormat, datetime); err == nil {
+	if t, err := time.Parse(datetimeDefaultFormat, datetime); err == nil {
 		return t, nil
 	}
 	return time.Parse("2006-01-02 15:04:05.999999", datetime)
