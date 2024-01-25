@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"strconv"
+	"time"
 
 	"github.com/goccy/go-json"
 )
@@ -73,11 +74,14 @@ func decodeFromValueLayout(layout *ValueLayout) (Value, error) {
 		}
 		return TimeValue(t), nil
 	case TimestampValueType:
-		unixnano, err := strconv.ParseInt(layout.Body, 10, 64)
+		microsec, err := strconv.ParseInt(layout.Body, 10, 64)
+		microSecondsInSecond := int64(time.Second) / int64(time.Microsecond)
+		sec := microsec / microSecondsInSecond
+		remainder := microsec - (sec * microSecondsInSecond)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse unixnano for timestamp value %s: %w", layout.Body, err)
+			return nil, fmt.Errorf("failed to parse unixmicro for timestamp value %s: %w", layout.Body, err)
 		}
-		return TimestampValue(timeFromUnixNano(unixnano)), nil
+		return TimestampValue(time.Unix(sec, remainder*int64(time.Microsecond))), nil
 	case IntervalValueType:
 		return parseInterval(layout.Body)
 	case JsonValueType:

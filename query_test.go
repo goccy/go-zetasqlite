@@ -3982,6 +3982,16 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			},
 		},
 		{
+			name:  "minimum / maximum timestamp value uses microsecond precision and range",
+			query: `SELECT TIMESTAMP '0001-01-01 00:00:00.000000+00', TIMESTAMP '9999-12-31 23:59:59.999999+00'`,
+			expectedRows: [][]interface{}{
+				{
+					createTimestampFormatFromTime(time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC)),
+					createTimestampFormatFromTime(time.Date(9999, 12, 31, 23, 59, 59, 999999000, time.UTC)),
+				},
+			},
+		},
+		{
 			name:         "string",
 			query:        `SELECT STRING(TIMESTAMP "2008-12-25 15:30:00+00", "UTC")`,
 			expectedRows: [][]interface{}{{"2008-12-25 15:30:00+00"}},
