@@ -3744,6 +3744,32 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			query:        `SELECT LAST_DAY(DATE '2008-11-10', WEEK(MONDAY)) AS last_day`,
 			expectedRows: [][]interface{}{{"2008-11-16"}},
 		},
+		// date parsing out of range values
+		{
+			name:        "parse date exceeding month maximum",
+			query:       `SELECT PARSE_DATE("%m", "14")`,
+			expectedErr: "could not parse month: part [14] is greater than maximum value [12]",
+		},
+		{
+			name:        "parse date beneath month minimum",
+			query:       `SELECT PARSE_DATE("%m", "0")`,
+			expectedErr: "could not parse month: part [0] is less than minimum value [1]",
+		},
+		{
+			name:        "parse date exceeding day maximum",
+			query:       `SELECT PARSE_DATE("%d", "32")`,
+			expectedErr: "could not parse day number: part [32] is greater than maximum value [31]",
+		},
+		{
+			name:        "parse date beneath day minimum",
+			query:       `SELECT PARSE_DATE("%d", "0")`,
+			expectedErr: "could not parse day number: part [0] is less than minimum value [1]",
+		},
+		{
+			name:         "parse date with single-digit month %m",
+			query:        `SELECT PARSE_DATE("%m", "03"), PARSE_DATE("%m", "3"), PARSE_DATE("%m%Y", "032024")`,
+			expectedRows: [][]interface{}{{"0001-03-01", "0001-03-01", "2024-03-01"}},
+		},
 		{
 			name:         "parse_date with %y",
 			query:        `SELECT PARSE_DATE("%y", '1'), PARSE_DATE("%y", '67'), PARSE_DATE("%y", '69')`,
@@ -3772,7 +3798,7 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 		{
 			name:        "parse date ( the year element is in different locations )",
 			query:       `SELECT PARSE_DATE("%Y %A %b %e", "Thursday Dec 25 2008")`,
-			expectedErr: "unexpected year number",
+			expectedErr: "could not parse year: leading character is not a digit",
 		},
 		{
 			name:         "safe parse date ( the year element is in different locations )",
@@ -3907,12 +3933,17 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 		{
 			name:        "parse datetime ( the year element is in different locations )",
 			query:       `SELECT PARSE_DATETIME("%a %b %e %Y %I:%M:%S", "Thu Dec 25 07:30:00 2008")`,
-			expectedErr: "unexpected year number",
+			expectedErr: "could not parse hour number: part [30] is greater than maximum value [12]",
 		},
 		{
 			name:        "parse datetime ( one of the year elements is missing )",
 			query:       `SELECT PARSE_DATETIME("%a %b %e %I:%M:%S", "Thu Dec 25 07:30:00 2008")`,
 			expectedErr: `found unused format element [' ' '2' '0' '0' '8']`,
+		},
+		{
+			name:         "parse datetime %F respectfully consuming digits",
+			query:        `SELECT PARSE_DATETIME("%F", "03-1-1"), PARSE_DATETIME("%F", "003-01-1"), PARSE_DATETIME("%F", "0003-1-11")`,
+			expectedRows: [][]interface{}{{"0003-01-01T00:00:00", "0003-01-01T00:00:00", "0003-01-11T00:00:00"}},
 		},
 
 		// time functions
@@ -3983,7 +4014,7 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 		{
 			name:        "parse time ( the seconds element is in different locations )",
 			query:       `SELECT PARSE_TIME("%S:%I:%M", "07:30:00")`,
-			expectedErr: "invalid hour number 30",
+			expectedErr: "could not parse hour number: part [30] is greater than maximum value [12]",
 		},
 		{
 			name:        "parse time ( one of the seconds elements is missing )",
@@ -4145,7 +4176,7 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 		{
 			name:        "parse timestamp ( the year element is in different locations )",
 			query:       `SELECT PARSE_TIMESTAMP("%a %b %e %Y %I:%M:%S", "Thu Dec 25 07:30:00 2008")`,
-			expectedErr: "unexpected year number",
+			expectedErr: "could not parse hour number: part [30] is greater than maximum value [12]",
 		},
 		{
 			name:        "parse timestamp ( one of the year elements is missing )",
