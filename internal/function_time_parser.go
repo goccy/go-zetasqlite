@@ -769,11 +769,6 @@ func minuteFormatter(t *time.Time) ([]rune, error) {
 	return []rune(fmt.Sprintf("%02d", t.Minute())), nil
 }
 
-// For %y, we always want to consume 2 digits, unless there's only 1 left to consume
-// For months, if we get 0/1 as the first digit, we want to consume the next digit
-// For days, if we get 0-3 as the first digit, we want to consume the next digit
-// For minutes, if we get 0-5, we want to consume the next digit
-
 func parseDigitRespectingOptionalPlaces(text []rune, minNumber int64, maxNumber int64) (int, int64, error) {
 	textLen := len(text)
 	places := len(fmt.Sprint(maxNumber))
