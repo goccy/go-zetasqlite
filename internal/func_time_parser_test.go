@@ -2,7 +2,7 @@ package internal
 
 import "testing"
 
-func TestQuery(t *testing.T) {
+func TestTimeParser(t *testing.T) {
 	for _, test := range []struct {
 		name             string
 		text             []rune
@@ -57,7 +57,7 @@ func TestQuery(t *testing.T) {
 			text:        []rune{'0', '0', '/'},
 			minValue:    1,
 			maxValue:    12,
-			expectedErr: "part [0] is less than minimum value [1] ",
+			expectedErr: "part [0] is less than minimum value [1]",
 		},
 		{
 			name:             "multiple digits but lower than start bound; non-digit character terminates",
