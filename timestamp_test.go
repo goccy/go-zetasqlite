@@ -20,6 +20,9 @@ func TestTimestamp(t *testing.T) {
 		os.Setenv("TZ", "UTC")
 		t.Run(test.name, func(t *testing.T) {
 			ti, err := zetasqlite.TimeFromTimestampValue(test.timestamp)
+			if err != nil {
+				t.Fatalf("%s", err)
+			}
 			expected, err := time.Parse(time.RFC3339Nano, test.expected)
 			if err != nil {
 				t.Fatalf("%s", err)
