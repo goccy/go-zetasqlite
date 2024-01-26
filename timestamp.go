@@ -16,6 +16,9 @@ func TimeFromTimestampValue(v string) (time.Time, error) {
 		return time.Time{}, fmt.Errorf("invalid timestamp string (multiple delimiters) %s", v)
 	}
 	seconds, err := strconv.ParseInt(parts[0], 10, 64)
+	if err != nil {
+		return time.Time{}, err
+	}
 	micros := int64(0)
 	if len(parts) == 2 {
 		// Pad fractional places to microseconds i.e. (.1 to 100000 micros)
