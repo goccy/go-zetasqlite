@@ -3699,6 +3699,11 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			expectedRows: [][]interface{}{{"12/25/08"}},
 		},
 		{
+			name:         "format_date with %y",
+			query:        `SELECT FORMAT_DATE("%y", DATE "2008-12-25"), FORMAT_DATE("%y", DATE "2012-12-25")`,
+			expectedRows: [][]interface{}{{"08", "12"}},
+		},
+		{
 			name:         "format_date with %b-%d-%Y",
 			query:        `SELECT FORMAT_DATE("%b-%d-%Y", DATE "2008-12-25")`,
 			expectedRows: [][]interface{}{{"Dec-25-2008"}},
@@ -3738,6 +3743,11 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			name:         "last_day with week(monday)",
 			query:        `SELECT LAST_DAY(DATE '2008-11-10', WEEK(MONDAY)) AS last_day`,
 			expectedRows: [][]interface{}{{"2008-11-16"}},
+		},
+		{
+			name:         "parse_date with %y",
+			query:        `SELECT PARSE_DATE("%y", '1'), PARSE_DATE("%y", '67'), PARSE_DATE("%y", '69')`,
+			expectedRows: [][]interface{}{{"2001-01-01", "2067-01-01", "1969-01-01"}},
 		},
 		{
 			name:         "parse date with %A %b %e %Y",

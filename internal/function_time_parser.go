@@ -372,8 +372,8 @@ var formatPatternMap = map[rune]*FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Parse:  centuryParser,
-		Format: centuryFormatter,
+		Parse:  yearWithoutCenturyParser,
+		Format: yearWithoutCenturyFormatter,
 	},
 	'Z': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
@@ -516,6 +516,40 @@ func centuryParser(text []rune, t *time.Time) (int, error) {
 
 func centuryFormatter(t *time.Time) ([]rune, error) {
 	return []rune(fmt.Sprint(t.Year())[:2]), nil
+}
+
+func yearWithoutCenturyParser(text []rune, t *time.Time) (int, error) {
+	const yearLen = 2
+	if len(text) > yearLen {
+		return 0, fmt.Errorf("unexpected year number")
+	}
+	year, err := strconv.ParseInt(string(text), 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("unexpected year number")
+	}
+	if year < 0 {
+		return 0, fmt.Errorf("invalid year number %d", year)
+	}
+	century := 2000
+	if year >= 69 {
+		century = 1900
+	}
+	*t = time.Date(
+		century+int(year),
+		t.Month(),
+		int(t.Day()),
+		int(t.Hour()),
+		int(t.Minute()),
+		int(t.Second()),
+		int(t.Nanosecond()),
+		t.Location(),
+	)
+	return len(text), nil
+}
+
+func yearWithoutCenturyFormatter(t *time.Time) ([]rune, error) {
+	year := t.Format("2006")
+	return []rune(year[len(year)-2:]), nil
 }
 
 func ansicParser(text []rune, t *time.Time) (int, error) {
