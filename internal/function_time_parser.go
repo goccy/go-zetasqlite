@@ -770,6 +770,10 @@ func minuteFormatter(t *time.Time) ([]rune, error) {
 }
 
 func parseDigitRespectingOptionalPlaces(text []rune, minNumber int64, maxNumber int64) (int, int64, error) {
+	// Given a target value of `minNumber` and `maxNumber`, parse the given text up to `maxNumber`'s places
+	// If a non-digit character is encountered, consider the digit parsed and move on
+	// e.g. ('3', 0, 99) == 3  ('03', 0, 99) == 3 ('04/', 0, 999) == 4
+
 	textLen := len(text)
 	places := len(fmt.Sprint(maxNumber))
 	var parts []string
@@ -777,7 +781,7 @@ func parseDigitRespectingOptionalPlaces(text []rune, minNumber int64, maxNumber 
 		return 0, 0, fmt.Errorf("empty text")
 	}
 
-	// Format tokens require at most `places` characters and at least 1 character
+	// Format tokens require at least 1 character most `places` characters
 	steps := places
 	if textLen < places {
 		steps = textLen
