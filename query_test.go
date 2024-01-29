@@ -1594,7 +1594,8 @@ WITH finishers AS
   UNION ALL SELECT 'Jen Edwards', TIMESTAMP '2016-10-18 3:06:36+00', 'F30-34'
   UNION ALL SELECT 'Meghan Lederer', TIMESTAMP '2016-10-18 3:07:41+00', 'F30-34'
   UNION ALL SELECT 'Carly Forte', TIMESTAMP '2016-10-18 3:08:58+00', 'F25-29'
-  UNION ALL SELECT 'Lauren Reasoner', TIMESTAMP '2016-10-18 3:10:14+00', 'F30-34')
+  UNION ALL SELECT 'Lauren Reasoner', TIMESTAMP '2016-10-18 3:10:14+00', 'F30-34'
+  UNION ALL SELECT 'Nilly Nada', TIMESTAMP '2016-10-18 3:10:14+00', null)
 SELECT name,
   FORMAT_TIMESTAMP('%X', finish_time) AS finish_time,
   division,
@@ -1602,6 +1603,7 @@ SELECT name,
     OVER (PARTITION BY division ORDER BY finish_time ASC) AS two_runners_back
 FROM finishers`,
 			expectedRows: [][]interface{}{
+				{"Nilly Nada", "03:10:14", nil, "Nobody"},
 				{"Carly Forte", "03:08:58", "F25-29", "Nobody"},
 				{"Sophia Liu", "02:51:45", "F30-34", "Jen Edwards"},
 				{"Nikki Leith", "02:59:01", "F30-34", "Meghan Lederer"},
