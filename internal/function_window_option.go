@@ -274,6 +274,9 @@ type WindowFuncStatus struct {
 	OrderBy    []*WindowOrderBy
 }
 
+// windowNilPartitionValue Placeholder value for nil
+const windowNilPartitionValue = StringValue("^^^ZETASQLITE_NIL^^^")
+
 func (s *WindowFuncStatus) Partition() (string, error) {
 	partitions := make([]string, 0, len(s.Partitions))
 	for _, p := range s.Partitions {
@@ -314,7 +317,11 @@ func parseWindowOptions(args ...Value) ([]Value, *WindowFuncStatus, error) {
 		case WindowFuncOptionEnd:
 			opt.End = v.Value.(*WindowBoundary)
 		case WindowFuncOptionPartition:
-			opt.Partitions = append(opt.Partitions, v.Value.(Value))
+			if v.Value != nil {
+				opt.Partitions = append(opt.Partitions, v.Value.(Value))
+			} else {
+				opt.Partitions = append(opt.Partitions, windowNilPartitionValue)
+			}
 		case WindowFuncOptionRowID:
 			opt.RowID = v.Value.(int64)
 		case WindowFuncOptionOrderBy:
