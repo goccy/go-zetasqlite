@@ -1083,7 +1083,9 @@ func parseTimeFormat(formatStr, targetStr string, typ TimeFormatType) (*time.Tim
 		targetIdx int
 		formatIdx int
 	)
-	ret := &time.Time{}
+	epoch := time.Unix(0, 0)
+	var ret = &epoch
+
 	for formatIdx < len(format) {
 		c := format[formatIdx]
 		if c == '%' {
