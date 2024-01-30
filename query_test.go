@@ -3768,7 +3768,7 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 		{
 			name:         "parse date with single-digit month %m",
 			query:        `SELECT PARSE_DATE("%m", "03"), PARSE_DATE("%m", "3"), PARSE_DATE("%m%Y", "032024")`,
-			expectedRows: [][]interface{}{{"0001-03-01", "0001-03-01", "2024-03-01"}},
+			expectedRows: [][]interface{}{{"1970-03-01", "1970-03-01", "2024-03-01"}},
 		},
 		{
 			name:         "parse_date with %y",
@@ -3788,12 +3788,17 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 		{
 			name:        "parse date with %F no day field",
 			query:       `SELECT PARSE_DATE("%F", "2008-01") AS parsed`,
-			expectedErr: "could not parse year-month-day: [-] not found after [2008-01]",
+			expectedErr: "could not parse year-month-day format: [-] not found after [2008-01]",
 		},
 		{
 			name:        "parse date with %F no month field",
 			query:       `SELECT PARSE_DATE("%F", "2008") AS parsed`,
-			expectedErr: "could not parse year-month-day: [-] not found after [2008]",
+			expectedErr: "could not parse year-month-day format: [-] not found after [2008]",
+		},
+		{
+			name:        "parse date with %F separator but no month",
+			query:       `SELECT PARSE_DATE("%F", "2008-") AS parsed`,
+			expectedErr: "could not parse year-month-day format: month number: empty text",
 		},
 		{
 			name:         "parse date with %F",

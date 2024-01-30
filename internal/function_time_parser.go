@@ -637,26 +637,26 @@ func yearMonthDayParser(text []rune, t *time.Time) (int, error) {
 	const separator = '-'
 	progress, y, err := parseDigitRespectingOptionalPlaces(text, 1, 9999)
 	if err != nil {
-		return 0, fmt.Errorf("could not parse year number: %s", err)
+		return 0, fmt.Errorf("could not parse year-month-day format: year number: %s", err)
 	}
 	if len(text) <= progress || text[progress] != separator {
-		return 0, fmt.Errorf("could not parse year-month-day: [%c] not found after [%s]", separator, string(text))
+		return 0, fmt.Errorf("could not parse year-month-day format: [%c] not found after [%s]", separator, string(text))
 	}
 	progress += 1
 
 	mProgress, m, err := parseDigitRespectingOptionalPlaces(text[progress:], 1, 12)
 	if err != nil {
-		return 0, fmt.Errorf("could not parse month number: %s", err)
+		return 0, fmt.Errorf("could not parse year-month-day format: month number: %s", err)
 	}
 	progress += mProgress
 	if len(text) <= progress || text[progress] != separator {
-		return 0, fmt.Errorf("could not parse year-month-day: [%c] not found after [%s]", separator, string(text))
+		return 0, fmt.Errorf("could not parse year-month-day format: [%c] not found after [%s]", separator, string(text))
 	}
 
 	progress += 1
 	dProgress, d, err := parseDigitRespectingOptionalPlaces(text[progress:], 1, 31)
 	if err != nil {
-		return 0, fmt.Errorf("could not parse day number: %s", err)
+		return 0, fmt.Errorf("could not parse year-month-day format: day number: %s", err)
 	}
 	progress += dProgress
 
@@ -893,7 +893,7 @@ func quarterFormatter(t *time.Time) ([]rune, error) {
 func hourMinuteParser(text []rune, t *time.Time) (int, error) {
 	hProgress, h, err := parseDigitRespectingOptionalPlaces(text, 0, 23)
 	if err != nil {
-		return 0, fmt.Errorf("could not parse hour: %s", err)
+		return 0, fmt.Errorf("could not parse hour:minute format: hour number: %s", err)
 	}
 	if len(text) <= hProgress || text[hProgress] != ':' {
 		return 0, fmt.Errorf("could not parse hour:minute format: character after hour [%s] is not a [:]", string(text))
@@ -901,7 +901,7 @@ func hourMinuteParser(text []rune, t *time.Time) (int, error) {
 	hProgress += 1
 	mProgress, m, err := parseDigitRespectingOptionalPlaces(text[hProgress:], 0, 59)
 	if err != nil {
-		return 0, fmt.Errorf("could not parse minute: %s", err)
+		return 0, fmt.Errorf("could not parse hour:minute format: minute number:  %s", err)
 	}
 	*t = time.Date(
 		int(t.Year()),
