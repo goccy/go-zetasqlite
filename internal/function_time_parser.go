@@ -372,8 +372,8 @@ var formatPatternMap = map[rune]*FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Parse:  centuryParser,
-		Format: centuryFormatter,
+		Parse:  yearWithoutCenturyParser,
+		Format: yearWithoutCenturyFormatter,
 	},
 	'Z': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
@@ -518,6 +518,34 @@ func centuryFormatter(t *time.Time) ([]rune, error) {
 	return []rune(fmt.Sprint(t.Year())[:2]), nil
 }
 
+func yearWithoutCenturyParser(text []rune, t *time.Time) (int, error) {
+	progress, year, err := parseDigitRespectingOptionalPlaces(text, 0, 99)
+	if err != nil {
+		return 0, fmt.Errorf("could not parse year without century: %s", err)
+	}
+	if year >= 69 {
+		year += 1900
+	} else {
+		year += 2000
+	}
+	*t = time.Date(
+		int(year),
+		t.Month(),
+		int(t.Day()),
+		int(t.Hour()),
+		int(t.Minute()),
+		int(t.Second()),
+		int(t.Nanosecond()),
+		t.Location(),
+	)
+	return progress, nil
+}
+
+func yearWithoutCenturyFormatter(t *time.Time) ([]rune, error) {
+	year := t.Format("2006")
+	return []rune(year[len(year)-2:]), nil
+}
+
 func ansicParser(text []rune, t *time.Time) (int, error) {
 	v, err := time.Parse("Mon Jan 02 15:04:05 2006", string(text))
 	if err != nil {
@@ -584,28 +612,21 @@ func monthDayYearFormatter(t *time.Time) ([]rune, error) {
 }
 
 func dayParser(text []rune, t *time.Time) (int, error) {
-	const dayLen = 2
-	if len(text) < dayLen {
-		return 0, fmt.Errorf("unexpected day number")
-	}
-	d, err := strconv.ParseInt(string(text[:dayLen]), 10, 64)
+	progress, days, err := parseDigitRespectingOptionalPlaces(text, 1, 31)
 	if err != nil {
-		return 0, fmt.Errorf("unexpected day number")
-	}
-	if d < 0 {
-		return 0, fmt.Errorf("invalid day number %d", d)
+		return 0, fmt.Errorf("could not parse day number: %s", err)
 	}
 	*t = time.Date(
 		int(t.Year()),
 		t.Month(),
-		int(d),
+		int(days),
 		int(t.Hour()),
 		int(t.Minute()),
 		int(t.Second()),
 		int(t.Nanosecond()),
 		t.Location(),
 	)
-	return dayLen, nil
+	return progress, nil
 }
 
 func dayFormatter(t *time.Time) ([]rune, error) {
@@ -613,32 +634,32 @@ func dayFormatter(t *time.Time) ([]rune, error) {
 }
 
 func yearMonthDayParser(text []rune, t *time.Time) (int, error) {
-	fmtLen := len("2021-01-20")
-	if len(text) < fmtLen {
-		return 0, fmt.Errorf("unexpected year-month-day format")
-	}
-	splitted := strings.Split(string(text[:fmtLen]), "-")
-	if len(splitted) != 3 {
-		return 0, fmt.Errorf("unexpected year-month-day format")
-	}
-	year := splitted[0]
-	month := splitted[1]
-	day := splitted[2]
-	if len(year) != 4 || len(month) != 2 || len(day) != 2 {
-		return 0, fmt.Errorf("unexpected year-month-day format")
-	}
-	y, err := strconv.ParseInt(year, 10, 64)
+	const separator = '-'
+	progress, y, err := parseDigitRespectingOptionalPlaces(text, 1, 9999)
 	if err != nil {
-		return 0, fmt.Errorf("unexpected year-month-day format: %w", err)
+		return 0, fmt.Errorf("could not parse year-month-day format: year number: %s", err)
 	}
-	m, err := strconv.ParseInt(month, 10, 64)
+	if len(text) <= progress || text[progress] != separator {
+		return 0, fmt.Errorf("could not parse year-month-day format: [%c] not found after [%s]", separator, string(text))
+	}
+	progress += 1
+
+	mProgress, m, err := parseDigitRespectingOptionalPlaces(text[progress:], 1, 12)
 	if err != nil {
-		return 0, fmt.Errorf("unexpected year-month-day format: %w", err)
+		return 0, fmt.Errorf("could not parse year-month-day format: month number: %s", err)
 	}
-	d, err := strconv.ParseInt(day, 10, 64)
+	progress += mProgress
+	if len(text) <= progress || text[progress] != separator {
+		return 0, fmt.Errorf("could not parse year-month-day format: [%c] not found after [%s]", separator, string(text))
+	}
+
+	progress += 1
+	dProgress, d, err := parseDigitRespectingOptionalPlaces(text[progress:], 1, 31)
 	if err != nil {
-		return 0, fmt.Errorf("unexpected year-month-day format: %w", err)
+		return 0, fmt.Errorf("could not parse year-month-day format: day number: %s", err)
 	}
+	progress += dProgress
+
 	*t = time.Date(
 		int(y),
 		time.Month(m),
@@ -649,7 +670,7 @@ func yearMonthDayParser(text []rune, t *time.Time) (int, error) {
 		int(t.Nanosecond()),
 		t.Location(),
 	)
-	return fmtLen, nil
+	return progress, nil
 }
 
 func yearMonthDayFormatter(t *time.Time) ([]rune, error) {
@@ -675,16 +696,9 @@ func centuryISOFormatter(t *time.Time) ([]rune, error) {
 }
 
 func hourParser(text []rune, t *time.Time) (int, error) {
-	const hourLen = 2
-	if len(text) < hourLen {
-		return 0, fmt.Errorf("unexpected hour number")
-	}
-	h, err := strconv.ParseInt(string(text[:hourLen]), 10, 64)
+	progress, h, err := parseDigitRespectingOptionalPlaces(text, 0, 23)
 	if err != nil {
-		return 0, fmt.Errorf("unexpected hour number")
-	}
-	if h < 0 || h > 24 {
-		return 0, fmt.Errorf("invalid hour number %d", h)
+		return 0, fmt.Errorf("could not parse hour number: %s", err)
 	}
 	*t = time.Date(
 		int(t.Year()),
@@ -696,7 +710,7 @@ func hourParser(text []rune, t *time.Time) (int, error) {
 		int(t.Nanosecond()),
 		t.Location(),
 	)
-	return hourLen, nil
+	return progress, nil
 }
 
 func hourFormatter(t *time.Time) ([]rune, error) {
@@ -704,16 +718,9 @@ func hourFormatter(t *time.Time) ([]rune, error) {
 }
 
 func hour12Parser(text []rune, t *time.Time) (int, error) {
-	const hourLen = 2
-	if len(text) < hourLen {
-		return 0, fmt.Errorf("unexpected hour number")
-	}
-	h, err := strconv.ParseInt(string(text[:hourLen]), 10, 64)
+	progress, h, err := parseDigitRespectingOptionalPlaces(text, 0, 12)
 	if err != nil {
-		return 0, fmt.Errorf("unexpected hour number")
-	}
-	if h < 0 || h > 12 {
-		return 0, fmt.Errorf("invalid hour number %d", h)
+		return 0, fmt.Errorf("could not parse hour number: %s", err)
 	}
 	*t = time.Date(
 		int(t.Year()),
@@ -725,7 +732,7 @@ func hour12Parser(text []rune, t *time.Time) (int, error) {
 		int(t.Nanosecond()),
 		t.Location(),
 	)
-	return hourLen, nil
+	return progress, nil
 }
 
 func hour12Formatter(t *time.Time) ([]rune, error) {
@@ -741,16 +748,9 @@ func dayOfYearFormatter(t *time.Time) ([]rune, error) {
 }
 
 func minuteParser(text []rune, t *time.Time) (int, error) {
-	const minuteLen = 2
-	if len(text) < minuteLen {
-		return 0, fmt.Errorf("unexpected minute number")
-	}
-	m, err := strconv.ParseInt(string(text[:minuteLen]), 10, 64)
+	progress, m, err := parseDigitRespectingOptionalPlaces(text, 0, 59)
 	if err != nil {
-		return 0, fmt.Errorf("unexpected minute number")
-	}
-	if m < 0 || m > 59 {
-		return 0, fmt.Errorf("invalid minute number %d", m)
+		return 0, fmt.Errorf("unexpected minute number: %s", err)
 	}
 	*t = time.Date(
 		int(t.Year()),
@@ -762,28 +762,73 @@ func minuteParser(text []rune, t *time.Time) (int, error) {
 		int(t.Nanosecond()),
 		t.Location(),
 	)
-	return minuteLen, nil
+	return progress, nil
 }
 
 func minuteFormatter(t *time.Time) ([]rune, error) {
 	return []rune(fmt.Sprintf("%02d", t.Minute())), nil
 }
 
-func monthNumberParser(text []rune, t *time.Time) (int, error) {
-	const monthLen = 2
-	if len(text) < monthLen {
-		return 0, fmt.Errorf("unexpected month number")
+func parseDigitRespectingOptionalPlaces(text []rune, minNumber int64, maxNumber int64) (int, int64, error) {
+	// Given a target value of `minNumber` and `maxNumber`, parse the given text up to `maxNumber`'s places
+	// If a non-digit character is encountered, consider the digit parsed and move on
+	// e.g. ('3', 0, 99) == 3  ('03', 0, 99) == 3 ('04/', 0, 999) == 4
+
+	textLen := len(text)
+	places := len(fmt.Sprint(maxNumber))
+	var parts []string
+	if textLen == 0 {
+		return 0, 0, fmt.Errorf("empty text")
 	}
-	m, err := strconv.ParseInt(string(text[:monthLen]), 10, 64)
+
+	// Format tokens require at least 1 character most `places` characters
+	steps := places
+	if textLen < places {
+		steps = textLen
+	}
+
+	for i := 0; i < steps; i++ {
+		char := string(text[i])
+		_, err := strconv.ParseInt(char, 10, 64)
+
+		// If we have encountered an error, we have encountered a non-digit
+		if err != nil {
+			// If we have not parsed any digits yet, the input text cannot be parsed
+			if len(parts) == 0 {
+				return 0, 0, fmt.Errorf("leading character is not a digit")
+			}
+			// If we already have parsed some digits, we assume the character was part of the format string (eg - or /)
+			break
+		}
+		parts = append(parts, char)
+	}
+
+	result, err := strconv.ParseInt(strings.Join(parts, ""), 10, 64)
+
+	// These parts have already been parsed/formatted once, we don't expect this error to occur, but must handle anyway
 	if err != nil {
-		return 0, fmt.Errorf("unexpected month number")
+		return 0, 0, err
 	}
-	if m < 0 {
-		return 0, fmt.Errorf("invalid month number %d", m)
+
+	if result > maxNumber {
+		return 0, 0, fmt.Errorf("part [%d] is greater than maximum value [%d]", result, maxNumber)
+	}
+
+	if result < minNumber {
+		return 0, 0, fmt.Errorf("part [%d] is less than minimum value [%d]", result, minNumber)
+	}
+
+	return len(parts), result, nil
+}
+
+func monthNumberParser(text []rune, t *time.Time) (int, error) {
+	progress, months, err := parseDigitRespectingOptionalPlaces(text, 1, 12)
+	if err != nil {
+		return 0, fmt.Errorf("could not parse month: %s", err)
 	}
 	*t = time.Date(
 		t.Year(),
-		time.Month(m),
+		time.Month(months),
 		int(t.Day()),
 		int(t.Hour()),
 		int(t.Minute()),
@@ -791,7 +836,7 @@ func monthNumberParser(text []rune, t *time.Time) (int, error) {
 		int(t.Nanosecond()),
 		t.Location(),
 	)
-	return monthLen, nil
+	return progress, nil
 }
 
 func monthNumberFormatter(t *time.Time) ([]rune, error) {
@@ -846,26 +891,17 @@ func quarterFormatter(t *time.Time) ([]rune, error) {
 }
 
 func hourMinuteParser(text []rune, t *time.Time) (int, error) {
-	fmtLen := len("00:00")
-	if len(text) < fmtLen {
-		return 0, fmt.Errorf("unexpected hour:minute format")
-	}
-	splitted := strings.Split(string(text[:fmtLen]), ":")
-	if len(splitted) != 2 {
-		return 0, fmt.Errorf("unexpected hour:minute format")
-	}
-	hour := splitted[0]
-	minute := splitted[1]
-	if len(hour) != 2 || len(minute) != 2 {
-		return 0, fmt.Errorf("unexpected hour:minute format")
-	}
-	h, err := strconv.ParseInt(hour, 10, 64)
+	hProgress, h, err := parseDigitRespectingOptionalPlaces(text, 0, 23)
 	if err != nil {
-		return 0, fmt.Errorf("unexpected hour:minute format: %w", err)
+		return 0, fmt.Errorf("could not parse hour:minute format: hour number: %s", err)
 	}
-	m, err := strconv.ParseInt(minute, 10, 64)
+	if len(text) <= hProgress || text[hProgress] != ':' {
+		return 0, fmt.Errorf("could not parse hour:minute format: character after hour [%s] is not a [:]", string(text))
+	}
+	hProgress += 1
+	mProgress, m, err := parseDigitRespectingOptionalPlaces(text[hProgress:], 0, 59)
 	if err != nil {
-		return 0, fmt.Errorf("unexpected hour:minute format: %w", err)
+		return 0, fmt.Errorf("could not parse hour:minute format: minute number:  %s", err)
 	}
 	*t = time.Date(
 		int(t.Year()),
@@ -877,7 +913,7 @@ func hourMinuteParser(text []rune, t *time.Time) (int, error) {
 		int(t.Nanosecond()),
 		t.Location(),
 	)
-	return fmtLen, nil
+	return mProgress + hProgress, nil
 }
 
 func hourMinuteFormatter(t *time.Time) ([]rune, error) {
@@ -885,16 +921,9 @@ func hourMinuteFormatter(t *time.Time) ([]rune, error) {
 }
 
 func secondParser(text []rune, t *time.Time) (int, error) {
-	const secondLen = 2
-	if len(text) < secondLen {
-		return 0, fmt.Errorf("unexpected second number")
-	}
-	s, err := strconv.ParseInt(string(text[:secondLen]), 10, 64)
+	progress, s, err := parseDigitRespectingOptionalPlaces(text, 0, 59)
 	if err != nil {
-		return 0, fmt.Errorf("unexpected second number")
-	}
-	if s < 0 || s > 59 {
-		return 0, fmt.Errorf("invalid second number %d", s)
+		return 0, fmt.Errorf("unexpected second number: %s", err)
 	}
 	*t = time.Date(
 		int(t.Year()),
@@ -906,7 +935,7 @@ func secondParser(text []rune, t *time.Time) (int, error) {
 		int(t.Nanosecond()),
 		t.Location(),
 	)
-	return secondLen, nil
+	return progress, nil
 }
 
 func secondFormatter(t *time.Time) ([]rune, error) {
@@ -1022,16 +1051,9 @@ func weekNumberZeroBaseFormatter(t *time.Time) ([]rune, error) {
 }
 
 func yearParser(text []rune, t *time.Time) (int, error) {
-	const yearLen = 4
-	if len(text) < yearLen {
-		return 0, fmt.Errorf("unexpected year number")
-	}
-	y, err := strconv.ParseInt(string(text[:yearLen]), 10, 64)
+	progress, y, err := parseDigitRespectingOptionalPlaces(text, 1, 9999)
 	if err != nil {
-		return 0, fmt.Errorf("unexpected year number")
-	}
-	if y < 0 {
-		return 0, fmt.Errorf("invalid year number %d", y)
+		return 0, fmt.Errorf("could not parse year: %s", err)
 	}
 	*t = time.Date(
 		int(y),
@@ -1043,7 +1065,7 @@ func yearParser(text []rune, t *time.Time) (int, error) {
 		int(t.Nanosecond()),
 		t.Location(),
 	)
-	return yearLen, nil
+	return progress, nil
 }
 
 func yearFormatter(t *time.Time) ([]rune, error) {
