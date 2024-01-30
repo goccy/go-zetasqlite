@@ -639,7 +639,7 @@ func yearMonthDayParser(text []rune, t *time.Time) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("could not parse year number: %s", err)
 	}
-	if text[progress] != separator {
+	if len(text) < progress || text[progress] != separator {
 		return 0, fmt.Errorf("could not parse year-month-day: [%c] not found after [%s]", separator, string(text[:progress]))
 	}
 	progress += 1
@@ -649,7 +649,7 @@ func yearMonthDayParser(text []rune, t *time.Time) (int, error) {
 		return 0, fmt.Errorf("could not parse month number: %s", err)
 	}
 	progress += mProgress
-	if text[progress] != separator {
+	if len(text) < progress || text[progress] != separator {
 		return 0, fmt.Errorf("could not parse year-month-day: [%c] not found after [%s]", separator, string(text[:progress]))
 	}
 
@@ -807,7 +807,7 @@ func parseDigitRespectingOptionalPlaces(text []rune, minNumber int64, maxNumber 
 
 	// These parts have already been parsed/formatted once, we don't expect this error to occur, but must handle anyway
 	if err != nil {
-		return 0, 0, fmt.Errorf("%s", err)
+		return 0, 0, err
 	}
 
 	if result > maxNumber {
