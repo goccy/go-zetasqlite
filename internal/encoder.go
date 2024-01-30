@@ -162,12 +162,11 @@ func ValueFromZetaSQLValue(v types.Value) (Value, error) {
 	case types.TIME:
 		return timeValueFromLiteral(v.ToPacked64TimeMicros())
 	case types.TIMESTAMP:
-		nanosec, err := v.ToUnixNanos()
-		if err != nil {
-			return nil, err
-		}
-		sec := nanosec / int64(time.Second)
-		return timestampValueFromLiteral(time.Unix(sec, nanosec-sec*int64(time.Second)))
+		microsec := v.ToUnixMicros()
+		microSecondsInSecond := int64(time.Second) / int64(time.Microsecond)
+		sec := microsec / microSecondsInSecond
+		remainder := microsec - (sec * microSecondsInSecond)
+		return timestampValueFromLiteral(time.Unix(sec, remainder*int64(time.Microsecond)))
 	case types.NUMERIC, types.BIG_NUMERIC:
 		return numericValueFromLiteral(v.SQLLiteral(0))
 	case types.INTERVAL:
@@ -659,7 +658,7 @@ func valueLayoutFromValue(v Value) (*ValueLayout, error) {
 	case TimestampValue:
 		return &ValueLayout{
 			Header: TimestampValueType,
-			Body:   fmt.Sprint(time.Time(vv).UnixNano()),
+			Body:   fmt.Sprint(time.Time(vv).UnixMicro()),
 		}, nil
 	case *IntervalValue:
 		s, err := vv.ToString()
