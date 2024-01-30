@@ -1615,6 +1615,36 @@ FROM finishers`,
 			},
 		},
 		{
+			name: `window order by`,
+			query: `WITH toks AS (
+			SELECT DATE '2024-01-01' AS dt, 'c' AS letter
+			UNION ALL SELECT DATE '2024-02-01', 'b'
+			UNION ALL SELECT DATE '2024-02-01', 'c'
+			UNION ALL SELECT DATE '2024-03-01', 'a'
+)
+SELECT dt, letter, ROW_NUMBER() OVER (ORDER BY dt, letter) AS rn FROM toks
+`,
+			expectedRows: [][]interface{}{
+				{"2024-01-01", "c", int64(1)},
+				{"2024-02-01", "b", int64(2)},
+				{"2024-02-01", "c", int64(3)},
+				{"2024-03-01", "a", int64(4)},
+			},
+		},
+		{
+			name: `window order by handles nil`,
+			query: `WITH toks AS (
+			SELECT DATE '2024-01-01' AS dt, 'c' AS letter
+			UNION ALL SELECT DATE '2024-02-01', null
+)
+SELECT dt, letter, ROW_NUMBER() OVER (ORDER BY dt, letter) AS rn FROM toks
+`,
+			expectedRows: [][]interface{}{
+				{"2024-01-01", "c", int64(1)},
+				{"2024-02-01", nil, int64(2)},
+			},
+		},
+		{
 			name: `percentile_cont`,
 			query: `
 SELECT

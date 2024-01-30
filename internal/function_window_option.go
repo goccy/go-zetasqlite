@@ -406,32 +406,33 @@ func (s *WindowFuncAggregatedStatus) Done(cb func([]Value, int, int) error) erro
 	sortedValues := make([]*WindowOrderedValue, len(values))
 	copy(sortedValues, values)
 	if len(sortedValues) != 0 {
-		for orderBy := 0; orderBy < len(sortedValues[0].OrderBy); orderBy++ {
-			isAsc := sortedValues[0].OrderBy[orderBy].IsAsc
-			if isAsc {
-				sort.Slice(sortedValues, func(i, j int) bool {
-					if sortedValues[i].OrderBy[orderBy].Value == nil {
-						return true
-					}
-					if sortedValues[j].OrderBy[orderBy].Value == nil {
-						return false
-					}
-					cond, _ := sortedValues[i].OrderBy[orderBy].Value.LT(sortedValues[j].OrderBy[orderBy].Value)
+		sort.Slice(sortedValues, func(i, j int) bool {
+			for orderBy := 0; orderBy < len(sortedValues[0].OrderBy); orderBy++ {
+				iV := sortedValues[i].OrderBy[orderBy].Value
+				jV := sortedValues[j].OrderBy[orderBy].Value
+				isAsc := sortedValues[0].OrderBy[orderBy].IsAsc
+				if iV == nil {
+					return true
+				}
+				if jV == nil {
+					return false
+				}
+				isEqual, _ := iV.EQ(jV)
+				if isEqual {
+					// break tie with subsequent fields
+					continue
+				}
+				if isAsc {
+					cond, _ := iV.LT(jV)
 					return cond
-				})
-			} else {
-				sort.Slice(sortedValues, func(i, j int) bool {
-					if sortedValues[i].OrderBy[orderBy].Value == nil {
-						return true
-					}
-					if sortedValues[j].OrderBy[orderBy].Value == nil {
-						return false
-					}
-					cond, _ := sortedValues[i].OrderBy[orderBy].Value.GT(sortedValues[j].OrderBy[orderBy].Value)
+				} else {
+					cond, _ := iV.GT(jV)
 					return cond
-				})
+				}
 			}
-		}
+			return false
+		})
+
 	}
 	s.SortedValues = sortedValues
 	start, err := s.getIndexFromBoundary(s.Start)
