@@ -639,8 +639,8 @@ func yearMonthDayParser(text []rune, t *time.Time) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("could not parse year number: %s", err)
 	}
-	if len(text) < progress || text[progress] != separator {
-		return 0, fmt.Errorf("could not parse year-month-day: [%c] not found after [%s]", separator, string(text[:progress]))
+	if len(text) <= progress || text[progress] != separator {
+		return 0, fmt.Errorf("could not parse year-month-day: [%c] not found after [%s]", separator, string(text))
 	}
 	progress += 1
 
@@ -649,8 +649,8 @@ func yearMonthDayParser(text []rune, t *time.Time) (int, error) {
 		return 0, fmt.Errorf("could not parse month number: %s", err)
 	}
 	progress += mProgress
-	if len(text) < progress || text[progress] != separator {
-		return 0, fmt.Errorf("could not parse year-month-day: [%c] not found after [%s]", separator, string(text[:progress]))
+	if len(text) <= progress || text[progress] != separator {
+		return 0, fmt.Errorf("could not parse year-month-day: [%c] not found after [%s]", separator, string(text))
 	}
 
 	progress += 1
@@ -895,11 +895,11 @@ func hourMinuteParser(text []rune, t *time.Time) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("could not parse hour: %s", err)
 	}
-	if text[hProgress] != ':' {
-		return 0, fmt.Errorf("could not parse hour:minute format: character after hour [%s] is not a `:`", string(text[:hProgress]))
+	if len(text) <= hProgress || text[hProgress] != ':' {
+		return 0, fmt.Errorf("could not parse hour:minute format: character after hour [%s] is not a [:]", string(text))
 	}
 	hProgress += 1
-	mProgress, m, err := parseDigitRespectingOptionalPlaces(text, 0, 59)
+	mProgress, m, err := parseDigitRespectingOptionalPlaces(text[hProgress:], 0, 59)
 	if err != nil {
 		return 0, fmt.Errorf("could not parse minute: %s", err)
 	}

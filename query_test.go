@@ -3786,6 +3786,16 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			expectedRows: [][]interface{}{{"2008-12-25"}},
 		},
 		{
+			name:        "parse date with %F no day field",
+			query:       `SELECT PARSE_DATE("%F", "2008-01") AS parsed`,
+			expectedErr: "could not parse year-month-day: [-] not found after [2008-01]",
+		},
+		{
+			name:        "parse date with %F no month field",
+			query:       `SELECT PARSE_DATE("%F", "2008") AS parsed`,
+			expectedErr: "could not parse year-month-day: [-] not found after [2008]",
+		},
+		{
 			name:         "parse date with %F",
 			query:        `SELECT PARSE_DATE("%F", "2008-12-25") AS parsed`,
 			expectedRows: [][]interface{}{{"2008-12-25"}},
@@ -3985,6 +3995,22 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			name:         "time_trunc",
 			query:        `SELECT TIME_TRUNC(TIME "15:30:00", HOUR)`,
 			expectedRows: [][]interface{}{{"15:00:00"}},
+		},
+		{
+			name:         "parse_time with %R",
+			query:        `SELECT PARSE_TIME("%R", "14:30")`,
+			expectedRows: [][]interface{}{{"14:30:00"}},
+		},
+		{
+			name:        "parse_time with %R without minute element",
+			query:       `SELECT PARSE_TIME("%R", "14")`,
+			expectedErr: "could not parse hour:minute format: character after hour [14] is not a [:]",
+		},
+
+		{
+			name:        "parse_time with %R without separator",
+			query:       `SELECT PARSE_TIME("%R", "14")`,
+			expectedErr: "could not parse hour:minute format: character after hour [14] is not a [:]",
 		},
 		{
 			name:         "format_time with %R",
