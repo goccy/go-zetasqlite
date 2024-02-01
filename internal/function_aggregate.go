@@ -488,12 +488,18 @@ func (f *STRING_AGG) Done() (Value, error) {
 		f.values = f.values[:minLen]
 	}
 	values := make([]string, 0, len(f.values))
+
+	foundNotNilValue := false
 	for _, v := range f.values {
 		text, err := v.Value.ToString()
 		if err != nil {
 			return nil, err
 		}
+		foundNotNilValue = true
 		values = append(values, text)
+	}
+	if !foundNotNilValue {
+		return nil, nil
 	}
 	return StringValue(strings.Join(values, f.delim)), nil
 }

@@ -824,6 +824,16 @@ SELECT ARRAY_CONCAT_AGG(x) AS array_concat_agg FROM (
 			expectedRows: [][]interface{}{{"apple,pear,banana,pear"}},
 		},
 		{
+			name:         "string_agg with length 0",
+			query:        `SELECT STRING_AGG(fruit) FROM UNNEST(ARRAY<STRING>[]) fruit;`,
+			expectedRows: [][]interface{}{{nil}},
+		},
+		{
+			name:         "string_agg with null",
+			query:        `SELECT STRING_AGG(null) FROM UNNEST(ARRAY<STRING>[]);`,
+			expectedRows: [][]interface{}{{nil}},
+		},
+		{
 			name:         "string_agg with delimiter",
 			query:        `SELECT STRING_AGG(fruit, " & ") AS string_agg FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit`,
 			expectedRows: [][]interface{}{{"apple & pear & banana & pear"}},
