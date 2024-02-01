@@ -159,6 +159,11 @@ func TestQuery(t *testing.T) {
 			expectedRows: [][]interface{}{{true}},
 		},
 		{
+			name:         "like operator - special regex characters",
+			query:        `SELECT 'my*string' LIKE '%%*%%', 'my*string' LIKE '%%([][%';`,
+			expectedRows: [][]interface{}{{true, false}},
+		},
+		{
 			name:         "like operator2",
 			query:        `SELECT "abcd" LIKE "%a%"`,
 			expectedRows: [][]interface{}{{true}},
