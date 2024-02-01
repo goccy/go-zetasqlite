@@ -525,6 +525,12 @@ FROM Items`,
 			}},
 		},
 		{
+			name: "array boundary indexing test",
+			query: `WITH toks AS (SELECT ['one', 'two'] AS digits)
+					SELECT digits[SAFE_ORDINAL(2)], digits[ORDINAL(2)], digits[OFFSET(1)], digits[SAFE_OFFSET(1)] FROM toks`,
+			expectedRows: [][]interface{}{{"two", "two", "two", "two"}},
+		},
+		{
 			name: "create function",
 			query: `
 CREATE FUNCTION customfunc(
