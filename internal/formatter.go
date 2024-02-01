@@ -713,7 +713,7 @@ func (n *FilterScanNode) FormatSQL(ctx context.Context) (string, error) {
 	// Qualify the statement if the input is not wrapped in parens
 	queryWrappedInParens := currentQuery == ""
 	containsTokens := false
-	// or the input contains a token that would result in a syntax error
+	// and the input contains a token that would result in a syntax error
 	for _, token := range tokensAfterFromClause {
 		containsTokens = containsTokens || strings.Contains(currentQuery, token)
 	}
