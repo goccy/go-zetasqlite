@@ -3,7 +3,6 @@ package internal
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/goccy/go-json"
