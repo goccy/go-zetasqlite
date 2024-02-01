@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/goccy/go-json"
@@ -686,7 +687,10 @@ func (n *ColumnHolderNode) FormatSQL(ctx context.Context) (string, error) {
 	return "", nil
 }
 
+var tokensAfterFromClause = [...]string{"WHERE", "GROUP BY", "HAVING", "QUALIFY", "WINDOW", "ORDER BY", "COLLATE"}
+
 func (n *FilterScanNode) FormatSQL(ctx context.Context) (string, error) {
+	removeExpressions := regexp.MustCompile(`\(.+?\)`)
 	if n.node == nil {
 		return "", nil
 	}
@@ -704,8 +708,17 @@ func (n *FilterScanNode) FormatSQL(ctx context.Context) (string, error) {
 			return fmt.Sprintf("%s HAVING %s", input, filter), nil
 		}
 	}
-	if strings.Contains(input, "WHERE") && input[len(input)-1] != ')' {
-		// expected to qualify clause
+	currentQuery := string(removeExpressions.ReplaceAllString(input, ""))
+
+	// Qualify the statement if the input is not wrapped in parens
+	queryWrappedInParens := currentQuery == ""
+	containsTokens := false
+	// and the input contains a token that would result in a syntax error
+	for _, token := range tokensAfterFromClause {
+		containsTokens = containsTokens || strings.Contains(currentQuery, token)
+	}
+
+	if !queryWrappedInParens && containsTokens {
 		return fmt.Sprintf("( %s ) WHERE %s", input, filter), nil
 	}
 	return fmt.Sprintf("%s WHERE %s", input, filter), nil

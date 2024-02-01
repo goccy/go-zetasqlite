@@ -2804,6 +2804,35 @@ FROM Produce WHERE Produce.category = 'vegetable' QUALIFY rank <= 3`,
 				{"cabbage", int64(3)},
 			},
 		},
+		// Regression test goccy/go-zetasqlite#150
+		{
+			name: "qualify group",
+			query: `
+				WITH produce AS (
+					SELECT 'kale' AS item, 23 AS purchases
+				)
+				SELECT item, sum(purchases)
+				FROM produce
+				GROUP BY item
+				QUALIFY ROW_NUMBER() OVER (PARTITION BY item ORDER BY item) = 1
+			`,
+			expectedRows: [][]interface{}{{"kale", int64(23)}},
+		},
+		// Regression test goccy/go-zetasqlite#147
+		{
+			name: "subselect qualifier",
+			query: `
+				WITH produce AS (SELECT 'banana' AS item, 3 AS purchases),
+				toks AS (
+					SELECT item FROM (
+						SELECT * FROM produce
+						WHERE item = 'banana'
+					) sub
+					WHERE purchases = 3
+				)
+				SELECT * FROM toks;`,
+			expectedRows: [][]interface{}{{"banana"}},
+		},
 		{
 			name: "qualify direct",
 			query: `
