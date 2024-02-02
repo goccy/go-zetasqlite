@@ -245,9 +245,9 @@ func (sv StringValue) ToInt64() (int64, error) {
 		return 0, nil
 	}
 	toParse := string(sv)
-	base := 0
-	if !strings.Contains(strings.ToLower(toParse), "0x") {
-		base = 10
+	base := 10
+	if strings.Contains(strings.ToLower(toParse), "0x") {
+		base = 0
 	}
 	return strconv.ParseInt(toParse, base, 64)
 }
