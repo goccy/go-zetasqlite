@@ -244,7 +244,12 @@ func (sv StringValue) ToInt64() (int64, error) {
 	if sv == "" {
 		return 0, nil
 	}
-	return strconv.ParseInt(string(sv), 10, 64)
+	toParse := string(sv)
+	base := 0
+	if !strings.Contains(strings.ToLower(toParse), "0x") {
+		base = 10
+	}
+	return strconv.ParseInt(toParse, base, 64)
 }
 
 func (sv StringValue) ToString() (string, error) {

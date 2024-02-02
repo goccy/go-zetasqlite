@@ -2819,7 +2819,7 @@ SELECT item FROM Produce WHERE Produce.category = 'vegetable' QUALIFY RANK() OVE
 			expectedRows: [][]interface{}{{int64(2170), int64(2170), int64(2170), int64(2170)}},
 		},
 		{
-			name: "cast string to int64 - leading zeroes",
+			name: "cast string to int64 - leading zeros",
 			query: `WITH toks AS (
 				SELECT "000800" AS x
 				UNION ALL SELECT "-0900"
