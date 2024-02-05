@@ -1043,6 +1043,7 @@ func (n *AnalyticScanNode) FormatSQL(ctx context.Context) (string, error) {
 	}
 	ctx = withAnalyticInputScan(ctx, formattedInput)
 	orderColumnNames := analyticOrderColumnNamesFromContext(ctx)
+	var scanOrderBy []*analyticOrderBy
 	for _, group := range n.node.FunctionGroupList() {
 		if group.PartitionBy() != nil {
 			var partitionColumns []string
@@ -1052,10 +1053,12 @@ func (n *AnalyticScanNode) FormatSQL(ctx context.Context) (string, error) {
 					partitionColumns,
 					colName,
 				)
-				orderColumnNames.values = append(orderColumnNames.values, &analyticOrderBy{
+				order := &analyticOrderBy{
 					column: colName,
 					isAsc:  true,
-				})
+				}
+				orderColumnNames.values = append(orderColumnNames.values, order)
+				scanOrderBy = append(scanOrderBy, order)
 			}
 			ctx = withAnalyticPartitionColumnNames(ctx, partitionColumns)
 		}
@@ -1063,15 +1066,21 @@ func (n *AnalyticScanNode) FormatSQL(ctx context.Context) (string, error) {
 			for _, item := range group.OrderBy().OrderByItemList() {
 				colName := uniqueColumnName(ctx, item.ColumnRef().Column())
 				formattedColName := fmt.Sprintf("`%s`", colName)
-				orderColumnNames.values = append(orderColumnNames.values, &analyticOrderBy{
+				order := &analyticOrderBy{
 					column: formattedColName,
 					isAsc:  !item.IsDescending(),
-				})
+				}
+				orderColumnNames.values = append(orderColumnNames.values, order)
+				scanOrderBy = append(scanOrderBy, order)
 			}
 		}
 		if _, err := newNode(group).FormatSQL(ctx); err != nil {
 			return "", err
 		}
+
+		// Reset context after each analytic function group
+		orderColumnNames.values = []*analyticOrderBy{}
+		ctx = withAnalyticPartitionColumnNames(ctx, nil)
 	}
 	columns := []string{}
 	columnMap := columnRefMap(ctx)
@@ -1088,7 +1097,7 @@ func (n *AnalyticScanNode) FormatSQL(ctx context.Context) (string, error) {
 		}
 	}
 	var orderColumnFormattedNames []string
-	for _, col := range orderColumnNames.values {
+	for _, col := range scanOrderBy {
 		if col.isAsc {
 			orderColumnFormattedNames = append(
 				orderColumnFormattedNames,
