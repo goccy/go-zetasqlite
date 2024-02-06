@@ -2091,6 +2091,28 @@ FROM finishers`,
 				{"Suzy Slane", createTimestampFormatFromString("2016-10-18 03:06:24+00"), "F35-39", "Desiree Berry"},
 			},
 		},
+		// Regression test for https://github.com/goccy/go-zetasqlite/issues/160
+		{
+			name: "window partitions are distinct from each other",
+			query: `
+WITH inventory AS (
+  SELECT 'banana' AS item, 'fruit' AS kind, 2 AS purchases
+  UNION ALL SELECT 'onion', 'vegetable', 3
+  UNION ALL SELECT 'orange', 'fruit', 4
+  ORDER BY item ASC
+)
+SELECT
+  item,
+  purchases,
+  LEAD(item) OVER (PARTITION BY kind ORDER BY item ASC) AS next_in_kind,
+  LAG(item) OVER (ORDER BY purchases ASC) AS next_best_seller
+FROM inventory`,
+			expectedRows: [][]interface{}{
+				{"banana", int64(2), "orange", nil},
+				{"orange", int64(4), nil, "onion"},
+				{"onion", int64(3), nil, "banana"},
+			},
+		},
 		{
 			name: "lag with option",
 			query: `
