@@ -384,6 +384,9 @@ func IFNULL(expr, nullResult Value) (Value, error) {
 }
 
 func NULLIF(expr, exprToMatch Value) (Value, error) {
+	if expr == nil {
+		return nil, nil
+	}
 	cond, err := expr.EQ(exprToMatch)
 	if err != nil {
 		return nil, err
