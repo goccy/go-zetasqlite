@@ -2897,6 +2897,18 @@ SELECT item FROM Produce WHERE Produce.category = 'vegetable' QUALIFY RANK() OVE
 			query:        `SELECT CAST('0x87a' as INT64), CAST(CONCAT('0x', '87a') as INT64), CAST(SUBSTR('q0x87a', 2) as INT64), CAST(s AS INT64) FROM (SELECT CONCAT('0x', '87a') AS s)`,
 			expectedRows: [][]interface{}{{int64(2170), int64(2170), int64(2170), int64(2170)}},
 		},
+		{
+			name: "cast string to int64 - leading zeros",
+			query: `WITH toks AS (
+				SELECT "000800" AS x
+				UNION ALL SELECT "-0900"
+				UNION ALL SELECT "+000100"
+				UNION ALL SELECT "0"
+				UNION ALL SELECT "0000"
+			)
+			SELECT ARRAY_AGG(CAST(x AS INT64)) FROM toks`,
+			expectedRows: [][]interface{}{{[]any{int64(800), int64(-900), int64(100), int64(0), int64(0)}}},
+		},
 
 		// hash functions
 		{
