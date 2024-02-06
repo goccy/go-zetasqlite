@@ -3838,7 +3838,8 @@ WITH example AS (
 			query: `SELECT PARSE_DATE("%m", "03")`,
 			expectedRows: [][]interface{}{
 				{"1970-03-01"},
-			}},
+			},
+		},
 		{
 			name: "extract date",
 			query: `
@@ -3985,6 +3986,16 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			expectedRows: [][]interface{}{{"2008-12-25"}},
 		},
 		{
+			name:         "parse date with %e",
+			query:        `SELECT PARSE_DATE('%e', ' 3'), PARSE_DATE('%e', '20');`,
+			expectedRows: [][]interface{}{{"1970-01-03", "1970-01-20"}},
+		},
+		{
+			name:         "parse date with %e - leading space allows multiple digits",
+			query:        `SELECT PARSE_DATE('%e', ' 20');`,
+			expectedRows: [][]interface{}{{"1970-01-20"}},
+		},
+		{
 			name:        "parse date with %F no day field",
 			query:       `SELECT PARSE_DATE("%F", "2008-01") AS parsed`,
 			expectedErr: "could not parse year-month-day format: [-] not found after [2008-01]",
@@ -3997,7 +4008,7 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 		{
 			name:        "parse date with %F separator but no month",
 			query:       `SELECT PARSE_DATE("%F", "2008-") AS parsed`,
-			expectedErr: "could not parse year-month-day format: month number: empty text",
+			expectedErr: "could not parse year-month-day format: could not parse month: empty text after [2008-]",
 		},
 		{
 			name:         "parse date with %F",
@@ -4218,13 +4229,18 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 		{
 			name:        "parse_time with %R without minute element",
 			query:       `SELECT PARSE_TIME("%R", "14")`,
-			expectedErr: "could not parse hour:minute format: character after hour [14] is not a [:]",
+			expectedErr: "could not parse hour:minute format: [:] not found after [14]",
 		},
 
 		{
 			name:        "parse_time with %R without separator",
 			query:       `SELECT PARSE_TIME("%R", "14")`,
-			expectedErr: "could not parse hour:minute format: character after hour [14] is not a [:]",
+			expectedErr: "could not parse hour:minute format: [:] not found after [14]",
+		},
+		{
+			name:         "format_time with %k %l",
+			query:        `SELECT FORMAT_TIME("%k", TIME "15:30:00"), FORMAT_TIME("%l", TIME "15:30:00");`,
+			expectedRows: [][]interface{}{{"15", " 3"}},
 		},
 		{
 			name:         "format_time with %R",
@@ -4422,6 +4438,30 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			name:         "parse timestamp with %c",
 			query:        `SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008")`,
 			expectedRows: [][]interface{}{{createTimestampFormatFromString("2008-12-25 07:30:00+00")}},
+		},
+		{
+			name:         "parse timestamp with %k",
+			query:        `SELECT PARSE_TIMESTAMP("%k", " 9");`,
+			expectedRows: [][]interface{}{{createTimestampFormatFromString("1970-01-01 09:00:00+00")}},
+		},
+		{
+			name:         "parse timestamp with %k",
+			query:        `SELECT PARSE_TIMESTAMP("%k", " 9");`,
+			expectedRows: [][]interface{}{{createTimestampFormatFromString("1970-01-01 09:00:00+00")}},
+		},
+		{name: "parse_timestamp with %D",
+			query:        `SELECT PARSE_TIMESTAMP("%D", "02/02/99");`,
+			expectedRows: [][]interface{}{{createTimestampFormatFromString("1999-02-02 00:00:00+00")}},
+		},
+		{
+			name:  "parse timestamp with %p",
+			query: `SELECT PARSE_TIMESTAMP("%I%p", "9am"), PARSE_TIMESTAMP("%I%p", "12am"), PARSE_TIMESTAMP("%l%p", " 2am"), PARSE_TIMESTAMP("%I%p", "10PM");`,
+			expectedRows: [][]interface{}{{
+				createTimestampFormatFromString("1970-01-01 09:00:00+00"),
+				createTimestampFormatFromString("1970-01-01 00:00:00+00"),
+				createTimestampFormatFromString("1970-01-01 02:00:00+00"),
+				createTimestampFormatFromString("1970-01-01 22:00:00+00"),
+			}},
 		},
 		{
 			name:         "parse timestamp with %Y-%m-%d %H:%M:%S%Ez",
