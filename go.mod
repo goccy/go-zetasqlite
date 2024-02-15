@@ -64,4 +64,4 @@ require (
 	google.golang.org/protobuf v1.30.0 // indirect
 )
 
-replace github.com/mattn/go-sqlite3 => github.com/ohaibbq/go-sqlite3 v0.0.0-20240207230442-9fd04a764cfc
+replace github.com/mattn/go-sqlite3 => github.com/ohaibbq/go-sqlite3 v0.0.0-20240211011509-f8d4d3382d11
