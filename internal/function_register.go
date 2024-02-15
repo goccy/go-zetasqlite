@@ -352,7 +352,7 @@ var windowFuncs = []*WindowFuncInfo{
 	{Name: "first_value", BindFunc: bindWindowFirstValue},
 	{Name: "last_value", BindFunc: bindWindowLastValue},
 	{Name: "nth_value", BindFunc: bindWindowNthValue},
-	//{Name: "lead", BindFunc: bindWindowLead},
+	{Name: "lead", BindFunc: bindWindowLead},
 	{Name: "lag", BindFunc: bindWindowLag},
 	{Name: "percentile_cont", BindFunc: bindWindowPercentileCont},
 	{Name: "percentile_disc", BindFunc: bindWindowPercentileDisc},
@@ -456,50 +456,6 @@ func RegisterFunctions(conn *sqlite3.SQLiteConn) error {
 	if err := conn.RegisterCollation("zetasqlite_collate", func(a, b string) int {
 		va, _ := DecodeValue(a)
 		vb, _ := DecodeValue(b)
-		eq, _ := va.EQ(vb)
-		if eq {
-			return 0
-		}
-		cond, _ := va.GT(vb)
-		if cond {
-			return 1
-		}
-		return -1
-	}); err != nil {
-		return fmt.Errorf("failed to register collate function: %w", err)
-	}
-
-	if err := conn.RegisterCollation("zetasqlite_collate_nulls_first", func(a, b string) int {
-		va, _ := DecodeValue(a)
-		if va == nil {
-			return -1
-		}
-		vb, _ := DecodeValue(b)
-		if vb == nil {
-			return 1
-		}
-		eq, _ := va.EQ(vb)
-		if eq {
-			return 0
-		}
-		cond, _ := va.GT(vb)
-		if cond {
-			return 1
-		}
-		return -1
-	}); err != nil {
-		return fmt.Errorf("failed to register collate function: %w", err)
-	}
-
-	if err := conn.RegisterCollation("zetasqlite_collate_nulls_last", func(a, b string) int {
-		va, _ := DecodeValue(a)
-		if va == nil {
-			return 1
-		}
-		vb, _ := DecodeValue(b)
-		if vb == nil {
-			return -1
-		}
 		eq, _ := va.EQ(vb)
 		if eq {
 			return 0
