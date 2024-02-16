@@ -3,8 +3,6 @@ package internal
 import (
 	"errors"
 	"fmt"
-	"sync"
-
 	"github.com/goccy/go-json"
 )
 
@@ -125,7 +123,6 @@ type WindowAggregator struct {
 	inverse func([]Value, *WindowFuncAggregatedStatus) error
 	value   func(*WindowFuncAggregatedStatus) (Value, error)
 	done    func(*WindowFuncAggregatedStatus) (Value, error)
-	once    sync.Once
 }
 
 func (a *WindowAggregator) Step(stepArgs ...interface{}) error {
