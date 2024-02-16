@@ -2,12 +2,10 @@ package internal
 
 import (
 	"fmt"
+	"gonum.org/v1/gonum/stat"
 	"math"
 	"sort"
 	"strings"
-	"sync"
-
-	"gonum.org/v1/gonum/stat"
 )
 
 type WINDOW_ANY_VALUE struct {
@@ -320,8 +318,7 @@ func (f *WINDOW_LEAD) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
 }
 
 type WINDOW_NTH_VALUE struct {
-	once sync.Once
-	n    int
+	n int
 }
 
 func (f *WINDOW_NTH_VALUE) ParseArguments(args []Value) error {
@@ -646,7 +643,6 @@ func (f *WINDOW_CUME_DIST) Done(agg *WindowFuncAggregatedStatus) (Value, error) 
 type WINDOW_NTILE struct {
 	nParam int64
 	nTotal int64
-	nStep  int64
 	iRow   int64
 }
 
