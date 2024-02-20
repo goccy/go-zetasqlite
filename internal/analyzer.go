@@ -696,6 +696,9 @@ func getParamsFromNode(node ast.Node) []*ast.ParameterNode {
 }
 
 func getArgsFromParams(values []driver.NamedValue, params []*ast.ParameterNode) ([]interface{}, error) {
+	if values == nil {
+		return nil, nil
+	}
 	argNum := len(params)
 	if len(values) < argNum {
 		return nil, fmt.Errorf("not enough query arguments")
