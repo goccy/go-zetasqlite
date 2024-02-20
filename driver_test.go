@@ -211,20 +211,20 @@ CREATE TABLE IF NOT EXISTS Singers (
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS Singers (SingerId   INT64 NOT NULL)`); err != nil {
+		if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS Items (ItemId   INT64 NOT NULL)`); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := db.Exec("INSERT `Singers` (`SingerId`) VALUES (123)"); err != nil {
+		if _, err := db.Exec("INSERT `Items` (`ItemId`) VALUES (123)"); err != nil {
 			t.Fatal(err)
 		}
 
 		// Test that executing without args fails
-		_, err = db.Exec("INSERT `Singers` (`SingerId`) VALUES (?)")
+		_, err = db.Exec("INSERT `Items` (`ItemId`) VALUES (?)")
 		if err == nil {
 			t.Fatal("expected error when inserting without args; got no error")
 		}
 
-		stmt, err := db.Prepare("INSERT `Singers` (`SingerId`) VALUES (?)")
+		stmt, err := db.Prepare("INSERT `Items` (`ItemId`) VALUES (?)")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -232,7 +232,7 @@ CREATE TABLE IF NOT EXISTS Singers (
 			t.Fatal(err)
 		}
 
-		rows, err := db.Query("SELECT * FROM Singers WHERE SingerId = 456")
+		rows, err := db.Query("SELECT * FROM Items WHERE ItemId = 456")
 		if err != nil {
 			t.Fatal(err)
 		}
