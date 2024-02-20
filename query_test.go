@@ -811,12 +811,12 @@ SELECT ARRAY_CONCAT_AGG(x) AS array_concat_agg FROM (
 		},
 		{
 			name:         "max from date group",
-			query:        `SELECT MAX(x) AS max FROM UNNEST(['2022-01-01', '2022-02-01', '2022-01-02', '2021-03-01']) AS x`,
+			query:        `SELECT MAX(x) AS max FROM UNNEST([DATE '2022-01-01', DATE '2022-02-01', DATE '2022-01-02', DATE '2021-03-01']) AS x`,
 			expectedRows: [][]interface{}{{"2022-02-01"}},
 		},
 		{
 			name:         "max window from date group",
-			query:        `SELECT MAX(x) OVER() AS max FROM UNNEST(['2022-01-01', '2022-02-01', '2022-01-02', '2021-03-01']) AS x`,
+			query:        `SELECT MAX(x) OVER() AS max FROM UNNEST([DATE '2022-01-01', DATE '2022-02-01', DATE '2022-01-02', DATE '2021-03-01']) AS x`,
 			expectedRows: [][]interface{}{{"2022-02-01"}, {"2022-02-01"}, {"2022-02-01"}, {"2022-02-01"}},
 		},
 		{
@@ -826,13 +826,13 @@ SELECT ARRAY_CONCAT_AGG(x) AS array_concat_agg FROM (
 		},
 		{
 			name:         "min from date group",
-			query:        `SELECT MIN(x) AS min FROM UNNEST(['2022-01-01', '2022-02-01', '2022-01-02', '2021-03-01']) AS x`,
+			query:        `SELECT MIN(x) AS min FROM UNNEST([DATE '2022-01-01', DATE '2022-02-01', DATE '2022-01-02', DATE '2021-03-01']) AS x`,
 			expectedRows: [][]interface{}{{"2021-03-01"}},
 		},
 		{
 			name:         "min window from date group",
-			query:        `SELECT MIN(x) OVER() AS max FROM UNNEST(['2022-01-01', '2022-02-01', '2022-01-02', '2021-03-01']) AS x`,
-			expectedRows: [][]interface{}{{"2021-03-01"}, {"2021-03-01"}, {"2021-03-01"}, {"2021-03-01"}},
+			query:        `SELECT MIN(x) OVER(),  MAX(x) OVER() FROM UNNEST([DATE '2022-01-01', DATE '2022-02-01', DATE '2022-01-02', DATE '2021-03-01']) AS x`,
+			expectedRows: [][]interface{}{{"2021-03-01", "2022-02-01"}, {"2021-03-01", "2022-02-01"}, {"2021-03-01", "2022-02-01"}, {"2021-03-01", "2022-02-01"}},
 		},
 		{
 			name:         "string_agg",
@@ -1734,6 +1734,20 @@ FROM cte LIMIT 1`,
 		//			},
 		//		},
 		{
+			name: `percentile_disc single`,
+			query: `
+SELECT
+  x,
+  PERCENTILE_DISC(x, 0) OVER() AS min
+FROM UNNEST(['c', NULL, 'b', 'a']) AS x`,
+			expectedRows: [][]interface{}{
+				{"c", "a"},
+				{nil, "a"},
+				{"b", "a"},
+				{"a", "a"},
+			},
+		},
+		{
 			name: `percentile_disc`,
 			query: `
 SELECT
@@ -1884,6 +1898,18 @@ FROM Numbers`,
 			},
 		},
 		{
+			name: "window dense_rank with mixed types",
+			query: `SELECT DENSE_RANK() OVER(ORDER BY dt ASC )
+FROM (
+  SELECT DATE '2024-01-01' AS dt
+  UNION ALL SELECT DATETIME '2024-01-01'
+) r`,
+			expectedRows: [][]interface{}{
+				{int64(1)},
+				{int64(1)},
+			},
+		},
+		{
 			name: "window dense_rank with group",
 			query: `
 WITH finishers AS
@@ -1965,8 +1991,7 @@ SELECT name,
 FROM finishers`,
 			expectedRows: [][]interface{}{
 				{"Sophia Liu", "02:51:45", "F30-34", float64(0.25)},
-				// FIXME: care same ordered value.
-				{"Nikki Leith", "02:59:01", "F30-34", float64(0.5)},
+				{"Nikki Leith", "02:59:01", "F30-34", float64(0.75)},
 				{"Meghan Lederer", "02:59:01", "F30-34", float64(0.75)},
 				{"Jen Edwards", "03:06:36", "F30-34", float64(1)},
 				{"Lisa Stelzner", "02:54:11", "F35-39", float64(0.25)},
@@ -2056,6 +2081,114 @@ WITH Produce AS
 				[]interface{}{"kale", "vegetable", int64(23), int64(1), int64(4)},
 			},
 		},
+		// statistical aggregate functions
+		{
+			name: "corr window",
+			query: `
+SELECT CORR(y, x) OVER () FROM
+UNNEST([STRUCT(1.0 AS y, 5.0 AS x),
+	  (3.0, 9.0),
+	  (4.0, 7.0)]);`,
+			expectedRows: [][]interface{}{
+				{0.6546536707079772},
+				{0.6546536707079772},
+				{0.6546536707079772},
+			},
+		},
+		{
+			name: "covar_pop window",
+			query: `
+SELECT COVAR_POP(y, x) OVER () FROM
+  UNNEST([STRUCT(1.0 AS y, 1.0 AS x),
+      (2.0, 6.0),
+      (9.0, 3.0),
+      (2.0, 6.0),
+      (9.0, 3.0)])
+`,
+			expectedRows: [][]interface{}{
+				// TODO(goccy/go-zetasqlite#168): Use population covariance instead of sample covariance
+				// expected rows should actually be {-1.6800000000000002},
+				{-2.1},
+				{-2.1},
+				{-2.1},
+				{-2.1},
+				{-2.1},
+			},
+		},
+		{
+			name: "covar_samp window",
+			query: `
+SELECT COVAR_SAMP(y, x) OVER () FROM
+UNNEST([STRUCT(1.0 AS y, 1.0 AS x),
+      (2.0, 6.0),
+      (9.0, 3.0),
+      (2.0, 6.0),
+      (9.0, 3.0)])`,
+
+			expectedRows: [][]interface{}{
+				{-2.1},
+				{-2.1},
+				{-2.1},
+				{-2.1},
+				{-2.1},
+			},
+		},
+		{
+			name:  "stddev_pop window",
+			query: `SELECT STDDEV_POP(x) OVER () FROM UNNEST([10, 14, 18]) x`,
+			expectedRows: [][]interface{}{
+				{3.265986323710904},
+				{3.265986323710904},
+				{3.265986323710904},
+			},
+		},
+		{
+			name:  "stddev window",
+			query: `SELECT STDDEV(x) OVER () FROM UNNEST([10, 14, 18]) x`,
+			expectedRows: [][]interface{}{
+				{float64(4)},
+				{float64(4)},
+				{float64(4)},
+			},
+		},
+		{
+			name:  "stddev_samp window",
+			query: `SELECT STDDEV_SAMP(x) OVER () FROM UNNEST([10, 14, 18]) x`,
+			expectedRows: [][]interface{}{
+				{float64(4)},
+				{float64(4)},
+				{float64(4)},
+			},
+		},
+
+		{
+			name:  "var_pop window",
+			query: `SELECT VAR_POP(x) OVER() FROM UNNEST([10, 14, 18]) x`,
+			expectedRows: [][]interface{}{
+				{10.666666666666666},
+				{10.666666666666666},
+				{10.666666666666666},
+			},
+		},
+		{
+			name:  "variance window",
+			query: `SELECT VARIANCE(x) OVER()  FROM UNNEST([10, 14, 18]) x`,
+			expectedRows: [][]interface{}{
+				{float64(16)},
+				{float64(16)},
+				{float64(16)},
+			},
+		},
+		{
+			name:  "var_samp window",
+			query: `SELECT VAR_SAMP(x) OVER()  FROM UNNEST([10, 14, 18]) x`,
+			expectedRows: [][]interface{}{
+				{float64(16)},
+				{float64(16)},
+				{float64(16)},
+			},
+		},
+		// navigation functions
 		{
 			name: "window lag",
 			query: `

@@ -16,7 +16,6 @@ type (
 	funcMapKey                      struct{}
 	analyticOrderColumnNamesKey     struct{}
 	analyticPartitionColumnNamesKey struct{}
-	analyticInputScanKey            struct{}
 	arraySubqueryColumnNameKey      struct{}
 	currentTimeKey                  struct{}
 	tableNameToColumnListMapKey     struct{}
@@ -115,18 +114,6 @@ func analyticPartitionColumnNamesFromContext(ctx context.Context) []string {
 		return nil
 	}
 	return value.([]string)
-}
-
-func withAnalyticInputScan(ctx context.Context, input string) context.Context {
-	return context.WithValue(ctx, analyticInputScanKey{}, input)
-}
-
-func analyticInputScanFromContext(ctx context.Context) string {
-	value := ctx.Value(analyticInputScanKey{})
-	if value == nil {
-		return ""
-	}
-	return value.(string)
 }
 
 type arraySubqueryColumnNames struct {
