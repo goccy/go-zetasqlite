@@ -3779,22 +3779,22 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 		{
 			name:        "parse date exceeding month maximum",
 			query:       `SELECT PARSE_DATE("%m", "14")`,
-			expectedErr: "could not parse month: part [14] is greater than maximum value [12]",
+			expectedErr: "error parsing [14] with format [%m]: could not parse month: part [14] is greater than maximum value [12]",
 		},
 		{
 			name:        "parse date beneath month minimum",
 			query:       `SELECT PARSE_DATE("%m", "0")`,
-			expectedErr: "could not parse month: part [0] is less than minimum value [1]",
+			expectedErr: "error parsing [0] with format [%m]: could not parse month: part [0] is less than minimum value [1]",
 		},
 		{
 			name:        "parse date exceeding day maximum",
 			query:       `SELECT PARSE_DATE("%d", "32")`,
-			expectedErr: "could not parse day number: part [32] is greater than maximum value [31]",
+			expectedErr: "error parsing [32] with format [%d]: could not parse day number: part [32] is greater than maximum value [31]",
 		},
 		{
 			name:        "parse date beneath day minimum",
 			query:       `SELECT PARSE_DATE("%d", "0")`,
-			expectedErr: "could not parse day number: part [0] is less than minimum value [1]",
+			expectedErr: "error parsing [0] with format [%d]: could not parse day number: part [0] is less than minimum value [1]",
 		},
 		{
 			name:         "parse date with single-digit month %m",
@@ -3829,17 +3829,17 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 		{
 			name:        "parse date with %F no day field",
 			query:       `SELECT PARSE_DATE("%F", "2008-01") AS parsed`,
-			expectedErr: "could not parse year-month-day format: [-] not found after [2008-01]",
+			expectedErr: "error parsing [2008-01] with format [%F]: could not parse year-month-day format: [-] not found after [2008-01]",
 		},
 		{
 			name:        "parse date with %F no month field",
 			query:       `SELECT PARSE_DATE("%F", "2008") AS parsed`,
-			expectedErr: "could not parse year-month-day format: [-] not found after [2008]",
+			expectedErr: "error parsing [2008] with format [%F]: could not parse year-month-day format: [-] not found after [2008]",
 		},
 		{
 			name:        "parse date with %F separator but no month",
 			query:       `SELECT PARSE_DATE("%F", "2008-") AS parsed`,
-			expectedErr: "could not parse year-month-day format: could not parse month: empty text after [2008-]",
+			expectedErr: "error parsing [2008-] with format [%F]: could not parse year-month-day format: could not parse month: empty text after [2008-]",
 		},
 		{
 			name:         "parse date with %F",
@@ -3854,7 +3854,7 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 		{
 			name:        "parse date ( the year element is in different locations )",
 			query:       `SELECT PARSE_DATE("%Y %A %b %e", "Thursday Dec 25 2008")`,
-			expectedErr: "could not parse year: leading character is not a digit",
+			expectedErr: "error parsing [Thursday Dec 25 2008] with format [%Y %A %b %e]: could not parse year: leading character is not a digit",
 		},
 		{
 			name:         "safe parse date ( the year element is in different locations )",
@@ -3864,7 +3864,7 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 		{
 			name:        "parse date ( one of the year elements is missing )",
 			query:       `SELECT PARSE_DATE("%A %b %e", "Thursday Dec 25 2008")`,
-			expectedErr: `found unused format element [' ' '2' '0' '0' '8']`,
+			expectedErr: `error parsing [Thursday Dec 25 2008] with format [%A %b %e]: found unparsed text [ 2008]`,
 		},
 		{
 			name:         "unix_date",
@@ -3989,12 +3989,12 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 		{
 			name:        "parse datetime ( the year element is in different locations )",
 			query:       `SELECT PARSE_DATETIME("%a %b %e %Y %I:%M:%S", "Thu Dec 25 07:30:00 2008")`,
-			expectedErr: "could not parse hour number: part [30] is greater than maximum value [12]",
+			expectedErr: "error parsing [Thu Dec 25 07:30:00 2008] with format [%a %b %e %Y %I:%M:%S]: could not parse hour number: leading character is not a digit",
 		},
 		{
 			name:        "parse datetime ( one of the year elements is missing )",
 			query:       `SELECT PARSE_DATETIME("%a %b %e %I:%M:%S", "Thu Dec 25 07:30:00 2008")`,
-			expectedErr: `found unused format element [' ' '2' '0' '0' '8']`,
+			expectedErr: `error parsing [Thu Dec 25 07:30:00 2008] with format [%a %b %e %I:%M:%S]: found unparsed text [ 2008]`,
 		},
 		{
 			name:         "parse datetime %F respectfully consuming digits",
@@ -4050,13 +4050,13 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 		{
 			name:        "parse_time with %R without minute element",
 			query:       `SELECT PARSE_TIME("%R", "14")`,
-			expectedErr: "could not parse hour:minute format: [:] not found after [14]",
+			expectedErr: "error parsing [14] with format [%R]: could not parse hour:minute format: [:] not found after [14]",
 		},
 
 		{
 			name:        "parse_time with %R without separator",
 			query:       `SELECT PARSE_TIME("%R", "14")`,
-			expectedErr: "could not parse hour:minute format: [:] not found after [14]",
+			expectedErr: "error parsing [14] with format [%R]: could not parse hour:minute format: [:] not found after [14]",
 		},
 		{
 			name:         "format_time with %k %l",
@@ -4091,12 +4091,12 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 		{
 			name:        "parse time ( the seconds element is in different locations )",
 			query:       `SELECT PARSE_TIME("%S:%I:%M", "07:30:00")`,
-			expectedErr: "could not parse hour number: part [30] is greater than maximum value [12]",
+			expectedErr: "error parsing [07:30:00] with format [%S:%I:%M]: could not parse hour number: part [30] is greater than maximum value [12]",
 		},
 		{
 			name:        "parse time ( one of the seconds elements is missing )",
 			query:       `SELECT PARSE_TIME("%I:%M", "07:30:00")`,
-			expectedErr: `found unused format element [':' '0' '0']`,
+			expectedErr: `error parsing [07:30:00] with format [%I:%M]: found unparsed text [:00]`,
 		},
 
 		// timestamp functions
@@ -4277,12 +4277,12 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 		{
 			name:        "parse timestamp ( the year element is in different locations )",
 			query:       `SELECT PARSE_TIMESTAMP("%a %b %e %Y %I:%M:%S", "Thu Dec 25 07:30:00 2008")`,
-			expectedErr: "could not parse hour number: part [30] is greater than maximum value [12]",
+			expectedErr: "error parsing [Thu Dec 25 07:30:00 2008] with format [%a %b %e %Y %I:%M:%S]: could not parse hour number: leading character is not a digit",
 		},
 		{
 			name:        "parse timestamp ( one of the year elements is missing )",
 			query:       `SELECT PARSE_TIMESTAMP("%a %b %e %I:%M:%S", "Thu Dec 25 07:30:00 2008")`,
-			expectedErr: `found unused format element [' ' '2' '0' '0' '8']`,
+			expectedErr: `error parsing [Thu Dec 25 07:30:00 2008] with format [%a %b %e %I:%M:%S]: found unparsed text [ 2008]`,
 		},
 		{
 			name:         "timestamp_seconds",
