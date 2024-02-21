@@ -873,22 +873,22 @@ func largeAMPMParser(text []rune, t *time.Time) (int, error) {
 	if len(text) < 2 {
 		return progress, fmt.Errorf("cannot parse am/pm format: remaining text [%s]", string(text))
 	}
-	progress += 2
-	toParse := string(text[:progress])
+	toParse := string(text[:2])
 	timeOfDay := strings.ToLower(toParse)
 	if timeOfDay != "am" && timeOfDay != "pm" {
 		return 0, fmt.Errorf("cannot parse am/pm format: [%s] is not am/pm", string(text))
 	}
-	return progress, nil
+	progress += 2
+	return 2, nil
 }
 
 func ampmPostProcessor(text []rune, t *time.Time) {
 	morning := strings.ToLower(string(text)) == "am"
 	hour := t.Hour()
-	if hour == 12 && morning {
-		hour = 0
+	if morning {
+		hour = hour % 12
 	}
-	if !morning {
+	if !morning && hour < 12 {
 		hour += 12
 	}
 	*t = time.Date(
