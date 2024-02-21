@@ -1161,6 +1161,12 @@ func parseTimeFormat(formatStr, targetStr string, typ TimeFormatType) (*time.Tim
 			}
 			targetIdx += progress
 			formatIdx++
+		} else if c == ' ' {
+			formatIdx++
+			// Slurp whitespaces when parsing a whitespace token
+			for targetIdx < len(target) && target[targetIdx] == ' ' {
+				targetIdx++
+			}
 		} else {
 			formatIdx++
 			targetIdx++

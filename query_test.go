@@ -4265,6 +4265,11 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			}},
 		},
 		{
+			name:         "parse timestamp with extra whitespace ",
+			query:        `SELECT PARSE_TIMESTAMP("%m/%d/%Y  %H:%M:%S", "7/2/2020    09:24:28")`,
+			expectedRows: [][]interface{}{{createTimestampFormatFromString("2020-07-02 9:24:28+00")}},
+		},
+		{
 			name:         "parse timestamp with %Y-%m-%d %H:%M:%S%Ez",
 			query:        `SELECT PARSE_TIMESTAMP("%Y-%m-%d %H:%M:%S%Ez", "2020-06-02 23:58:40+09:00")`,
 			expectedRows: [][]interface{}{{createTimestampFormatFromString("2020-06-02 14:58:40+00")}},
