@@ -1157,17 +1157,23 @@ func parseTimeFormat(formatStr, targetStr string, typ TimeFormatType) (*time.Tim
 			progress, err := info.Parse(target[targetIdx:], ret)
 			tokenToParseIndices[c] = [2]int{targetIdx, targetIdx + progress}
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("error parsing [%s] with format [%s]: %s", string(target), formatStr, err)
 			}
 			targetIdx += progress
 			formatIdx++
+		} else if c == ' ' {
+			formatIdx++
+			// Slurp whitespaces when parsing a whitespace token
+			for targetIdx < len(target) && target[targetIdx] == ' ' {
+				targetIdx++
+			}
 		} else {
 			formatIdx++
 			targetIdx++
 		}
 	}
 	if targetIdx != len(target) {
-		return nil, fmt.Errorf("found unused format element %q", target[targetIdx:])
+		return nil, fmt.Errorf("error parsing [%s] with format [%s]: found unparsed text [%s]", string(target), formatStr, string(target[targetIdx:]))
 	}
 
 	// Post-process any deferred parsers
