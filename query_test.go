@@ -2803,6 +2803,12 @@ SELECT item FROM Produce WHERE Produce.category = 'vegetable' QUALIFY RANK() OVE
 			query:       `SELECT CAST("apple" AS INT64) AS not_a_number`,
 			expectedErr: `failed to analyze: INVALID_ARGUMENT: Could not cast literal "apple" to type INT64 [at 1:13]`,
 		},
+		// Regression test for goccy/go-zetasqlite#175
+		{
+			name:        "cast integer to datetime",
+			query:       `WITH toks AS (SELECT "20100317" AS dt) SELECT CAST(dt AS DATETIME) FROM toks;`,
+			expectedErr: "failed to convert 20100317 to time.Time type",
+		},
 		{
 			name:         "safe cast",
 			query:        `SELECT SAFE_CAST(x AS STRING) FROM UNNEST([1, 2, 3]) AS x`,
