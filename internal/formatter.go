@@ -668,11 +668,36 @@ func (n *ArrayScanNode) FormatSQL(ctx context.Context) (string, error) {
 		if err != nil {
 			return "", err
 		}
+
+		array := fmt.Sprintf("json_each(zetasqlite_decode_array(%s))", arrayExpr)
+		var arrayJoinExpr string
+		if n.node.JoinExpr() != nil {
+			arrayJoinExpr, err = newNode(n.node.JoinExpr()).FormatSQL(ctx)
+			if err != nil {
+				return "", err
+			}
+			// RIGHT JOINs on array expressions are not supported by BigQuery
+			var joinMode string
+			if n.node.IsOuter() {
+				joinMode = "LEFT OUTER JOIN"
+			} else {
+				joinMode = "INNER JOIN"
+			}
+			arrayJoinExpr = fmt.Sprintf("%s %s ON %s",
+				joinMode,
+				array,
+				arrayJoinExpr,
+			)
+		} else {
+			// If there is no join expression, use a CROSS JOIN
+			arrayJoinExpr = fmt.Sprintf(", %s", array)
+		}
+
 		return fmt.Sprintf(
-			"SELECT *, json_each.value AS `%s` %s, json_each(zetasqlite_decode_array(%s))",
+			"SELECT *, json_each.value AS `%s` %s %s",
 			colName,
 			formattedInput,
-			arrayExpr,
+			arrayJoinExpr,
 		), nil
 	}
 	return fmt.Sprintf(

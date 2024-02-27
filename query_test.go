@@ -2188,6 +2188,26 @@ FROM UNNEST([
 				{[]interface{}{int64(1), int64(2), int64(3)}},
 			},
 		},
+		// Regression tests for goccy/go-zetasqlite#176
+		{
+			name: "array scan left outer join",
+			query: `WITH produce AS (select 'lettuce' AS item UNION ALL SELECT 'banana')
+SELECT item, in_stock_items is not null AS item_in_stock FROM produce
+LEFT OUTER JOIN unnest(['lettuce']) in_stock_items ON in_stock_items = item;`,
+			expectedRows: [][]interface{}{
+				{"lettuce", true},
+				{"banana", false},
+			},
+		},
+		{
+			name: "array scan inner join",
+			query: `WITH produce AS (select 'lettuce' AS item UNION ALL SELECT 'banana')
+SELECT item, in_stock_items is not null AS item_in_stock FROM produce
+INNER JOIN unnest(['lettuce']) in_stock_items ON in_stock_items = item;`,
+			expectedRows: [][]interface{}{
+				{"lettuce", true},
+			},
+		},
 		{
 			name:  "array function with struct",
 			query: `SELECT ARRAY (SELECT AS STRUCT 1, 2, 3 UNION ALL SELECT AS STRUCT 4, 5, 6) AS new_array`,
