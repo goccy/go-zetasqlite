@@ -4629,11 +4629,11 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 		},
 		{
 			name:  "parse timestamp with %p",
-			query: `SELECT PARSE_TIMESTAMP("%I%p", "9am"), PARSE_TIMESTAMP("%I%p", "12am"), PARSE_TIMESTAMP("%l%p", " 2am"), PARSE_TIMESTAMP("%I%p", "10PM");`,
+			query: `SELECT PARSE_TIMESTAMP("%I%p", "9am"), PARSE_TIMESTAMP("%I%p", "12am"), PARSE_TIMESTAMP("%l%p", " 12pm"), PARSE_TIMESTAMP("%I%p", "10PM");`,
 			expectedRows: [][]interface{}{{
 				createTimestampFormatFromString("1970-01-01 09:00:00+00"),
 				createTimestampFormatFromString("1970-01-01 00:00:00+00"),
-				createTimestampFormatFromString("1970-01-01 02:00:00+00"),
+				createTimestampFormatFromString("1970-01-01 12:00:00+00"),
 				createTimestampFormatFromString("1970-01-01 22:00:00+00"),
 			}},
 		},
