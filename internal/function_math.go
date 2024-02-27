@@ -144,33 +144,45 @@ func LOG10(x Value) (Value, error) {
 }
 
 func GREATEST(args ...Value) (Value, error) {
-	var max float64 = math.Inf(-1)
+	var max Value
 	for _, arg := range args {
 		if arg == nil {
 			return nil, nil
 		}
-		f, err := arg.ToFloat64()
+		if max == nil {
+			max = arg
+			continue
+		}
+		gt, err := arg.GT(max)
 		if err != nil {
 			return nil, err
 		}
-		max = math.Max(max, f)
+		if gt {
+			max = arg
+		}
 	}
-	return FloatValue(max), nil
+	return max, nil
 }
 
 func LEAST(args ...Value) (Value, error) {
-	var min float64 = math.Inf(1)
+	var min Value
 	for _, arg := range args {
 		if arg == nil {
 			return nil, nil
 		}
-		f, err := arg.ToFloat64()
+		if min == nil {
+			min = arg
+			continue
+		}
+		less, err := arg.LT(min)
 		if err != nil {
 			return nil, err
 		}
-		min = math.Min(min, f)
+		if less {
+			min = arg
+		}
 	}
-	return FloatValue(min), nil
+	return min, nil
 }
 
 func DIV(x, y Value) (Value, error) {

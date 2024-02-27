@@ -224,22 +224,16 @@ func LIKE(a, b Value) (Value, error) {
 }
 
 func BETWEEN(target, start, end Value) (Value, error) {
-	t, err := target.ToInt64()
+	greaterThanStart, err := target.GTE(start)
 	if err != nil {
 		return nil, err
 	}
-	s, err := start.ToInt64()
+	lessThanEnd, err := target.LTE(end)
 	if err != nil {
 		return nil, err
 	}
-	e, err := end.ToInt64()
-	if err != nil {
-		return nil, err
-	}
-	if s <= t && t <= e {
-		return BoolValue(true), nil
-	}
-	return BoolValue(false), nil
+
+	return BoolValue(greaterThanStart && lessThanEnd), nil
 }
 
 func IN(a Value, values ...Value) (Value, error) {
