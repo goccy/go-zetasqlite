@@ -350,6 +350,9 @@ type LOGICAL_AND struct {
 }
 
 func (f *LOGICAL_AND) Step(cond Value, opt *AggregatorOption) error {
+	if cond == nil {
+		return nil
+	}
 	b, err := cond.ToBool()
 	if err != nil {
 		return err
@@ -369,6 +372,9 @@ type LOGICAL_OR struct {
 }
 
 func (f *LOGICAL_OR) Step(cond Value, opt *AggregatorOption) error {
+	if cond == nil {
+		return nil
+	}
 	b, err := cond.ToBool()
 	if err != nil {
 		return err
