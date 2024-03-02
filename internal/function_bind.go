@@ -384,7 +384,7 @@ func bindBitXor(args ...Value) (Value, error) {
 
 func bindInArray(args ...Value) (Value, error) {
 	if existsNull(args) {
-		return BoolValue(false), nil
+		return nil, nil
 	}
 	return ARRAY_IN(args[0], args[1])
 }
@@ -540,19 +540,22 @@ func bindBitCount(args ...Value) (Value, error) {
 
 func bindLike(args ...Value) (Value, error) {
 	if existsNull(args) {
-		return BoolValue(false), nil
+		return nil, nil
 	}
 	return LIKE(args[0], args[1])
 }
 
 func bindBetween(args ...Value) (Value, error) {
 	if existsNull(args) {
-		return BoolValue(false), nil
+		return nil, nil
 	}
 	return BETWEEN(args[0], args[1], args[2])
 }
 
 func bindIn(args ...Value) (Value, error) {
+	if existsNull(args) {
+		return nil, nil
+	}
 	return IN(args[0], args[1:]...)
 }
 
