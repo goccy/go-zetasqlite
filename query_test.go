@@ -766,8 +766,8 @@ SELECT ARRAY_CONCAT_AGG(x) AS array_concat_agg FROM (
 		},
 		{
 			name:         "count with null",
-			query:        `SELECT COUNT(x) FROM UNNEST([NULL]) AS x`,
-			expectedRows: [][]interface{}{{int64(0)}},
+			query:        `WITH toks AS (SELECT 1 AS x UNION ALL SELECT null) SELECT COUNT(x) FROM toks`,
+			expectedRows: [][]interface{}{{int64(1)}},
 		},
 		{
 			name:         "count with if",

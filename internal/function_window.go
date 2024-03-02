@@ -72,6 +72,20 @@ func (f *WINDOW_AVG) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
 type WINDOW_COUNT struct {
 }
 
+func (f *WINDOW_COUNT) Step(values []Value, agg *WindowFuncAggregatedStatus) error {
+	if len(values) == 0 {
+		return nil
+	}
+
+	value := values[0]
+	if value == nil {
+		return nil
+	}
+
+	agg.Values = append(agg.Values, value)
+	return nil
+}
+
 func (f *WINDOW_COUNT) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
 	values, err := agg.RelevantValues()
 	if err != nil {
