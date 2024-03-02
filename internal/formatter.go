@@ -1514,7 +1514,7 @@ func (n *WithEntryNode) FormatSQL(ctx context.Context) (string, error) {
 	}
 	tableToColumnList := tableNameToColumnListMap(ctx)
 	tableToColumnList[queryName] = n.node.WithSubquery().ColumnList()
-	return fmt.Sprintf("%s AS ( %s )", queryName, subquery), nil
+	return fmt.Sprintf("%s AS MATERIALIZED ( %s )", queryName, subquery), nil
 }
 
 func (n *OptionNode) FormatSQL(ctx context.Context) (string, error) {
