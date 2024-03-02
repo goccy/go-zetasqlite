@@ -816,9 +816,21 @@ SELECT ARRAY_CONCAT_AGG(x) AS array_concat_agg FROM (
 			expectedRows: [][]interface{}{{false}},
 		},
 		{
+			name: "logical_and null",
+			query: ` WITH toks AS (SELECT FALSE AS x UNION ALL SELECT FALSE UNION ALL SELECT NULL)
+SELECT LOGICAL_AND(x) AS logical_or FROM toks`,
+			expectedRows: [][]interface{}{{false}},
+		},
+		{
 			name:         "logical_or",
 			query:        `SELECT LOGICAL_OR(x) AS logical_or FROM UNNEST([true, false, true]) AS x`,
 			expectedRows: [][]interface{}{{true}},
+		},
+		{
+			name: "logical_or null",
+			query: ` WITH toks AS (SELECT FALSE AS x UNION ALL SELECT FALSE UNION ALL SELECT NULL)
+SELECT LOGICAL_OR(x) AS logical_or FROM toks`,
+			expectedRows: [][]interface{}{{false}},
 		},
 		{
 			name:         "max from int group",
