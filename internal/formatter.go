@@ -688,7 +688,7 @@ func (n *ColumnHolderNode) FormatSQL(ctx context.Context) (string, error) {
 }
 
 var tokensAfterFromClause = [...]string{"WHERE", "GROUP BY", "HAVING", "QUALIFY", "WINDOW", "ORDER BY", "COLLATE"}
-var removeExpressions := regexp.MustCompile(`\(.+?\)`)
+var removeExpressions = regexp.MustCompile(`\(.+?\)`)
 
 func (n *FilterScanNode) FormatSQL(ctx context.Context) (string, error) {
 	if n.node == nil {
