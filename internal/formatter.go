@@ -1045,6 +1045,8 @@ func (n *AnalyticScanNode) FormatSQL(ctx context.Context) (string, error) {
 	orderColumnNames := analyticOrderColumnNamesFromContext(ctx)
 	var scanOrderBy []*analyticOrderBy
 	for _, group := range n.node.FunctionGroupList() {
+		scanOrderBy = []*analyticOrderBy{}
+
 		if group.PartitionBy() != nil {
 			var partitionColumns []string
 			for _, columnRef := range group.PartitionBy().PartitionByList() {

@@ -2081,8 +2081,8 @@ SELECT
 FROM inventory`,
 			expectedRows: [][]interface{}{
 				{"banana", int64(2), "orange", nil},
-				{"orange", int64(4), nil, "onion"},
 				{"onion", int64(3), nil, "banana"},
+				{"orange", int64(4), nil, "onion"},
 			},
 		},
 		{
