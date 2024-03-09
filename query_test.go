@@ -3657,6 +3657,23 @@ WITH example AS (
 			expectedRows: [][]interface{}{{"FOO", "BAR", "BAZ"}},
 		},
 
+		// Regression tests for goccy/go-zetasqlite#177
+		{
+			name:         "least greatest between string",
+			query:        `SELECT LEAST("a", "b"), GREATEST("a", "b"), "b" BETWEEN "a" AND "c";`,
+			expectedRows: [][]interface{}{{"a", "b", true}},
+		},
+		{
+			name:         "least greatest between integer",
+			query:        `SELECT LEAST(1, 2), GREATEST(1, 2), 2 BETWEEN 1 AND 3;`,
+			expectedRows: [][]interface{}{{int64(1), int64(2), true}},
+		},
+		{
+			name:         "least greatest date",
+			query:        `SELECT LEAST(DATE '2024-02-27', DATE '2024-02-28'), GREATEST(DATE '2024-02-27', DATE '2024-02-28');`,
+			expectedRows: [][]interface{}{{"2024-02-27", "2024-02-28"}},
+		},
+
 		// date functions
 		{
 			name:  "current_date",
