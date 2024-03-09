@@ -879,7 +879,7 @@ func largeAMPMParser(text []rune, t *time.Time) (int, error) {
 		return 0, fmt.Errorf("cannot parse am/pm format: [%s] is not am/pm", string(text))
 	}
 	progress += 2
-	return 2, nil
+	return progress, nil
 }
 
 func ampmPostProcessor(text []rune, t *time.Time) {
