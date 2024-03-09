@@ -151,7 +151,9 @@ func ValueFromZetaSQLValue(v types.Value) (Value, error) {
 		return boolValueFromLiteral(v.SQLLiteral(0))
 	case types.FLOAT, types.DOUBLE:
 		return floatValueFromLiteral(v.SQLLiteral(0))
-	case types.STRING, types.ENUM:
+	case types.STRING:
+		return StringValue(v.StringValue()), nil
+	case types.ENUM:
 		return stringValueFromLiteral(v.SQLLiteral(0))
 	case types.BYTES:
 		return bytesValueFromLiteral(v.SQLLiteral(0))
@@ -206,9 +208,6 @@ func floatValueFromLiteral(lit string) (FloatValue, error) {
 }
 
 func stringValueFromLiteral(lit string) (StringValue, error) {
-	if strings.HasPrefix(lit, `'`) {
-		return StringValue(strings.Trim(lit, `'`)), nil
-	}
 	v, err := strconv.Unquote(lit)
 	if err != nil {
 		return "", fmt.Errorf("failed to unquote from string literal: %w", err)

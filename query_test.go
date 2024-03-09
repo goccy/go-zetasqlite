@@ -3376,6 +3376,15 @@ WITH markdown AS (
 				{"<h1>Another heading</h1>"},
 			},
 		},
+		// Regression tests for goccy/go-zetasqlite#178
+		{
+			name:  "regexp_replace quoted",
+			query: `SELECT REGEXP_REPLACE('"quote123"', r'["\d]', '')`,
+			expectedRows: [][]interface{}{
+				{"quote"},
+			},
+		},
+
 		{
 			name: "regexp_substr",
 			query: `
