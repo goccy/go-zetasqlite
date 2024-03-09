@@ -189,14 +189,16 @@ func TestQuery(t *testing.T) {
 			expectedRows: [][]interface{}{{true}},
 		},
 		{
-			name:         "in operator",
-			query:        `SELECT 3 IN (1, 2, 3, 4)`,
-			expectedRows: [][]interface{}{{true}},
+			name:  "in operator",
+			query: `SELECT 3 IN (1, 2, 3, 4), null IN (1), null IN (null)`,
+			// When left-hand side is null, null is always returned
+			expectedRows: [][]interface{}{{true, nil, nil}},
 		},
 		{
-			name:         "not in operator",
-			query:        `SELECT 5 NOT IN (1, 2, 3, 4)`,
-			expectedRows: [][]interface{}{{true}},
+			name:  "not in operator",
+			query: `SELECT 5 NOT IN (1, 2, 3, 4), null NOT IN (1), null NOT IN (null)`,
+			// When left-hand side is null, null is always returned
+			expectedRows: [][]interface{}{{true, nil, nil}},
 		},
 		{
 			name:         "is null operator",
