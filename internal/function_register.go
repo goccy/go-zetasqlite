@@ -427,6 +427,9 @@ func RegisterFunctions(conn *sqlite3.SQLiteConn) error {
 		if err != nil {
 			return "", err
 		}
+		if decoded == nil {
+			return "[]", nil
+		}
 		array, err := decoded.ToArray()
 		if err != nil {
 			return "", err

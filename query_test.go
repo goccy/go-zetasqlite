@@ -2527,6 +2527,22 @@ FROM
 				},
 			},
 		},
+		// Regression test for goccy/go-zetasqlite#179
+		{
+			name: "null array scan",
+			query: `
+WITH file AS (
+  SELECT 1 AS file_id, ARRAY<STRING>["r", "w"] AS modes
+  UNION ALL SELECT 2, ARRAY<STRING>["w"]
+)
+SELECT id,
+(SELECT mode FROM UNNEST(modes) AS mode WHERE mode = 'w') IS NOT NULL AS write_mode,
+(SELECT mode FROM UNNEST(modes) AS mode WHERE mode = 'r') IS NOT NULL AS read_mode
+FROM UNNEST([1, 2, 3]) id
+LEFT JOIN file on file.file_id = id`,
+			expectedRows: [][]interface{}{{int64(1), true, true}, {int64(2), true, false}, {int64(3), false, false}},
+		},
+
 		{
 			name: "array_reverse function",
 			query: `
