@@ -108,17 +108,16 @@ func (f *ARRAY_CONCAT_AGG) Step(v *ArrayValue, opt *AggregatorOption) error {
 		return fmt.Errorf("ARRAY_CONCAT_AGG: NULL value unsupported")
 	}
 	f.once.Do(func() { f.opt = opt })
-	for _, vv := range v.values {
-		f.values = append(f.values, &OrderedValue{
-			OrderBy: opt.OrderBy,
-			Value:   vv,
-		})
-	}
+	f.values = append(f.values, &OrderedValue{
+		OrderBy: opt.OrderBy,
+		Value:   v,
+	})
 	return nil
 }
 
 func (f *ARRAY_CONCAT_AGG) Done() (Value, error) {
 	f.values = sortAggregatedValues(f.values, f.opt)
+
 	if f.opt != nil && f.opt.Limit != nil {
 		minLen := int64(len(f.values))
 		if *f.opt.Limit < minLen {
@@ -126,10 +125,18 @@ func (f *ARRAY_CONCAT_AGG) Done() (Value, error) {
 		}
 		f.values = f.values[:minLen]
 	}
-	values := make([]Value, 0, len(f.values))
+
+	var values []Value
 	for _, v := range f.values {
-		values = append(values, v.Value)
+		a, err := v.Value.ToArray()
+		if err != nil {
+			return nil, err
+		}
+		for _, vv := range a.values {
+			values = append(values, vv)
+		}
 	}
+
 	return &ArrayValue{
 		values: values,
 	}, nil

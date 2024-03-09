@@ -679,7 +679,14 @@ SELECT ARRAY_CONCAT_AGG(x) AS array_concat_agg FROM (
 			name:  "array_concat_agg with null in order by",
 			query: `WITH toks AS (SELECT ['1'] AS x, '1' as y UNION ALL SELECT ['2', '3'], null) SELECT ARRAY_CONCAT_AGG(x ORDER BY y) FROM toks`,
 			expectedRows: [][]interface{}{{
-				[]interface{}{"3", "2", "1"},
+				[]interface{}{"2", "3", "1"},
+			}},
+		},
+		{
+			name:  "array_concat_agg with limt",
+			query: `WITH toks AS (SELECT ['1'] AS x, '1' as y UNION ALL SELECT ['2', '3'], null) SELECT ARRAY_CONCAT_AGG(x ORDER BY y LIMIT 1) FROM toks`,
+			expectedRows: [][]interface{}{{
+				[]interface{}{"2", "3"},
 			}},
 		},
 		{
