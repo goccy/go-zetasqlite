@@ -188,7 +188,7 @@ func ARRAY_ORDINAL(v Value, idx int) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	if idx < 1 || len(array.values) <= idx {
+	if idx < 1 || len(array.values) < idx {
 		return nil, fmt.Errorf("ORDINAL(%d) is out of range", idx)
 	}
 	return array.values[idx-1], nil
@@ -199,7 +199,7 @@ func ARRAY_SAFE_ORDINAL(v Value, idx int) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	if idx < 1 || len(array.values) <= idx {
+	if idx < 1 || len(array.values) < idx {
 		return nil, nil
 	}
 	return array.values[idx-1], nil
