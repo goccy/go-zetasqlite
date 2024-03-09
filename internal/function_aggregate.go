@@ -132,9 +132,7 @@ func (f *ARRAY_CONCAT_AGG) Done() (Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		for _, vv := range a.values {
-			values = append(values, vv)
-		}
+		values = append(values, a.values...)
 	}
 
 	return &ArrayValue{
