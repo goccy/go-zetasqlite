@@ -80,21 +80,7 @@ func (f *ARRAY_AGG) Step(v Value, opt *AggregatorOption) error {
 }
 
 func (f *ARRAY_AGG) Done() (Value, error) {
-	if f.opt != nil && len(f.opt.OrderBy) != 0 {
-		for orderBy := 0; orderBy < len(f.opt.OrderBy); orderBy++ {
-			if f.opt.OrderBy[orderBy].IsAsc {
-				sort.Slice(f.values, func(i, j int) bool {
-					v, _ := f.values[i].OrderBy[orderBy].Value.LT(f.values[j].OrderBy[orderBy].Value)
-					return v
-				})
-			} else {
-				sort.Slice(f.values, func(i, j int) bool {
-					v, _ := f.values[i].OrderBy[orderBy].Value.GT(f.values[j].OrderBy[orderBy].Value)
-					return v
-				})
-			}
-		}
-	}
+	f.values = sortAggregatedValues(f.values, f.opt)
 	if f.opt != nil && f.opt.Limit != nil {
 		minLen := int64(len(f.values))
 		if *f.opt.Limit < minLen {
@@ -122,31 +108,16 @@ func (f *ARRAY_CONCAT_AGG) Step(v *ArrayValue, opt *AggregatorOption) error {
 		return fmt.Errorf("ARRAY_CONCAT_AGG: NULL value unsupported")
 	}
 	f.once.Do(func() { f.opt = opt })
-	for _, vv := range v.values {
-		f.values = append(f.values, &OrderedValue{
-			OrderBy: opt.OrderBy,
-			Value:   vv,
-		})
-	}
+	f.values = append(f.values, &OrderedValue{
+		OrderBy: opt.OrderBy,
+		Value:   v,
+	})
 	return nil
 }
 
 func (f *ARRAY_CONCAT_AGG) Done() (Value, error) {
-	if f.opt != nil && len(f.opt.OrderBy) != 0 {
-		for orderBy := 0; orderBy < len(f.opt.OrderBy); orderBy++ {
-			if f.opt.OrderBy[orderBy].IsAsc {
-				sort.Slice(f.values, func(i, j int) bool {
-					v, _ := f.values[i].OrderBy[orderBy].Value.LT(f.values[j].OrderBy[orderBy].Value)
-					return v
-				})
-			} else {
-				sort.Slice(f.values, func(i, j int) bool {
-					v, _ := f.values[i].OrderBy[orderBy].Value.GT(f.values[j].OrderBy[orderBy].Value)
-					return v
-				})
-			}
-		}
-	}
+	f.values = sortAggregatedValues(f.values, f.opt)
+
 	if f.opt != nil && f.opt.Limit != nil {
 		minLen := int64(len(f.values))
 		if *f.opt.Limit < minLen {
@@ -154,10 +125,16 @@ func (f *ARRAY_CONCAT_AGG) Done() (Value, error) {
 		}
 		f.values = f.values[:minLen]
 	}
-	values := make([]Value, 0, len(f.values))
+
+	var values []Value
 	for _, v := range f.values {
-		values = append(values, v.Value)
+		a, err := v.Value.ToArray()
+		if err != nil {
+			return nil, err
+		}
+		values = append(values, a.values...)
 	}
+
 	return &ArrayValue{
 		values: values,
 	}, nil
@@ -470,22 +447,43 @@ func (f *STRING_AGG) Step(v Value, delim string, opt *AggregatorOption) error {
 	return nil
 }
 
-func (f *STRING_AGG) Done() (Value, error) {
-	if f.opt != nil && len(f.opt.OrderBy) != 0 {
-		for orderBy := 0; orderBy < len(f.opt.OrderBy); orderBy++ {
-			if f.opt.OrderBy[orderBy].IsAsc {
-				sort.Slice(f.values, func(i, j int) bool {
-					v, _ := f.values[i].OrderBy[orderBy].Value.LT(f.values[j].OrderBy[orderBy].Value)
-					return v
-				})
+func sortAggregatedValues(values []*OrderedValue, opt *AggregatorOption) []*OrderedValue {
+	if opt != nil && len(opt.OrderBy) == 0 {
+		return values
+	}
+
+	sort.Slice(values, func(i, j int) bool {
+		for orderBy := 0; orderBy < len(values[0].OrderBy); orderBy++ {
+			iV := values[i].OrderBy[orderBy].Value
+			jV := values[j].OrderBy[orderBy].Value
+			isAsc := values[0].OrderBy[orderBy].IsAsc
+			if iV == nil {
+				return isAsc
+			}
+			if jV == nil {
+				return !isAsc
+			}
+			isEqual, _ := iV.EQ(jV)
+			if isEqual {
+				// break tie with subsequent fields
+				continue
+			}
+			if isAsc {
+				cond, _ := iV.LT(jV)
+				return cond
 			} else {
-				sort.Slice(f.values, func(i, j int) bool {
-					v, _ := f.values[i].OrderBy[orderBy].Value.GT(f.values[j].OrderBy[orderBy].Value)
-					return v
-				})
+				cond, _ := iV.GT(jV)
+				return cond
 			}
 		}
-	}
+		return false
+	})
+	return values
+}
+
+func (f *STRING_AGG) Done() (Value, error) {
+	f.values = sortAggregatedValues(f.values, f.opt)
+
 	if f.opt != nil && f.opt.Limit != nil {
 		minLen := int64(len(f.values))
 		if *f.opt.Limit < minLen {

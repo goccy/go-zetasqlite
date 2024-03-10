@@ -638,6 +638,13 @@ FROM Items`,
 			expectedErr: "ARRAY_AGG: input value must be not null",
 		},
 		{
+			name:  "array_agg with null in order by",
+			query: `WITH toks AS (SELECT '1' AS x, '1' as y UNION ALL SELECT '2', null) SELECT ARRAY_AGG(x ORDER BY y) FROM toks`,
+			expectedRows: [][]interface{}{{
+				[]interface{}{"2", "1"},
+			}},
+		},
+		{
 			name:        "array_agg with struct",
 			query:       `SELECT b, ARRAY_AGG(a) FROM UNNEST([STRUCT(1 AS a, 2 AS b), STRUCT(NULL AS a, 2 AS b)]) GROUP BY b`,
 			expectedErr: "ARRAY_AGG: input value must be not null",
@@ -684,6 +691,20 @@ SELECT ARRAY_CONCAT_AGG(x) AS array_concat_agg FROM (
 )`,
 			expectedRows: [][]interface{}{{
 				[]interface{}{nil, int64(1), int64(2), int64(3), int64(4), int64(5), int64(6), int64(7), int64(8), int64(9)},
+			}},
+		},
+		{
+			name:  "array_concat_agg with null in order by",
+			query: `WITH toks AS (SELECT ['1'] AS x, '1' as y UNION ALL SELECT ['2', '3'], null) SELECT ARRAY_CONCAT_AGG(x ORDER BY y) FROM toks`,
+			expectedRows: [][]interface{}{{
+				[]interface{}{"2", "3", "1"},
+			}},
+		},
+		{
+			name:  "array_concat_agg with limt",
+			query: `WITH toks AS (SELECT ['1'] AS x, '1' as y UNION ALL SELECT ['2', '3'], null) SELECT ARRAY_CONCAT_AGG(x ORDER BY y LIMIT 1) FROM toks`,
+			expectedRows: [][]interface{}{{
+				[]interface{}{"2", "3"},
 			}},
 		},
 		{
