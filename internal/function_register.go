@@ -264,14 +264,6 @@ var normalFuncs = []*FuncInfo{
 	{Name: "order_by", BindFunc: bindOrderBy},
 	{Name: "ignore_nulls", BindFunc: bindIgnoreNulls},
 
-	// window option funcs
-	{Name: "window_frame_unit", BindFunc: bindWindowFrameUnit},
-	{Name: "window_partition", BindFunc: bindWindowPartition},
-	{Name: "window_boundary_start", BindFunc: bindWindowBoundaryStart},
-	{Name: "window_boundary_end", BindFunc: bindWindowBoundaryEnd},
-	{Name: "window_rowid", BindFunc: bindWindowRowID},
-	{Name: "window_order_by", BindFunc: bindWindowOrderBy},
-
 	// javascript funcs
 	{Name: "eval_javascript", BindFunc: bindEvalJavaScript},
 
