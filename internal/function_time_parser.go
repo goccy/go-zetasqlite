@@ -86,10 +86,17 @@ const (
 	FormatTypeTimestamp TimeFormatType = 3
 )
 
+type ParseFunction func(text []rune, t *time.Time) (int, error)
+
 type FormatTimeInfo struct {
 	AvailableTypes []TimeFormatType
-	Parse          func([]rune, *time.Time) (int, error)
+	Parse          ParseFunction
 	Format         func(*time.Time) ([]rune, error)
+}
+
+type TimeParserPostProcessor struct {
+	ShouldPostProcessResult func(map[rune][2]int) bool
+	PostProcessResult       func([]rune, *time.Time)
 }
 
 func (i *FormatTimeInfo) Available(typ TimeFormatType) bool {
@@ -162,14 +169,20 @@ var formatPatternMap = map[rune]*FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Parse:  dayParser,
+		Parse:  composeParseFunctions("day of month format", []ParseFunction{leadingSpaceAllowedParser, dayParser}),
 		Format: dayFormatter,
 	},
 	'F': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Parse:  yearMonthDayParser,
+		Parse: composeParseFunctions("year-month-day format", []ParseFunction{
+			yearParser,
+			hyphenParser,
+			monthNumberParser,
+			hyphenParser,
+			dayParser,
+		}),
 		Format: yearMonthDayFormatter,
 	},
 	'G': &FormatTimeInfo{
@@ -225,15 +238,15 @@ var formatPatternMap = map[rune]*FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeTime, FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Parse:  hourParser,
-		Format: hourFormatter,
+		Parse:  composeParseFunctions("24-hour clock hour", []ParseFunction{leadingSpaceAllowedParser, hourParser}),
+		Format: hour24SpacePrecedingSingleDigitFormatter,
 	},
 	'l': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeTime, FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Parse:  hour12Parser,
-		Format: hour12Formatter,
+		Parse:  composeParseFunctions("12-hour clock hour", []ParseFunction{leadingSpaceAllowedParser, hour12Parser}),
+		Format: hour12SpacePrecedingSingleDigitFormatter,
 	},
 	'M': &FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
@@ -281,7 +294,11 @@ var formatPatternMap = map[rune]*FormatTimeInfo{
 		AvailableTypes: []TimeFormatType{
 			FormatTypeTime, FormatTypeDatetime, FormatTypeTimestamp,
 		},
-		Parse:  hourMinuteParser,
+		Parse: composeParseFunctions("hour:minute format", []ParseFunction{
+			hourParser,
+			colonParser,
+			minuteParser,
+		}),
 		Format: hourMinuteFormatter,
 	},
 	'S': &FormatTimeInfo{
@@ -398,6 +415,40 @@ var formatPatternMap = map[rune]*FormatTimeInfo{
 	},
 }
 
+var postProcessorPatternMap = map[rune]*TimeParserPostProcessor{
+	'p': &TimeParserPostProcessor{
+		ShouldPostProcessResult: ampmShouldPostProcessResult,
+		PostProcessResult:       ampmPostProcessor,
+	},
+}
+
+func createStaticTextParser(static string) ParseFunction {
+	length := len(static)
+	return func(text []rune, t *time.Time) (int, error) {
+		if len(text) < length || string(text[:length]) != static {
+			return 0, fmt.Errorf("[%s] not found", static)
+		}
+		return length, nil
+	}
+}
+
+var hyphenParser = createStaticTextParser("-")
+var colonParser = createStaticTextParser(":")
+var slashParser = createStaticTextParser("/")
+
+func composeParseFunctions(name string, parsers []ParseFunction) ParseFunction {
+	return func(text []rune, t *time.Time) (int, error) {
+		progress := 0
+		for _, parser := range parsers {
+			step, err := parser(text[progress:], t)
+			if err != nil {
+				return 0, fmt.Errorf("could not parse %s: %s after [%s]", name, err, string(text[:progress]))
+			}
+			progress += step
+		}
+		return progress, nil
+	}
+}
 func weekOfDayParser(text []rune, t *time.Time) (int, error) {
 	for _, dayOfWeek := range dayOfWeeks {
 		if len(text) < len(dayOfWeek) {
@@ -559,45 +610,13 @@ func ansicFormatter(t *time.Time) ([]rune, error) {
 	return []rune(t.Format("Mon Jan 02 15:04:05 2006")), nil
 }
 
-func monthDayYearParser(text []rune, t *time.Time) (int, error) {
-	fmtLen := len("00/00/00")
-	if len(text) < fmtLen {
-		return 0, fmt.Errorf("unexpected month/day/year format")
-	}
-	splitted := strings.Split(string(text[:fmtLen]), "/")
-	if len(splitted) != 3 {
-		return 0, fmt.Errorf("unexpected month/day/year format")
-	}
-	month := splitted[0]
-	day := splitted[1]
-	year := splitted[2]
-	if len(month) != 2 || len(day) != 2 || len(year) != 2 {
-		return 0, fmt.Errorf("unexpected month/day/year format")
-	}
-	m, err := strconv.ParseInt(month, 10, 64)
-	if err != nil {
-		return 0, fmt.Errorf("unexpected month/day/year format: %w", err)
-	}
-	d, err := strconv.ParseInt(day, 10, 64)
-	if err != nil {
-		return 0, fmt.Errorf("unexpected month/day/year format: %w", err)
-	}
-	y, err := strconv.ParseInt(year, 10, 64)
-	if err != nil {
-		return 0, fmt.Errorf("unexpected month/day/year format: %w", err)
-	}
-	*t = time.Date(
-		int(2000+y),
-		time.Month(m),
-		int(d),
-		int(t.Hour()),
-		int(t.Minute()),
-		int(t.Second()),
-		int(t.Nanosecond()),
-		t.Location(),
-	)
-	return fmtLen, nil
-}
+var monthDayYearParser = composeParseFunctions("month/day/year format", []ParseFunction{
+	monthNumberParser,
+	slashParser,
+	dayParser,
+	slashParser,
+	yearWithoutCenturyParser,
+})
 
 func monthDayYearFormatter(t *time.Time) ([]rune, error) {
 	year := fmt.Sprint(t.Year())
@@ -631,46 +650,6 @@ func dayParser(text []rune, t *time.Time) (int, error) {
 
 func dayFormatter(t *time.Time) ([]rune, error) {
 	return []rune(fmt.Sprintf("%02d", t.Day())), nil
-}
-
-func yearMonthDayParser(text []rune, t *time.Time) (int, error) {
-	const separator = '-'
-	progress, y, err := parseDigitRespectingOptionalPlaces(text, 1, 9999)
-	if err != nil {
-		return 0, fmt.Errorf("could not parse year-month-day format: year number: %s", err)
-	}
-	if len(text) <= progress || text[progress] != separator {
-		return 0, fmt.Errorf("could not parse year-month-day format: [%c] not found after [%s]", separator, string(text))
-	}
-	progress += 1
-
-	mProgress, m, err := parseDigitRespectingOptionalPlaces(text[progress:], 1, 12)
-	if err != nil {
-		return 0, fmt.Errorf("could not parse year-month-day format: month number: %s", err)
-	}
-	progress += mProgress
-	if len(text) <= progress || text[progress] != separator {
-		return 0, fmt.Errorf("could not parse year-month-day format: [%c] not found after [%s]", separator, string(text))
-	}
-
-	progress += 1
-	dProgress, d, err := parseDigitRespectingOptionalPlaces(text[progress:], 1, 31)
-	if err != nil {
-		return 0, fmt.Errorf("could not parse year-month-day format: day number: %s", err)
-	}
-	progress += dProgress
-
-	*t = time.Date(
-		int(y),
-		time.Month(m),
-		int(d),
-		int(t.Hour()),
-		int(t.Minute()),
-		int(t.Second()),
-		int(t.Nanosecond()),
-		t.Location(),
-	)
-	return progress, nil
 }
 
 func yearMonthDayFormatter(t *time.Time) ([]rune, error) {
@@ -713,12 +692,39 @@ func hourParser(text []rune, t *time.Time) (int, error) {
 	return progress, nil
 }
 
+func leadingSpaceAllowedParser(text []rune, t *time.Time) (int, error) {
+	if len(text) < 2 {
+		return 0, fmt.Errorf("text must be at least 2 characters long")
+	}
+	progress := 0
+	if text[0] == ' ' {
+		progress += 1
+	}
+	return progress, nil
+}
+
+func hour24SpacePrecedingSingleDigitFormatter(t *time.Time) ([]rune, error) {
+	hour := []rune(fmt.Sprintf("%d", t.Hour()))
+	if len(hour) == 1 {
+		return []rune(fmt.Sprintf(" %s", string(hour))), nil
+	}
+	return hour, nil
+}
+
+func hour12SpacePrecedingSingleDigitFormatter(t *time.Time) ([]rune, error) {
+	hour := []rune(fmt.Sprintf("%d", t.Hour()%12))
+	if len(hour) == 1 {
+		return []rune(fmt.Sprintf(" %s", string(hour))), nil
+	}
+	return hour, nil
+}
+
 func hourFormatter(t *time.Time) ([]rune, error) {
 	return []rune(fmt.Sprintf("%02d", t.Hour())), nil
 }
 
 func hour12Parser(text []rune, t *time.Time) (int, error) {
-	progress, h, err := parseDigitRespectingOptionalPlaces(text, 0, 12)
+	progress, h, err := parseDigitRespectingOptionalPlaces(text, 1, 12)
 	if err != nil {
 		return 0, fmt.Errorf("could not parse hour number: %s", err)
 	}
@@ -852,7 +858,7 @@ func newLineFormatter(t *time.Time) ([]rune, error) {
 }
 
 func smallAMPMParser(text []rune, t *time.Time) (int, error) {
-	return 0, fmt.Errorf("unimplemented am pm matcher")
+	return 0, fmt.Errorf("this cannot be used with parsing, instead, use %%p")
 }
 
 func smallAMPMFormatter(t *time.Time) ([]rune, error) {
@@ -863,7 +869,58 @@ func smallAMPMFormatter(t *time.Time) ([]rune, error) {
 }
 
 func largeAMPMParser(text []rune, t *time.Time) (int, error) {
-	return 0, fmt.Errorf("unimplemented AM PM matcher")
+	progress := 0
+	if len(text) < 2 {
+		return progress, fmt.Errorf("cannot parse am/pm format: remaining text [%s]", string(text))
+	}
+	toParse := string(text[:2])
+	timeOfDay := strings.ToLower(toParse)
+	if timeOfDay != "am" && timeOfDay != "pm" {
+		return 0, fmt.Errorf("cannot parse am/pm format: [%s] is not am/pm", string(text))
+	}
+	progress += 2
+	return progress, nil
+}
+
+func ampmPostProcessor(text []rune, t *time.Time) {
+	morning := strings.ToLower(string(text)) == "am"
+	hour := t.Hour()
+	if morning {
+		hour = hour % 12
+	}
+	if !morning && hour < 12 {
+		hour += 12
+	}
+	*t = time.Date(
+		t.Year(),
+		t.Month(),
+		int(t.Day()),
+		int(hour),
+		int(t.Minute()),
+		int(t.Second()),
+		int(t.Nanosecond()),
+		t.Location(),
+	)
+}
+
+func ampmShouldPostProcessResult(tokens map[rune][2]int) bool {
+	// Any 24-hour format tokens override am/pm parsing
+	overrideTokens := []rune{'X', 'T', 'R', 'k', 'H'}
+	for _, token := range overrideTokens {
+		if _, ok := tokens[token]; ok {
+			return false
+		}
+	}
+
+	// Process deferred parse if 12-hour format tokens were used, otherwise we can no-op
+	deferredTokens := []rune{'l', 'I'}
+	for _, token := range deferredTokens {
+		if _, ok := tokens[token]; ok {
+			return true
+		}
+	}
+
+	return false
 }
 
 func largeAMPMFormatter(t *time.Time) ([]rune, error) {
@@ -888,32 +945,6 @@ func quarterFormatter(t *time.Time) ([]rune, error) {
 		return []rune("3"), nil
 	}
 	return []rune("4"), nil
-}
-
-func hourMinuteParser(text []rune, t *time.Time) (int, error) {
-	hProgress, h, err := parseDigitRespectingOptionalPlaces(text, 0, 23)
-	if err != nil {
-		return 0, fmt.Errorf("could not parse hour:minute format: hour number: %s", err)
-	}
-	if len(text) <= hProgress || text[hProgress] != ':' {
-		return 0, fmt.Errorf("could not parse hour:minute format: character after hour [%s] is not a [:]", string(text))
-	}
-	hProgress += 1
-	mProgress, m, err := parseDigitRespectingOptionalPlaces(text[hProgress:], 0, 59)
-	if err != nil {
-		return 0, fmt.Errorf("could not parse hour:minute format: minute number:  %s", err)
-	}
-	*t = time.Date(
-		int(t.Year()),
-		t.Month(),
-		int(t.Day()),
-		int(h),
-		int(m),
-		int(t.Second()),
-		int(t.Nanosecond()),
-		t.Location(),
-	)
-	return mProgress + hProgress, nil
 }
 
 func hourMinuteFormatter(t *time.Time) ([]rune, error) {
@@ -962,45 +993,13 @@ func unixtimeSecondsFormatter(t *time.Time) ([]rune, error) {
 	return []rune(fmt.Sprint(t.Unix())), nil
 }
 
-func hourMinuteSecondParser(text []rune, t *time.Time) (int, error) {
-	fmtLen := len("00:00:00")
-	if len(text) < fmtLen {
-		return 0, fmt.Errorf("unexpected hour:minute:second format")
-	}
-	splitted := strings.Split(string(text[:fmtLen]), ":")
-	if len(splitted) != 3 {
-		return 0, fmt.Errorf("unexpected hour:minute:second format")
-	}
-	hour := splitted[0]
-	minute := splitted[1]
-	second := splitted[2]
-	if len(hour) != 2 || len(minute) != 2 || len(second) != 2 {
-		return 0, fmt.Errorf("unexpected hour:minute:second format")
-	}
-	h, err := strconv.ParseInt(hour, 10, 64)
-	if err != nil {
-		return 0, fmt.Errorf("unexpected hour:minute:second format: %w", err)
-	}
-	m, err := strconv.ParseInt(minute, 10, 64)
-	if err != nil {
-		return 0, fmt.Errorf("unexpected hour:minute:second format: %w", err)
-	}
-	s, err := strconv.ParseInt(second, 10, 64)
-	if err != nil {
-		return 0, fmt.Errorf("unexpected hour:minute:second format: %w", err)
-	}
-	*t = time.Date(
-		int(t.Year()),
-		t.Month(),
-		int(t.Day()),
-		int(h),
-		int(m),
-		int(s),
-		int(t.Nanosecond()),
-		t.Location(),
-	)
-	return fmtLen, nil
-}
+var hourMinuteSecondParser = composeParseFunctions("hour:minute:second format", []ParseFunction{
+	hourParser,
+	colonParser,
+	minuteParser,
+	colonParser,
+	secondParser,
+})
 
 func hourMinuteSecondFormatter(t *time.Time) ([]rune, error) {
 	return []rune(t.Format("15:04:05")), nil
@@ -1108,6 +1107,7 @@ func parseTimeFormat(formatStr, targetStr string, typ TimeFormatType) (*time.Tim
 	epoch := time.Unix(0, 0)
 	var ret = &epoch
 
+	var tokenToParseIndices = map[rune][2]int{}
 	for formatIdx < len(format) {
 		c := format[formatIdx]
 		if c == '%' {
@@ -1122,6 +1122,7 @@ func parseTimeFormat(formatStr, targetStr string, typ TimeFormatType) (*time.Tim
 					return nil, fmt.Errorf("invalid time format")
 				}
 				info, formatProgress, err := combinationPatternInfo(format[formatIdx:])
+
 				if err != nil {
 					return nil, err
 				}
@@ -1138,6 +1139,7 @@ func parseTimeFormat(formatStr, targetStr string, typ TimeFormatType) (*time.Tim
 				if err != nil {
 					return nil, err
 				}
+				tokenToParseIndices[c] = [2]int{targetIdx, targetIdx + progress}
 				targetIdx += progress
 				formatIdx += formatProgress
 				continue
@@ -1153,19 +1155,42 @@ func parseTimeFormat(formatStr, targetStr string, typ TimeFormatType) (*time.Tim
 				return nil, fmt.Errorf("invalid target text")
 			}
 			progress, err := info.Parse(target[targetIdx:], ret)
+			tokenToParseIndices[c] = [2]int{targetIdx, targetIdx + progress}
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("error parsing [%s] with format [%s]: %s", string(target), formatStr, err)
 			}
 			targetIdx += progress
 			formatIdx++
+		} else if c == ' ' {
+			formatIdx++
+			// Slurp whitespaces when parsing a whitespace token
+			for targetIdx < len(target) && target[targetIdx] == ' ' {
+				targetIdx++
+			}
 		} else {
 			formatIdx++
 			targetIdx++
 		}
 	}
 	if targetIdx != len(target) {
-		return nil, fmt.Errorf("found unused format element %q", target[targetIdx:])
+		return nil, fmt.Errorf("error parsing [%s] with format [%s]: found unparsed text [%s]", string(target), formatStr, string(target[targetIdx:]))
 	}
+
+	// Post-process any deferred parsers
+	for token, indices := range tokenToParseIndices {
+		info, ok := postProcessorPatternMap[token]
+		if ok {
+			start := indices[0]
+			end := indices[1]
+
+			if !info.ShouldPostProcessResult(tokenToParseIndices) {
+				continue
+			}
+
+			info.PostProcessResult(target[start:end], ret)
+		}
+	}
+
 	return ret, nil
 }
 
