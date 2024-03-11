@@ -57,13 +57,13 @@ func TIME(args ...Value) (Value, error) {
 			}
 			return TimeValue(t.In(loc)), nil
 		}
-		return TimeValue(t), nil
+		return TimeValue(t.UTC()), nil
 	case DatetimeValue:
 		t, err := args[0].ToTime()
 		if err != nil {
 			return nil, err
 		}
-		return TimeValue(t), nil
+		return TimeValue(t.UTC()), nil
 	}
 	return nil, fmt.Errorf("TIME: invalid first argument type %T", args[0])
 }

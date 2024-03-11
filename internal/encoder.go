@@ -376,7 +376,13 @@ func CastValue(t types.Type, v Value) (Value, error) {
 			return nil, err
 		}
 		return FloatValue(f64), nil
-	case types.STRING, types.ENUM:
+	case types.STRING:
+		s, err := v.ToString()
+		if err != nil {
+			return nil, err
+		}
+		return StringValue(s), nil
+	case types.ENUM:
 		s, err := v.ToString()
 		if err != nil {
 			return nil, err
