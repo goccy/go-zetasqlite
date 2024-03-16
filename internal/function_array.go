@@ -3,7 +3,6 @@ package internal
 import (
 	"fmt"
 	"strings"
-	"time"
 )
 
 func ARRAY_CONCAT(args ...Value) (Value, error) {
@@ -97,7 +96,7 @@ func GENERATE_TIMESTAMP_ARRAY(start, end Value, step int64, part string) (Value,
 	cur := start
 	for {
 		arr.values = append(arr.values, cur)
-		after, err := cur.(TimestampValue).AddValueWithPart(time.Duration(step), part)
+		after, err := cur.(TimestampValue).AddValueWithPart(step, part)
 		if err != nil {
 			return nil, err
 		}

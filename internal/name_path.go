@@ -16,7 +16,7 @@ func (p *NamePath) isInformationSchema(path []string) bool {
 	}
 	// If INFORMATION_SCHEMA is at the end of path, ignore it.
 	for _, subPath := range path[:len(path)-1] {
-		if strings.ToLower(subPath) == "information_schema" {
+		if strings.EqualFold(subPath, "information_schema") {
 			return true
 		}
 	}

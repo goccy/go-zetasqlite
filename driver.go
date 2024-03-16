@@ -7,8 +7,9 @@ import (
 	"fmt"
 	"sync"
 
-	internal "github.com/goccy/go-zetasqlite/internal"
 	"github.com/mattn/go-sqlite3"
+
+	internal "github.com/goccy/go-zetasqlite/internal"
 )
 
 var (

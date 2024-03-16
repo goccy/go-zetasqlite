@@ -82,6 +82,7 @@ func IEEE_DIVIDE(x, y Value) (Value, error) {
 	return FloatValue(x64 / y64), nil
 }
 
+//nolint:gosec
 func RAND() (Value, error) {
 	rand.Seed(time.Now().UnixNano())
 	return FloatValue(rand.Float64()), nil

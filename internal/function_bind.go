@@ -61,10 +61,7 @@ func (a *Aggregator) Step(stepArgs ...interface{}) error {
 	if err != nil {
 		return err
 	}
-	values, opt, err := parseAggregateOptions(values...)
-	if err != nil {
-		return err
-	}
+	values, opt := parseAggregateOptions(values...)
 	if opt.IgnoreNulls {
 		filtered := []Value{}
 		for _, v := range values {
@@ -132,14 +129,8 @@ func (a *WindowAggregator) Step(stepArgs ...interface{}) error {
 	if err != nil {
 		return err
 	}
-	values, opt, err := parseAggregateOptions(values...)
-	if err != nil {
-		return err
-	}
-	values, windowOpt, err := parseWindowOptions(values...)
-	if err != nil {
-		return err
-	}
+	values, opt := parseAggregateOptions(values...)
+	values, windowOpt := parseWindowOptions(values...)
 	a.once.Do(func() {
 		a.agg.opt = opt
 	})

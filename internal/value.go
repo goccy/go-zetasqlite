@@ -1613,7 +1613,7 @@ func (d DateValue) Format(verb rune) string {
 	case 't':
 		return formatted
 	case 'T':
-		return fmt.Sprintf(`DATE "%s"`, formatted)
+		return fmt.Sprintf(`DATE %q`, formatted)
 	}
 	return formatted
 }
@@ -1765,7 +1765,7 @@ func (d DatetimeValue) Format(verb rune) string {
 	case 't':
 		return formatted
 	case 'T':
-		return fmt.Sprintf(`DATETIME "%s"`, formatted)
+		return fmt.Sprintf(`DATETIME %q`, formatted)
 	}
 	return formatted
 }
@@ -1882,7 +1882,7 @@ func (t TimeValue) Format(verb rune) string {
 	case 't':
 		return formatted
 	case 'T':
-		return fmt.Sprintf(`TIME "%s"`, formatted)
+		return fmt.Sprintf(`TIME %q`, formatted)
 	}
 	return formatted
 }
@@ -1893,20 +1893,20 @@ func (t TimeValue) Interface() interface{} {
 
 type TimestampValue time.Time
 
-func (t TimestampValue) AddValueWithPart(v time.Duration, part string) (Value, error) {
+func (t TimestampValue) AddValueWithPart(v int64, part string) (Value, error) {
 	switch part {
 	case "MICROSECOND":
-		return TimestampValue(time.Time(t).Add(v * time.Microsecond)), nil
+		return TimestampValue(time.Time(t).Add(time.Duration(v) * time.Microsecond)), nil
 	case "MILLISECOND":
-		return TimestampValue(time.Time(t).Add(v * time.Millisecond)), nil
+		return TimestampValue(time.Time(t).Add(time.Duration(v) * time.Millisecond)), nil
 	case "SECOND":
-		return TimestampValue(time.Time(t).Add(v * time.Second)), nil
+		return TimestampValue(time.Time(t).Add(time.Duration(v) * time.Second)), nil
 	case "MINUTE":
-		return TimestampValue(time.Time(t).Add(v * time.Minute)), nil
+		return TimestampValue(time.Time(t).Add(time.Duration(v) * time.Minute)), nil
 	case "HOUR":
-		return TimestampValue(time.Time(t).Add(v * time.Hour)), nil
+		return TimestampValue(time.Time(t).Add(time.Duration(v) * time.Hour)), nil
 	case "DAY":
-		return TimestampValue(time.Time(t).Add(v * time.Hour * 24)), nil
+		return TimestampValue(time.Time(t).Add(time.Duration(v) * time.Hour * 24)), nil
 	default:
 		return nil, fmt.Errorf("unknown part value for timestamp: %s", part)
 	}
@@ -2043,20 +2043,20 @@ func (t TimestampValue) ToRat() (*big.Rat, error) {
 	return nil, fmt.Errorf("failed to convert *big.Rat from timestamp %v", t)
 }
 
-func (d TimestampValue) Format(verb rune) string {
+func (t TimestampValue) Format(verb rune) string {
 	const timestampPrintableFormat = "2006-01-02 15:04:05"
-	formatted := time.Time(d).UTC().Format(timestampPrintableFormat) + "+00"
+	formatted := time.Time(t).UTC().Format(timestampPrintableFormat) + "+00"
 	switch verb {
 	case 't':
 		return formatted
 	case 'T':
-		return fmt.Sprintf(`TIMESTAMP "%s"`, formatted)
+		return fmt.Sprintf(`TIMESTAMP %q`, formatted)
 	}
 	return formatted
 }
 
-func (d TimestampValue) Interface() interface{} {
-	return time.Time(d).Format(time.RFC3339)
+func (t TimestampValue) Interface() interface{} {
+	return time.Time(t).Format(time.RFC3339)
 }
 
 type IntervalValue struct {
@@ -2331,9 +2331,9 @@ func (v *SafeValue) Interface() interface{} {
 }
 
 var (
-	dateRe     = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}$`)
-	datetimeRe = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}[T\s][0-9]{2}:[0-9]{2}:[0-9]{2}$`)
-	timeRe     = regexp.MustCompile(`^[0-9]{2}:[0-9]{2}:[0-9]{2}`)
+	dateRe     = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
+	datetimeRe = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}:\d{2}$`)
+	timeRe     = regexp.MustCompile(`^\d{2}:\d{2}:\d{2}`)
 )
 
 func isDate(date string) bool {
@@ -2344,8 +2344,8 @@ func isDatetime(datetime string) bool {
 	return datetimeRe.MatchString(datetime)
 }
 
-func isTime(time string) bool {
-	return timeRe.MatchString(time)
+func isTime(v string) bool {
+	return timeRe.MatchString(v)
 }
 
 func isTimestamp(timestamp string) bool {
@@ -2428,7 +2428,7 @@ func TimestampFromInt64Value(v int64) (time.Time, error) {
 }
 
 func parseInterval(v string) (*IntervalValue, error) {
-	if len(v) == 0 {
+	if v == "" {
 		return nil, fmt.Errorf("interval value is empty")
 	}
 	isNegative := v[0] == '-'

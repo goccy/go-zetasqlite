@@ -242,6 +242,14 @@ func (s *QueryStmt) Query(args []driver.Value) (driver.Rows, error) {
 			err,
 		)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf(
+			"failed to query %s: args: %v: %w",
+			s.formattedQuery,
+			newArgs,
+			err,
+		)
+	}
 	return &Rows{rows: rows, columns: s.outputColumns}, nil
 }
 

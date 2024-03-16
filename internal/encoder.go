@@ -129,7 +129,7 @@ func LiteralFromValue(v Value) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to encode value: %w", err)
 	}
-	return fmt.Sprintf(`"%s"`, base64.StdEncoding.EncodeToString(b)), nil
+	return fmt.Sprintf("%q", base64.StdEncoding.EncodeToString(b)), nil
 }
 
 func LiteralFromZetaSQLValue(v types.Value) (string, error) {
@@ -156,13 +156,13 @@ func ValueFromZetaSQLValue(v types.Value) (Value, error) {
 	case types.ENUM:
 		return stringValueFromLiteral(v.SQLLiteral(0))
 	case types.BYTES:
-		return bytesValueFromLiteral(v.SQLLiteral(0))
+		return bytesValueFromLiteral(v.SQLLiteral(0)), nil
 	case types.DATE:
-		return dateValueFromLiteral(v.ToInt64())
+		return dateValueFromLiteral(v.ToInt64()), nil
 	case types.DATETIME:
-		return datetimeValueFromLiteral(v.ToPacked64DatetimeMicros())
+		return datetimeValueFromLiteral(v.ToPacked64DatetimeMicros()), nil
 	case types.TIME:
-		return timeValueFromLiteral(v.ToPacked64TimeMicros())
+		return timeValueFromLiteral(v.ToPacked64TimeMicros()), nil
 	case types.TIMESTAMP:
 		microsec := v.ToUnixMicros()
 		microSecondsInSecond := int64(time.Second) / int64(time.Microsecond)
@@ -215,18 +215,18 @@ func stringValueFromLiteral(lit string) (StringValue, error) {
 	return StringValue(v), nil
 }
 
-func bytesValueFromLiteral(lit string) (BytesValue, error) {
+func bytesValueFromLiteral(lit string) BytesValue {
 	// use a workaround because ToBytes doesn't work with certain values.
 	unquoted, err := strconv.Unquote(lit[1:])
 	if err != nil {
-		return BytesValue(lit), nil
+		return BytesValue(lit)
 	}
-	return BytesValue(unquoted), nil
+	return BytesValue(unquoted)
 }
 
-func dateValueFromLiteral(days int64) (DateValue, error) {
+func dateValueFromLiteral(days int64) DateValue {
 	t := time.Unix(int64(time.Duration(days)*24*time.Hour/time.Second), 0)
-	return DateValue(t), nil
+	return DateValue(t)
 }
 
 const (
@@ -245,7 +245,7 @@ const (
 	yearMask     = 0x3FFF << yearShift
 )
 
-func datetimeValueFromLiteral(bit int64) (DatetimeValue, error) {
+func datetimeValueFromLiteral(bit int64) DatetimeValue {
 	b := bit >> 20
 	year := (b & yearMask) >> yearShift
 	month := (b & monthMask) >> monthShift
@@ -263,17 +263,17 @@ func datetimeValueFromLiteral(bit int64) (DatetimeValue, error) {
 		int(sec),
 		int(microSec)*1000, time.UTC,
 	)
-	return DatetimeValue(t), nil
+	return DatetimeValue(t)
 }
 
-func timeValueFromLiteral(bit int64) (TimeValue, error) {
+func timeValueFromLiteral(bit int64) TimeValue {
 	b := bit >> 20
 	hour := (b & hourMask) >> hourShift
 	min := (b & minMask) >> minShift
 	sec := (b & secMask) >> secShift
 	microSec := (bit & microSecMask) >> 0
 	t := time.Date(0, 0, 0, int(hour), int(min), int(sec), int(microSec)*1000, time.UTC)
-	return TimeValue(t), nil
+	return TimeValue(t)
 }
 
 func timestampValueFromLiteral(t time.Time) (TimestampValue, error) {
@@ -295,7 +295,7 @@ func numericValueFromLiteral(lit string) (*NumericValue, error) {
 	numericLit := matches[0][1]
 	r := new(big.Rat)
 	r.SetString(numericLit)
-	if strings.Contains("BIGNUMERIC", lit) {
+	if strings.Contains(lit, "BIGNUMERIC") {
 		return &NumericValue{Rat: r, isBigNumeric: true}, nil
 	}
 	return &NumericValue{Rat: r}, nil

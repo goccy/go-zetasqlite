@@ -187,6 +187,9 @@ func (c *Catalog) Sync(ctx context.Context, conn *Conn) error {
 	if err != nil {
 		return fmt.Errorf("failed to query load catalog: %w", err)
 	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
 	defer rows.Close()
 	for rows.Next() {
 		var (

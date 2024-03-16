@@ -68,7 +68,6 @@ func TestTimeParser(t *testing.T) {
 			expectedProgress: 1,
 		},
 	} {
-
 		t.Run(test.name, func(t *testing.T) {
 			progress, result, err := parseDigitRespectingOptionalPlaces(test.text, test.minValue, test.maxValue)
 			if err != nil {
@@ -87,7 +86,6 @@ func TestTimeParser(t *testing.T) {
 			if result != int64(test.expectedResult) {
 				t.Fatalf("unexpected result: expected [%d] but got [%d]", test.expectedResult, result)
 			}
-
 		})
 	}
 }

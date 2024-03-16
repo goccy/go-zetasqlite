@@ -8,8 +8,9 @@ import (
 	"testing"
 	"time"
 
-	zetasqlite "github.com/goccy/go-zetasqlite"
 	"github.com/google/go-cmp/cmp"
+
+	zetasqlite "github.com/goccy/go-zetasqlite"
 )
 
 func TestExec(t *testing.T) {
@@ -532,7 +533,7 @@ WITH Input AS (
 		defer rows.Close()
 
 		type queryRow struct {
-			JsonRow string
+			JSONRow string
 			Sum     float64
 		}
 		results := []*queryRow{}
@@ -544,15 +545,15 @@ WITH Input AS (
 			if err := rows.Scan(&jsonRow, &sum); err != nil {
 				t.Fatal(err)
 			}
-			results = append(results, &queryRow{JsonRow: jsonRow, Sum: sum})
+			results = append(results, &queryRow{JSONRow: jsonRow, Sum: sum})
 		}
 		if rows.Err() != nil {
 			t.Fatal(rows.Err())
 		}
 		if diff := cmp.Diff(results, []*queryRow{
-			{JsonRow: `{"s":{"foo":1,"bar":2,"baz":{"x":"foo","foo":3.14}},"foo":10}`, Sum: 14.14},
-			{JsonRow: `{"s":null,"foo":4}`, Sum: 4},
-			{JsonRow: `{"s":{"foo":null,"bar":2,"baz":{"x":"fizz","foo":1.59}},"foo":null}`, Sum: 1.59},
+			{JSONRow: `{"s":{"foo":1,"bar":2,"baz":{"x":"foo","foo":3.14}},"foo":10}`, Sum: 14.14},
+			{JSONRow: `{"s":null,"foo":4}`, Sum: 4},
+			{JSONRow: `{"s":{"foo":null,"bar":2,"baz":{"x":"fizz","foo":1.59}},"foo":null}`, Sum: 1.59},
 		}); diff != "" {
 			t.Errorf("(-want +got):\n%s", diff)
 		}

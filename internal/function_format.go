@@ -15,71 +15,71 @@ type FormatInfo struct {
 }
 
 var formatSpecifierTable = map[rune]*FormatInfo{
-	'd': &FormatInfo{
+	'd': {
 		validate: validateDecimalInteger,
 		parse:    parseInteger,
 	},
-	'i': &FormatInfo{
+	'i': {
 		validate: validateDecimalInteger,
 		parse:    parseInteger,
 	},
-	'o': &FormatInfo{
+	'o': {
 		validate: validateOctal,
 		parse:    parseInteger,
 	},
-	'x': &FormatInfo{
+	'x': {
 		validate: validateHexInteger,
 		parse:    parseInteger,
 	},
-	'X': &FormatInfo{
+	'X': {
 		validate: validateHexInteger,
 		parse:    parseInteger,
 	},
-	'f': &FormatInfo{
+	'f': {
 		validate: validateDecimalNotation,
 		parse:    parseFloat,
 	},
-	'F': &FormatInfo{
+	'F': {
 		validate: validateDecimalNotation,
 		parse:    parseFloat,
 	},
-	'e': &FormatInfo{
+	'e': {
 		validate: validateScientificNotation,
 		parse:    parseFloat,
 	},
-	'E': &FormatInfo{
+	'E': {
 		validate: validateScientificNotation,
 		parse:    parseFloat,
 	},
-	'g': &FormatInfo{
+	'g': {
 		validate: validateDecimalOrScientificNotation,
 		parse:    parseFloat,
 	},
-	'G': &FormatInfo{
+	'G': {
 		validate: validateDecimalOrScientificNotation,
 		parse:    parseFloat,
 	},
-	'p': &FormatInfo{
+	'p': {
 		validate: validateOneLineJSON,
 		parse:    parseOneLineJSON,
 	},
-	'P': &FormatInfo{
+	'P': {
 		validate: validateMultiLineJSON,
 		parse:    parseMultiLineJSON,
 	},
-	's': &FormatInfo{
+	's': {
 		validate: validateString,
 		parse:    parseString,
 	},
-	't': &FormatInfo{
+	't': {
 		validate: validatePrintableString,
 		parse:    parsePrintableString,
 	},
-	'T': &FormatInfo{
+	'T': {
 		validate: validatePrintableString,
 		parse:    parsePrintableString,
 	},
-	'%': &FormatInfo{
+	'%': {
 		validate: validatePercent,
 		parse:    parsePercent,
 	},
@@ -321,6 +321,7 @@ func (c *FormatContext) current() rune {
 	return rune(0)
 }
 
+//nolint:unparam
 func (c *FormatContext) progress(num int) {
 	c.idx += num
 }

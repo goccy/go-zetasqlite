@@ -28,5 +28,8 @@ cover-html: cover
 lint: lint/install
 	$(GOBIN)/golangci-lint run --timeout 30m
 
+lint/fix: lint/install
+	$(GOBIN)/golangci-lint run --fix --timeout 30m
+
 lint/install: | $(GOBIN)
-	GOBIN=$(GOBIN) go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.52.2
+	GOBIN=$(GOBIN) go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.56.2
