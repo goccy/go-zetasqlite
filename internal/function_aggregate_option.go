@@ -112,7 +112,7 @@ type AggregatorOption struct {
 	OrderBy     []*AggregateOrderBy
 }
 
-func parseAggregateOptions(args ...Value) ([]Value, *AggregatorOption, error) {
+func parseAggregateOptions(args ...Value) ([]Value, *AggregatorOption) {
 	var (
 		filteredArgs []Value
 		opt          = &AggregatorOption{}
@@ -147,5 +147,5 @@ func parseAggregateOptions(args ...Value) ([]Value, *AggregatorOption, error) {
 			continue
 		}
 	}
-	return filteredArgs, opt, nil
+	return filteredArgs, opt
 }

@@ -42,10 +42,10 @@ func MAKE_INTERVAL(year, month, day, hour, minute, second int64) (Value, error) 
 func JUSTIFY_DAYS(v *IntervalValue) (Value, error) {
 	if v.Days > 29 {
 		v.Months += v.Days / 30
-		v.Days = v.Days % 30
+		v.Days %= 30
 	} else if v.Days < -29 {
 		v.Months += v.Days / 30
-		v.Days = v.Days % 30
+		v.Days %= 30
 	}
 	if v.Months > 11 {
 		v.Months -= 12
@@ -60,24 +60,24 @@ func JUSTIFY_DAYS(v *IntervalValue) (Value, error) {
 func JUSTIFY_HOURS(v *IntervalValue) (Value, error) {
 	if v.Seconds > 59 {
 		v.Minutes += v.Seconds / 60
-		v.Seconds = v.Seconds % 60
+		v.Seconds %= 60
 	} else if v.Seconds < -59 {
 		v.Minutes += v.Seconds / 60
-		v.Seconds = v.Seconds % 60
+		v.Seconds %= 60
 	}
 	if v.Minutes > 59 {
 		v.Hours += v.Minutes / 60
-		v.Minutes = v.Minutes % 60
+		v.Minutes %= 60
 	} else if v.Minutes < -59 {
 		v.Hours += v.Hours / 60
-		v.Minutes = v.Minutes % 60
+		v.Minutes %= 60
 	}
 	if v.Hours > 23 {
 		v.Days += v.Hours / 24
-		v.Hours = v.Hours % 24
+		v.Hours %= 24
 	} else if v.Hours < -23 {
 		v.Days += v.Hours / 24
-		v.Hours = v.Hours % 24
+		v.Hours %= 24
 	}
 	return v, nil
 }

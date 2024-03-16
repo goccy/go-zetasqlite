@@ -1,10 +1,11 @@
 package zetasqlite_test
 
 import (
-	"github.com/goccy/go-zetasqlite"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/goccy/go-zetasqlite"
 )
 
 func TestTimestamp(t *testing.T) {

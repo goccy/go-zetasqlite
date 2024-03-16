@@ -286,10 +286,10 @@ func (s *WindowFuncStatus) Partition() (string, error) {
 	return strings.Join(partitions, "_"), nil
 }
 
-func parseWindowOptions(args ...Value) ([]Value, *WindowFuncStatus, error) {
+func parseWindowOptions(args ...Value) ([]Value, *WindowFuncStatus) {
 	var (
 		filteredArgs []Value
-		opt          *WindowFuncStatus = &WindowFuncStatus{}
+		opt          = &WindowFuncStatus{}
 	)
 	for _, arg := range args {
 		if arg == nil {
@@ -324,7 +324,7 @@ func parseWindowOptions(args ...Value) ([]Value, *WindowFuncStatus, error) {
 			continue
 		}
 	}
-	return filteredArgs, opt, nil
+	return filteredArgs, opt
 }
 
 type WindowOrderedValue struct {
@@ -432,7 +432,6 @@ func (s *WindowFuncAggregatedStatus) Done(cb func([]Value, int, int) error) erro
 			}
 			return false
 		})
-
 	}
 	s.SortedValues = sortedValues
 	start, err := s.getIndexFromBoundary(s.Start)

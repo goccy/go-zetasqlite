@@ -10,12 +10,13 @@ import (
 	"testing"
 	"time"
 
-	zetasqlite "github.com/goccy/go-zetasqlite"
 	"github.com/google/go-cmp/cmp"
+
+	zetasqlite "github.com/goccy/go-zetasqlite"
 )
 
 func TestQuery(t *testing.T) {
-	os.Setenv("TZ", "UTC")
+	t.Setenv("TZ", "UTC")
 	now := time.Now()
 	ctx := context.Background()
 	ctx = zetasqlite.WithCurrentTime(ctx, now)
@@ -573,7 +574,7 @@ FROM Items`,
 			expectedErr:  "OFFSET(6) is out of range",
 		},
 		// INVALID_ARGUMENT: Subscript access using [INT64] is not supported on values of type JSON [at 2:34]
-		//{
+		// {
 		//	name: "json",
 		//	query: `
 		//	SELECT json_value.class.students[0]['name'] AS first_student
@@ -589,7 +590,7 @@ FROM Items`,
 		//		{nil},
 		//		{"John"},
 		//	},
-		//},
+		// },
 		{
 			name:         "date operator",
 			query:        `SELECT DATE "2020-09-22" + 1 AS day_later, DATE "2020-09-22" - 7 AS week_ago`,
@@ -1007,18 +1008,18 @@ SELECT LOGICAL_OR(x) AS logical_or FROM toks`,
 				{
 					[]interface{}{
 						[]map[string]interface{}{
-							map[string]interface{}{
+							{
 								"value": "pear",
 							},
-							map[string]interface{}{
+							{
 								"count": int64(3),
 							},
 						},
 						[]map[string]interface{}{
-							map[string]interface{}{
+							{
 								"value": "apple",
 							},
-							map[string]interface{}{
+							{
 								"count": int64(2),
 							},
 						},
@@ -1033,18 +1034,18 @@ SELECT LOGICAL_OR(x) AS logical_or FROM toks`,
 				{
 					[]interface{}{
 						[]map[string]interface{}{
-							map[string]interface{}{
+							{
 								"value": "pear",
 							},
-							map[string]interface{}{
+							{
 								"count": int64(3),
 							},
 						},
 						[]map[string]interface{}{
-							map[string]interface{}{
+							{
 								"value": nil,
 							},
-							map[string]interface{}{
+							{
 								"count": int64(2),
 							},
 						},
@@ -1066,18 +1067,18 @@ SELECT APPROX_TOP_SUM(x, weight, 2) FROM UNNEST([
 				{
 					[]interface{}{
 						[]map[string]interface{}{
-							map[string]interface{}{
+							{
 								"value": "pear",
 							},
-							map[string]interface{}{
+							{
 								"sum": int64(6),
 							},
 						},
 						[]map[string]interface{}{
-							map[string]interface{}{
+							{
 								"value": "banana",
 							},
-							map[string]interface{}{
+							{
 								"sum": int64(5),
 							},
 						},
@@ -1092,18 +1093,18 @@ SELECT APPROX_TOP_SUM(x, weight, 2) FROM UNNEST([
 				{
 					[]interface{}{
 						[]map[string]interface{}{
-							map[string]interface{}{
+							{
 								"value": "pear",
 							},
-							map[string]interface{}{
+							{
 								"sum": int64(0),
 							},
 						},
 						[]map[string]interface{}{
-							map[string]interface{}{
+							{
 								"value": "apple",
 							},
-							map[string]interface{}{
+							{
 								"sum": nil,
 							},
 						},
@@ -1118,18 +1119,18 @@ SELECT APPROX_TOP_SUM(x, weight, 2) FROM UNNEST([
 				{
 					[]interface{}{
 						[]map[string]interface{}{
-							map[string]interface{}{
+							{
 								"value": nil,
 							},
-							map[string]interface{}{
+							{
 								"sum": int64(2),
 							},
 						},
 						[]map[string]interface{}{
-							map[string]interface{}{
+							{
 								"value": "apple",
 							},
-							map[string]interface{}{
+							{
 								"sum": int64(0),
 							},
 						},
@@ -1144,18 +1145,18 @@ SELECT APPROX_TOP_SUM(x, weight, 2) FROM UNNEST([
 				{
 					[]interface{}{
 						[]map[string]interface{}{
-							map[string]interface{}{
+							{
 								"value": "apple",
 							},
-							map[string]interface{}{
+							{
 								"sum": int64(0),
 							},
 						},
 						[]map[string]interface{}{
-							map[string]interface{}{
+							{
 								"value": nil,
 							},
-							map[string]interface{}{
+							{
 								"sum": nil,
 							},
 						},
@@ -1755,13 +1756,13 @@ FROM cte LIMIT 1`,
 		//		{
 		//			name: `percentile_cont with respect nulls`,
 		//			query: `
-		//SELECT
+		// SELECT
 		//  PERCENTILE_CONT(x, 0 RESPECT NULLS) OVER() AS min,
 		//  PERCENTILE_CONT(x, 0.01 RESPECT NULLS) OVER() AS percentile1,
 		//  PERCENTILE_CONT(x, 0.5 RESPECT NULLS) OVER() AS median,
 		//  PERCENTILE_CONT(x, 0.9 RESPECT NULLS) OVER() AS percentile90,
 		//  PERCENTILE_CONT(x, 1 RESPECT NULLS) OVER() AS max
-		//FROM UNNEST([0, 3, NULL, 1, 2]) AS x LIMIT 1`,
+		// FROM UNNEST([0, 3, NULL, 1, 2]) AS x LIMIT 1`,
 		//			expectedRows: [][]interface{}{
 		//				{nil, float64(0), float64(1), float64(2.6), float64(3)},
 		//			},
@@ -2081,12 +2082,12 @@ WITH Produce AS
     FROM Produce p JOIN Numbers n ON p.item = n.item AND p.category = n.category
 `,
 			expectedRows: [][]interface{}{
-				[]interface{}{"banana", "fruit", int64(2), int64(1), int64(1)},
-				[]interface{}{"apple", "fruit", int64(8), int64(2), int64(2)},
-				[]interface{}{"leek", "vegetable", int64(2), int64(3), int64(1)},
-				[]interface{}{"cabbage", "vegetable", int64(9), int64(2), int64(2)},
-				[]interface{}{"lettuce", "vegetable", int64(10), int64(4), int64(3)},
-				[]interface{}{"kale", "vegetable", int64(23), int64(1), int64(4)},
+				{"banana", "fruit", int64(2), int64(1), int64(1)},
+				{"apple", "fruit", int64(8), int64(2), int64(2)},
+				{"leek", "vegetable", int64(2), int64(3), int64(1)},
+				{"cabbage", "vegetable", int64(9), int64(2), int64(2)},
+				{"lettuce", "vegetable", int64(10), int64(4), int64(3)},
+				{"kale", "vegetable", int64(23), int64(1), int64(4)},
 			},
 		},
 		{
@@ -2298,24 +2299,24 @@ INNER JOIN unnest(['lettuce']) in_stock_items ON in_stock_items = item;`,
 				{
 					[]interface{}{
 						[]map[string]interface{}{
-							map[string]interface{}{
+							{
 								"": float64(1),
 							},
-							map[string]interface{}{
+							{
 								"": float64(2),
 							},
-							map[string]interface{}{
+							{
 								"": float64(3),
 							},
 						},
 						[]map[string]interface{}{
-							map[string]interface{}{
+							{
 								"": float64(4),
 							},
-							map[string]interface{}{
+							{
 								"": float64(5),
 							},
-							map[string]interface{}{
+							{
 								"": float64(6),
 							},
 						},
@@ -2330,7 +2331,7 @@ INNER JOIN unnest(['lettuce']) in_stock_items ON in_stock_items = item;`,
 				{
 					[]interface{}{
 						[]map[string]interface{}{
-							map[string]interface{}{
+							{
 								"": []interface{}{
 									float64(1),
 									float64(2),
@@ -2339,7 +2340,7 @@ INNER JOIN unnest(['lettuce']) in_stock_items ON in_stock_items = item;`,
 							},
 						},
 						[]map[string]interface{}{
-							map[string]interface{}{
+							{
 								"": []interface{}{
 									float64(4),
 									float64(5),
@@ -3074,104 +3075,104 @@ SELECT characters, CHARACTER_LENGTH(characters) FROM example`,
 			expectedRows: [][]interface{}{{"AÿȁЀ", "a例", nil, nil}},
 		},
 		// TODO: currently collate function is unsupported.
-		//{
+		// {
 		//	name: "collate",
 		//	query: `
-		//WITH Words AS (
+		// WITH Words AS (
 		//  SELECT COLLATE('a', 'und:ci') AS char1, COLLATE('Z', 'und:ci') AS char2
-		//) SELECT (Words.char1 < Words.char2) FROM Words`,
+		// ) SELECT (Words.char1 < Words.char2) FROM Words`,
 		//	expectedRows: [][]interface{}{{true}},
-		//},
+		// },
 		{
 			name:         "concat",
 			query:        `SELECT CONCAT('T.P.', ' ', 'Bar'), CONCAT('Summer', ' ', 1923), CONCAT("abc"), CONCAT(1), CONCAT('A', NULL, 'C'), CONCAT(NULL)`,
 			expectedRows: [][]interface{}{{"T.P. Bar", "Summer 1923", "abc", "1", nil, nil}},
 		},
 		// TODO: currently unsupported CONTAINS_SUBSTR function because ZetaSQL library doesn't support it.
-		//{
+		// {
 		//	name:         "contains_substr true",
 		//	query:        `SELECT CONTAINS_SUBSTR('the blue house', 'Blue house')`,
 		//	expectedRows: [][]interface{}{{true}},
-		//},
-		//{
+		// },
+		// {
 		//	name:         "contains_substr false",
 		//	query:        `SELECT CONTAINS_SUBSTR('the red house', 'blue')`,
 		//	expectedRows: [][]interface{}{{false}},
-		//},
-		//{
+		// },
+		// {
 		//	name:         "contains_substr normalize",
 		//	query:        `SELECT '\u2168 day' AS a, 'IX' AS b, CONTAINS_SUBSTR('\u2168', 'IX')`,
 		//	expectedRows: [][]interface{}{{"Ⅸ day", "IX", true}},
-		//},
-		//{
+		// },
+		// {
 		//	name:         "contains_substr struct_field",
 		//	query:        `SELECT CONTAINS_SUBSTR((23, 35, 41), '35')`,
 		//	expectedRows: [][]interface{}{{true}},
-		//},
-		//{
+		// },
+		// {
 		//	name:         "contains_substr recursive",
 		//	query:        `SELECT CONTAINS_SUBSTR(('abc', ['def', 'ghi', 'jkl'], 'mno'), 'jk')`,
 		//	expectedRows: [][]interface{}{{true}},
-		//},
-		//{
+		// },
+		// {
 		//	name:         "contains_substr struct with null",
 		//	query:        `SELECT CONTAINS_SUBSTR((23, NULL, 41), '41')`,
 		//	expectedRows: [][]interface{}{{true}},
-		//},
-		//{
+		// },
+		// {
 		//	name:         "contains_substr struct with null2",
 		//	query:        `SELECT CONTAINS_SUBSTR((23, NULL, 41), '35')`,
 		//	expectedRows: [][]interface{}{{nil}},
-		//},
-		//{
+		// },
+		// {
 		//	name:        "contains_substr nil",
 		//	query:       `SELECT CONTAINS_SUBSTR('hello', NULL)`,
 		//	expectedErr: true,
-		//},
-		//{
+		// },
+		// {
 		//	name: "contains_substr for table all rows",
 		//	query: `
-		//WITH Recipes AS (
+		// WITH Recipes AS (
 		//  SELECT 'Blueberry pancakes' as Breakfast, 'Egg salad sandwich' as Lunch, 'Potato dumplings' as Dinner UNION ALL
 		//  SELECT 'Potato pancakes', 'Toasted cheese sandwich', 'Beef stroganoff' UNION ALL
 		//  SELECT 'Ham scramble', 'Steak avocado salad', 'Tomato pasta' UNION ALL
 		//  SELECT 'Avocado toast', 'Tomato soup', 'Blueberry salmon' UNION ALL
 		//  SELECT 'Corned beef hash', 'Lentil potato soup', 'Glazed ham'
-		//) SELECT * FROM Recipes WHERE CONTAINS_SUBSTR(Recipes, 'toast')`,
+		// ) SELECT * FROM Recipes WHERE CONTAINS_SUBSTR(Recipes, 'toast')`,
 		//	expectedRows: [][]interface{}{
 		//	{"Potato pancakes", "Toasted cheese sandwich", "Beef stroganoff"},
 		//	{"Avocado toast", "Tomato soup", "Blueberry samon"},
 		//	},
 		//	},
-		//{
+		// {
 		//	name: "contains_substr for table specified rows",
 		//	query: `
-		//WITH Recipes AS (
+		// WITH Recipes AS (
 		//  SELECT 'Blueberry pancakes' as Breakfast, 'Egg salad sandwich' as Lunch, 'Potato dumplings' as Dinner UNION ALL
 		//  SELECT 'Potato pancakes', 'Toasted cheese sandwich', 'Beef stroganoff' UNION ALL
 		//  SELECT 'Ham scramble', 'Steak avocado salad', 'Tomato pasta' UNION ALL
 		//  SELECT 'Avocado toast', 'Tomato soup', 'Blueberry salmon' UNION ALL
 		//  SELECT 'Corned beef hash', 'Lentil potato soup', 'Glazed ham'
-		//) SELECT * FROM Recipes WHERE CONTAINS_SUBSTR((Lunch, Dinner), 'potato')`,
+		// ) SELECT * FROM Recipes WHERE CONTAINS_SUBSTR((Lunch, Dinner), 'potato')`,
 		//	expectedRows: [][]interface{}{
 		//		{"Bluberry pancakes", "Egg salad sandwich", "Potato dumplings"},
 		//		{"Corned beef hash", "Lentil potato soup", "Glazed ham"},
 		//	},
-		//},
-		//{
+		// },
+		// {
 		//	name: "contains_substr for table except",
 		//	query: `
-		//WITH Recipes AS (
+		// WITH Recipes AS (
 		//  SELECT 'Blueberry pancakes' as Breakfast, 'Egg salad sandwich' as Lunch, 'Potato dumplings' as Dinner UNION ALL
 		//  SELECT 'Potato pancakes', 'Toasted cheese sandwich', 'Beef stroganoff' UNION ALL
 		//  SELECT 'Ham scramble', 'Steak avocado salad', 'Tomato pasta' UNION ALL
 		//  SELECT 'Avocado toast', 'Tomato soup', 'Blueberry salmon' UNION ALL
 		//  SELECT 'Corned beef hash', 'Lentil potato soup', 'Glazed ham'
-		//) SELECT * FROM Recipes WHERE CONTAINS_SUBSTR((SELECT AS STRUCT Recipes.* EXCEPT (Lunch, Dinner)), 'potato')`,
+		// ) SELECT * FROM Recipes WHERE CONTAINS_SUBSTR((SELECT AS STRUCT Recipes.* EXCEPT (Lunch, Dinner)), 'potato')`,
 		//	expectedRows: [][]interface{}{
 		//		{"Potato pancakes", "Toasted cheese sandwich", "Beef stroganoff"},
 		//	},
-		//},
+		// },
 		{
 			name:         "ends_with",
 			query:        `SELECT ENDS_WITH('apple', 'e'), ENDS_WITH('banana', 'e'), ENDS_WITH('orange', 'e'), ENDS_WITH('foo', NULL), ENDS_WITH(NULL, 'foo')`,

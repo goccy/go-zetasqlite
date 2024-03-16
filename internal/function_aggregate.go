@@ -950,7 +950,7 @@ func (f *HLL_COUNT_INIT) Step(input Value, precision int64, opt *AggregatorOptio
 		}
 		v = murmur3.Sum64(b)
 	}
-	f.hll.AddRaw(uint64(v))
+	f.hll.AddRaw(v)
 	return nil
 }
 

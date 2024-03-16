@@ -317,8 +317,6 @@ func (s *ColumnSpec) SQLiteSchema() string {
 		typ = "TEXT"
 	case types.INTERVAL:
 		typ = "TEXT"
-	case types.UNKNOWN:
-		fallthrough
 	default:
 		typ = "UNKNOWN"
 	}

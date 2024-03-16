@@ -5,8 +5,9 @@ import (
 	"database/sql"
 	"testing"
 
-	zetasqlite "github.com/goccy/go-zetasqlite"
 	"github.com/google/go-cmp/cmp"
+
+	zetasqlite "github.com/goccy/go-zetasqlite"
 )
 
 func TestDriver(t *testing.T) {
@@ -110,6 +111,9 @@ CREATE TABLE IF NOT EXISTS Singers (
 		if err != nil {
 			t.Fatal(err)
 		}
+		if err := rows.Err(); err != nil {
+			t.Fatal(err)
+		}
 		resultCatalog, err := zetasqlite.ChangedCatalogFromResult(result)
 		if err != nil {
 			t.Fatal(err)
@@ -148,6 +152,9 @@ CREATE TABLE IF NOT EXISTS Singers (
 		}
 		rows, err := db.QueryContext(context.Background(), `DROP FUNCTION ANY_ADD`)
 		if err != nil {
+			t.Fatal(err)
+		}
+		if err := rows.Err(); err != nil {
 			t.Fatal(err)
 		}
 		resultCatalog, err := zetasqlite.ChangedCatalogFromResult(result)
@@ -202,6 +209,9 @@ CREATE TABLE IF NOT EXISTS Singers (
 		if err != nil {
 			t.Fatal(err)
 		}
+		if err := rows.Err(); err != nil {
+			t.Fatal(err)
+		}
 		if rows.Next() {
 			t.Fatal("found unexpected row; expected no rows")
 		}
@@ -234,6 +244,9 @@ CREATE TABLE IF NOT EXISTS Singers (
 
 		rows, err := db.Query("SELECT * FROM Items WHERE ItemId = 456")
 		if err != nil {
+			t.Fatal(err)
+		}
+		if err := rows.Err(); err != nil {
 			t.Fatal(err)
 		}
 		if !rows.Next() {

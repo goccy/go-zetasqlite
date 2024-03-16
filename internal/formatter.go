@@ -104,7 +104,7 @@ const (
 
 func getInputPattern(input string) InputPattern {
 	trimmed := strings.TrimSpace(input)
-	if len(trimmed) == 0 {
+	if trimmed == "" {
 		return InputKeep
 	}
 	if strings.HasPrefix(trimmed, "FROM") {
@@ -375,8 +375,7 @@ func (n *AnalyticFunctionCallNode) FormatSQL(ctx context.Context) (string, error
 		if err != nil {
 			return "", err
 		}
-		args = append(args, startSQL)
-		args = append(args, endSQL)
+		args = append(args, startSQL, endSQL)
 	}
 	args = append(args, getWindowRowIDOptionFuncSQL())
 	input := analyticInputScanFromContext(ctx)
@@ -733,7 +732,7 @@ func (n *FilterScanNode) FormatSQL(ctx context.Context) (string, error) {
 			return fmt.Sprintf("%s HAVING %s", input, filter), nil
 		}
 	}
-	currentQuery := string(removeExpressions.ReplaceAllString(input, ""))
+	currentQuery := removeExpressions.ReplaceAllString(input, "")
 
 	// Qualify the statement if the input is not wrapped in parens
 	queryWrappedInParens := currentQuery == ""
@@ -907,7 +906,7 @@ func (n *SetOperationScanNode) FormatSQL(ctx context.Context) (string, error) {
 	case ast.SetOperationTypeExceptDistinct:
 		opType = "EXCEPT"
 	default:
-		opType = "UNKONWN"
+		opType = "UNKNOWN"
 	}
 	var queries []string
 	for _, item := range n.node.InputItemList() {

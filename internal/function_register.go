@@ -386,10 +386,10 @@ var (
 	aggregateFuncMap   = map[string][]*NameAndFunc{}
 	windowFuncMap      = map[string][]*NameAndFunc{}
 	currentTimeFuncMap = map[string]struct{}{
-		"current_date":      struct{}{},
-		"current_datetime":  struct{}{},
-		"current_time":      struct{}{},
-		"current_timestamp": struct{}{},
+		"current_date":      {},
+		"current_datetime":  {},
+		"current_time":      {},
+		"current_timestamp": {},
 	}
 )
 
@@ -400,22 +400,13 @@ func RegisterFunctions(conn *sqlite3.SQLiteConn) error {
 	var onceErr error
 	registerFuncOnce.Do(func() {
 		for _, info := range normalFuncs {
-			if err := setupNormalFuncMap(info); err != nil {
-				onceErr = err
-				return
-			}
+			setupNormalFuncMap(info)
 		}
 		for _, info := range aggregateFuncs {
-			if err := setupAggregateFuncMap(info); err != nil {
-				onceErr = err
-				return
-			}
+			setupAggregateFuncMap(info)
 		}
 		for _, info := range windowFuncs {
-			if err := setupWindowFuncMap(info); err != nil {
-				onceErr = err
-				return
-			}
+			setupWindowFuncMap(info)
 		}
 	})
 	if onceErr != nil {
@@ -504,7 +495,7 @@ func RegisterFunctions(conn *sqlite3.SQLiteConn) error {
 	return nil
 }
 
-func setupNormalFuncMap(info *FuncInfo) error {
+func setupNormalFuncMap(info *FuncInfo) {
 	normalFuncMap[info.Name] = append(normalFuncMap[info.Name], &NameAndFunc{
 		Name: fmt.Sprintf("zetasqlite_%s", info.Name),
 		Func: func(args ...interface{}) (interface{}, error) {
@@ -535,21 +526,18 @@ func setupNormalFuncMap(info *FuncInfo) error {
 			return EncodeValue(ret)
 		},
 	})
-	return nil
 }
 
-func setupAggregateFuncMap(info *AggregateFuncInfo) error {
+func setupAggregateFuncMap(info *AggregateFuncInfo) {
 	aggregateFuncMap[info.Name] = append(aggregateFuncMap[info.Name], &NameAndFunc{
 		Name: fmt.Sprintf("zetasqlite_%s", info.Name),
 		Func: info.BindFunc(),
 	})
-	return nil
 }
 
-func setupWindowFuncMap(info *WindowFuncInfo) error {
+func setupWindowFuncMap(info *WindowFuncInfo) {
 	windowFuncMap[info.Name] = append(windowFuncMap[info.Name], &NameAndFunc{
 		Name: fmt.Sprintf("zetasqlite_window_%s", info.Name),
 		Func: info.BindFunc(),
 	})
-	return nil
 }
