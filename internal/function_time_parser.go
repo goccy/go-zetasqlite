@@ -1104,7 +1104,7 @@ func parseTimeFormat(formatStr, targetStr string, typ TimeFormatType) (*time.Tim
 		targetIdx int
 		formatIdx int
 	)
-	epoch := time.Unix(0, 0)
+	epoch := time.Unix(0, 0).UTC()
 	var ret = &epoch
 
 	var tokenToParseIndices = map[rune][2]int{}
