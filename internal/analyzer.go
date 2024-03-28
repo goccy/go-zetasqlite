@@ -88,6 +88,9 @@ func newAnalyzerOptions() *zetasql.AnalyzerOptions {
 		ast.CreateViewStmt,
 		ast.DropFunctionStmt,
 	})
+	// Enable QUALIFY without WHERE
+	//https://github.com/google/zetasql/issues/124
+	langOpt.EnableReservableKeyword("QUALIFY", true)
 	opt := zetasql.NewAnalyzerOptions()
 	opt.SetAllowUndeclaredParameters(true)
 	opt.SetLanguage(langOpt)
