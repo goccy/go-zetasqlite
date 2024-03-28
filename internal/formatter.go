@@ -660,6 +660,12 @@ func (n *ArrayScanNode) FormatSQL(ctx context.Context) (string, error) {
 		return "", err
 	}
 	colName := uniqueColumnName(ctx, n.node.ElementColumn())
+	columns := []string{fmt.Sprintf("json_each.value AS `%s`", colName)}
+
+	if offsetColumn := n.node.ArrayOffsetColumn(); offsetColumn != nil {
+		offsetColName := uniqueColumnName(ctx, offsetColumn.Column())
+		columns = append(columns, fmt.Sprintf("json_each.key AS `%s`", offsetColName))
+	}
 	if n.node.InputScan() != nil {
 		input, err := newNode(n.node.InputScan()).FormatSQL(ctx)
 		if err != nil {
@@ -695,15 +701,15 @@ func (n *ArrayScanNode) FormatSQL(ctx context.Context) (string, error) {
 		}
 
 		return fmt.Sprintf(
-			"SELECT *, json_each.value AS `%s` %s %s",
-			colName,
+			"SELECT *, %s %s %s",
+			strings.Join(columns, ","),
 			formattedInput,
 			arrayJoinExpr,
 		), nil
 	}
 	return fmt.Sprintf(
-		"SELECT json_each.value AS `%s` FROM json_each(zetasqlite_decode_array(%s))",
-		colName,
+		"SELECT %s FROM json_each(zetasqlite_decode_array(%s))",
+		strings.Join(columns, ","),
 		arrayExpr,
 	), nil
 }
