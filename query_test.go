@@ -4171,6 +4171,16 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			expectedErr: "error parsing [0] with format [%d]: could not parse day number: part [0] is less than minimum value [1]",
 		},
 		{
+			name:        "parse date exceeding day of year maximum",
+			query:       `SELECT PARSE_DATE("%j", "367")`,
+			expectedErr: "error parsing [367] with format [%j]: could not parse day of year number: part [367] is greater than maximum value [366]",
+		},
+		{
+			name:        "parse date beneath day of year minimum",
+			query:       `SELECT PARSE_DATE("%j", "0")`,
+			expectedErr: "error parsing [0] with format [%j]: could not parse day of year number: part [0] is less than minimum value [1]",
+		},
+		{
 			name:         "parse date with single-digit month %m",
 			query:        `SELECT PARSE_DATE("%m", "03"), PARSE_DATE("%m", "3"), PARSE_DATE("%m%Y", "032024")`,
 			expectedRows: [][]interface{}{{"1970-03-01", "1970-03-01", "2024-03-01"}},

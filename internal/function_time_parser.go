@@ -746,7 +746,7 @@ func hour12Formatter(t *time.Time) ([]rune, error) {
 }
 
 func dayOfYearParser(text []rune, t *time.Time) (int, error) {
-	progress, d, err := parseDigitRespectingOptionalPlaces(text, 0, 366)
+	progress, d, err := parseDigitRespectingOptionalPlaces(text, 1, 366)
 	if err != nil {
 		return 0, fmt.Errorf("could not parse day of year number: %s", err)
 	}
