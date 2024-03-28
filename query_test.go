@@ -3989,6 +3989,13 @@ WITH example AS (
 			},
 		},
 		{
+			name:  "base datetime is epoch julian",
+			query: `SELECT PARSE_DATETIME("%j", "001")`,
+			expectedRows: [][]interface{}{
+				{"1970-01-01T00:00:00"},
+			},
+		},
+		{
 			name:  "base date is epoch julian different day",
 			query: `SELECT PARSE_DATE("%j", "002")`,
 			expectedRows: [][]interface{}{
@@ -4010,6 +4017,13 @@ WITH example AS (
 			},
 		},
 		{
+			name:  "parse datetime with two digit year before 2000 and julian day",
+			query: `SELECT PARSE_DATETIME("%y%j%H%M%S", "95033101010")`,
+			expectedRows: [][]interface{}{
+				{"1995-02-02T10:10:10"},
+			},
+		},
+		{
 			name:  "parse date with two digit year after 2000 and julian day",
 			query: `SELECT PARSE_DATE("%y%j", "22120")`,
 			expectedRows: [][]interface{}{
@@ -4017,10 +4031,24 @@ WITH example AS (
 			},
 		},
 		{
+			name:  "parse datetime with two digit year after 2000 and julian day",
+			query: `SELECT PARSE_DATETIME("%y%j-%H:%M:%S", "22120-10:10:10")`,
+			expectedRows: [][]interface{}{
+				{"2022-04-30T10:10:10"},
+			},
+		},
+		{
 			name:  "parse date with two digit year after 2000 and julian day leap year",
 			query: `SELECT PARSE_DATE("%y%j", "24120")`,
 			expectedRows: [][]interface{}{
 				{"2024-04-29"},
+			},
+		},
+		{
+			name:  "parse datetime with two digit year after 2000 and julian day leap year",
+			query: `SELECT PARSE_DATETIME("%y%j %H:%M", "24120 02:04")`,
+			expectedRows: [][]interface{}{
+				{"2024-04-29T02:04:00"},
 			},
 		},
 		{
