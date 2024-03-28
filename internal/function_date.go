@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -65,6 +66,9 @@ func DATE_ADD(t time.Time, v int64, part string) (Value, error) {
 		return DateValue(addMonth(t, int(v))), nil
 	case "YEAR":
 		return DateValue(addYear(t, int(v))), nil
+	case "QUARTER":
+		return DateValue(addMonth(t, 3)), nil
+
 	}
 	return nil, fmt.Errorf("unexpected part value %s", part)
 }
@@ -83,38 +87,149 @@ func DATE_SUB(t time.Time, v int64, part string) (Value, error) {
 	return nil, fmt.Errorf("unexpected part value %s", part)
 }
 
+var WeekPartToOffset = map[string]int{
+	"WEEK":           0,
+	"WEEK_MONDAY":    1,
+	"WEEK_TUESDAY":   2,
+	"WEEK_WEDNESDAY": 3,
+	"WEEK_THURSDAY":  4,
+	"WEEK_FRIDAY":    5,
+	"WEEK_SATURDAY":  6,
+}
+
 func DATE_DIFF(a, b time.Time, part string) (Value, error) {
+	yearISOA, weekA := a.ISOWeek()
+	yearISOB, weekB := b.ISOWeek()
+
+	if strings.HasPrefix(part, "WEEK") {
+		boundary, ok := WeekPartToOffset[part]
+
+		if !ok {
+			return nil, fmt.Errorf("unsupported week date part: %s", part)
+		}
+
+		isNegative := false
+		start, end := b, a
+		if b.Unix() > a.Unix() {
+			start, end = a, b
+			isNegative = true
+		}
+
+		// Manually calculate the number of days based off Unix seconds
+		// time.Time.Sub returns "Infinite" max duration for the case of 9999-12-31.Sub(0001-01-01)
+		// The maximum time.Duration is ~290 years due to being represented in int64 nanosecond resolution
+		days := (end.Unix() - start.Unix()) / 24 / 60 / 60
+		// Calculate number of complete weeks between start and end
+		fullWeeks := days / 7
+		remainder := days % 7
+
+		counts := make([]int64, 7)
+
+		for _, day := range WeekPartToOffset {
+			counts[day] = fullWeeks
+		}
+
+		startingDay := int64(start.Weekday())
+
+		for remainder > 0 {
+			counts[(startingDay+remainder)%7]++
+			remainder--
+		}
+
+		result := counts[boundary]
+
+		if isNegative {
+			result = -result
+		}
+
+		return IntValue(result), nil
+	}
+
+	diff := a.Sub(b)
+
 	switch part {
 	case "DAY":
-		return IntValue(int64(a.Sub(b).Hours() / 24)), nil
-	case "WEEK":
-		_, aWeek := a.ISOWeek()
-		_, bWeek := b.ISOWeek()
-		return IntValue(aWeek - bWeek), nil
+		diffDay := diff / (24 * time.Hour)
+		mod := diff % (24 * time.Hour)
+		if mod > 0 {
+			diffDay++
+		} else if mod < 0 {
+			diffDay--
+		}
+		return IntValue(diffDay), nil
+	case "ISOWEEK":
+		return IntValue((a.Year()-b.Year())*48 + weekA - weekB), nil
 	case "MONTH":
 		return IntValue((a.Year()*12 + int(a.Month())) - (b.Year()*12 + int(b.Month()))), nil
 	case "YEAR":
 		return IntValue(a.Year() - b.Year()), nil
+	case "ISOYEAR":
+		return IntValue(yearISOA - yearISOB), nil
 	}
 	return nil, fmt.Errorf("unexpected part value %s", part)
 }
 
+var quarterStartMonths = []time.Month{time.January, time.April, time.July, time.October}
+
 func DATE_TRUNC(t time.Time, part string) (Value, error) {
+	yearISO, weekISO := t.ISOWeek()
+
+	if strings.HasPrefix(part, "WEEK") {
+		startOfWeek, ok := WeekPartToOffset[part]
+		if !ok {
+			return nil, fmt.Errorf("unknown week part: %s", part)
+		}
+
+		for int(t.Weekday()) != startOfWeek {
+			t = t.AddDate(0, 0, -1)
+		}
+
+		return DateValue(t), nil
+	}
+
 	switch part {
 	case "DAY":
 		return DateValue(time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())), nil
 	case "ISOWEEK":
-		return nil, fmt.Errorf("currently unsupported DATE_TRUNC with ISO_WEEK")
-	case "WEEK":
-		return DateValue(t.AddDate(0, 0, -int(t.Weekday()))), nil
+		return DateValue(time.Date(
+			yearISO,
+			0,
+			7*weekISO,
+			0,
+			0,
+			0,
+			0,
+			t.Location(),
+		)), nil
 	case "MONTH":
 		return DateValue(time.Time{}.AddDate(t.Year()-1, int(t.Month())-1, 0)), nil
 	case "QUARTER":
-		return nil, fmt.Errorf("currently unsupported DATE_TRUNC with QUARTER")
+		return DateValue( // 1, 4, 7, 10
+			time.Date(
+				t.Year(),
+				quarterStartMonths[int64((t.Month()-1)/3)],
+				1,
+				0,
+				0,
+				0,
+				0,
+				t.Location(),
+			),
+		), nil
 	case "YEAR":
 		return DateValue(time.Time{}.AddDate(t.Year()-1, 0, 0)), nil
 	case "ISOYEAR":
-		return nil, fmt.Errorf("currently unsupported DATE_TRUNC with ISO_YEAR")
+		firstDay := time.Date(
+			yearISO,
+			1,
+			1,
+			0,
+			0,
+			0,
+			0,
+			t.Location(),
+		)
+		return DateValue(firstDay.AddDate(0, 0, 1-int(firstDay.Weekday()))), nil
 	}
 	return nil, fmt.Errorf("unexpected part value %s", part)
 }
