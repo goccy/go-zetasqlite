@@ -4090,6 +4090,51 @@ WITH example AS (
 			expectedRows: [][]interface{}{{"2023-02-28"}},
 		},
 		{
+			name: "PIVOT",
+			query: `
+WITH produce AS (
+	SELECT 'Kale' AS product, 51 AS sales, 'Q1' AS quarter, 2020 AS year UNION ALL
+	SELECT 'Kale', 23, 'Q2', 2020 UNION ALL
+	SELECT 'Kale', 45, 'Q3', 2020 UNION ALL
+	SELECT 'Kale', 3, 'Q4', 2020 UNION ALL
+	SELECT 'Kale', 70, 'Q1', 2021 UNION ALL
+	SELECT 'Kale', 85, 'Q2', 2021 UNION ALL
+	SELECT 'Apple', 77, 'Q1', 2020 UNION ALL
+	SELECT 'Apple', 0, 'Q2', 2020 UNION ALL
+	SELECT 'Apple', 1, 'Q1', 2021
+)
+SELECT * FROM
+  Produce
+  PIVOT(SUM(sales) FOR quarter IN ('Q1', 'Q2', 'Q3', 'Q4'))
+`,
+			expectedRows: [][]interface{}{
+				{"Apple", int64(2020), int64(77), int64(0), nil, nil},
+				{"Apple", int64(2021), int64(1), nil, nil, nil},
+				{"Kale", int64(2020), int64(51), int64(23), int64(45), int64(3)},
+				{"Kale", int64(2021), int64(70), int64(85), nil, nil},
+			},
+		},
+		{
+			name: "UNPIVOT",
+			query: `
+WITH Produce AS (
+  SELECT 'Kale' as product, 51 as Q1, 23 as Q2, 45 as Q3, 3 as Q4 UNION ALL
+  SELECT 'Apple', 77, 0, 25, 2)
+SELECT * FROM Produce
+UNPIVOT(sales FOR quarter IN (Q1, Q2, Q3, Q4))
+`,
+			expectedRows: [][]interface{}{
+				{"Kale", int64(51), "Q1"},
+				{"Kale", int64(23), "Q2"},
+				{"Kale", int64(45), "Q3"},
+				{"Kale", int64(3), "Q4"},
+				{"Apple", int64(77), "Q1"},
+				{"Apple", int64(0), "Q2"},
+				{"Apple", int64(25), "Q3"},
+				{"Apple", int64(2), "Q4"},
+			},
+		},
+		{
 			name:         "date_sub",
 			query:        `SELECT DATE_SUB('2023-03-31', INTERVAL 1 MONTH)`,
 			expectedRows: [][]interface{}{{"2023-02-28"}},

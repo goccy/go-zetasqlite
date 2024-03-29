@@ -69,6 +69,8 @@ func newAnalyzerOptions() *zetasql.AnalyzerOptions {
 		zetasql.FeatureV13ExtendedGeographyParsers,
 		zetasql.FeatureTemplateFunctions,
 		zetasql.FeatureV11WithOnSubquery,
+		zetasql.FeatureV13Pivot,
+		zetasql.FeatureV13Unpivot,
 	})
 	langOpt.SetSupportedStatementKinds([]ast.Kind{
 		ast.BeginStmt,
