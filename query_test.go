@@ -1807,7 +1807,6 @@ FROM UNNEST(['c', NULL, 'b', 'a']) AS x`,
 				{"a", nil, "a", "c"},
 			},
 		},
-
 		{
 			name: "window range",
 			query: `
@@ -3035,6 +3034,15 @@ FROM Produce WHERE Produce.category = 'vegetable' QUALIFY rank <= 3`,
 				{"kale", int64(1)},
 				{"lettuce", int64(2)},
 				{"cabbage", int64(3)},
+			},
+		},
+		// Regression test goccy/go-zetasqlite#123
+		{
+			name: "qualify without group by / where / having",
+			query: `WITH toks AS (SELECT 1 AS x UNION ALL SELECT 2 AS x)
+			SELECT x FROM toks QUALIFY MAX(x) OVER (PARTITION BY x) > 1`,
+			expectedRows: [][]interface{}{
+				{int64(2)},
 			},
 		},
 		// Regression test goccy/go-zetasqlite#150

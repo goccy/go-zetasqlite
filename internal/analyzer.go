@@ -20,15 +20,19 @@ type Analyzer struct {
 	opt             *zetasql.AnalyzerOptions
 }
 
-func NewAnalyzer(catalog *Catalog) *Analyzer {
+func NewAnalyzer(catalog *Catalog) (*Analyzer, error) {
+	opt, err := newAnalyzerOptions()
+	if err != nil {
+		return nil, err
+	}
 	return &Analyzer{
 		catalog:  catalog,
-		opt:      newAnalyzerOptions(),
+		opt:      opt,
 		namePath: &NamePath{},
-	}
+	}, nil
 }
 
-func newAnalyzerOptions() *zetasql.AnalyzerOptions {
+func newAnalyzerOptions() (*zetasql.AnalyzerOptions, error) {
 	langOpt := zetasql.NewLanguageOptions()
 	langOpt.SetNameResolutionMode(zetasql.NameResolutionDefault)
 	langOpt.SetProductMode(types.ProductInternal)
@@ -90,11 +94,17 @@ func newAnalyzerOptions() *zetasql.AnalyzerOptions {
 		ast.CreateViewStmt,
 		ast.DropFunctionStmt,
 	})
+	// Enable QUALIFY without WHERE
+	//https://github.com/google/zetasql/issues/124
+	err := langOpt.EnableReservableKeyword("QUALIFY", true)
+	if err != nil {
+		return nil, err
+	}
 	opt := zetasql.NewAnalyzerOptions()
 	opt.SetAllowUndeclaredParameters(true)
 	opt.SetLanguage(langOpt)
 	opt.SetParseLocationRecordType(zetasql.ParseLocationRecordFullNodeScope)
-	return opt
+	return opt, nil
 }
 
 func (a *Analyzer) SetAutoIndexMode(enabled bool) {
