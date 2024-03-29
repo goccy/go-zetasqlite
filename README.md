@@ -159,7 +159,7 @@ A list of ZetaSQL ( Google Standard SQL ) specifications and features supported 
   - [x] UNNEST and STRUCTs
   - [ ] Explicit and implicit UNNEST
   - [ ] UNNEST and NULLs
-  - [ ] UNNEST and WITH OFFSET
+  - [X] UNNEST and WITH OFFSET
 - [x] PIVOT operator
 - [x] UNPIVOT operator
 - [ ] TABLESAMPLE operator
