@@ -40,6 +40,27 @@ func TestQuery(t *testing.T) {
 		expectedRows [][]interface{}
 		expectedErr  string
 	}{
+		// Regression test for https://github.com/goccy/go-zetasqlite/issues/191
+		{
+			name: "distinct union",
+			query: `WITH toks AS (SELECT true AS x, 1 AS y)
+					SELECT DISTINCT x, x as y FROM toks`,
+			expectedRows: [][]interface{}{{true, true}},
+		},
+		{
+			name: "with scan union all",
+			query: `(WITH toks AS (SELECT 1 AS x) SELECT x FROM toks)
+UNION ALL
+(WITH toks2 AS (SELECT 2 AS x) SELECT x FROM toks2)`,
+			expectedRows: [][]interface{}{{int64(1)}, {int64(2)}},
+		},
+		{
+			name: "having with union all",
+			query: `(WITH toks AS (SELECT 1 AS x) SELECT COUNT(x) AS total_rows FROM toks WHERE x > 0 HAVING total_rows >= 0)
+UNION ALL
+(WITH toks2 AS (SELECT 2 AS x) SELECT COUNT(x) AS total_rows FROM toks2 WHERE x > 0 HAVING total_rows >= 0)`,
+			expectedRows: [][]interface{}{{int64(1)}, {int64(1)}},
+		},
 		// priority 2 operator
 		{
 			name:         "unary plus operator",
