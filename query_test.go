@@ -3982,6 +3982,76 @@ WITH example AS (
 			},
 		},
 		{
+			name:  "base date is epoch julian",
+			query: `SELECT PARSE_DATE("%j", "001")`,
+			expectedRows: [][]interface{}{
+				{"1970-01-01"},
+			},
+		},
+		{
+			name:  "base datetime is epoch julian",
+			query: `SELECT PARSE_DATETIME("%j", "001")`,
+			expectedRows: [][]interface{}{
+				{"1970-01-01T00:00:00"},
+			},
+		},
+		{
+			name:  "base date is epoch julian different day",
+			query: `SELECT PARSE_DATE("%j", "002")`,
+			expectedRows: [][]interface{}{
+				{"1970-01-02"},
+			},
+		},
+		{
+			name:  "parse date with two digit year and julian day",
+			query: `SELECT PARSE_DATE("%y%j", "70002")`,
+			expectedRows: [][]interface{}{
+				{"1970-01-02"},
+			},
+		},
+		{
+			name:  "parse date with two digit year before 2000 and julian day",
+			query: `SELECT PARSE_DATE("%y%j", "95033")`,
+			expectedRows: [][]interface{}{
+				{"1995-02-02"},
+			},
+		},
+		{
+			name:  "parse datetime with two digit year before 2000 and julian day",
+			query: `SELECT PARSE_DATETIME("%y%j%H%M%S", "95033101010")`,
+			expectedRows: [][]interface{}{
+				{"1995-02-02T10:10:10"},
+			},
+		},
+		{
+			name:  "parse date with two digit year after 2000 and julian day",
+			query: `SELECT PARSE_DATE("%y%j", "22120")`,
+			expectedRows: [][]interface{}{
+				{"2022-04-30"},
+			},
+		},
+		{
+			name:  "parse datetime with two digit year after 2000 and julian day",
+			query: `SELECT PARSE_DATETIME("%y%j-%H:%M:%S", "22120-10:10:10")`,
+			expectedRows: [][]interface{}{
+				{"2022-04-30T10:10:10"},
+			},
+		},
+		{
+			name:  "parse date with two digit year after 2000 and julian day leap year",
+			query: `SELECT PARSE_DATE("%y%j", "24120")`,
+			expectedRows: [][]interface{}{
+				{"2024-04-29"},
+			},
+		},
+		{
+			name:  "parse datetime with two digit year after 2000 and julian day leap year",
+			query: `SELECT PARSE_DATETIME("%y%j %H:%M", "24120 02:04")`,
+			expectedRows: [][]interface{}{
+				{"2024-04-29T02:04:00"},
+			},
+		},
+		{
 			name: "extract date",
 			query: `
 SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH FROM date),
@@ -4099,6 +4169,16 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			name:        "parse date beneath day minimum",
 			query:       `SELECT PARSE_DATE("%d", "0")`,
 			expectedErr: "error parsing [0] with format [%d]: could not parse day number: part [0] is less than minimum value [1]",
+		},
+		{
+			name:        "parse date exceeding day of year maximum",
+			query:       `SELECT PARSE_DATE("%j", "367")`,
+			expectedErr: "error parsing [367] with format [%j]: could not parse day of year number: part [367] is greater than maximum value [366]",
+		},
+		{
+			name:        "parse date beneath day of year minimum",
+			query:       `SELECT PARSE_DATE("%j", "0")`,
+			expectedErr: "error parsing [0] with format [%j]: could not parse day of year number: part [0] is less than minimum value [1]",
 		},
 		{
 			name:         "parse date with single-digit month %m",
