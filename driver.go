@@ -134,7 +134,11 @@ func (s *ZetaSQLiteConn) CheckNamedValue(value *driver.NamedValue) error {
 }
 
 func (c *ZetaSQLiteConn) Prepare(query string) (driver.Stmt, error) {
-	ctx := context.Background()
+	stmt, err := c.PrepareContext(context.Background(), query)
+	return stmt, err
+}
+
+func (c *ZetaSQLiteConn) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
 	conn := internal.NewConn(c.conn, c.tx)
 	actionFuncs, err := c.analyzer.Analyze(ctx, conn, query, nil)
 	if err != nil {
