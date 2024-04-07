@@ -332,6 +332,8 @@ var windowFuncs = []*WindowFuncInfo{
 	{Name: "count", BindFunc: bindWindowCount},
 	{Name: "count_star", BindFunc: bindWindowCountStar},
 	{Name: "countif", BindFunc: bindWindowCountIf},
+	{Name: "logical_and", BindFunc: bindWindowLogicalAnd},
+	{Name: "logical_or", BindFunc: bindWindowLogicalOr},
 	{Name: "max", BindFunc: bindWindowMax},
 	{Name: "min", BindFunc: bindWindowMin},
 	{Name: "string_agg", BindFunc: bindWindowStringAgg},

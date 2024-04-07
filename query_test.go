@@ -832,6 +832,59 @@ SELECT LOGICAL_AND(x) AS logical_or FROM toks`,
 SELECT LOGICAL_OR(x) AS logical_or FROM toks`,
 			expectedRows: [][]interface{}{{false}},
 		},
+		{name: "logical_and default",
+			query: `SELECT LOGICAL_AND(a) OVER (ORDER BY b), a, b
+FROM (
+  SELECT CAST(a AS BOOL) AS a, b FROM UNNEST([
+      STRUCT(False AS a, 1 AS b),
+      STRUCT(False AS a, 2 AS b),
+      STRUCT(false AS a, 3 AS b),
+      STRUCT(False AS a, 4 AS b)
+  ])
+);`,
+			expectedRows: [][]interface{}{
+				{false, false, int64(1)},
+				{false, false, int64(2)},
+				{false, false, int64(3)},
+				{false, false, int64(4)},
+			}},
+		{name: "logical_and no rows",
+			query:        `SELECT LOGICAL_AND(a) OVER (ORDER BY a) FROM ( SELECT CAST(a AS BOOL) AS a FROM UNNEST([]) a );`,
+			expectedRows: make([][]interface{}, 0),
+		},
+		{
+			name: "logical_and with window",
+			query: `WITH toks AS ( SELECT true AS x UNION ALL SELECT false UNION ALL SELECT true)
+							SELECT LOGICAL_AND(x) OVER (ORDER BY x) FROM toks`,
+			expectedRows: [][]interface{}{{false}, {false}, {false}},
+		},
+
+		{name: "logical_or window default",
+			query: `SELECT LOGICAL_OR(a) OVER (ORDER BY b), a, b
+FROM (
+  SELECT CAST(a AS BOOL) AS a, b FROM UNNEST([
+      STRUCT(False AS a, 1 AS b),
+      STRUCT(False AS a, 2 AS b),
+      STRUCT(True AS a, 3 AS b),
+      STRUCT(False AS a, 4 AS b)
+  ])
+);`,
+			expectedRows: [][]interface{}{
+				{false, false, int64(1)},
+				{false, false, int64(2)},
+				{true, true, int64(3)},
+				{true, false, int64(4)},
+			}},
+		{name: "logical_or window no rows",
+			query:        `SELECT LOGICAL_OR(a) OVER (ORDER BY a) FROM ( SELECT CAST(a AS BOOL) AS a FROM UNNEST([]) a );`,
+			expectedRows: make([][]interface{}, 0),
+		},
+		{
+			name: "logical_or with window",
+			query: `WITH toks AS ( SELECT true AS x UNION ALL SELECT false UNION ALL SELECT true)
+							SELECT LOGICAL_OR(x) OVER (ORDER BY x) FROM toks`,
+			expectedRows: [][]interface{}{{false}, {true}, {true}},
+		},
 		{
 			name:         "max from int group",
 			query:        `SELECT MAX(x) AS max FROM UNNEST([8, 37, 4, 55]) AS x`,

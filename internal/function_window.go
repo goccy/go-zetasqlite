@@ -406,6 +406,52 @@ func (f *WINDOW_LAG) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
 	return agg.Values[len(agg.Values)-f.offset-1], nil
 }
 
+type WINDOW_LOGICAL_AND struct {
+}
+
+func (f *WINDOW_LOGICAL_AND) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
+	values, err := agg.RelevantValues()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, cond := range values {
+		b, err := cond.ToBool()
+		if err != nil {
+			return nil, err
+		}
+
+		if !b {
+			return BoolValue(false), nil
+		}
+	}
+
+	return BoolValue(true), nil
+}
+
+type WINDOW_LOGICAL_OR struct {
+}
+
+func (f *WINDOW_LOGICAL_OR) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
+	values, err := agg.RelevantValues()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, cond := range values {
+		b, err := cond.ToBool()
+		if err != nil {
+			return nil, err
+		}
+
+		if b {
+			return BoolValue(true), nil
+		}
+	}
+
+	return BoolValue(false), nil
+}
+
 type WINDOW_PERCENTILE_CONT struct {
 	percentile Value
 }

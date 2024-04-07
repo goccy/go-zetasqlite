@@ -3707,6 +3707,18 @@ func bindWindowCountIf() func() *WindowAggregator {
 	}
 }
 
+func bindWindowLogicalAnd() func() *WindowAggregator {
+	return func() *WindowAggregator {
+		return newSingleItemWindowAggregator(&WINDOW_LOGICAL_AND{})
+	}
+}
+
+func bindWindowLogicalOr() func() *WindowAggregator {
+	return func() *WindowAggregator {
+		return newSingleItemWindowAggregator(&WINDOW_LOGICAL_OR{})
+	}
+}
+
 func bindWindowMax() func() *WindowAggregator {
 	return func() *WindowAggregator {
 		return newSingleItemWindowAggregator(&WINDOW_MAX{})
