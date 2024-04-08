@@ -69,6 +69,8 @@ func newAnalyzerOptions() *zetasql.AnalyzerOptions {
 		zetasql.FeatureV13ExtendedGeographyParsers,
 		zetasql.FeatureTemplateFunctions,
 		zetasql.FeatureV11WithOnSubquery,
+		zetasql.FeatureV13Pivot,
+		zetasql.FeatureV13Unpivot,
 	})
 	langOpt.SetSupportedStatementKinds([]ast.Kind{
 		ast.BeginStmt,
@@ -283,7 +285,7 @@ func (a *Analyzer) newStmtAction(ctx context.Context, query string, args []drive
 	return nil, fmt.Errorf("unsupported stmt %s", node.DebugString())
 }
 
-func (a *Analyzer) newCreateTableStmtAction(ctx context.Context, query string, args []driver.NamedValue, node *ast.CreateTableStmtNode) (*CreateTableStmtAction, error) {
+func (a *Analyzer) newCreateTableStmtAction(_ context.Context, query string, args []driver.NamedValue, node *ast.CreateTableStmtNode) (*CreateTableStmtAction, error) {
 	spec := newTableSpec(a.namePath, node)
 	params := getParamsFromNode(node)
 	queryArgs, err := getArgsFromParams(args, params)
@@ -319,7 +321,7 @@ func (a *Analyzer) newCreateTableAsSelectStmtAction(ctx context.Context, _ strin
 	}, nil
 }
 
-func (a *Analyzer) newCreateFunctionStmtAction(ctx context.Context, query string, args []driver.NamedValue, node *ast.CreateFunctionStmtNode) (*CreateFunctionStmtAction, error) {
+func (a *Analyzer) newCreateFunctionStmtAction(ctx context.Context, query string, _ []driver.NamedValue, node *ast.CreateFunctionStmtNode) (*CreateFunctionStmtAction, error) {
 	var spec *FunctionSpec
 	if a.resultTypeIsTemplatedType(node.Signature()) {
 		realStmts, err := a.inferTemplatedTypeByRealType(query, node)
@@ -345,7 +347,7 @@ func (a *Analyzer) newCreateFunctionStmtAction(ctx context.Context, query string
 	}, nil
 }
 
-func (a *Analyzer) newCreateViewStmtAction(ctx context.Context, _ string, args []driver.NamedValue, node *ast.CreateViewStmtNode) (*CreateViewStmtAction, error) {
+func (a *Analyzer) newCreateViewStmtAction(ctx context.Context, _ string, _ []driver.NamedValue, node *ast.CreateViewStmtNode) (*CreateViewStmtAction, error) {
 	query, err := newNode(node.Query()).FormatSQL(ctx)
 	if err != nil {
 		return nil, err
@@ -529,12 +531,13 @@ func (a *Analyzer) newCommitStmtAction(ctx context.Context, query string, args [
 	return &CommitStmtAction{}, nil
 }
 
-func (a *Analyzer) newTruncateStmtAction(ctx context.Context, query string, args []driver.NamedValue, node *ast.TruncateStmtNode) (*TruncateStmtAction, error) {
+//nolint:unparam
+func (a *Analyzer) newTruncateStmtAction(_ context.Context, _ string, _ []driver.NamedValue, node *ast.TruncateStmtNode) (*TruncateStmtAction, error) {
 	table := node.TableScan().Table().Name()
 	return &TruncateStmtAction{query: fmt.Sprintf("DELETE FROM `%s`", table)}, nil
 }
 
-func (a *Analyzer) newMergeStmtAction(ctx context.Context, query string, args []driver.NamedValue, node *ast.MergeStmtNode) (*MergeStmtAction, error) {
+func (a *Analyzer) newMergeStmtAction(ctx context.Context, _ string, args []driver.NamedValue, node *ast.MergeStmtNode) (*MergeStmtAction, error) {
 	targetTable, err := newNode(node.TableScan()).FormatSQL(ctx)
 	if err != nil {
 		return nil, err
@@ -577,8 +580,8 @@ func (a *Analyzer) newMergeStmtAction(ctx context.Context, query string, args []
 		sourceColumn = colB.Column()
 		targetColumn = colA.Column()
 	}
-	mergedTableSourceColumnName := fmt.Sprintf("`%s`", string(uniqueColumnName(ctx, sourceColumn)))
-	mergedTableTargetColumnName := fmt.Sprintf("`%s`", string(uniqueColumnName(ctx, targetColumn)))
+	mergedTableSourceColumnName := fmt.Sprintf("`%s`", uniqueColumnName(ctx, sourceColumn))
+	mergedTableTargetColumnName := fmt.Sprintf("`%s`", uniqueColumnName(ctx, targetColumn))
 	mergedTableOutputColumns := []string{
 		mergedTableTargetColumnName,
 		mergedTableSourceColumnName,

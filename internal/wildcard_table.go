@@ -18,7 +18,7 @@ func (c *Catalog) isWildcardTable(path []string) bool {
 		return false
 	}
 	lastPath := path[len(path)-1]
-	if len(lastPath) == 0 {
+	if lastPath == "" {
 		return false
 	}
 	lastChar := lastPath[len(lastPath)-1]

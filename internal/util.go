@@ -9,8 +9,8 @@ import (
 )
 
 var (
-	timeZoneOffsetPartialPattern = regexp.MustCompile(`([-+][0-9]{2})`)
-	timeZoneOffsetPattern        = regexp.MustCompile(`([-+][0-9]{2}):([0-9]{2})`)
+	timeZoneOffsetPartialPattern = regexp.MustCompile(`([-+]\d{2})`)
+	timeZoneOffsetPattern        = regexp.MustCompile(`([-+]\d{2}):(\d{2})`)
 	locationCacheMap             = map[string]*time.Location{}
 	locationCacheMu              sync.RWMutex
 )

@@ -280,7 +280,6 @@ func (f *WINDOW_MIN) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
 					min = value
 				}
 			}
-
 		}
 		return nil
 	}); err != nil {
@@ -651,6 +650,7 @@ func (f *WINDOW_PERCENTILE_CONT) Done(agg *WindowFuncAggregatedStatus) (Value, e
 		return FloatValue(0), nil
 	}
 
+	//nolint:gocritic
 	// if ceilingRowNumber = floorRowNumber = rowNumber, return value at rownNumber which is equivalent of floorValue
 	if ceilingRowNumber == floorRowNumber && ceilingRowNumber == rowNumber {
 		return floorValue, nil
@@ -849,7 +849,7 @@ func (f *WINDOW_DENSE_RANK) Done(agg *WindowFuncAggregatedStatus) (Value, error)
 			return nil
 		}
 		if start != end {
-			return fmt.Errorf("Rank must be same value of start and end")
+			return fmt.Errorf("rank must be same value of start and end")
 		}
 		lastIdx := start
 		var (
@@ -1009,7 +1009,7 @@ func (f *WINDOW_NTILE) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
 			return nil
 		}
 		length := int64(len(values))
-		dupCount := int64(length/f.num) - 1
+		dupCount := length/f.num - 1
 		if length%f.num > 0 {
 			dupCount++
 		}

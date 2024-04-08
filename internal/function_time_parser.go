@@ -109,70 +109,70 @@ func (i *FormatTimeInfo) Available(typ TimeFormatType) bool {
 }
 
 var formatPatternMap = map[rune]*FormatTimeInfo{
-	'A': &FormatTimeInfo{
+	'A': {
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
 		Parse:  weekOfDayParser,
 		Format: weekOfDayFormatter,
 	},
-	'a': &FormatTimeInfo{
+	'a': {
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
 		Parse:  shortWeekOfDayParser,
 		Format: shortWeekOfDayFormatter,
 	},
-	'B': &FormatTimeInfo{
+	'B': {
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
 		Parse:  monthParser,
 		Format: monthFormatter,
 	},
-	'b': &FormatTimeInfo{
+	'b': {
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
 		Parse:  shortMonthParser,
 		Format: shortMonthFormatter,
 	},
-	'C': &FormatTimeInfo{
+	'C': {
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
 		Parse:  centuryParser,
 		Format: centuryFormatter,
 	},
-	'c': &FormatTimeInfo{
+	'c': {
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDatetime, FormatTypeTimestamp,
 		},
 		Parse:  ansicParser,
 		Format: ansicFormatter,
 	},
-	'D': &FormatTimeInfo{
+	'D': {
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
 		Parse:  monthDayYearParser,
 		Format: monthDayYearFormatter,
 	},
-	'd': &FormatTimeInfo{
+	'd': {
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
 		Parse:  dayParser,
 		Format: dayFormatter,
 	},
-	'e': &FormatTimeInfo{
+	'e': {
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
 		Parse:  composeParseFunctions("day of month format", []ParseFunction{leadingSpaceAllowedParser, dayParser}),
 		Format: dayFormatter,
 	},
-	'F': &FormatTimeInfo{
+	'F': {
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
@@ -185,112 +185,112 @@ var formatPatternMap = map[rune]*FormatTimeInfo{
 		}),
 		Format: yearMonthDayFormatter,
 	},
-	'G': &FormatTimeInfo{
+	'G': {
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
 		Parse:  yearISOParser,
 		Format: yearISOFormatter,
 	},
-	'g': &FormatTimeInfo{
+	'g': {
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
 		Parse:  centuryISOParser,
 		Format: centuryISOFormatter,
 	},
-	'H': &FormatTimeInfo{
+	'H': {
 		AvailableTypes: []TimeFormatType{
 			FormatTypeTime, FormatTypeDatetime, FormatTypeTimestamp,
 		},
 		Parse:  hourParser,
 		Format: hourFormatter,
 	},
-	'h': &FormatTimeInfo{
+	'h': {
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
 		Parse:  shortMonthParser,
 		Format: shortMonthFormatter,
 	},
-	'I': &FormatTimeInfo{
+	'I': {
 		AvailableTypes: []TimeFormatType{
 			FormatTypeTime, FormatTypeDatetime, FormatTypeTimestamp,
 		},
 		Parse:  hour12Parser,
 		Format: hour12Formatter,
 	},
-	'J': &FormatTimeInfo{
+	'J': {
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
 		Parse:  yearISOParser,
 		Format: yearISOFormatter,
 	},
-	'j': &FormatTimeInfo{
+	'j': {
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
 		Parse:  dayOfYearParser,
 		Format: dayOfYearFormatter,
 	},
-	'k': &FormatTimeInfo{
+	'k': {
 		AvailableTypes: []TimeFormatType{
 			FormatTypeTime, FormatTypeDatetime, FormatTypeTimestamp,
 		},
 		Parse:  composeParseFunctions("24-hour clock hour", []ParseFunction{leadingSpaceAllowedParser, hourParser}),
 		Format: hour24SpacePrecedingSingleDigitFormatter,
 	},
-	'l': &FormatTimeInfo{
+	'l': {
 		AvailableTypes: []TimeFormatType{
 			FormatTypeTime, FormatTypeDatetime, FormatTypeTimestamp,
 		},
 		Parse:  composeParseFunctions("12-hour clock hour", []ParseFunction{leadingSpaceAllowedParser, hour12Parser}),
 		Format: hour12SpacePrecedingSingleDigitFormatter,
 	},
-	'M': &FormatTimeInfo{
+	'M': {
 		AvailableTypes: []TimeFormatType{
 			FormatTypeTime, FormatTypeDatetime, FormatTypeTimestamp,
 		},
 		Parse:  minuteParser,
 		Format: minuteFormatter,
 	},
-	'm': &FormatTimeInfo{
+	'm': {
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
 		Parse:  monthNumberParser,
 		Format: monthNumberFormatter,
 	},
-	'n': &FormatTimeInfo{
+	'n': {
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTime, FormatTypeTimestamp,
 		},
 		Parse:  newLineParser,
 		Format: newLineFormatter,
 	},
-	'P': &FormatTimeInfo{
+	'P': {
 		AvailableTypes: []TimeFormatType{
 			FormatTypeTime, FormatTypeDatetime, FormatTypeTimestamp,
 		},
 		Parse:  smallAMPMParser,
 		Format: smallAMPMFormatter,
 	},
-	'p': &FormatTimeInfo{
+	'p': {
 		AvailableTypes: []TimeFormatType{
 			FormatTypeTime, FormatTypeDatetime, FormatTypeTimestamp,
 		},
 		Parse:  largeAMPMParser,
 		Format: largeAMPMFormatter,
 	},
-	'Q': &FormatTimeInfo{
+	'Q': {
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
 		Parse:  quarterParser,
 		Format: quarterFormatter,
 	},
-	'R': &FormatTimeInfo{
+	'R': {
 		AvailableTypes: []TimeFormatType{
 			FormatTypeTime, FormatTypeDatetime, FormatTypeTimestamp,
 		},
@@ -301,112 +301,112 @@ var formatPatternMap = map[rune]*FormatTimeInfo{
 		}),
 		Format: hourMinuteFormatter,
 	},
-	'S': &FormatTimeInfo{
+	'S': {
 		AvailableTypes: []TimeFormatType{
 			FormatTypeTime, FormatTypeDatetime, FormatTypeTimestamp,
 		},
 		Parse:  secondParser,
 		Format: secondFormatter,
 	},
-	's': &FormatTimeInfo{
+	's': {
 		AvailableTypes: []TimeFormatType{
 			FormatTypeTime, FormatTypeDatetime, FormatTypeTimestamp,
 		},
 		Parse:  unixtimeSecondsParser,
 		Format: unixtimeSecondsFormatter,
 	},
-	'T': &FormatTimeInfo{
+	'T': {
 		AvailableTypes: []TimeFormatType{
 			FormatTypeTime, FormatTypeDatetime, FormatTypeTimestamp,
 		},
 		Parse:  hourMinuteSecondParser,
 		Format: hourMinuteSecondFormatter,
 	},
-	't': &FormatTimeInfo{
+	't': {
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeTime, FormatTypeDatetime, FormatTypeTimestamp,
 		},
 		Parse:  tabParser,
 		Format: tabFormatter,
 	},
-	'U': &FormatTimeInfo{
+	'U': {
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
 		Parse:  weekOfYearParser,
 		Format: weekOfYearFormatter,
 	},
-	'u': &FormatTimeInfo{
+	'u': {
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
 		Parse:  weekNumberParser,
 		Format: weekNumberFormatter,
 	},
-	'V': &FormatTimeInfo{
+	'V': {
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
 		Parse:  weekOfYearISOParser,
 		Format: weekOfYearISOFormatter,
 	},
-	'W': &FormatTimeInfo{
+	'W': {
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
 		Parse:  weekOfYearParser,
 		Format: weekOfYearFormatter,
 	},
-	'w': &FormatTimeInfo{
+	'w': {
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
 		Parse:  weekNumberZeroBaseParser,
 		Format: weekNumberZeroBaseFormatter,
 	},
-	'X': &FormatTimeInfo{
+	'X': {
 		AvailableTypes: []TimeFormatType{
 			FormatTypeTime, FormatTypeDatetime, FormatTypeTimestamp,
 		},
 		Parse:  hourMinuteSecondParser,
 		Format: hourMinuteSecondFormatter,
 	},
-	'x': &FormatTimeInfo{
+	'x': {
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
 		Parse:  monthDayYearParser,
 		Format: monthDayYearFormatter,
 	},
-	'Y': &FormatTimeInfo{
+	'Y': {
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
 		Parse:  yearParser,
 		Format: yearFormatter,
 	},
-	'y': &FormatTimeInfo{
+	'y': {
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTimestamp,
 		},
 		Parse:  yearWithoutCenturyParser,
 		Format: yearWithoutCenturyFormatter,
 	},
-	'Z': &FormatTimeInfo{
+	'Z': {
 		AvailableTypes: []TimeFormatType{
 			FormatTypeTimestamp,
 		},
 		Parse:  timeZoneParser,
 		Format: timeZoneFormatter,
 	},
-	'z': &FormatTimeInfo{
+	'z': {
 		AvailableTypes: []TimeFormatType{
 			FormatTypeTimestamp,
 		},
 		Parse:  timeZoneOffsetParser,
 		Format: timeZoneOffsetFormatter,
 	},
-	'%': &FormatTimeInfo{
+	'%': {
 		AvailableTypes: []TimeFormatType{
 			FormatTypeDate, FormatTypeDatetime, FormatTypeTime, FormatTypeTimestamp,
 		},
@@ -416,7 +416,7 @@ var formatPatternMap = map[rune]*FormatTimeInfo{
 }
 
 var postProcessorPatternMap = map[rune]*TimeParserPostProcessor{
-	'p': &TimeParserPostProcessor{
+	'p': {
 		ShouldPostProcessResult: ampmShouldPostProcessResult,
 		PostProcessResult:       ampmPostProcessor,
 	},
@@ -497,13 +497,13 @@ func monthParser(text []rune, t *time.Time) (int, error) {
 		dst := strings.ToLower(string(text[:len(month)]))
 		if src == dst {
 			*t = time.Date(
-				int(t.Year()),
+				t.Year(),
 				time.Month(monthIdx+1),
-				int(t.Day()),
-				int(t.Hour()),
-				int(t.Minute()),
-				int(t.Second()),
-				int(t.Nanosecond()),
+				t.Day(),
+				t.Hour(),
+				t.Minute(),
+				t.Second(),
+				t.Nanosecond(),
 				t.Location(),
 			)
 			return len(month), nil
@@ -527,7 +527,7 @@ func shortMonthParser(text []rune, t *time.Time) (int, error) {
 		src := strings.ToLower(string(month))[:shortLen]
 		dst := strings.ToLower(string(text[:shortLen]))
 		if src == dst {
-			*t = t.AddDate(0, int(monthIdx+1)-int(t.Month()), 0)
+			*t = t.AddDate(0, monthIdx+1-int(t.Month()), 0)
 			return shortLen, nil
 		}
 	}
@@ -555,11 +555,11 @@ func centuryParser(text []rune, t *time.Time) (int, error) {
 	*t = time.Date(
 		int(c*100-99),
 		t.Month(),
-		int(t.Day()),
-		int(t.Hour()),
-		int(t.Minute()),
-		int(t.Second()),
-		int(t.Nanosecond()),
+		t.Day(),
+		t.Hour(),
+		t.Minute(),
+		t.Second(),
+		t.Nanosecond(),
 		t.Location(),
 	)
 	return centuryLen, nil
@@ -582,11 +582,11 @@ func yearWithoutCenturyParser(text []rune, t *time.Time) (int, error) {
 	*t = time.Date(
 		int(year),
 		t.Month(),
-		int(t.Day()),
-		int(t.Hour()),
-		int(t.Minute()),
-		int(t.Second()),
-		int(t.Nanosecond()),
+		t.Day(),
+		t.Hour(),
+		t.Minute(),
+		t.Second(),
+		t.Nanosecond(),
 		t.Location(),
 	)
 	return progress, nil
@@ -636,13 +636,13 @@ func dayParser(text []rune, t *time.Time) (int, error) {
 		return 0, fmt.Errorf("could not parse day number: %s", err)
 	}
 	*t = time.Date(
-		int(t.Year()),
+		t.Year(),
 		t.Month(),
 		int(days),
-		int(t.Hour()),
-		int(t.Minute()),
-		int(t.Second()),
-		int(t.Nanosecond()),
+		t.Hour(),
+		t.Minute(),
+		t.Second(),
+		t.Nanosecond(),
 		t.Location(),
 	)
 	return progress, nil
@@ -680,13 +680,13 @@ func hourParser(text []rune, t *time.Time) (int, error) {
 		return 0, fmt.Errorf("could not parse hour number: %s", err)
 	}
 	*t = time.Date(
-		int(t.Year()),
+		t.Year(),
 		t.Month(),
-		int(t.Day()),
+		t.Day(),
 		int(h),
-		int(t.Minute()),
-		int(t.Second()),
-		int(t.Nanosecond()),
+		t.Minute(),
+		t.Second(),
+		t.Nanosecond(),
 		t.Location(),
 	)
 	return progress, nil
@@ -729,13 +729,13 @@ func hour12Parser(text []rune, t *time.Time) (int, error) {
 		return 0, fmt.Errorf("could not parse hour number: %s", err)
 	}
 	*t = time.Date(
-		int(t.Year()),
+		t.Year(),
 		t.Month(),
-		int(t.Day()),
+		t.Day(),
 		int(h),
-		int(t.Minute()),
-		int(t.Second()),
-		int(t.Nanosecond()),
+		t.Minute(),
+		t.Second(),
+		t.Nanosecond(),
 		t.Location(),
 	)
 	return progress, nil
@@ -746,7 +746,24 @@ func hour12Formatter(t *time.Time) ([]rune, error) {
 }
 
 func dayOfYearParser(text []rune, t *time.Time) (int, error) {
-	return 0, fmt.Errorf("unimplemented day of year matcher")
+	progress, d, err := parseDigitRespectingOptionalPlaces(text, 1, 366)
+	if err != nil {
+		return 0, fmt.Errorf("could not parse day of year number: %s", err)
+	}
+	dayOfYear := int(d) - 1
+	year := t.Year()
+	stubDate := time.Date(year, time.January, 1, 0, 0, 0, 0, time.UTC).AddDate(0, 0, dayOfYear)
+	*t = time.Date(
+		year,
+		stubDate.Month(),
+		stubDate.Day(),
+		t.Hour(),
+		t.Minute(),
+		t.Second(),
+		t.Nanosecond(),
+		t.Location(),
+	)
+	return progress, nil
 }
 
 func dayOfYearFormatter(t *time.Time) ([]rune, error) {
@@ -759,13 +776,13 @@ func minuteParser(text []rune, t *time.Time) (int, error) {
 		return 0, fmt.Errorf("unexpected minute number: %s", err)
 	}
 	*t = time.Date(
-		int(t.Year()),
+		t.Year(),
 		t.Month(),
-		int(t.Day()),
-		int(t.Hour()),
+		t.Day(),
+		t.Hour(),
 		int(m),
-		int(t.Second()),
-		int(t.Nanosecond()),
+		t.Second(),
+		t.Nanosecond(),
 		t.Location(),
 	)
 	return progress, nil
@@ -835,11 +852,11 @@ func monthNumberParser(text []rune, t *time.Time) (int, error) {
 	*t = time.Date(
 		t.Year(),
 		time.Month(months),
-		int(t.Day()),
-		int(t.Hour()),
-		int(t.Minute()),
-		int(t.Second()),
-		int(t.Nanosecond()),
+		t.Day(),
+		t.Hour(),
+		t.Minute(),
+		t.Second(),
+		t.Nanosecond(),
 		t.Location(),
 	)
 	return progress, nil
@@ -883,10 +900,10 @@ func largeAMPMParser(text []rune, t *time.Time) (int, error) {
 }
 
 func ampmPostProcessor(text []rune, t *time.Time) {
-	morning := strings.ToLower(string(text)) == "am"
+	morning := strings.EqualFold(string(text), "am")
 	hour := t.Hour()
 	if morning {
-		hour = hour % 12
+		hour %= 12
 	}
 	if !morning && hour < 12 {
 		hour += 12
@@ -894,11 +911,11 @@ func ampmPostProcessor(text []rune, t *time.Time) {
 	*t = time.Date(
 		t.Year(),
 		t.Month(),
-		int(t.Day()),
-		int(hour),
-		int(t.Minute()),
-		int(t.Second()),
-		int(t.Nanosecond()),
+		t.Day(),
+		hour,
+		t.Minute(),
+		t.Second(),
+		t.Nanosecond(),
 		t.Location(),
 	)
 }
@@ -957,13 +974,13 @@ func secondParser(text []rune, t *time.Time) (int, error) {
 		return 0, fmt.Errorf("unexpected second number: %s", err)
 	}
 	*t = time.Date(
-		int(t.Year()),
+		t.Year(),
 		t.Month(),
-		int(t.Day()),
-		int(t.Hour()),
-		int(t.Minute()),
+		t.Day(),
+		t.Hour(),
+		t.Minute(),
 		int(s),
-		int(t.Nanosecond()),
+		t.Nanosecond(),
 		t.Location(),
 	)
 	return progress, nil
@@ -1057,11 +1074,11 @@ func yearParser(text []rune, t *time.Time) (int, error) {
 	*t = time.Date(
 		int(y),
 		t.Month(),
-		int(t.Day()),
-		int(t.Hour()),
-		int(t.Minute()),
-		int(t.Second()),
-		int(t.Nanosecond()),
+		t.Day(),
+		t.Hour(),
+		t.Minute(),
+		t.Second(),
+		t.Nanosecond(),
 		t.Location(),
 	)
 	return progress, nil
@@ -1104,7 +1121,7 @@ func parseTimeFormat(formatStr, targetStr string, typ TimeFormatType) (*time.Tim
 		targetIdx int
 		formatIdx int
 	)
-	epoch := time.Unix(0, 0)
+	epoch := time.Unix(0, 0).UTC()
 	var ret = &epoch
 
 	var tokenToParseIndices = map[rune][2]int{}
@@ -1399,12 +1416,12 @@ func timeZoneRFC3339Formatter(t *time.Time) ([]rune, error) {
 	return []rune(t.Format("-07:00")), nil
 }
 
-var timePrecisionMatcher = regexp.MustCompile(`[0-9]{2}\.?[0-9]*`)
+var timePrecisionMatcher = regexp.MustCompile(`\d{2}\.?\d*`)
 
 func timePrecisionParser(precision int, text []rune, t *time.Time) (int, error) {
 	const maxNanosecondsLength = 9
 	extracted := timePrecisionMatcher.FindString(string(text))
-	if len(extracted) == 0 {
+	if extracted == "" {
 		return 0, fmt.Errorf("failed to parse seconds.nanoseconds for %s", string(text))
 	}
 	fmtLen := len(extracted)
@@ -1416,7 +1433,7 @@ func timePrecisionParser(precision int, text []rune, t *time.Time) (int, error) 
 		if len(nanoseconds) > precision {
 			nanoseconds = nanoseconds[:precision]
 		}
-		nanoseconds = nanoseconds + strings.Repeat("0", maxNanosecondsLength-len(nanoseconds))
+		nanoseconds += strings.Repeat("0", maxNanosecondsLength-len(nanoseconds))
 	}
 	s, err := strconv.ParseInt(seconds, 10, 64)
 	if err != nil {
@@ -1427,11 +1444,11 @@ func timePrecisionParser(precision int, text []rune, t *time.Time) (int, error) 
 		return 0, fmt.Errorf("failed to parse nanoseconds parameter for %s: %w", string(text), err)
 	}
 	*t = time.Date(
-		int(t.Year()),
+		t.Year(),
 		t.Month(),
-		int(t.Day()),
-		int(t.Hour()),
-		int(t.Minute()),
+		t.Day(),
+		t.Hour(),
+		t.Minute(),
 		int(s),
 		int(n),
 		t.Location(),

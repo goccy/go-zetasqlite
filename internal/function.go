@@ -507,7 +507,7 @@ func EXTRACT(v Value, part, zone string) (Value, error) {
 
 func GENERATE_UUID() (Value, error) {
 	id := uuid.NewString()
-	return StringValue(string(id)), nil
+	return StringValue(id), nil
 }
 
 func CAST(expr Value, fromType, toType *Type, isSafeCast bool) (Value, error) {

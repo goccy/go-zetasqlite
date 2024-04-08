@@ -37,15 +37,15 @@ func CHR(v int64) (Value, error) {
 }
 
 func CODE_POINTS_TO_BYTES(v *ArrayValue) (Value, error) {
-	bytes := make([]byte, 0, len(v.values))
+	b := make([]byte, 0, len(v.values))
 	for _, vv := range v.values {
 		i64, err := vv.ToInt64()
 		if err != nil {
 			return nil, err
 		}
-		bytes = append(bytes, byte(i64))
+		b = append(b, byte(i64))
 	}
-	return BytesValue(bytes), nil
+	return BytesValue(b), nil
 }
 
 func CODE_POINTS_TO_STRING(v *ArrayValue) (Value, error) {
@@ -955,11 +955,11 @@ func SPLIT(value, delimValue Value) (Value, error) {
 		}
 		var delim string = ","
 		if delimValue != nil {
-			v, err := delimValue.ToString()
+			delimV, err := delimValue.ToString()
 			if err != nil {
 				return nil, err
 			}
-			delim = v
+			delim = delimV
 		}
 		ret := &ArrayValue{}
 		for _, splitted := range strings.Split(v, delim) {

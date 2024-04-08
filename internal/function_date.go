@@ -92,7 +92,7 @@ func DATE_DIFF(a, b time.Time, part string) (Value, error) {
 		_, bWeek := b.ISOWeek()
 		return IntValue(aWeek - bWeek), nil
 	case "MONTH":
-		return IntValue((a.Year() * 12 + int(a.Month())) - (b.Year() * 12 + int(b.Month()))), nil
+		return IntValue((a.Year()*12 + int(a.Month())) - (b.Year()*12 + int(b.Month()))), nil
 	case "YEAR":
 		return IntValue(a.Year() - b.Year()), nil
 	}
@@ -114,7 +114,7 @@ func DATE_TRUNC(t time.Time, part string) (Value, error) {
 	case "YEAR":
 		return DateValue(time.Time{}.AddDate(t.Year()-1, 0, 0)), nil
 	case "ISOYEAR":
-		return nil, fmt.Errorf("currently unsupported DATE_TRUNC with ISO_YAER")
+		return nil, fmt.Errorf("currently unsupported DATE_TRUNC with ISO_YEAR")
 	}
 	return nil, fmt.Errorf("unexpected part value %s", part)
 }

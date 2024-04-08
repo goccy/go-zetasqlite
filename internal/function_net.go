@@ -3,13 +3,14 @@ package internal
 import (
 	"encoding/binary"
 	"fmt"
-	"golang.org/x/net/idna"
-	"golang.org/x/net/publicsuffix"
 	"net"
 	"net/netip"
 	"net/url"
 	"regexp"
 	"strings"
+
+	"golang.org/x/net/idna"
+	"golang.org/x/net/publicsuffix"
 )
 
 func NET_HOST(v string) (Value, error) {

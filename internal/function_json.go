@@ -9,7 +9,7 @@ import (
 )
 
 func JSON_FIELD(v, fieldName string) (Value, error) {
-	p, err := json.CreatePath(fmt.Sprintf(`$."%s"`, fieldName))
+	p, err := json.CreatePath(fmt.Sprintf(`$.%q`, fieldName))
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +41,7 @@ func JSON_SUBSCRIPT(v string, field Value) (Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		p, err := json.CreatePath(fmt.Sprintf(`$."%s"`, name))
+		p, err := json.CreatePath(fmt.Sprintf(`$.%q`, name))
 		if err != nil {
 			return nil, err
 		}

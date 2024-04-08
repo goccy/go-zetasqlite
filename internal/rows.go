@@ -58,12 +58,12 @@ func (r *Rows) Close() (e error) {
 	return r.rows.Close()
 }
 
-func (r *Rows) columnTypes() ([]*Type, error) {
-	types := make([]*Type, 0, len(r.columns))
+func (r *Rows) columnTypes() []*Type {
+	ret := make([]*Type, 0, len(r.columns))
 	for _, col := range r.columns {
-		types = append(types, col.Type)
+		ret = append(ret, col.Type)
 	}
-	return types, nil
+	return ret
 }
 
 func (r *Rows) Next(dest []driver.Value) error {
@@ -79,10 +79,7 @@ func (r *Rows) Next(dest []driver.Value) error {
 	if err := r.rows.Err(); err != nil {
 		return err
 	}
-	colTypes, err := r.columnTypes()
-	if err != nil {
-		return err
-	}
+	colTypes := r.columnTypes()
 	values := make([]interface{}, 0, len(dest))
 	for i := 0; i < len(dest); i++ {
 		var v interface{}
@@ -268,11 +265,11 @@ func (r *Rows) assignInterfaceValue(src Value, dst reflect.Value, typ *Type) err
 		}
 		dst.Set(reflect.ValueOf(datetime))
 	case types.TIME:
-		time, err := src.ToJSON()
+		t, err := src.ToJSON()
 		if err != nil {
 			return err
 		}
-		dst.Set(reflect.ValueOf(time))
+		dst.Set(reflect.ValueOf(t))
 	case types.TIMESTAMP:
 		t, err := src.ToTime()
 		if err != nil {
@@ -289,11 +286,11 @@ func (r *Rows) assignInterfaceValue(src Value, dst reflect.Value, typ *Type) err
 		}
 		dst.Set(reflect.ValueOf(s))
 	case types.JSON:
-		json, err := src.ToJSON()
+		v, err := src.ToJSON()
 		if err != nil {
 			return err
 		}
-		dst.Set(reflect.ValueOf(json))
+		dst.Set(reflect.ValueOf(v))
 	case types.STRUCT:
 		s, err := src.ToStruct()
 		if err != nil {

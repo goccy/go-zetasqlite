@@ -380,6 +380,9 @@ func (a *QueryStmtAction) ExplainQueryPlan(ctx context.Context, conn *Conn) erro
 	if err != nil {
 		return fmt.Errorf("failed to explain query plan: %w", err)
 	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("failed to explain query plan: %w", err)
+	}
 	defer rows.Close()
 	fmt.Println("|selectid|order|from|detail|")
 	fmt.Println("----------------------------")
@@ -405,6 +408,9 @@ func (a *QueryStmtAction) QueryContext(ctx context.Context, conn *Conn) (*Rows, 
 	}
 	rows, err := conn.QueryContext(ctx, a.formattedQuery, a.args...)
 	if err != nil {
+		return nil, fmt.Errorf("failed to query %s: %w", a.query, err)
+	}
+	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("failed to query %s: %w", a.query, err)
 	}
 	return &Rows{conn: conn, rows: rows, columns: a.outputColumns}, nil
