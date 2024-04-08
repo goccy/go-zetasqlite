@@ -93,9 +93,8 @@ func newAnalyzerOptions() (*zetasql.AnalyzerOptions, error) {
 		ast.DropFunctionStmt,
 	})
 	// Enable QUALIFY without WHERE
-	//https://github.com/google/zetasql/issues/124
-	err := langOpt.EnableReservableKeyword("QUALIFY", true)
-	if err != nil {
+	// https://github.com/google/zetasql/issues/124
+	if err := langOpt.EnableReservableKeyword("QUALIFY", true); err != nil {
 		return nil, err
 	}
 	opt := zetasql.NewAnalyzerOptions()
