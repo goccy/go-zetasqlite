@@ -2287,6 +2287,15 @@ FROM UNNEST([
 			expectedRows: [][]interface{}{{"2022-01-01", int64(1)}},
 		},
 		{
+			name: "unnest with offset",
+			query: `SELECT *
+FROM UNNEST(['foo', 'bar', 'baz'])
+  AS element
+WITH OFFSET AS offset
+ORDER BY offset DESC;`,
+			expectedRows: [][]interface{}{{"baz", int64(2)}, {"bar", int64(1)}, {"foo", int64(0)}},
+		},
+		{
 			name:  "array function",
 			query: `SELECT ARRAY (SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3) AS new_array`,
 			expectedRows: [][]interface{}{
