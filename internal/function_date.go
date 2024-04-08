@@ -68,7 +68,6 @@ func DATE_ADD(t time.Time, v int64, part string) (Value, error) {
 		return DateValue(addYear(t, int(v))), nil
 	case "QUARTER":
 		return DateValue(addMonth(t, 3)), nil
-
 	}
 	return nil, fmt.Errorf("unexpected part value %s", part)
 }
@@ -123,7 +122,7 @@ func DATE_DIFF(a, b time.Time, part string) (Value, error) {
 		fullWeeks := days / 7
 		remainder := days % 7
 
-		counts := make([]int64, 7)
+		counts := [7]int64{}
 
 		for _, day := range WeekPartToOffset {
 			counts[day] = fullWeeks
