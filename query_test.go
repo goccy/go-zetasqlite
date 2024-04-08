@@ -40,6 +40,27 @@ func TestQuery(t *testing.T) {
 		expectedRows [][]interface{}
 		expectedErr  string
 	}{
+		// Regression test for https://github.com/goccy/go-zetasqlite/issues/191
+		{
+			name: "distinct union",
+			query: `WITH toks AS (SELECT true AS x, 1 AS y)
+					SELECT DISTINCT x, x as y FROM toks`,
+			expectedRows: [][]interface{}{{true, true}},
+		},
+		{
+			name: "with scan union all",
+			query: `(WITH toks AS (SELECT 1 AS x) SELECT x FROM toks)
+UNION ALL
+(WITH toks2 AS (SELECT 2 AS x) SELECT x FROM toks2)`,
+			expectedRows: [][]interface{}{{int64(1)}, {int64(2)}},
+		},
+		{
+			name: "having with union all",
+			query: `(WITH toks AS (SELECT 1 AS x) SELECT COUNT(x) AS total_rows FROM toks WHERE x > 0 HAVING total_rows >= 0)
+UNION ALL
+(WITH toks2 AS (SELECT 2 AS x) SELECT COUNT(x) AS total_rows FROM toks2 WHERE x > 0 HAVING total_rows >= 0)`,
+			expectedRows: [][]interface{}{{int64(1)}, {int64(1)}},
+		},
 		// priority 2 operator
 		{
 			name:         "unary plus operator",
@@ -3963,6 +3984,7 @@ WITH example AS (
 			expectedRows: [][]interface{}{{"2023-02-28"}},
 		},
 		{
+
 			name:         "date_add quarter",
 			query:        `SELECT DATE_ADD('2023-01-01', INTERVAL 1 QUARTER), DATE_ADD('2023-11-30', INTERVAL 1 QUARTER)`,
 			expectedRows: [][]interface{}{{"2023-04-01", "2024-02-29"}},
@@ -4003,6 +4025,51 @@ WITH example AS (
 			expectedRows: [][]interface{}{{"2014-12-29T00:00:00", int64(2015)}},
 		},
 		{
+			name: "PIVOT",
+			query: `
+WITH produce AS (
+	SELECT 'Kale' AS product, 51 AS sales, 'Q1' AS quarter, 2020 AS year UNION ALL
+	SELECT 'Kale', 23, 'Q2', 2020 UNION ALL
+	SELECT 'Kale', 45, 'Q3', 2020 UNION ALL
+	SELECT 'Kale', 3, 'Q4', 2020 UNION ALL
+	SELECT 'Kale', 70, 'Q1', 2021 UNION ALL
+	SELECT 'Kale', 85, 'Q2', 2021 UNION ALL
+	SELECT 'Apple', 77, 'Q1', 2020 UNION ALL
+	SELECT 'Apple', 0, 'Q2', 2020 UNION ALL
+	SELECT 'Apple', 1, 'Q1', 2021
+)
+SELECT * FROM
+  Produce
+  PIVOT(SUM(sales) FOR quarter IN ('Q1', 'Q2', 'Q3', 'Q4'))
+`,
+			expectedRows: [][]interface{}{
+				{"Apple", int64(2020), int64(77), int64(0), nil, nil},
+				{"Apple", int64(2021), int64(1), nil, nil, nil},
+				{"Kale", int64(2020), int64(51), int64(23), int64(45), int64(3)},
+				{"Kale", int64(2021), int64(70), int64(85), nil, nil},
+			},
+		},
+		{
+			name: "UNPIVOT",
+			query: `
+WITH Produce AS (
+  SELECT 'Kale' as product, 51 as Q1, 23 as Q2, 45 as Q3, 3 as Q4 UNION ALL
+  SELECT 'Apple', 77, 0, 25, 2)
+SELECT * FROM Produce
+UNPIVOT(sales FOR quarter IN (Q1, Q2, Q3, Q4))
+`,
+			expectedRows: [][]interface{}{
+				{"Kale", int64(51), "Q1"},
+				{"Kale", int64(23), "Q2"},
+				{"Kale", int64(45), "Q3"},
+				{"Kale", int64(3), "Q4"},
+				{"Apple", int64(77), "Q1"},
+				{"Apple", int64(0), "Q2"},
+				{"Apple", int64(25), "Q3"},
+				{"Apple", int64(2), "Q4"},
+			},
+		},
+		{
 			name:         "date_sub",
 			query:        `SELECT DATE_SUB('2023-03-31', INTERVAL 1 MONTH)`,
 			expectedRows: [][]interface{}{{"2023-02-28"}},
@@ -4019,6 +4086,76 @@ WITH example AS (
 			query: `SELECT PARSE_DATE("%m", "03")`,
 			expectedRows: [][]interface{}{
 				{"1970-03-01"},
+			},
+		},
+		{
+			name:  "base date is epoch julian",
+			query: `SELECT PARSE_DATE("%j", "001")`,
+			expectedRows: [][]interface{}{
+				{"1970-01-01"},
+			},
+		},
+		{
+			name:  "base datetime is epoch julian",
+			query: `SELECT PARSE_DATETIME("%j", "001")`,
+			expectedRows: [][]interface{}{
+				{"1970-01-01T00:00:00"},
+			},
+		},
+		{
+			name:  "base date is epoch julian different day",
+			query: `SELECT PARSE_DATE("%j", "002")`,
+			expectedRows: [][]interface{}{
+				{"1970-01-02"},
+			},
+		},
+		{
+			name:  "parse date with two digit year and julian day",
+			query: `SELECT PARSE_DATE("%y%j", "70002")`,
+			expectedRows: [][]interface{}{
+				{"1970-01-02"},
+			},
+		},
+		{
+			name:  "parse date with two digit year before 2000 and julian day",
+			query: `SELECT PARSE_DATE("%y%j", "95033")`,
+			expectedRows: [][]interface{}{
+				{"1995-02-02"},
+			},
+		},
+		{
+			name:  "parse datetime with two digit year before 2000 and julian day",
+			query: `SELECT PARSE_DATETIME("%y%j%H%M%S", "95033101010")`,
+			expectedRows: [][]interface{}{
+				{"1995-02-02T10:10:10"},
+			},
+		},
+		{
+			name:  "parse date with two digit year after 2000 and julian day",
+			query: `SELECT PARSE_DATE("%y%j", "22120")`,
+			expectedRows: [][]interface{}{
+				{"2022-04-30"},
+			},
+		},
+		{
+			name:  "parse datetime with two digit year after 2000 and julian day",
+			query: `SELECT PARSE_DATETIME("%y%j-%H:%M:%S", "22120-10:10:10")`,
+			expectedRows: [][]interface{}{
+				{"2022-04-30T10:10:10"},
+			},
+		},
+		{
+			name:  "parse date with two digit year after 2000 and julian day leap year",
+			query: `SELECT PARSE_DATE("%y%j", "24120")`,
+			expectedRows: [][]interface{}{
+				{"2024-04-29"},
+			},
+		},
+		{
+			name:  "parse datetime with two digit year after 2000 and julian day leap year",
+			query: `SELECT PARSE_DATETIME("%y%j %H:%M", "24120 02:04")`,
+			expectedRows: [][]interface{}{
+				{"2024-04-29T02:04:00"},
 			},
 		},
 		{
@@ -4228,6 +4365,16 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			name:        "parse date beneath day minimum",
 			query:       `SELECT PARSE_DATE("%d", "0")`,
 			expectedErr: "error parsing [0] with format [%d]: could not parse day number: part [0] is less than minimum value [1]",
+		},
+		{
+			name:        "parse date exceeding day of year maximum",
+			query:       `SELECT PARSE_DATE("%j", "367")`,
+			expectedErr: "error parsing [367] with format [%j]: could not parse day of year number: part [367] is greater than maximum value [366]",
+		},
+		{
+			name:        "parse date beneath day of year minimum",
+			query:       `SELECT PARSE_DATE("%j", "0")`,
+			expectedErr: "error parsing [0] with format [%j]: could not parse day of year number: part [0] is less than minimum value [1]",
 		},
 		{
 			name:         "parse date with single-digit month %m",

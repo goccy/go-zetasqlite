@@ -242,6 +242,14 @@ CREATE TABLE IF NOT EXISTS Singers (
 			t.Fatal(err)
 		}
 
+		stmt, err = db.PrepareContext(context.Background(), "INSERT `Items` (`ItemId`) VALUES (?)")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := stmt.Exec(456); err != nil {
+			t.Fatal(err)
+		}
+
 		rows, err := db.Query("SELECT * FROM Items WHERE ItemId = 456")
 		if err != nil {
 			t.Fatal(err)
