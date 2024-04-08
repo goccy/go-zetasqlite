@@ -104,17 +104,14 @@ func TIMESTAMP_DIFF(a, b time.Time, part string) (Value, error) {
 		return IntValue(diff / time.Minute), nil
 	case "HOUR":
 		return IntValue(diff / time.Hour), nil
-	case "DAY":
-		diffDay := diff / (24 * time.Hour)
-		mod := diff % (24 * time.Hour)
-		if mod > 0 {
-			diffDay++
-		} else if mod < 0 {
-			diffDay--
+	default:
+		dateDiff, err := DATE_DIFF(a, b, part)
+		if err != nil {
+			return nil, fmt.Errorf("TIMESTAMP_DIFF: %w", err)
 		}
-		return IntValue(diffDay), nil
+
+		return dateDiff, nil
 	}
-	return nil, nil
 }
 
 func TIMESTAMP_TRUNC(t time.Time, part, zone string) (Value, error) {
@@ -123,7 +120,7 @@ func TIMESTAMP_TRUNC(t time.Time, part, zone string) (Value, error) {
 		return nil, err
 	}
 	t = t.In(loc)
-	yearISO, weekISO := t.ISOWeek()
+
 	switch part {
 	case "MICROSECOND":
 		return TimestampValue(t), nil
@@ -173,80 +170,26 @@ func TIMESTAMP_TRUNC(t time.Time, part, zone string) (Value, error) {
 			0,
 			loc,
 		)), nil
-	case "DAY":
+	default:
+		date, err := DATE_TRUNC(t, part)
+		if err != nil {
+			return nil, fmt.Errorf("TIMESTAMP_TRUNC: %w", err)
+		}
+		dateTime, err := date.ToTime()
+		if err != nil {
+			return nil, fmt.Errorf("TIMESTAMP_TRUNC: %w", err)
+		}
 		return TimestampValue(time.Date(
-			t.Year(),
-			t.Month(),
-			t.Day(),
+			dateTime.Year(),
+			dateTime.Month(),
+			dateTime.Day(),
 			0,
 			0,
 			0,
 			0,
 			loc,
 		)), nil
-	case "WEEK":
-		return TimestampValue(t.AddDate(0, 0, int(t.Weekday()))), nil
-	case "WEEK_MONDAY":
-		return TimestampValue(t.AddDate(0, 0, int(t.Weekday())-6)), nil
-	case "WEEK_TUESDAY":
-		return TimestampValue(t.AddDate(0, 0, int(t.Weekday())-5)), nil
-	case "WEEK_WEDNESDAY":
-		return TimestampValue(t.AddDate(0, 0, int(t.Weekday())-4)), nil
-	case "WEEK_THURSDAY":
-		return TimestampValue(t.AddDate(0, 0, int(t.Weekday())-3)), nil
-	case "WEEK_FRIDAY":
-		return TimestampValue(t.AddDate(0, 0, int(t.Weekday())-2)), nil
-	case "WEEK_SATURDAY":
-		return TimestampValue(t.AddDate(0, 0, int(t.Weekday())-1)), nil
-	case "ISOWEEK":
-		return TimestampValue(time.Date(
-			yearISO,
-			0,
-			7*weekISO,
-			0,
-			0,
-			0,
-			0,
-			t.Location(),
-		)), nil
-	case "MONTH":
-		return TimestampValue(time.Date(
-			t.Year(),
-			t.Month(),
-			0,
-			0,
-			0,
-			0,
-			0,
-			t.Location(),
-		)), nil
-	case "QUARTER":
-		return nil, fmt.Errorf("TIMESTAMP_TRUNC: unimplemented QUARTER")
-	case "YEAR":
-		return TimestampValue(time.Date(
-			t.Year(),
-			1,
-			1,
-			0,
-			0,
-			0,
-			0,
-			t.Location(),
-		)), nil
-	case "ISOYEAR":
-		firstDay := time.Date(
-			yearISO,
-			1,
-			1,
-			0,
-			0,
-			0,
-			0,
-			t.Location(),
-		)
-		return TimestampValue(firstDay.AddDate(0, 0, 1-int(firstDay.Weekday()))), nil
 	}
-	return nil, fmt.Errorf("TIMESTAMP_TRUNC: unexpected part value %s", part)
 }
 
 func FORMAT_TIMESTAMP(format string, t time.Time, zone string) (Value, error) {

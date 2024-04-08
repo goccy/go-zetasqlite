@@ -117,18 +117,28 @@ func DATETIME_ADD(t time.Time, v int64, part string) (Value, error) {
 		return DatetimeValue(t.Add(time.Duration(v) * time.Minute)), nil
 	case "HOUR":
 		return DatetimeValue(t.Add(time.Duration(v) * time.Hour)), nil
-	case "DAY":
-		return DatetimeValue(t.AddDate(0, 0, int(v))), nil
-	case "WEEK":
-		return DatetimeValue(t.AddDate(0, 0, int(v*7))), nil
-	case "MONTH":
-		return DatetimeValue(addMonth(t, int(v))), nil
-	case "QUARTER":
-		return DatetimeValue(addMonth(t, 3*int(v))), nil
-	case "YEAR":
-		return DatetimeValue(addYear(t, int(v))), nil
+	default:
+		date, err := DATE_ADD(t, v, part)
+		if err != nil {
+			return nil, fmt.Errorf("DATETIME_ADD: %w", err)
+		}
+		datetime, err := date.ToTime()
+		if err != nil {
+			return nil, fmt.Errorf("DATETIME_ADD: %w", err)
+		}
+		return DatetimeValue(
+			time.Date(
+				datetime.Year(),
+				datetime.Month(),
+				datetime.Day(),
+				t.Hour(),
+				t.Minute(),
+				t.Second(),
+				t.Nanosecond(),
+				t.Location(),
+			),
+		), nil
 	}
-	return nil, fmt.Errorf("DATETIME_ADD: unexpected part value %s", part)
 }
 
 func DATETIME_SUB(t time.Time, v int64, part string) (Value, error) {
@@ -143,24 +153,32 @@ func DATETIME_SUB(t time.Time, v int64, part string) (Value, error) {
 		return DatetimeValue(t.Add(-time.Duration(v) * time.Minute)), nil
 	case "HOUR":
 		return DatetimeValue(t.Add(-time.Duration(v) * time.Hour)), nil
-	case "DAY":
-		return DatetimeValue(t.AddDate(0, 0, -int(v))), nil
-	case "WEEK":
-		return DatetimeValue(t.AddDate(0, 0, -int(v*7))), nil
-	case "MONTH":
-		return DatetimeValue(addMonth(t, -int(v))), nil
-	case "QUARTER":
-		return DatetimeValue(addMonth(t, -3*int(v))), nil
-	case "YEAR":
-		return DatetimeValue(addYear(t, -int(v))), nil
+	default:
+		date, err := DATE_SUB(t, v, part)
+		if err != nil {
+			return nil, fmt.Errorf("DATETIME_SUB: %w", err)
+		}
+		datetime, err := date.ToTime()
+		if err != nil {
+			return nil, fmt.Errorf("DATETIME_SUB: %w", err)
+		}
+		return DatetimeValue(
+			time.Date(
+				datetime.Year(),
+				datetime.Month(),
+				datetime.Day(),
+				t.Hour(),
+				t.Minute(),
+				t.Second(),
+				t.Nanosecond(),
+				t.Location(),
+			),
+		), nil
 	}
-	return nil, fmt.Errorf("DATETIME_SUB: unexpected part value %s", part)
 }
 
 func DATETIME_DIFF(a, b time.Time, part string) (Value, error) {
 	diff := a.Sub(b)
-	yearISOA, weekA := a.ISOWeek()
-	yearISOB, weekB := b.ISOWeek()
 	switch part {
 	case "MICROSECOND":
 		return IntValue(diff / time.Microsecond), nil
@@ -172,87 +190,16 @@ func DATETIME_DIFF(a, b time.Time, part string) (Value, error) {
 		return IntValue(diff / time.Minute), nil
 	case "HOUR":
 		return IntValue(diff / time.Hour), nil
-	case "DAY":
-		diffDay := diff / (24 * time.Hour)
-		mod := diff % (24 * time.Hour)
-		if mod > 0 {
-			diffDay++
-		} else if mod < 0 {
-			diffDay--
-		}
-		return IntValue(diffDay), nil
-	case "WEEK":
-		if a.Weekday() > 0 {
-			weekA--
-		}
-		if b.Weekday() > 0 {
-			weekB--
-		}
-		return IntValue((a.Year()-b.Year())*48 + weekA - weekB), nil
-	case "WEEK_MONDAY":
-		if a.Weekday() > 1 {
-			weekA--
-		}
-		if b.Weekday() > 1 {
-			weekB--
-		}
-		return IntValue((a.Year()-b.Year())*48 + weekA - weekB), nil
-	case "WEEK_TUESDAY":
-		if a.Weekday() > 2 {
-			weekA--
-		}
-		if b.Weekday() > 2 {
-			weekB--
-		}
-		return IntValue((a.Year()-b.Year())*48 + weekA - weekB), nil
-	case "WEEK_WEDNESDAY":
-		if a.Weekday() > 3 {
-			weekA--
-		}
-		if b.Weekday() > 3 {
-			weekB--
-		}
-		return IntValue((a.Year()-b.Year())*48 + weekA - weekB), nil
-	case "WEEK_THURSDAY":
-		if a.Weekday() > 4 {
-			weekA--
-		}
-		if b.Weekday() > 4 {
-			weekB--
-		}
-		return IntValue((a.Year()-b.Year())*48 + weekA - weekB), nil
-	case "WEEK_FRIDAY":
-		if a.Weekday() > 5 {
-			weekA--
-		}
-		if b.Weekday() > 5 {
-			weekB--
-		}
-		return IntValue((a.Year()-b.Year())*48 + weekA - weekB), nil
-	case "WEEK_SATURDAY":
-		if a.Weekday() > 6 {
-			weekA--
-		}
-		if b.Weekday() > 6 {
-			weekB--
-		}
-		return IntValue((a.Year()-b.Year())*48 + weekA - weekB), nil
-	case "ISOWEEK":
-		return IntValue((a.Year()-b.Year())*48 + weekA - weekB), nil
-	case "MONTH":
-		return IntValue((a.Year()-b.Year())*12 + int(a.Month()) - int(b.Month())), nil
-	case "QUARTER":
-		return IntValue(a.Month()/4 - b.Month()/4), nil
-	case "YEAR":
-		return IntValue(a.Year() - b.Year()), nil
-	case "ISOYEAR":
-		return IntValue(yearISOA - yearISOB), nil
 	}
-	return nil, fmt.Errorf("DATETIME_DIFF: unexpected part value %s", part)
+
+	value, err := DATE_DIFF(a, b, part)
+	if err != nil {
+		return nil, fmt.Errorf("DATETIME_DIFF: %w", err)
+	}
+	return value, nil
 }
 
 func DATETIME_TRUNC(t time.Time, part string) (Value, error) {
-	yearISO, weekISO := t.ISOWeek()
 	switch part {
 	case "MICROSECOND":
 		return DatetimeValue(t), nil
@@ -302,80 +249,28 @@ func DATETIME_TRUNC(t time.Time, part string) (Value, error) {
 			0,
 			t.Location(),
 		)), nil
-	case "DAY":
-		return DatetimeValue(time.Date(
-			t.Year(),
-			t.Month(),
-			t.Day(),
-			0,
-			0,
-			0,
-			0,
-			t.Location(),
-		)), nil
-	case "WEEK":
-		return DatetimeValue(t.AddDate(0, 0, int(t.Weekday()))), nil
-	case "WEEK_MONDAY":
-		return DatetimeValue(t.AddDate(0, 0, int(t.Weekday())-6)), nil
-	case "WEEK_TUESDAY":
-		return DatetimeValue(t.AddDate(0, 0, int(t.Weekday())-5)), nil
-	case "WEEK_WEDNESDAY":
-		return DatetimeValue(t.AddDate(0, 0, int(t.Weekday())-4)), nil
-	case "WEEK_THURSDAY":
-		return DatetimeValue(t.AddDate(0, 0, int(t.Weekday())-3)), nil
-	case "WEEK_FRIDAY":
-		return DatetimeValue(t.AddDate(0, 0, int(t.Weekday())-2)), nil
-	case "WEEK_SATURDAY":
-		return DatetimeValue(t.AddDate(0, 0, int(t.Weekday())-1)), nil
-	case "ISOWEEK":
-		return DatetimeValue(time.Date(
-			yearISO,
-			0,
-			7*weekISO,
-			0,
-			0,
-			0,
-			0,
-			t.Location(),
-		)), nil
-	case "MONTH":
-		return DatetimeValue(time.Date(
-			t.Year(),
-			t.Month(),
-			0,
-			0,
-			0,
-			0,
-			0,
-			t.Location(),
-		)), nil
-	case "QUARTER":
-		return nil, fmt.Errorf("currently unsupported DATE_TRUNC with QUARTER")
-	case "YEAR":
-		return DatetimeValue(time.Date(
-			t.Year(),
-			1,
-			1,
-			0,
-			0,
-			0,
-			0,
-			t.Location(),
-		)), nil
-	case "ISOYEAR":
-		firstDay := time.Date(
-			yearISO,
-			1,
-			1,
-			0,
-			0,
-			0,
-			0,
-			t.Location(),
-		)
-		return DatetimeValue(firstDay.AddDate(0, 0, 1-int(firstDay.Weekday()))), nil
+	default:
+		date, err := DATE_TRUNC(t, part)
+		if err != nil {
+			return nil, fmt.Errorf("DATETIME_TRUNC: %w", err)
+		}
+		datetime, err := date.ToTime()
+		if err != nil {
+			return nil, fmt.Errorf("DATETIME_TRUNC: %w", err)
+		}
+		return DatetimeValue(
+			time.Date(
+				datetime.Year(),
+				datetime.Month(),
+				datetime.Day(),
+				datetime.Hour(),
+				datetime.Minute(),
+				datetime.Second(),
+				datetime.Nanosecond(),
+				datetime.Location(),
+			),
+		), nil
 	}
-	return nil, fmt.Errorf("unexpected part value %s", part)
 }
 
 func FORMAT_DATETIME(format string, t time.Time) (Value, error) {

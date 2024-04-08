@@ -4001,6 +4001,47 @@ WITH example AS (
 			expectedRows: [][]interface{}{{"2023-02-28"}},
 		},
 		{
+
+			name:         "date_add quarter",
+			query:        `SELECT DATE_ADD('2023-01-01', INTERVAL 1 QUARTER), DATE_ADD('2023-11-30', INTERVAL 1 QUARTER)`,
+			expectedRows: [][]interface{}{{"2023-04-01", "2024-02-29"}},
+		},
+		{
+			name:         "date_trunc with quarter",
+			query:        `SELECT DATE_TRUNC(DATE "2017-01-05", QUARTER), DATE_TRUNC(DATE "2017-02-05", QUARTER), DATE_TRUNC(DATE "2017-08-05", QUARTER), DATE_TRUNC(DATE "2017-11-05", QUARTER), DATE_TRUNC(DATE "2017-12-31", QUARTER)`,
+			expectedRows: [][]interface{}{{"2017-01-01", "2017-01-01", "2017-07-01", "2017-10-01", "2017-10-01"}},
+		},
+
+		{
+			name:         "datetime_trunc with quarter",
+			query:        `SELECT DATETIME_TRUNC(DATETIME "2017-01-05", QUARTER), DATETIME_TRUNC(DATETIME "2017-02-05", QUARTER), DATETIME_TRUNC(DATETIME "2017-08-05", QUARTER), DATETIME_TRUNC(DATETIME "2017-11-05", QUARTER), DATETIME_TRUNC(DATETIME "2017-12-31", QUARTER)`,
+			expectedRows: [][]interface{}{{"2017-01-01T00:00:00", "2017-01-01T00:00:00", "2017-07-01T00:00:00", "2017-10-01T00:00:00", "2017-10-01T00:00:00"}},
+		},
+		{
+			name:  "timestamp_trunc with quarter",
+			query: `SELECT TIMESTAMP_TRUNC(TIMESTAMP "2017-01-05", QUARTER, "Pacific/Auckland"), TIMESTAMP_TRUNC(TIMESTAMP "2017-02-05", QUARTER), TIMESTAMP_TRUNC(TIMESTAMP "2024-02-29", QUARTER), TIMESTAMP_TRUNC(TIMESTAMP "2017-08-05", QUARTER), TIMESTAMP_TRUNC(TIMESTAMP "2017-12-31", QUARTER)`,
+			expectedRows: [][]interface{}{{
+				createTimestampFormatFromString("2016-12-31 11:00:00+00"),
+				createTimestampFormatFromString("2017-01-01 00:00:00+00"),
+				createTimestampFormatFromString("2024-01-01 00:00:00+00"),
+				createTimestampFormatFromString("2017-07-01 00:00:00+00"),
+				createTimestampFormatFromString("2017-10-01 00:00:00+00"),
+			}},
+		},
+		{
+			name:         "datetime_trunc with day weekday",
+			query:        `SELECT DATETIME_TRUNC(DATETIME "2024-03-29", WEEK(MONDAY))`,
+			expectedRows: [][]interface{}{{"2024-03-25T00:00:00"}},
+		},
+		{
+			name: "datetime_trunc isoyear",
+			query: `SELECT
+  DATETIME_TRUNC('2015-06-15', ISOYEAR) AS isoyear_boundary,
+  EXTRACT(ISOYEAR FROM DATE '2015-06-15') AS isoyear_number;
+`,
+			expectedRows: [][]interface{}{{"2014-12-29T00:00:00", int64(2015)}},
+		},
+		{
 			name: "PIVOT",
 			query: `
 WITH produce AS (
@@ -4146,6 +4187,95 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			query:        `SELECT DATE_DIFF(DATE '2017-10-17', DATE '2017-10-12', WEEK) AS weeks_diff`,
 			expectedRows: [][]interface{}{{int64(1)}},
 		},
+		{
+			name:  "date_diff with week day",
+			query: `SELECT DATE_DIFF(DATE '2024-03-19', DATE '2024-03-24', WEEK(MONDAY))`,
+			expectedRows: [][]interface{}{{
+				// No Mondays occurred between 2024-03-24 abd 2024-03-19
+				int64(0),
+			}},
+		},
+		{
+			name: "date_diff with week day",
+			query: `SELECT 
+  DATE_DIFF(DATE '2024-03-19', DATE '2024-03-24', WEEK(SUNDAY)),
+  DATE_DIFF(DATE '2024-03-19', DATE '2024-03-24', WEEK(MONDAY)),
+  DATE_DIFF(DATE '2024-03-25', DATE '2024-03-19', WEEK(SUNDAY)),
+  DATE_DIFF(DATE '2024-03-19', DATE '2024-03-25', WEEK(MONDAY)),
+  DATE_DIFF(DATE '2024-03-19', DATE '2017-10-25', WEEK(MONDAY)),
+  DATE_DIFF('0001-01-01', '9999-12-31', WEEK(SUNDAY))`,
+			expectedRows: [][]interface{}{{
+				// 1 Sunday occurred between 2024-03-19 and 2024-03-24
+				int64(-1),
+				// No Mondays occurred between 2024-03-24 abd 2024-03-19
+				int64(0),
+				// 1 Monday occurred between 2024-03-25 and 2024-03-19
+				int64(1),
+				// -1 Monday occurred between 2024-03-19 and 2024-03-25
+				int64(-1),
+				int64(334),
+				int64(-521722),
+			}},
+		},
+		{
+			name: "datetime_diff with week day",
+			query: `SELECT 
+  DATETIME_DIFF(DATETIME '2024-03-19', DATETIME '2024-03-24', WEEK(SUNDAY)),
+  DATETIME_DIFF(DATETIME '2024-03-19', DATETIME '2024-03-24', WEEK(MONDAY)),
+  DATETIME_DIFF(DATETIME '2024-03-25', DATETIME '2024-03-19', WEEK(SUNDAY)),
+  DATETIME_DIFF(DATETIME '2024-03-19', DATETIME '2024-03-25', WEEK(MONDAY)),
+  DATETIME_DIFF(DATETIME '2024-03-19', DATETIME '2017-10-25', WEEK(MONDAY)),
+	DATETIME_DIFF(DATETIME '2024-02-21', DATETIME '2024-02-29', WEEK(MONDAY))`,
+			expectedRows: [][]interface{}{{
+				// 1 Sunday occurred between 2024-03-19 and 2024-03-24
+				int64(-1),
+				// No Mondays occurred between 2024-03-24 abd 2024-03-19
+				int64(0),
+				// 1 Monday occurred between 2024-03-25 and 2024-03-19
+				int64(1),
+				// -1 Monday occurred between 2024-03-19 and 2024-03-25
+				int64(-1),
+				int64(334),
+				int64(-1),
+			}},
+		},
+		{
+			name: "datetime_diff with week day 1 week",
+			query: `SELECT 
+	DATETIME_DIFF(DATETIME '2024-02-21', DATETIME '2024-02-29', WEEK(MONDAY))`,
+			expectedRows: [][]interface{}{{
+				int64(-1),
+			}},
+		},
+		{
+			name:  "datetime_diff with week day",
+			query: `SELECT DATETIME_DIFF(DATETIME '2024-03-19', DATETIME '2024-03-25', WEEK(MONDAY))`,
+			expectedRows: [][]interface{}{{
+				// -1 Monday occurred between 2024-03-19 and 2024-03-25
+				int64(-1),
+			}},
+		},
+		{
+			name: "timestamp diff with week day",
+			query: `SELECT 
+  TIMESTAMP_DIFF(DATETIME '2024-03-19', DATETIME '2024-03-24', WEEK(SUNDAY)),
+  TIMESTAMP_DIFF(DATETIME '2024-03-19', DATETIME '2024-03-24', WEEK(MONDAY)),
+  TIMESTAMP_DIFF(DATETIME '2024-03-25', DATETIME '2024-03-19', WEEK(SUNDAY)),
+  TIMESTAMP_DIFF(DATETIME '2024-03-19', DATETIME '2024-03-25', WEEK(MONDAY)),
+  TIMESTAMP_DIFF(DATETIME '2024-03-19', DATETIME '2017-10-25', WEEK(MONDAY))`,
+			expectedRows: [][]interface{}{{
+				// 1 Sunday occurred between 2024-03-19 and 2024-03-24
+				int64(-1),
+				// No Mondays occurred between 2024-03-24 abd 2024-03-19
+				int64(0),
+				// 1 Monday occurred between 2024-03-25 and 2024-03-19
+				int64(1),
+				// -1 Monday occurred between 2024-03-19 and 2024-03-25
+				int64(-1),
+				int64(334),
+			}},
+		},
+
 		{
 			name:         "date_diff with month",
 			query:        `SELECT DATE_DIFF(DATE '2018-01-01', DATE '2017-10-30', MONTH) AS months_diff`,
@@ -4389,7 +4519,7 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			expectedRows: [][]interface{}{{int64(1)}},
 		},
 		{
-			name:         "datetime_diff with year",
+			name:         "datetime_diff with year, ISOYEAR",
 			query:        `SELECT DATETIME_DIFF('2017-12-30 00:00:00', '2014-12-30 00:00:00', YEAR), DATETIME_DIFF('2017-12-30 00:00:00', '2014-12-30 00:00:00', ISOYEAR)`,
 			expectedRows: [][]interface{}{{int64(3), int64(2)}},
 		},
@@ -4574,6 +4704,16 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 				{createTimestampFormatFromTime(now.UTC())},
 			},
 		},
+
+		{
+			name:  "minimum / maximum date value",
+			query: `SELECT DATE '0001-01-01', DATE '9999-12-31'`,
+			expectedRows: [][]interface{}{
+				{
+					"0001-01-01", "9999-12-31",
+				},
+			},
+		},
 		{
 			name:  "minimum / maximum timestamp value uses microsecond precision and range",
 			query: `SELECT TIMESTAMP '0001-01-01 00:00:00.000000+00', TIMESTAMP '9999-12-31 23:59:59.999999+00'`,
@@ -4636,20 +4776,20 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 				{createTimestampFormatFromString("2008-12-25 00:00:00+00"), createTimestampFormatFromString("2008-12-25 08:00:00+00")},
 			},
 		},
-		//		{
-		//			name: "timestamp_trunc with week",
-		//			query: `SELECT timestamp_value AS timestamp_value,
-		//			                    TIMESTAMP_TRUNC(timestamp_value, WEEK(MONDAY), "UTC"),
-		//			                    TIMESTAMP_TRUNC(timestamp_value, WEEK(MONDAY), "Pacific/Auckland")
-		//			                    FROM (SELECT TIMESTAMP("2017-11-06 00:00:00+12") AS timestamp_value)`,
-		//			expectedRows: [][]interface{}{
-		//				{
-		//					createTimestampFormatFromString("2017-11-05 12:00:00+00"),
-		//					createTimestampFormatFromString("2017-10-30 00:00:00+00"),
-		//					createTimestampFormatFromString("2017-11-05 11:00:00+00"),
-		//				},
-		//			},
-		//		},
+		{
+			name: "timestamp_trunc with week",
+			query: `SELECT timestamp_value AS timestamp_value,
+					                    TIMESTAMP_TRUNC(timestamp_value, WEEK(MONDAY), "UTC"),
+					                    TIMESTAMP_TRUNC(timestamp_value, WEEK(MONDAY), "Pacific/Auckland")
+					                    FROM (SELECT TIMESTAMP("2017-11-06 00:00:00+12") AS timestamp_value)`,
+			expectedRows: [][]interface{}{
+				{
+					createTimestampFormatFromString("2017-11-05 12:00:00+00"),
+					createTimestampFormatFromString("2017-10-30 00:00:00+00"),
+					createTimestampFormatFromString("2017-11-05 11:00:00+00"),
+				},
+			},
+		},
 		{
 			name:  "timestamp_trunc with year",
 			query: `SELECT TIMESTAMP_TRUNC("2015-06-15 00:00:00+00", ISOYEAR)`,
