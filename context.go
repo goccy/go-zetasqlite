@@ -10,9 +10,9 @@ import (
 // DisableQueryFormattingKey use to disable query formatting for queries that require raw SQLite access
 type DisableQueryFormattingKey = internal.DisableQueryFormattingKey
 
-// WithQueryFormattingDisabled for queries that require raw SQLite SQL
-// This is useful for queries that do not require additional functionality from go-zetasqlite
-// Utilizing this option often allows the SQLite query planner to generate more efficient plans
+// WithQueryFormattingDisabled use for queries that require raw SQLite SQL.
+// This is useful for queries that do not require additional functionality from go-zetasqlite.
+// Utilizing this option often allows the SQLite query planner to generate more efficient plans.
 func WithQueryFormattingDisabled(ctx context.Context) context.Context {
 	return context.WithValue(ctx, internal.DisableQueryFormattingKey{}, true)
 }
