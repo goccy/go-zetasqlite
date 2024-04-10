@@ -3,7 +3,6 @@ package zetasqlite_test
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"strings"
 	"testing"
 
@@ -213,7 +212,7 @@ CREATE TABLE IF NOT EXISTS Singers (
 
 		_, err = stmt.Exec(int64(1), "Miss", "Kitten")
 		if !strings.HasSuffix(err.Error(), "UNIQUE constraint failed: Singers.SingerId") {
-			t.Fatal(fmt.Sprintf("expected failed unique constraint err, got: %s", err))
+			t.Fatalf("expected failed unique constraint err, got: %s", err)
 		}
 	})
 }
