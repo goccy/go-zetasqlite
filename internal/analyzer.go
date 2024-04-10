@@ -20,6 +20,8 @@ type Analyzer struct {
 	opt             *zetasql.AnalyzerOptions
 }
 
+type DisableQueryFormattingKey struct{}
+
 func NewAnalyzer(catalog *Catalog) (*Analyzer, error) {
 	opt, err := newAnalyzerOptions()
 	if err != nil {
@@ -510,14 +512,30 @@ func (a *Analyzer) newQueryStmtAction(ctx context.Context, query string, args []
 			Type: newType(col.Column().Type()),
 		})
 	}
-	formattedQuery, err := newNode(node).FormatSQL(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to format query %s: %w", query, err)
+	var formattedQuery string
+	params := getParamsFromNode(node)
+	if disabledFormatting, ok := ctx.Value(DisableQueryFormattingKey{}).(bool); ok && disabledFormatting {
+		formattedQuery = query
+		// ZetaSQL will always lowercase parameter names, so we must match it in the query
+		queryBytes := []byte(query)
+		for _, param := range params {
+			location := param.ParseLocationRange()
+			start := location.Start().ByteOffset()
+			end := location.End().ByteOffset()
+			// Finds the parameter including its prefix i.e. @itemID
+			parameter := string(queryBytes[start:end])
+			formattedQuery = strings.ReplaceAll(formattedQuery, parameter, strings.ToLower(parameter))
+		}
+	} else {
+		var err error
+		formattedQuery, err = newNode(node).FormatSQL(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to format query %s: %w", query, err)
+		}
 	}
 	if formattedQuery == "" {
 		return nil, fmt.Errorf("failed to format query %s", query)
 	}
-	params := getParamsFromNode(node)
 	queryArgs, err := getArgsFromParams(args, params)
 	if err != nil {
 		return nil, err

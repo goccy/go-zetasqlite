@@ -216,7 +216,7 @@ CREATE TABLE IF NOT EXISTS Singers (
 			t.Fatal("found unexpected row; expected no rows")
 		}
 	})
-	t.Run("prepared insert", func(t *testing.T) {
+	t.Run("prepared insert with named values", func(t *testing.T) {
 		db, err := sql.Open("zetasqlite", ":memory:")
 		if err != nil {
 			t.Fatal(err)
@@ -234,11 +234,11 @@ CREATE TABLE IF NOT EXISTS Singers (
 			t.Fatal("expected error when inserting without args; got no error")
 		}
 
-		stmt, err := db.Prepare("INSERT `Items` (`ItemId`) VALUES (?)")
+		stmt, err := db.Prepare("INSERT `Items` (`ItemId`) VALUES (@itemID)")
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := stmt.Exec(456); err != nil {
+		if _, err := stmt.Exec(sql.Named("itemID", 456)); err != nil {
 			t.Fatal(err)
 		}
 
@@ -259,6 +259,31 @@ CREATE TABLE IF NOT EXISTS Singers (
 		}
 		if !rows.Next() {
 			t.Fatal("expected no rows; expected one row")
+		}
+	})
+
+	t.Run("prepared select with named values, formatting disabled, uppercased parameter", func(t *testing.T) {
+		db, err := sql.Open("zetasqlite", ":memory:")
+		ctx := zetasqlite.WithQueryFormattingDisabled(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS Items (ItemId   INT64 NOT NULL)`); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := db.Exec("INSERT `Items` (`ItemId`) VALUES (123)"); err != nil {
+			t.Fatal(err)
+		}
+
+		stmt, err := db.PrepareContext(ctx, "SELECT `ItemID` FROM `Items` WHERE `ItemID` = @itemID AND @bool = TRUE")
+		if err != nil {
+			t.Fatal("unexpected error when preparing stmt; got %w", err)
+		}
+
+		var itemID string
+		err = stmt.QueryRowContext(ctx, sql.Named("itemID", 123), sql.Named("bool", true)).Scan(&itemID)
+		if err != nil {
+			t.Fatal("expected one row; got error %w", err)
 		}
 	})
 }
