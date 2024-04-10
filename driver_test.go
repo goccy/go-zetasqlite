@@ -3,6 +3,8 @@ package zetasqlite_test
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -182,6 +184,36 @@ CREATE TABLE IF NOT EXISTS Singers (
 		}
 		if diff := cmp.Diff(rowsCatalog.Function.Deleted[0].NamePath, []string{"ANY_ADD"}); diff != "" {
 			t.Errorf("(-want +got):\n%s", diff)
+		}
+	})
+}
+
+func TestCreateTable(t *testing.T) {
+	t.Run("primary keys", func(t *testing.T) {
+		db, err := sql.Open("zetasqlite", ":memory:")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := db.Exec(`
+CREATE TABLE IF NOT EXISTS Singers (
+  SingerId   INT64 NOT NULL PRIMARY KEY,
+  FirstName  STRING(1024),
+  LastName   STRING(1024)
+)`); err != nil {
+			t.Fatal(err)
+		}
+		stmt, err := db.Prepare("INSERT Singers (SingerId, FirstName, LastName) VALUES (@SingerID, @FirstName, @LastName)")
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = stmt.Exec(int64(1), "Kylie", "Minogue")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		_, err = stmt.Exec(int64(1), "Miss", "Kitten")
+		if !strings.HasSuffix(err.Error(), "UNIQUE constraint failed: Singers.SingerId") {
+			t.Fatal(fmt.Sprintf("expected failed unique constraint err, got: %s", err))
 		}
 	})
 }
