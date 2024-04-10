@@ -139,10 +139,22 @@ func (s *TableSpec) SQLiteSchema() string {
 		columns = append(columns, c.SQLiteSchema())
 	}
 	if len(s.PrimaryKey) != 0 {
+		primaryKeys := make([]string, len(s.PrimaryKey))
+
+		for i, key := range s.PrimaryKey {
+			primaryKeys[i] = fmt.Sprintf("%s COLLATE zetasqlite_collate", key)
+		}
+
 		columns = append(
 			columns,
-			fmt.Sprintf("PRIMARY KEY (%s)", strings.Join(s.PrimaryKey, ",")),
+			fmt.Sprintf("PRIMARY KEY (%s)", strings.Join(primaryKeys, ",")),
 		)
+	}
+	var clustering string
+	if len(s.PrimaryKey) > 0 {
+		clustering = "WITHOUT ROWID"
+	} else {
+		clustering = ""
 	}
 	var stmt string
 	switch s.CreateMode {
@@ -153,7 +165,7 @@ func (s *TableSpec) SQLiteSchema() string {
 	case ast.CreateIfNotExistsMode:
 		stmt = "CREATE TABLE IF NOT EXISTS"
 	}
-	return fmt.Sprintf("%s `%s` (%s)", stmt, s.TableName(), strings.Join(columns, ","))
+	return fmt.Sprintf("%s `%s` (%s) %s", stmt, s.TableName(), strings.Join(columns, ","), clustering)
 }
 
 func viewSQLiteSchema(s *TableSpec) string {
