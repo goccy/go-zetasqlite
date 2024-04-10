@@ -13,6 +13,7 @@ var normalFuncs = []*FuncInfo{
 	{Name: "subtract", BindFunc: bindSub},
 	{Name: "multiply", BindFunc: bindMul},
 	{Name: "divide", BindFunc: bindOpDiv},
+	{Name: "unary_minus", BindFunc: bindUnaryMinus},
 	{Name: "equal", BindFunc: bindEqual},
 	{Name: "not_equal", BindFunc: bindNotEqual},
 	{Name: "greater", BindFunc: bindGreater},
