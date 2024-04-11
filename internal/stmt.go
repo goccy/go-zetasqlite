@@ -152,15 +152,15 @@ func (s *DMLStmt) NumInput() int {
 }
 
 func (s *DMLStmt) Exec(args []driver.Value) (driver.Result, error) {
-	values := make([]interface{}, 0, len(args))
-	for _, arg := range args {
-		values = append(values, arg)
-	}
-	newArgs, err := EncodeGoValues(values, s.args)
+	return s.ExecContext(context.Background(), valuesToNamedValues(args))
+}
+
+func (s *DMLStmt) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
+	newArgs, err := getArgsFromParams(args, s.args)
 	if err != nil {
 		return nil, err
 	}
-	result, err := s.stmt.Exec(newArgs...)
+	result, err := s.stmt.ExecContext(ctx, newArgs...)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"failed to execute query %s: args %v: %w",
@@ -170,10 +170,6 @@ func (s *DMLStmt) Exec(args []driver.Value) (driver.Result, error) {
 		)
 	}
 	return result, nil
-}
-
-func (s *DMLStmt) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
-	return nil, fmt.Errorf("unimplemented ExecContext for DMLStmt")
 }
 
 func (s *DMLStmt) Query(args []driver.Value) (driver.Rows, error) {
@@ -224,16 +220,28 @@ func (s *QueryStmt) ExecContext(ctx context.Context, query string, args []driver
 	return nil, fmt.Errorf("unsupported exec for QueryStmt")
 }
 
-func (s *QueryStmt) Query(args []driver.Value) (driver.Rows, error) {
-	values := make([]interface{}, 0, len(args))
+func valuesToNamedValues(args []driver.Value) []driver.NamedValue {
+	values := make([]driver.NamedValue, 0, len(args))
 	for _, arg := range args {
-		values = append(values, arg)
+		if namedValue, ok := arg.(driver.NamedValue); ok {
+			values = append(values, namedValue)
+		}
+		values = append(values, driver.NamedValue{Value: arg})
 	}
-	newArgs, err := EncodeGoValues(values, s.args)
+
+	return values
+}
+
+func (s *QueryStmt) Query(args []driver.Value) (driver.Rows, error) {
+	return s.QueryContext(context.Background(), valuesToNamedValues(args))
+}
+
+func (s *QueryStmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
+	newArgs, err := getArgsFromParams(args, s.args)
 	if err != nil {
 		return nil, err
 	}
-	rows, err := s.stmt.Query(newArgs...)
+	rows, err := s.stmt.QueryContext(ctx, newArgs...)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"failed to query %s: args: %v: %w",
@@ -251,8 +259,4 @@ func (s *QueryStmt) Query(args []driver.Value) (driver.Rows, error) {
 		)
 	}
 	return &Rows{rows: rows, columns: s.outputColumns}, nil
-}
-
-func (s *QueryStmt) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
-	return nil, fmt.Errorf("unimplemented QueryContext for QueryStmt")
 }
