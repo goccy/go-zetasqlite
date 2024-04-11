@@ -107,8 +107,27 @@ func CONCAT(args ...Value) (Value, error) {
 	return nil, fmt.Errorf("CONCAT: argument type must be STRING or BYTES")
 }
 
-func CONTAINS_SUBSTR(exprValue Value, search string) (Value, error) {
-	return nil, nil
+func CONTAINS_SUBSTR(value string, search string) (Value, error) {
+	normalizedExprValue, err := NORMALIZE_AND_CASEFOLD(value, "NFKC")
+	if err != nil {
+		return nil, fmt.Errorf("CONTAINS_SUBSTR: could not normalize and casefold value: %w", err)
+	}
+
+	normalizedValue, err := normalizedExprValue.ToString()
+	if err != nil {
+		return nil, fmt.Errorf("CONTAINS_SUBSTR: could not convert expression to string: %w", err)
+	}
+
+	normalizedSearchValue, err := NORMALIZE_AND_CASEFOLD(search, "NFKC")
+	if err != nil {
+		return nil, fmt.Errorf("CONTAINS_SUBSTR: could not normalize and casefold value: %w", err)
+	}
+
+	normalizedSearch, err := normalizedSearchValue.ToString()
+	if err != nil {
+		return nil, fmt.Errorf("CONTAINS_SUBSTR: could not convert expression to string: %w", err)
+	}
+	return BoolValue(strings.Contains(normalizedValue, normalizedSearch)), nil
 }
 
 func ENDS_WITH(value, ends Value) (Value, error) {

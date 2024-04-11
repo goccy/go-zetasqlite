@@ -922,11 +922,49 @@ func bindContainsSubstr(args ...Value) (Value, error) {
 	if existsNull(args) {
 		return nil, nil
 	}
+
+	// Perform field-by-field match on structs; returning in order:
+	// true if one field contains substr
+	// null if at least one field is null
+	// otherwise false
+	if structValue, ok := args[0].(*StructValue); ok {
+		nullExists := false
+		for _, value := range structValue.values {
+			if value == nil {
+				nullExists = true
+				continue
+			}
+			var err error
+			result, err := bindContainsSubstr(value, args[1])
+
+			if err != nil {
+				return nil, err
+			}
+			contained, err := result.EQ(BoolValue(true))
+			if err != nil {
+				return nil, err
+			}
+			if contained {
+				return BoolValue(true), nil
+			}
+		}
+
+		if nullExists {
+			return nil, nil
+		}
+
+		return BoolValue(false), nil
+	}
+
+	value, err := args[0].ToString()
+	if err != nil {
+		return nil, err
+	}
 	search, err := args[1].ToString()
 	if err != nil {
 		return nil, err
 	}
-	return CONTAINS_SUBSTR(args[0], search)
+	return CONTAINS_SUBSTR(value, search)
 }
 
 func bindEndsWith(args ...Value) (Value, error) {
