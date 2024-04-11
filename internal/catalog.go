@@ -86,8 +86,8 @@ func NewCatalog(db *sql.DB) (*Catalog, error) {
 		NamePath: []string{"contains_substr"},
 		Language: "SQL",
 		Args: []*NameWithType{
-			&NameWithType{Name: "expression", Type: &Type{Name: "expression", Kind: types.STRING, SignatureKind: types.ArgTypeArbitrary}},
-			&NameWithType{Name: "search_value_literal", Type: &Type{Name: "search_value_literal", Kind: types.STRING, SignatureKind: types.ArgTypeFixed}},
+			{Name: "expression", Type: &Type{Name: "expression", Kind: types.STRING, SignatureKind: types.ArgTypeArbitrary}},
+			{Name: "search_value_literal", Type: &Type{Name: "search_value_literal", Kind: types.STRING, SignatureKind: types.ArgTypeFixed}},
 		},
 		Return: &Type{Name: "BOOL", Kind: types.BOOL, SignatureKind: types.ArgTypeFixed},
 	}); err != nil {
