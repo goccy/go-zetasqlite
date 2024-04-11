@@ -3126,91 +3126,90 @@ SELECT characters, CHARACTER_LENGTH(characters) FROM example`,
 			query:        `SELECT CONCAT('T.P.', ' ', 'Bar'), CONCAT('Summer', ' ', 1923), CONCAT("abc"), CONCAT(1), CONCAT('A', NULL, 'C'), CONCAT(NULL)`,
 			expectedRows: [][]interface{}{{"T.P. Bar", "Summer 1923", "abc", "1", nil, nil}},
 		},
-		// TODO: currently unsupported CONTAINS_SUBSTR function because ZetaSQL library doesn't support it.
-		// {
-		//	name:         "contains_substr true",
-		//	query:        `SELECT CONTAINS_SUBSTR('the blue house', 'Blue house')`,
-		//	expectedRows: [][]interface{}{{true}},
-		// },
-		// {
-		//	name:         "contains_substr false",
-		//	query:        `SELECT CONTAINS_SUBSTR('the red house', 'blue')`,
-		//	expectedRows: [][]interface{}{{false}},
-		// },
-		// {
-		//	name:         "contains_substr normalize",
-		//	query:        `SELECT '\u2168 day' AS a, 'IX' AS b, CONTAINS_SUBSTR('\u2168', 'IX')`,
-		//	expectedRows: [][]interface{}{{"Ⅸ day", "IX", true}},
-		// },
-		// {
-		//	name:         "contains_substr struct_field",
-		//	query:        `SELECT CONTAINS_SUBSTR((23, 35, 41), '35')`,
-		//	expectedRows: [][]interface{}{{true}},
-		// },
-		// {
-		//	name:         "contains_substr recursive",
-		//	query:        `SELECT CONTAINS_SUBSTR(('abc', ['def', 'ghi', 'jkl'], 'mno'), 'jk')`,
-		//	expectedRows: [][]interface{}{{true}},
-		// },
-		// {
-		//	name:         "contains_substr struct with null",
-		//	query:        `SELECT CONTAINS_SUBSTR((23, NULL, 41), '41')`,
-		//	expectedRows: [][]interface{}{{true}},
-		// },
-		// {
-		//	name:         "contains_substr struct with null2",
-		//	query:        `SELECT CONTAINS_SUBSTR((23, NULL, 41), '35')`,
-		//	expectedRows: [][]interface{}{{nil}},
-		// },
-		// {
-		//	name:        "contains_substr nil",
-		//	query:       `SELECT CONTAINS_SUBSTR('hello', NULL)`,
-		//	expectedErr: true,
-		// },
-		// {
-		//	name: "contains_substr for table all rows",
-		//	query: `
-		// WITH Recipes AS (
-		//  SELECT 'Blueberry pancakes' as Breakfast, 'Egg salad sandwich' as Lunch, 'Potato dumplings' as Dinner UNION ALL
-		//  SELECT 'Potato pancakes', 'Toasted cheese sandwich', 'Beef stroganoff' UNION ALL
-		//  SELECT 'Ham scramble', 'Steak avocado salad', 'Tomato pasta' UNION ALL
-		//  SELECT 'Avocado toast', 'Tomato soup', 'Blueberry salmon' UNION ALL
-		//  SELECT 'Corned beef hash', 'Lentil potato soup', 'Glazed ham'
-		// ) SELECT * FROM Recipes WHERE CONTAINS_SUBSTR(Recipes, 'toast')`,
-		//	expectedRows: [][]interface{}{
-		//	{"Potato pancakes", "Toasted cheese sandwich", "Beef stroganoff"},
-		//	{"Avocado toast", "Tomato soup", "Blueberry samon"},
-		//	},
-		//	},
-		// {
-		//	name: "contains_substr for table specified rows",
-		//	query: `
-		// WITH Recipes AS (
-		//  SELECT 'Blueberry pancakes' as Breakfast, 'Egg salad sandwich' as Lunch, 'Potato dumplings' as Dinner UNION ALL
-		//  SELECT 'Potato pancakes', 'Toasted cheese sandwich', 'Beef stroganoff' UNION ALL
-		//  SELECT 'Ham scramble', 'Steak avocado salad', 'Tomato pasta' UNION ALL
-		//  SELECT 'Avocado toast', 'Tomato soup', 'Blueberry salmon' UNION ALL
-		//  SELECT 'Corned beef hash', 'Lentil potato soup', 'Glazed ham'
-		// ) SELECT * FROM Recipes WHERE CONTAINS_SUBSTR((Lunch, Dinner), 'potato')`,
-		//	expectedRows: [][]interface{}{
-		//		{"Bluberry pancakes", "Egg salad sandwich", "Potato dumplings"},
-		//		{"Corned beef hash", "Lentil potato soup", "Glazed ham"},
-		//	},
-		// },
-		// {
-		//	name: "contains_substr for table except",
-		//	query: `
-		// WITH Recipes AS (
-		//  SELECT 'Blueberry pancakes' as Breakfast, 'Egg salad sandwich' as Lunch, 'Potato dumplings' as Dinner UNION ALL
-		//  SELECT 'Potato pancakes', 'Toasted cheese sandwich', 'Beef stroganoff' UNION ALL
-		//  SELECT 'Ham scramble', 'Steak avocado salad', 'Tomato pasta' UNION ALL
-		//  SELECT 'Avocado toast', 'Tomato soup', 'Blueberry salmon' UNION ALL
-		//  SELECT 'Corned beef hash', 'Lentil potato soup', 'Glazed ham'
-		// ) SELECT * FROM Recipes WHERE CONTAINS_SUBSTR((SELECT AS STRUCT Recipes.* EXCEPT (Lunch, Dinner)), 'potato')`,
-		//	expectedRows: [][]interface{}{
-		//		{"Potato pancakes", "Toasted cheese sandwich", "Beef stroganoff"},
-		//	},
-		// },
+		{
+			name:         "contains_substr true",
+			query:        `SELECT CONTAINS_SUBSTR('the blue house', 'Blue house')`,
+			expectedRows: [][]interface{}{{true}},
+		},
+		{
+			name:         "contains_substr false",
+			query:        `SELECT CONTAINS_SUBSTR('the red house', 'blue')`,
+			expectedRows: [][]interface{}{{false}},
+		},
+		{
+			name:         "contains_substr normalize",
+			query:        `SELECT '\u2168 day' AS a, 'IX' AS b, CONTAINS_SUBSTR('\u2168', 'IX')`,
+			expectedRows: [][]interface{}{{"Ⅸ day", "IX", true}},
+		},
+		{
+			name:         "contains_substr struct_field",
+			query:        `SELECT CONTAINS_SUBSTR((23, 35, 41), '35')`,
+			expectedRows: [][]interface{}{{true}},
+		},
+		{
+			name:         "contains_substr recursive",
+			query:        `SELECT CONTAINS_SUBSTR(('abc', ['def', 'ghi', 'jkl'], 'mno'), 'jk')`,
+			expectedRows: [][]interface{}{{true}},
+		},
+		{
+			name:         "contains_substr struct with null",
+			query:        `SELECT CONTAINS_SUBSTR((23, NULL, 41), '41')`,
+			expectedRows: [][]interface{}{{true}},
+		},
+		{
+			name:         "contains_substr struct with null2",
+			query:        `SELECT CONTAINS_SUBSTR((23, NULL, 41), '35')`,
+			expectedRows: [][]interface{}{{nil}},
+		},
+		{
+			name:        "contains_substr nil",
+			query:       `SELECT CONTAINS_SUBSTR('hello', NULL)`,
+			expectedErr: "CONTAINS_SUBSTR: search literal must be not null",
+		},
+		{
+			name: "contains_substr for table all rows",
+			query: `
+		WITH Recipes AS (
+		 SELECT 'Blueberry pancakes' as Breakfast, 'Egg salad sandwich' as Lunch, 'Potato dumplings' as Dinner UNION ALL
+		 SELECT 'Potato pancakes', 'Toasted cheese sandwich', 'Beef stroganoff' UNION ALL
+		 SELECT 'Ham scramble', 'Steak avocado salad', 'Tomato pasta' UNION ALL
+		 SELECT 'Avocado toast', 'Tomato soup', 'Blueberry salmon' UNION ALL
+		 SELECT 'Corned beef hash', 'Lentil potato soup', 'Glazed ham'
+		) SELECT * FROM Recipes WHERE CONTAINS_SUBSTR(Recipes, 'toast')`,
+			expectedRows: [][]interface{}{
+				{"Potato pancakes", "Toasted cheese sandwich", "Beef stroganoff"},
+				{"Avocado toast", "Tomato soup", "Blueberry salmon"},
+			},
+		},
+		{
+			name: "contains_substr for table specified rows",
+			query: `
+		WITH Recipes AS (
+		 SELECT 'Blueberry pancakes' as Breakfast, 'Egg salad sandwich' as Lunch, 'Potato dumplings' as Dinner UNION ALL
+		 SELECT 'Potato pancakes', 'Toasted cheese sandwich', 'Beef stroganoff' UNION ALL
+		 SELECT 'Ham scramble', 'Steak avocado salad', 'Tomato pasta' UNION ALL
+		 SELECT 'Avocado toast', 'Tomato soup', 'Blueberry salmon' UNION ALL
+		 SELECT 'Corned beef hash', 'Lentil potato soup', 'Glazed ham'
+		) SELECT * FROM Recipes WHERE CONTAINS_SUBSTR((Lunch, Dinner), 'potato')`,
+			expectedRows: [][]interface{}{
+				{"Blueberry pancakes", "Egg salad sandwich", "Potato dumplings"},
+				{"Corned beef hash", "Lentil potato soup", "Glazed ham"},
+			},
+		},
+		{
+			name: "contains_substr for table except",
+			query: `
+		WITH Recipes AS (
+		 SELECT 'Blueberry pancakes' as Breakfast, 'Egg salad sandwich' as Lunch, 'Potato dumplings' as Dinner UNION ALL
+		 SELECT 'Potato pancakes', 'Toasted cheese sandwich', 'Beef stroganoff' UNION ALL
+		 SELECT 'Ham scramble', 'Steak avocado salad', 'Tomato pasta' UNION ALL
+		 SELECT 'Avocado toast', 'Tomato soup', 'Blueberry salmon' UNION ALL
+		 SELECT 'Corned beef hash', 'Lentil potato soup', 'Glazed ham'
+		) SELECT * FROM Recipes WHERE CONTAINS_SUBSTR((SELECT AS STRUCT Recipes.* EXCEPT (Lunch, Dinner)), 'potato')`,
+			expectedRows: [][]interface{}{
+				{"Potato pancakes", "Toasted cheese sandwich", "Beef stroganoff"},
+			},
+		},
 		{
 			name:         "ends_with",
 			query:        `SELECT ENDS_WITH('apple', 'e'), ENDS_WITH('banana', 'e'), ENDS_WITH('orange', 'e'), ENDS_WITH('foo', NULL), ENDS_WITH(NULL, 'foo')`,

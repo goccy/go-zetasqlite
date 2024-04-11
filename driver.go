@@ -48,7 +48,10 @@ func newDBAndCatalog(name string) (*sql.DB, *internal.Catalog, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to open database by %s: %w", name, err)
 	}
-	catalog := internal.NewCatalog(db)
+	catalog, err := internal.NewCatalog(db)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed open database by %s: failed to initialize catalog: %w", name, err)
+	}
 	nameToDBMap[name] = db
 	nameToCatalogMap[name] = catalog
 	return db, catalog, nil

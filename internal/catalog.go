@@ -71,13 +71,30 @@ func newSimpleCatalog(name string) *types.SimpleCatalog {
 	return catalog
 }
 
-func NewCatalog(db *sql.DB) *Catalog {
-	return &Catalog{
+func NewCatalog(db *sql.DB) (*Catalog, error) {
+	catalog := &Catalog{
 		db:       db,
 		catalog:  newSimpleCatalog(catalogName),
 		tableMap: map[string]*TableSpec{},
 		funcMap:  map[string]*FunctionSpec{},
 	}
+
+	// Add missing CONTAINS_SUBSTR function to the catalog
+	// https://github.com/google/zetasql/issues/135#issuecomment-1490908494
+	if err := catalog.addFunctionSpec(&FunctionSpec{
+		IsTemp:   false,
+		NamePath: []string{"contains_substr"},
+		Language: "SQL",
+		Args: []*NameWithType{
+			&NameWithType{Name: "expression", Type: &Type{Name: "expression", Kind: types.STRING, SignatureKind: types.ArgTypeArbitrary}},
+			&NameWithType{Name: "search_value_literal", Type: &Type{Name: "search_value_literal", Kind: types.STRING, SignatureKind: types.ArgTypeFixed}},
+		},
+		Return: &Type{Name: "BOOL", Kind: types.BOOL, SignatureKind: types.ArgTypeFixed},
+	}); err != nil {
+		return nil, err
+	}
+
+	return catalog, nil
 }
 
 func (c *Catalog) FullName() string {
