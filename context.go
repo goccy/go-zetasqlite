@@ -7,7 +7,7 @@ import (
 	"github.com/goccy/go-zetasqlite/internal"
 )
 
-// DisableQueryFormattingKey use to disable query formatting for queries that require raw SQLite access
+// DisableQueryFormattingKey use to disable query formatting for queries that require raw SQLite access.
 type DisableQueryFormattingKey = internal.DisableQueryFormattingKey
 
 // WithQueryFormattingDisabled use for queries that require raw SQLite SQL.
