@@ -5872,6 +5872,22 @@ SELECT c1 * ? * ? FROM t1;
 			args:         []interface{}{int64(1), int64(2), int64(3)},
 			expectedRows: [][]interface{}{{int64(6)}},
 		},
+		{
+			name: "table default value",
+			query: `
+CREATE TEMP TABLE t1 (
+       id INT64,
+       name STRING DEFAULT LOWER("DEFAULT EXPRESSION"),
+       ts DATE DEFAULT DATE "2024-04-14",
+       state STRING DEFAULT "' escape test"
+);
+       INSERT INTO t1 (id) VALUES (1);
+SELECT * FROM t1;
+`,
+			expectedRows: [][]interface{}{
+				{int64(1), "default expression", "2024-04-14", "' escape test"},
+			},
+		},
 	} {
 		test := test
 		t.Run(test.name, func(t *testing.T) {

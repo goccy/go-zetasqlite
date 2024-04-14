@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"regexp"
 	"strings"
 	"time"
 
@@ -170,9 +171,10 @@ func viewSQLiteSchema(s *TableSpec) string {
 }
 
 type ColumnSpec struct {
-	Name      string `json:"name"`
-	Type      *Type  `json:"type"`
-	IsNotNull bool   `json:"isNotNull"`
+	Name         string `json:"name"`
+	DefaultValue string `json:"defaultValue"`
+	Type         *Type  `json:"type"`
+	IsNotNull    bool   `json:"isNotNull"`
 }
 
 type Type struct {
@@ -274,6 +276,14 @@ func (t *Type) FormatType() string {
 	return types.TypeKind(t.Kind).String()
 }
 
+var matchDoubleQuotesRegex = regexp.MustCompile(`"(.*?)"`)
+
+func replaceDoubleQuotedStringsWithSingleQuotes(s string) string {
+	return matchDoubleQuotesRegex.ReplaceAllStringFunc(s, func(value string) string {
+		return `'` + strings.ReplaceAll(value[1:len(value)-1], `'`, `\'`) + `'`
+	})
+}
+
 func (s *ColumnSpec) SQLiteSchema() string {
 	var typ string
 	switch types.TypeKind(s.Type.Kind) {
@@ -323,6 +333,13 @@ func (s *ColumnSpec) SQLiteSchema() string {
 	schema := fmt.Sprintf("`%s` %s", s.Name, typ)
 	if s.IsNotNull {
 		schema += " NOT NULL"
+	}
+	if s.DefaultValue != "" {
+		// Default value expressions must be considered constant, so we must replace double quotes with single quotes.
+		// For the purposes of the DEFAULT clause, an expression is considered constant if it contains no sub-queries,
+		// column or table references, bound parameters, or string literals enclosed in double-quotes instead of single-quotes.
+		// https://www.sqlite.org/lang_createtable.html#the_default_clause
+		schema += fmt.Sprintf(" DEFAULT (%s)", replaceDoubleQuotedStringsWithSingleQuotes(s.DefaultValue))
 	}
 	return schema
 }
@@ -471,7 +488,7 @@ func newTemplatedFunctionSpec(ctx context.Context, namePath *NamePath, stmt *ast
 	}, nil
 }
 
-func newColumnsFromDef(def []*ast.ColumnDefinitionNode) []*ColumnSpec {
+func newColumnsFromDef(ctx context.Context, def []*ast.ColumnDefinitionNode) ([]*ColumnSpec, error) {
 	columns := []*ColumnSpec{}
 	for _, columnNode := range def {
 		annotation := columnNode.Annotations()
@@ -484,13 +501,24 @@ func newColumnsFromDef(def []*ast.ColumnDefinitionNode) []*ColumnSpec {
 			}
 			isNotNull = annotation.NotNull()
 		}
+		defaultValue := columnNode.DefaultValue()
+		var defaultValueSQL string
+		if defaultValue != nil {
+			var err error
+			defaultValueSQL, err = newNode(defaultValue).FormatSQL(ctx)
+			if err != nil {
+				return nil, err
+			}
+
+		}
 		columns = append(columns, &ColumnSpec{
-			Name:      columnNode.Name(),
-			Type:      newType(columnNode.Type()),
-			IsNotNull: isNotNull,
+			Name:         columnNode.Name(),
+			Type:         newType(columnNode.Type()),
+			IsNotNull:    isNotNull,
+			DefaultValue: defaultValueSQL,
 		})
 	}
-	return columns
+	return columns, nil
 }
 
 func newColumnsFromOutputColumns(def []*ast.OutputColumnNode) []*ColumnSpec {
@@ -513,17 +541,21 @@ func newPrimaryKey(key *ast.PrimaryKeyNode) []string {
 	return key.ColumnNameList()
 }
 
-func newTableSpec(namePath *NamePath, stmt *ast.CreateTableStmtNode) *TableSpec {
+func newTableSpec(ctx context.Context, namePath *NamePath, stmt *ast.CreateTableStmtNode) (*TableSpec, error) {
 	now := time.Now()
+	columns, err := newColumnsFromDef(ctx, stmt.ColumnDefinitionList())
+	if err != nil {
+		return nil, err
+	}
 	return &TableSpec{
 		IsTemp:     stmt.CreateScope() == ast.CreateScopeTemp,
 		NamePath:   namePath.mergePath(stmt.NamePath()),
-		Columns:    newColumnsFromDef(stmt.ColumnDefinitionList()),
+		Columns:    columns,
 		PrimaryKey: newPrimaryKey(stmt.PrimaryKey()),
 		CreateMode: stmt.CreateMode(),
 		UpdatedAt:  now,
 		CreatedAt:  now,
-	}
+	}, nil
 }
 
 func newTableAsViewSpec(namePath *NamePath, query string, stmt *ast.CreateViewStmtNode) *TableSpec {
@@ -550,7 +582,7 @@ func newTableAsViewSpec(namePath *NamePath, query string, stmt *ast.CreateViewSt
 	}
 }
 
-func newTableAsSelectSpec(namePath *NamePath, query string, stmt *ast.CreateTableAsSelectStmtNode) *TableSpec {
+func newTableAsSelectSpec(ctx context.Context, namePath *NamePath, query string, stmt *ast.CreateTableAsSelectStmtNode) (*TableSpec, error) {
 	var outputColumns []string
 	for _, column := range stmt.OutputColumnList() {
 		colName := column.Name()
@@ -562,16 +594,20 @@ func newTableAsSelectSpec(namePath *NamePath, query string, stmt *ast.CreateTabl
 		)
 	}
 	now := time.Now()
+	columns, err := newColumnsFromDef(ctx, stmt.ColumnDefinitionList())
+	if err != nil {
+		return nil, err
+	}
 	return &TableSpec{
 		IsTemp:     stmt.CreateScope() == ast.CreateScopeTemp,
 		NamePath:   namePath.mergePath(stmt.NamePath()),
-		Columns:    newColumnsFromDef(stmt.ColumnDefinitionList()),
+		Columns:    columns,
 		PrimaryKey: newPrimaryKey(stmt.PrimaryKey()),
 		CreateMode: stmt.CreateMode(),
 		Query:      fmt.Sprintf("SELECT %s FROM (%s)", strings.Join(outputColumns, ","), query),
 		UpdatedAt:  now,
 		CreatedAt:  now,
-	}
+	}, nil
 }
 
 func newType(t types.Type) *Type {

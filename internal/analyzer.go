@@ -75,6 +75,7 @@ func newAnalyzerOptions() (*zetasql.AnalyzerOptions, error) {
 		zetasql.FeatureV11WithOnSubquery,
 		zetasql.FeatureV13Pivot,
 		zetasql.FeatureV13Unpivot,
+		zetasql.FeatureV13ColumnDefaultValue,
 	})
 	langOpt.SetSupportedStatementKinds([]ast.Kind{
 		ast.BeginStmt,
@@ -294,8 +295,11 @@ func (a *Analyzer) newStmtAction(ctx context.Context, query string, args []drive
 	return nil, fmt.Errorf("unsupported stmt %s", node.DebugString())
 }
 
-func (a *Analyzer) newCreateTableStmtAction(_ context.Context, query string, args []driver.NamedValue, node *ast.CreateTableStmtNode) (*CreateTableStmtAction, error) {
-	spec := newTableSpec(a.namePath, node)
+func (a *Analyzer) newCreateTableStmtAction(ctx context.Context, query string, args []driver.NamedValue, node *ast.CreateTableStmtNode) (*CreateTableStmtAction, error) {
+	spec, err := newTableSpec(ctx, a.namePath, node)
+	if err != nil {
+		return nil, err
+	}
 	params := getParamsFromNode(node)
 	queryArgs, err := getArgsFromParams(args, params)
 	if err != nil {
@@ -315,7 +319,10 @@ func (a *Analyzer) newCreateTableAsSelectStmtAction(ctx context.Context, _ strin
 	if err != nil {
 		return nil, err
 	}
-	spec := newTableAsSelectSpec(a.namePath, query, node)
+	spec, err := newTableAsSelectSpec(ctx, a.namePath, query, node)
+	if err != nil {
+		return nil, err
+	}
 	params := getParamsFromNode(node)
 	queryArgs, err := getArgsFromParams(args, params)
 	if err != nil {
