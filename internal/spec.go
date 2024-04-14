@@ -509,7 +509,6 @@ func newColumnsFromDef(ctx context.Context, def []*ast.ColumnDefinitionNode) ([]
 			if err != nil {
 				return nil, err
 			}
-
 		}
 		columns = append(columns, &ColumnSpec{
 			Name:         columnNode.Name(),
