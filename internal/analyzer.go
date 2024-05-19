@@ -1,6 +1,8 @@
 package internal
 
 import (
+	"google.golang.org/api/bigquery/v2"
+
 	"context"
 	"database/sql/driver"
 	"fmt"
@@ -18,6 +20,7 @@ type Analyzer struct {
 	isExplainMode   bool
 	catalog         *Catalog
 	opt             *zetasql.AnalyzerOptions
+	queryParameters []*bigquery.QueryParameter
 }
 
 func NewAnalyzer(catalog *Catalog) (*Analyzer, error) {
@@ -118,6 +121,16 @@ func (a *Analyzer) NamePath() []string {
 	return a.namePath.path
 }
 
+func (a *Analyzer) SetQueryParameters(parameters []*bigquery.QueryParameter) {
+	a.queryParameters = parameters
+}
+
+func (a *Analyzer) PopQueryParameters() []*bigquery.QueryParameter {
+	parameters := a.queryParameters
+	a.SetQueryParameters(nil)
+	return parameters
+}
+
 func (a *Analyzer) SetNamePath(path []string) error {
 	return a.namePath.setPath(path)
 }
@@ -183,6 +196,25 @@ func (a *Analyzer) getParameterMode(stmt parsed_ast.StatementNode) (zetasql.Para
 
 type StmtActionFunc func() (StmtAction, error)
 
+func (a *Analyzer) configureQueryParameters(options *zetasql.AnalyzerOptions) error {
+	parameters := a.PopQueryParameters()
+	if parameters != nil {
+		for _, parameter := range parameters {
+			parameterType, err := ZetaSQLTypeFromBigQueryType(parameter.ParameterType)
+			if err != nil {
+				return err
+			}
+
+			if parameter.Name == "" {
+				options.AddPositionalQueryParameter(parameterType)
+			} else {
+				options.AddQueryParameter(parameter.Name, parameterType)
+			}
+		}
+	}
+	return nil
+}
+
 func (a *Analyzer) Analyze(ctx context.Context, conn *Conn, query string, args []driver.NamedValue) ([]StmtActionFunc, error) {
 	if err := a.catalog.Sync(ctx, conn); err != nil {
 		return nil, fmt.Errorf("failed to sync catalog: %w", err)
@@ -195,6 +227,14 @@ func (a *Analyzer) Analyze(ctx context.Context, conn *Conn, query string, args [
 	for _, spec := range a.catalog.getFunctions(a.namePath) {
 		funcMap[spec.FuncName()] = spec
 	}
+	options, err := newAnalyzerOptions()
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize analyzer options")
+	}
+	err = a.configureQueryParameters(options)
+	if err != nil {
+		return nil, fmt.Errorf("failed to configure query parameter types: %s", err)
+	}
 	actionFuncs := make([]StmtActionFunc, 0, len(stmts))
 	for _, stmt := range stmts {
 		stmt := stmt
@@ -203,12 +243,12 @@ func (a *Analyzer) Analyze(ctx context.Context, conn *Conn, query string, args [
 			if err != nil {
 				return nil, err
 			}
-			a.opt.SetParameterMode(mode)
+			options.SetParameterMode(mode)
 			out, err := zetasql.AnalyzeStatementFromParserAST(
 				query,
 				stmt,
 				a.catalog,
-				a.opt,
+				options,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to analyze: %w", err)
@@ -226,6 +266,74 @@ func (a *Analyzer) Analyze(ctx context.Context, conn *Conn, query string, args [
 		})
 	}
 	return actionFuncs, nil
+}
+
+func ZetaSQLTypeFromBigQueryType(t *bigquery.QueryParameterType) (types.Type, error) {
+	// Generates ZetaSQL annotated types from a list of bigquery query parameters
+	if t.Type == "ARRAY" {
+		element, err := ZetaSQLTypeFromBigQueryType(t.ArrayType)
+		if err != nil {
+			return nil, err
+		}
+		return types.NewArrayType(element)
+	}
+
+	if t.Type == "STRUCT" {
+		fields := []*types.StructField{}
+		for _, field := range t.StructTypes {
+			element, err := ZetaSQLTypeFromBigQueryType(field.Type)
+			if err != nil {
+				return nil, err
+			}
+
+			fields = append(fields, types.NewStructField(field.Name, element))
+		}
+		return types.NewStructType(fields)
+	}
+
+	var zetasqlType types.Type
+	switch t.Type {
+	case "INT32":
+		zetasqlType = types.Int32Type()
+	case "INT64":
+		zetasqlType = types.Int64Type()
+	case "UINT32":
+		zetasqlType = types.Uint32Type()
+	case "UINT64":
+		zetasqlType = types.Uint64Type()
+	case "BOOL":
+		zetasqlType = types.BoolType()
+	case "FLOAT", "FLOAT32":
+		zetasqlType = types.FloatType()
+	case "FLOAT64", "DOUBLE":
+		zetasqlType = types.DoubleType()
+	case "STRING":
+		zetasqlType = types.StringType()
+	case "BYTES":
+		zetasqlType = types.BytesType()
+	case "DATE":
+		zetasqlType = types.DateType()
+	case "TIMESTAMP":
+		zetasqlType = types.TimestampType()
+	case "TIME":
+		zetasqlType = types.TimeType()
+	case "DATETIME":
+		zetasqlType = types.DatetimeType()
+	case "GEOGRAPHY":
+		zetasqlType = types.GeographyType()
+	case "NUMERIC", "DECIMAL":
+		zetasqlType = types.NumericType()
+	case "BIGDECIMAL", "BIGNUMERIC":
+		zetasqlType = types.BigNumericType()
+	case "JSON":
+		zetasqlType = types.JsonType()
+	case "INTERVAL":
+		zetasqlType = types.IntervalType()
+	default:
+		return nil, fmt.Errorf("unsupported query parameter type: %s", t)
+	}
+	return zetasqlType, nil
+
 }
 
 func (a *Analyzer) context(
