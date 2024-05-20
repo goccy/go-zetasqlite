@@ -198,17 +198,21 @@ type StmtActionFunc func() (StmtAction, error)
 
 func (a *Analyzer) configureQueryParameters(options *zetasql.AnalyzerOptions) error {
 	parameters := a.PopQueryParameters()
-	if parameters != nil {
-		for _, parameter := range parameters {
-			parameterType, err := ZetaSQLTypeFromBigQueryType(parameter.ParameterType)
+	for _, parameter := range parameters {
+		parameterType, err := ZetaSQLTypeFromBigQueryType(parameter.ParameterType)
+		if err != nil {
+			return err
+		}
+
+		if parameter.Name == "" {
+			err = options.AddPositionalQueryParameter(parameterType)
 			if err != nil {
 				return err
 			}
-
-			if parameter.Name == "" {
-				options.AddPositionalQueryParameter(parameterType)
-			} else {
-				options.AddQueryParameter(parameter.Name, parameterType)
+		} else {
+			err = options.AddQueryParameter(parameter.Name, parameterType)
+			if err != nil {
+				return err
 			}
 		}
 	}
@@ -330,7 +334,7 @@ func ZetaSQLTypeFromBigQueryType(t *bigquery.QueryParameterType) (types.Type, er
 	case "INTERVAL":
 		zetasqlType = types.IntervalType()
 	default:
-		return nil, fmt.Errorf("unsupported query parameter type: %s", t)
+		return nil, fmt.Errorf("unsupported query parameter type: %s", t.Type)
 	}
 	return zetasqlType, nil
 
