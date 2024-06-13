@@ -5879,13 +5879,14 @@ CREATE TEMP TABLE t1 (
        id INT64,
        name STRING DEFAULT LOWER("DEFAULT EXPRESSION"),
        ts DATE DEFAULT DATE "2024-04-14",
+       test_ts_complex INT64 DEFAULT EXTRACT(YEAR FROM CURRENT_TIMESTAMP()) - MOD(EXTRACT(YEAR FROM CURRENT_TIMESTAMP()), 2000),
        state STRING DEFAULT "' escape test"
 );
        INSERT INTO t1 (id) VALUES (1);
 SELECT * FROM t1;
 `,
 			expectedRows: [][]interface{}{
-				{int64(1), "default expression", "2024-04-14", "' escape test"},
+				{int64(1), "default expression", "2024-04-14", int64(2000), "' escape test"},
 			},
 		},
 	} {
