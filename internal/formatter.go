@@ -1215,7 +1215,7 @@ func (n *GeneratedColumnInfoNode) FormatSQL(ctx context.Context) (string, error)
 }
 
 func (n *ColumnDefaultValueNode) FormatSQL(ctx context.Context) (string, error) {
-	return "", nil
+	return newNode(n.node.Expression()).FormatSQL(ctx)
 }
 
 func (n *ColumnDefinitionNode) FormatSQL(ctx context.Context) (string, error) {
