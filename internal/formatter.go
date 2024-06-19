@@ -251,6 +251,20 @@ func (n *FunctionCallNode) FormatSQL(ctx context.Context) (string, error) {
 		return "", err
 	}
 	switch funcName {
+	case "zetasqlite_ifnull":
+		return fmt.Sprintf(
+			"CASE WHEN %s IS NULL THEN %s ELSE %s END",
+			args[0],
+			args[1],
+			args[0],
+		), nil
+	case "zetasqlite_if":
+		return fmt.Sprintf(
+			"CASE WHEN %s THEN %s ELSE %s END",
+			args[0],
+			args[1],
+			args[2],
+		), nil
 	case "zetasqlite_case_no_value":
 		var whenStmts []string
 		for i := 0; i < len(args)-1; i += 2 {
