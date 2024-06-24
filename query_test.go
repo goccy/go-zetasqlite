@@ -479,6 +479,21 @@ FROM UNNEST([1, 2, 3, 4]) AS val`,
 			expectedRows: [][]interface{}{{"true"}},
 		},
 		{
+			name:         "if with case that causes errors",
+			query:        `SELECT IF(FALSE, ERROR("error case!"), "false")`,
+			expectedRows: [][]interface{}{{"false"}},
+		},
+		{
+			name:         "ifnull with case that causes errors",
+			query:        `SELECT IFNULL("STRING", ERROR("error case!"))`,
+			expectedRows: [][]interface{}{{"STRING"}},
+		},
+		{
+			name:         "case with case that causes errors",
+			query:        `SELECT CASE WHEN FALSE THEN ERROR("error case!") ELSE "false" END`,
+			expectedRows: [][]interface{}{{"false"}},
+		},
+		{
 			name:         "ifnull",
 			query:        `SELECT IFNULL(10, 0)`,
 			expectedRows: [][]interface{}{{int64(10)}},
