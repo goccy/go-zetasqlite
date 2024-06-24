@@ -454,20 +454,36 @@ func LOWER(v Value) (Value, error) {
 	return nil, fmt.Errorf("LOWER: value type is must be STRING or BYTES type")
 }
 
-func LTRIM(v Value, cutset string) (Value, error) {
+func LTRIM(v Value, cutsetV Value) (Value, error) {
+	var cutset string
+	if cutsetV != nil {
+		b, err := cutsetV.ToBytes()
+		if err != nil {
+			return nil, err
+		}
+		cutset = string(b)
+	}
 	switch v.(type) {
 	case StringValue:
 		s, err := v.ToString()
 		if err != nil {
 			return nil, err
 		}
-		return StringValue(strings.TrimLeft(s, cutset)), nil
+		if cutsetV == nil {
+			return StringValue(strings.TrimLeftFunc(s, unicode.IsSpace)), nil
+		} else {
+			return StringValue(strings.TrimLeft(s, cutset)), nil
+		}
 	case BytesValue:
 		b, err := v.ToBytes()
 		if err != nil {
 			return nil, err
 		}
-		return BytesValue(bytes.TrimLeft(b, cutset)), nil
+		if cutsetV == nil {
+			return nil, fmt.Errorf("LTRIM: must set_of_characters_to_remove when trimming bytes")
+		} else {
+			return BytesValue(bytes.TrimLeft(b, cutset)), nil
+		}
 	}
 	return nil, fmt.Errorf("LTRIM: value type is must be STRING or BYTES type")
 }
@@ -887,20 +903,36 @@ func RPAD(originalValue Value, returnLength int64, pattern Value) (Value, error)
 	return nil, fmt.Errorf("RPAD: originalValue must be STRING or BYTES")
 }
 
-func RTRIM(value Value, cutset string) (Value, error) {
-	switch value.(type) {
+func RTRIM(v Value, cutsetV Value) (Value, error) {
+	var cutset string
+	if cutsetV != nil {
+		b, err := cutsetV.ToBytes()
+		if err != nil {
+			return nil, err
+		}
+		cutset = string(b)
+	}
+	switch v.(type) {
 	case StringValue:
-		v, err := value.ToString()
+		s, err := v.ToString()
 		if err != nil {
 			return nil, err
 		}
-		return StringValue(strings.TrimRight(v, cutset)), nil
+		if cutsetV == nil {
+			return StringValue(strings.TrimRightFunc(s, unicode.IsSpace)), nil
+		} else {
+			return StringValue(strings.TrimRight(s, cutset)), nil
+		}
 	case BytesValue:
-		v, err := value.ToBytes()
+		b, err := v.ToBytes()
 		if err != nil {
 			return nil, err
 		}
-		return BytesValue(bytes.TrimRight(v, cutset)), nil
+		if cutsetV == nil {
+			return nil, fmt.Errorf("RTRIM: must set_of_characters_to_remove when trimming bytes")
+		} else {
+			return BytesValue(bytes.TrimRight(b, cutset)), nil
+		}
 	}
 	return nil, fmt.Errorf("RTRIM: value1 must be STRING or BYTES")
 }
@@ -1234,11 +1266,9 @@ func TRANSLATE(expr, source, target Value) (Value, error) {
 	return nil, fmt.Errorf("TRANSLATE: expression type is must be STRING or BYTES type")
 }
 
-func TRIM(v, cutsetV Value) (Value, error) {
+func TRIM(v Value, cutsetV Value) (Value, error) {
 	var cutset string
-	if cutsetV == nil {
-		cutset = " "
-	} else {
+	if cutsetV != nil {
 		b, err := cutsetV.ToBytes()
 		if err != nil {
 			return nil, err
@@ -1251,13 +1281,21 @@ func TRIM(v, cutsetV Value) (Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		return StringValue(strings.Trim(s, cutset)), nil
+		if cutsetV == nil {
+			return StringValue(strings.TrimSpace((s))), nil
+		} else {
+			return StringValue(strings.Trim(s, cutset)), nil
+		}
 	case BytesValue:
 		b, err := v.ToBytes()
 		if err != nil {
 			return nil, err
 		}
-		return BytesValue(bytes.Trim(b, cutset)), nil
+		if cutsetV == nil {
+			return nil, fmt.Errorf("TRIM: must set_of_characters_to_remove when trimming bytes")
+		} else {
+			return BytesValue(bytes.Trim(b, cutset)), nil
+		}
 	}
 	return nil, fmt.Errorf("TRIM: expression type is must be STRING or BYTES type")
 }

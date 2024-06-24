@@ -3576,8 +3576,8 @@ WITH example AS
 		},
 		{
 			name:         "ltrim",
-			query:        `SELECT LTRIM('   apple   '), LTRIM('***apple***', '*'), LTRIM(NULL), LTRIM(' . ', NULL)`,
-			expectedRows: [][]interface{}{{"apple   ", "apple***", nil, nil}},
+			query:        `SELECT LTRIM('   apple   '), LTRIM('		apple		'), LTRIM('***apple***', '*'), LTRIM(NULL), LTRIM(' . ', NULL)`,
+			expectedRows: [][]interface{}{{"apple   ", "apple		", "apple***", nil, nil}},
 		},
 		{
 			name:         "normalize",
@@ -4005,6 +4005,22 @@ WITH items AS (
 			},
 		},
 		{
+			name: "rtrim3",
+			query: `
+WITH items AS (
+  SELECT 'apple   ' as item UNION ALL
+  SELECT 'banana		' as item UNION ALL
+  SELECT '		orange		' as item UNION ALL
+  SELECT 'pear' as item
+) SELECT RTRIM(item) FROM items`,
+			expectedRows: [][]interface{}{
+				{"apple"},
+				{"banana"},
+				{"		orange"},
+				{"pear"},
+			},
+		},
+		{
 			name:         "safe_convert_bytes_to_string",
 			query:        `SELECT SAFE_CONVERT_BYTES_TO_STRING(b'\xc2'), SAFE_CONVERT_BYTES_TO_STRING(NULL)`,
 			expectedRows: [][]interface{}{{"�", nil}},
@@ -4135,8 +4151,8 @@ WITH example AS (
 		},
 		{
 			name:         "trim",
-			query:        `SELECT TRIM('   apple   '), TRIM('***apple***', '*'), TRIM(NULL), TRIM('abc', NULL)`,
-			expectedRows: [][]interface{}{{"apple", "apple", nil, nil}},
+			query:        `SELECT TRIM('   apple   '), TRIM('		apple	'), TRIM('***apple***', '*'), TRIM(NULL), TRIM('abc', NULL)`,
+			expectedRows: [][]interface{}{{"apple", "apple", "apple", nil, nil}},
 		},
 		{
 			name:         "unicode",
@@ -4219,7 +4235,7 @@ WITH example AS (
 `,
 			expectedRows: [][]interface{}{{"2014-12-29T00:00:00", int64(2015)}},
 		},
-    {
+		{
 			name: "PIVOT",
 			query: `
 WITH produce AS (

@@ -1148,15 +1148,10 @@ func bindLtrim(args ...Value) (Value, error) {
 	if existsNull(args) {
 		return nil, nil
 	}
-	cutset := " "
 	if len(args) == 2 {
-		v, err := args[1].ToString()
-		if err != nil {
-			return nil, err
-		}
-		cutset = v
+		return LTRIM(args[0], args[1])
 	}
-	return LTRIM(args[0], cutset)
+	return LTRIM(args[0], nil)
 }
 
 func bindNormalize(args ...Value) (Value, error) {
@@ -1348,18 +1343,16 @@ func bindRpad(args ...Value) (Value, error) {
 }
 
 func bindRtrim(args ...Value) (Value, error) {
+	if len(args) != 1 && len(args) != 2 {
+		return nil, fmt.Errorf("RTRIM: invalid argument num %d", len(args))
+	}
 	if existsNull(args) {
 		return nil, nil
 	}
-	var cutset string = " "
-	if len(args) > 1 {
-		v, err := args[1].ToString()
-		if err != nil {
-			return nil, err
-		}
-		cutset = v
+	if len(args) == 2 {
+		return RTRIM(args[0], args[1])
 	}
-	return RTRIM(args[0], cutset)
+	return RTRIM(args[0], nil)
 }
 
 func bindSafeConvertBytesToString(args ...Value) (Value, error) {
