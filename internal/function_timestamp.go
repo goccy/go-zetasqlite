@@ -125,26 +125,25 @@ func TIMESTAMP_TRUNC(t time.Time, part, zone string) (Value, error) {
 	case "MICROSECOND":
 		return TimestampValue(t), nil
 	case "MILLISECOND":
-		sec := time.Duration(t.Second()) - time.Duration(t.Second())/time.Microsecond
+		nsec := (t.Nanosecond() / int(time.Millisecond)) * int(time.Millisecond)
 		return TimestampValue(time.Date(
 			t.Year(),
 			t.Month(),
 			t.Day(),
 			t.Hour(),
 			t.Minute(),
-			int(sec),
-			0,
+			t.Second(),
+			nsec,
 			loc,
 		)), nil
 	case "SECOND":
-		sec := time.Duration(t.Second()) / time.Second
 		return TimestampValue(time.Date(
 			t.Year(),
 			t.Month(),
 			t.Day(),
 			t.Hour(),
 			t.Minute(),
-			int(sec),
+			t.Second(),
 			0,
 			loc,
 		)), nil
