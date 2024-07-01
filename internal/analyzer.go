@@ -75,6 +75,7 @@ func newAnalyzerOptions() (*zetasql.AnalyzerOptions, error) {
 		zetasql.FeatureV11WithOnSubquery,
 		zetasql.FeatureV13Pivot,
 		zetasql.FeatureV13Unpivot,
+		zetasql.FeatureCreateTableAsSelectColumnList,
 	})
 	langOpt.SetSupportedStatementKinds([]ast.Kind{
 		ast.BeginStmt,

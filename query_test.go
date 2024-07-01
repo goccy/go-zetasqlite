@@ -5887,6 +5887,17 @@ SELECT c1 * ? * ? FROM t1;
 			args:         []interface{}{int64(1), int64(2), int64(3)},
 			expectedRows: [][]interface{}{{int64(6)}},
 		},
+		{
+			name: "create table as select with column list",
+			query: `
+CREATE TABLE table1 (field_a STRING NOT NULL);
+INSERT INTO table1 (field_a) VALUES ("test");
+CREATE TEMP TABLE table2 (field_x STRING NOT NULL)
+AS (SELECT field_a FROM table1);
+SELECT * FROM table2;
+`,
+			expectedRows: [][]interface{}{{"test"}},
+		},
 	} {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
