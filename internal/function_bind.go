@@ -3,6 +3,7 @@ package internal
 import (
 	"errors"
 	"fmt"
+	"math"
 	"sync"
 
 	"github.com/goccy/go-json"
@@ -182,6 +183,23 @@ func bindOpDiv(args ...Value) (Value, error) {
 		return nil, nil
 	}
 	return OP_DIV(args[0], args[1])
+}
+
+func bindUnaryMinus(args ...Value) (Value, error) {
+	if existsNull(args) {
+		return nil, nil
+	}
+	v, ok := args[0].(IntValue)
+	if ok {
+		i, err := v.ToInt64()
+		if err != nil {
+			return nil, err
+		}
+		if i == math.MinInt64 {
+			return nil, fmt.Errorf("int64 overflow: -%d", i)
+		}
+	}
+	return SAFE_NEGATE(args[0])
 }
 
 func bindEqual(args ...Value) (Value, error) {
