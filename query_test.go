@@ -5960,6 +5960,48 @@ SELECT * FROM table2;
 	os.Unsetenv("TZ")
 }
 
+func TestMergeStatementWithNamedPath(t *testing.T) {
+	for i, namePath := range [][]string{{"project", "dataset"}, {"project"}} {
+		sql.Register(fmt.Sprintf("zetasqlite-merge-%v", i), &zetasqlite.ZetaSQLiteDriver{
+			ConnectHook: func(conn *zetasqlite.ZetaSQLiteConn) error {
+				return conn.SetNamePath(namePath)
+			},
+		})
+
+		db, err := sql.Open(fmt.Sprintf("zetasqlite-merge-%v", i), ":memory:")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		for _, stmt := range []string{
+			`CREATE TABLE project.dataset.target(id INT64, name STRING);`,
+			`CREATE TABLE project.dataset.source(id INT64, name STRING);`,
+			`INSERT INTO project.dataset.source(id, name) VALUES (1, "test");`,
+			`MERGE project.dataset.target T USING project.dataset.source S ON T.id = S.id
+			WHEN MATCHED THEN UPDATE SET id = S.id, name = S.name
+			WHEN NOT MATCHED THEN INSERT (id, name) VALUES (id, name);`,
+		} {
+			if _, err := db.Exec(stmt); err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		row := db.QueryRow("SELECT * FROM project.dataset.target;")
+		if row.Err() != nil {
+			t.Fatal(row.Err())
+		}
+		var id int64
+		var name string
+		if err := row.Scan(&id, &name); err != nil {
+			t.Fatal(err)
+		}
+
+		if id != 1 || name != "test" {
+			t.Fatalf("failed to merge row %v, %s", id, name)
+		}
+	}
+}
+
 func createTimestampFormatFromTime(t time.Time) string {
 	unixmicro := t.UnixMicro()
 	sec := unixmicro / int64(time.Millisecond)
