@@ -583,7 +583,7 @@ func (a *Analyzer) newMergeStmtAction(ctx context.Context, _ string, args []driv
 		sourceColumn *ast.Column
 		targetColumn *ast.Column
 	)
-	if strings.Contains(sourceTable, colA.Column().TableName()) {
+	if strings.Contains(sourceTable, colA.Column().TableName()) && !strings.Contains(sourceTable, colB.Column().TableName()) {
 		sourceColumn = colA.Column()
 		targetColumn = colB.Column()
 	} else {
@@ -598,7 +598,7 @@ func (a *Analyzer) newMergeStmtAction(ctx context.Context, _ string, args []driv
 	}
 	var stmts []string
 	stmts = append(stmts, fmt.Sprintf(
-		"CREATE TABLE zetasqlite_merged_table AS SELECT DISTINCT * FROM (SELECT * FROM %[1]s LEFT JOIN %[2]s ON %[3]s UNION ALL SELECT * FROM %[2]s LEFT JOIN %[1]s ON %[3]s)",
+		"CREATE TABLE zetasqlite_merged_table AS SELECT DISTINCT * FROM (SELECT * FROM (%[1]s) LEFT JOIN (%[2]s) ON %[3]s UNION ALL SELECT * FROM (%[2]s) LEFT JOIN (%[1]s) ON %[3]s)",
 		sourceTable, targetTable, expr,
 	))
 
