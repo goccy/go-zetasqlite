@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/goccy/go-zetasql"
@@ -625,6 +626,40 @@ func (a *Analyzer) newMergeStmtAction(ctx context.Context, _ string, args []driv
 		mergedTableSourceColumnName,
 		mergedTableTargetColumnName,
 	)
+
+	sourceTableName := sourceColumn.TableName()
+	targetTableName := targetColumn.TableName()
+	namePath := a.namePath.path
+
+	if len(namePath) > 0 {
+		// prepend projectID and datasetID to source and target table names when applicable
+		projectID := namePath[0]
+		datasetID := ""
+
+		if len(namePath) == 2 {
+			// namePath already contains datasetID
+			datasetID = namePath[1]
+		} else if len(namePath) == 1 {
+			// namePath doesn't have a datasetID. Try to extract it from the query
+			datasetExtractPattern := fmt.Sprintf(`\b%s_([^_]+)_%s\b`, regexp.QuoteMeta(projectID), regexp.QuoteMeta(sourceTableName))
+			re, err := regexp.Compile(datasetExtractPattern)
+			if err != nil {
+				return nil, err
+			}
+			matches := re.FindStringSubmatch(sourceTable)
+
+			if matches == nil || len(matches) < 2 {
+				return nil, fmt.Errorf("cannot deduce dataset in the merge query")
+			}
+
+			datasetID = matches[1]
+		}
+
+		// format source and target names as `<projectID>_<datasetID>_<tableName>` to comply with sqlite syntax
+		sourceTableName = fmt.Sprintf("%s_%s_%s", projectID, datasetID, strings.TrimPrefix(sourceTableName, fmt.Sprintf("%s.%s.", projectID, datasetID)))
+		targetTableName = fmt.Sprintf("%s_%s_%s", projectID, datasetID, strings.TrimPrefix(targetTableName, fmt.Sprintf("%s.%s.", projectID, datasetID)))
+	}
+
 	for _, when := range node.WhenClauseList() {
 		var fromStmt string
 		switch when.MatchType() {
@@ -652,10 +687,10 @@ func (a *Analyzer) newMergeStmtAction(ctx context.Context, _ string, args []driv
 			}
 			stmts = append(stmts, fmt.Sprintf(
 				"INSERT INTO `%[1]s`(%[2]s) SELECT %[3]s FROM (SELECT * FROM `%[4]s` %[5]s)",
-				targetColumn.TableName(),
+				targetTableName,
 				strings.Join(columns, ","),
 				row,
-				sourceColumn.TableName(),
+				sourceTableName,
 				whereStmt,
 			))
 		case ast.ActionTypeUpdate:
@@ -669,14 +704,14 @@ func (a *Analyzer) newMergeStmtAction(ctx context.Context, _ string, args []driv
 			}
 			stmts = append(stmts, fmt.Sprintf(
 				"UPDATE `%s` SET %s %s",
-				targetColumn.TableName(),
+				targetTableName,
 				strings.Join(items, ","),
 				fromStmt,
 			))
 		case ast.ActionTypeDelete:
 			stmts = append(stmts, fmt.Sprintf(
 				"DELETE FROM `%s` %s",
-				targetColumn.TableName(),
+				targetTableName,
 				whereStmt,
 			))
 		}
