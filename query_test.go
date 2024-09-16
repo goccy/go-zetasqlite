@@ -5898,6 +5898,84 @@ SELECT * FROM table2;
 `,
 			expectedRows: [][]interface{}{{"test"}},
 		},
+		{
+			name: "merge two tables with empty source",
+			query: `
+CREATE TEMP TABLE target(id INT64, name STRING);
+CREATE TEMP TABLE source(id INT64, name STRING);
+MERGE target T USING source S ON T.id = S.id
+WHEN MATCHED THEN UPDATE SET id = S.id, name = S.name
+WHEN NOT MATCHED THEN INSERT (id, name) VALUES (id, name);
+SELECT * FROM target;
+`,
+			expectedRows: [][]interface{}{},
+		},
+		{
+			name: "merge two tables with non-empty source",
+			query: `
+CREATE TEMP TABLE target(id INT64, name STRING);
+CREATE TEMP TABLE source(id INT64, name STRING);
+INSERT INTO source(id, name) VALUES (1, "test");
+MERGE target T USING source S ON T.id = S.id
+WHEN MATCHED THEN UPDATE SET id = S.id, name = S.name
+WHEN NOT MATCHED THEN INSERT (id, name) VALUES (id, name);
+SELECT * FROM target;
+`,
+			expectedRows: [][]interface{}{{int64(1), "test"}},
+		},
+		{
+			name: "merge two tables where target table name is substring of source table name",
+			query: `
+CREATE TEMP TABLE target(id INT64, name STRING);
+CREATE TEMP TABLE tmp_target_123(id INT64, name STRING);
+INSERT INTO tmp_target_123(id, name) VALUES (1, "test");
+MERGE target T USING tmp_target_123 S ON T.id = S.id
+WHEN MATCHED THEN UPDATE SET id = S.id, name = S.name
+WHEN NOT MATCHED THEN INSERT (id, name) VALUES (id, name);
+SELECT * FROM target;
+`,
+			expectedRows: [][]interface{}{{int64(1), "test"}},
+		},
+		{
+			name: "merge two tables where source table is evaluated using a SELECT expression",
+			query: `
+CREATE TEMP TABLE target(id INT64, name STRING);
+CREATE TEMP TABLE source(id INT64, name STRING);
+INSERT INTO source(id, name) VALUES (1, "test");
+INSERT INTO source(id, name) VALUES (2, "test2");
+MERGE target T USING (SELECT * FROM source) S ON T.id = S.id
+WHEN MATCHED THEN UPDATE SET id = S.id, name = S.name
+WHEN NOT MATCHED THEN INSERT (id, name) VALUES (id, name);
+SELECT * FROM target;
+`,
+			expectedRows: [][]interface{}{{int64(1), "test"}, {int64(2), "test2"}},
+		},
+		{
+			name: "merge two tables deleting matched rows",
+			query: `
+CREATE TEMP TABLE target(id INT64, name STRING);
+CREATE TEMP TABLE source(id INT64, name STRING);
+INSERT INTO target(id, name) VALUES (1, "test");
+INSERT INTO target(id, name) VALUES (2, "test2");
+INSERT INTO source(id, name) VALUES (1, "test");
+MERGE target T USING (SELECT * FROM source) S ON T.id = S.id
+WHEN MATCHED THEN DELETE;
+SELECT * FROM target;
+`,
+			expectedRows: [][]interface{}{{int64(2), "test2"}},
+		},
+		{
+			name: "merge two tables omitting INSERT column list and using ROW",
+			query: `
+CREATE TEMP TABLE target(id INT64, name STRING);
+CREATE TEMP TABLE source(id INT64, name STRING);
+INSERT INTO source(id, name) VALUES (1, "test");
+MERGE target T USING (SELECT * FROM source) S ON T.id = S.id
+WHEN NOT MATCHED THEN INSERT ROW;
+SELECT * FROM target;
+`,
+			expectedRows: [][]interface{}{{int64(1), "test"}},
+		},
 	} {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
