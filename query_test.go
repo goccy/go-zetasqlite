@@ -5950,6 +5950,32 @@ SELECT * FROM target;
 `,
 			expectedRows: [][]interface{}{{int64(1), "test"}, {int64(2), "test2"}},
 		},
+		{
+			name: "merge two tables deleting matched rows",
+			query: `
+CREATE TEMP TABLE target(id INT64, name STRING);
+CREATE TEMP TABLE source(id INT64, name STRING);
+INSERT INTO target(id, name) VALUES (1, "test");
+INSERT INTO target(id, name) VALUES (2, "test2");
+INSERT INTO source(id, name) VALUES (1, "test");
+MERGE target T USING (SELECT * FROM source) S ON T.id = S.id
+WHEN MATCHED THEN DELETE;
+SELECT * FROM target;
+`,
+			expectedRows: [][]interface{}{{int64(2), "test2"}},
+		},
+		{
+			name: "merge two tables omitting INSERT column list and using ROW",
+			query: `
+CREATE TEMP TABLE target(id INT64, name STRING);
+CREATE TEMP TABLE source(id INT64, name STRING);
+INSERT INTO source(id, name) VALUES (1, "test");
+MERGE target T USING (SELECT * FROM source) S ON T.id = S.id
+WHEN NOT MATCHED THEN INSERT ROW;
+SELECT * FROM target;
+`,
+			expectedRows: [][]interface{}{{int64(1), "test"}},
+		},
 	} {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
