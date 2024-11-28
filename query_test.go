@@ -5567,6 +5567,26 @@ FROM
 				{"false", "boolean"},
 			},
 		},
+		{
+			name:         "json_sum_int64 simple",
+			query:        `SELECT SUM(INT64(x)) AS sum FROM UNNEST([JSON '100', JSON '200', JSON '300']) AS x`,
+			expectedRows: [][]interface{}{{int64(600)}},
+		},
+		{
+			name:         "json_sum_int64 key",
+			query:        `SELECT SUM(INT64(x.count)) AS sum FROM UNNEST([JSON '{"count":100}', JSON '{"count":200}', JSON '{"count":300}']) AS x`,
+			expectedRows: [][]interface{}{{int64(600)}},
+		},
+		{
+			name:         "json_sum_float64 simple",
+			query:        `SELECT SUM(FLOAT64(x)) AS sum FROM UNNEST([JSON '1.5', JSON '2.5', JSON '1.1']) AS x`,
+			expectedRows: [][]interface{}{{float64(5.1)}},
+		},
+		{
+			name:         "json_sum_float64_round simple",
+			query:        `SELECT SUM(ROUND(FLOAT64(x))) AS sum FROM UNNEST([JSON '1.6', JSON '1.1', JSON '1.1']) AS x`,
+			expectedRows: [][]interface{}{{float64(4.0)}},
+		},
 
 		// subquery expr
 		{

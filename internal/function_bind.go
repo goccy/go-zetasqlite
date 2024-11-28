@@ -1560,7 +1560,11 @@ func bindInt64(args ...Value) (Value, error) {
 	if len(args) != 1 {
 		return nil, fmt.Errorf("INT64: invalid argument num %d", len(args))
 	}
-	return args[0], nil
+	value, err := args[0].ToInt64()
+	if err != nil {
+		return nil, err
+	}
+	return IntValue(value), nil
 }
 
 func bindDouble(args ...Value) (Value, error) {
@@ -1573,9 +1577,17 @@ func bindDouble(args ...Value) (Value, error) {
 	}
 	switch mode {
 	case "exact":
-		return args[0], nil
+		value, err := args[0].ToFloat64()
+		if err != nil {
+			return nil, err
+		}
+		return FloatValue(value), nil
 	case "round":
-		return args[0], nil
+		value, err := args[0].ToFloat64()
+		if err != nil {
+			return nil, err
+		}
+		return FloatValue(value), nil
 	}
 	return nil, fmt.Errorf("unexpected wide_number_mode: %s", mode)
 }
