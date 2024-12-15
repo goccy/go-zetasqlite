@@ -94,6 +94,7 @@ func newAnalyzerOptions() (*zetasql.AnalyzerOptions, error) {
 		ast.CreateTableFunctionStmt,
 		ast.CreateViewStmt,
 		ast.DropFunctionStmt,
+		ast.CreateSchemaStmt,
 	})
 	// Enable QUALIFY without WHERE
 	// https://github.com/google/zetasql/issues/124
@@ -273,6 +274,8 @@ func (a *Analyzer) newStmtAction(ctx context.Context, query string, args []drive
 	case ast.CreateViewStmt:
 		ctx = withUseColumnID(ctx)
 		return a.newCreateViewStmtAction(ctx, query, args, node.(*ast.CreateViewStmtNode))
+	case ast.CreateSchemaStmt:
+		return a.newCreateSchemaStmtAction(ctx, query, args, node.(*ast.CreateSchemaStmtNode))
 	case ast.DropStmt:
 		return a.newDropStmtAction(ctx, query, args, node.(*ast.DropStmtNode))
 	case ast.DropFunctionStmt:
@@ -364,6 +367,16 @@ func (a *Analyzer) newCreateViewStmtAction(ctx context.Context, _ string, _ []dr
 	}
 	spec := newTableAsViewSpec(a.namePath, query, node)
 	return &CreateViewStmtAction{
+		query:   query,
+		spec:    spec,
+		catalog: a.catalog,
+	}, nil
+}
+
+//nolint:unparam
+func (a *Analyzer) newCreateSchemaStmtAction(_ context.Context, query string, _ []driver.NamedValue, node *ast.CreateSchemaStmtNode) (*CreateSchemaStmtAction, error) {
+	spec := newSchemaSpec(a.namePath, node)
+	return &CreateSchemaStmtAction{
 		query:   query,
 		spec:    spec,
 		catalog: a.catalog,

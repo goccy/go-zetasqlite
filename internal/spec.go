@@ -46,7 +46,7 @@ type FunctionSpec struct {
 }
 
 func (s *FunctionSpec) FuncName() string {
-	return s.NamePath.FormatNamePath()
+	return s.NamePath.CatalogPath()
 }
 
 func (s *FunctionSpec) SQL() string {
@@ -78,7 +78,7 @@ func (s *FunctionSpec) CallSQL(ctx context.Context, callNode *ast.BaseFunctionCa
 				fmt.Sprintf("%s %s", s.Args[idx].Name, typeName),
 			)
 		}
-		funcName := s.NamePath.CatalogPath()
+		funcName := s.NamePath.FormatNamePath()
 		runtimeDefinedFunc := fmt.Sprintf(
 			"CREATE FUNCTION `%s`(%s) as (%s)",
 			funcName,
@@ -325,6 +325,29 @@ func (s *ColumnSpec) SQLiteSchema() string {
 		schema += " NOT NULL"
 	}
 	return schema
+}
+
+type SchemaSpec struct {
+	NamePath   NamePath       `json:"namePath"`
+	CreateMode ast.CreateMode `json:"createMode"`
+	UpdatedAt  time.Time      `json:"updatedAt"`
+	CreatedAt  time.Time      `json:"createdAt"`
+}
+
+func (s *SchemaSpec) SchemaName() string {
+	return s.NamePath.GetObjectId()
+
+}
+
+func newSchemaSpec(namePath *NamePath, stmt *ast.CreateSchemaStmtNode) *SchemaSpec {
+	schemaNamePath := stmt.NamePath()
+	now := time.Now()
+	return &SchemaSpec{
+		NamePath:   *namePath.mergePath(schemaNamePath),
+		CreateMode: stmt.CreateMode(),
+		UpdatedAt:  now,
+		CreatedAt:  now,
+	}
 }
 
 func newTypeFromFunctionArgumentType(t *types.FunctionArgumentType) *Type {

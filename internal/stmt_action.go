@@ -245,6 +245,45 @@ func (a *CreateFunctionStmtAction) Cleanup(ctx context.Context, conn *Conn) erro
 	return nil
 }
 
+type CreateSchemaStmtAction struct {
+	query   string
+	spec    *SchemaSpec
+	catalog *Catalog
+}
+
+func (a *CreateSchemaStmtAction) Args() []interface{} {
+	return nil
+}
+
+func (a *CreateSchemaStmtAction) Prepare(ctx context.Context, conn *Conn) (driver.Stmt, error) {
+	return newCreateSchemaStmt(conn, a.catalog, a.spec), nil
+}
+
+func (a *CreateSchemaStmtAction) ExecContext(ctx context.Context, conn *Conn) (driver.Result, error) {
+	if err := a.exec(ctx, conn); err != nil {
+		return nil, err
+	}
+	return &Result{conn: conn}, nil
+}
+
+func (a *CreateSchemaStmtAction) QueryContext(ctx context.Context, conn *Conn) (*Rows, error) {
+	if err := a.exec(ctx, conn); err != nil {
+		return nil, err
+	}
+	return &Rows{conn: conn}, nil
+}
+
+func (a *CreateSchemaStmtAction) exec(ctx context.Context, conn *Conn) error {
+	if err := a.catalog.AddNewSchemaSpec(ctx, conn, a.spec); err != nil {
+		return fmt.Errorf("failed to add new schema spec: %w", err)
+	}
+	return nil
+}
+
+func (a *CreateSchemaStmtAction) Cleanup(ctx context.Context, conn *Conn) error {
+	return nil
+}
+
 type DropStmtAction struct {
 	name           string
 	objectType     string
@@ -272,6 +311,12 @@ func (a *DropStmtAction) exec(ctx context.Context, conn *Conn) error {
 		}
 		conn.deleteFunction(a.funcMap[a.name])
 		delete(a.funcMap, a.name)
+	case "SCHEMA":
+		spec := a.catalog.schemaMap[a.name]
+		if err := a.catalog.DeleteSchemaSpec(ctx, conn, a.name); err != nil {
+			return fmt.Errorf("failed to delete schema spec: %w", err)
+		}
+		conn.deleteSchema(spec)
 	default:
 		return fmt.Errorf("currently unsupported DROP %s statement", a.objectType)
 	}

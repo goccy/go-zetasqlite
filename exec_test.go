@@ -67,6 +67,34 @@ INSERT recreate_table (b) VALUES ('hello');
 `,
 		},
 		{
+			name: "create schema",
+			query: `
+CREATE SCHEMA new_schema;
+CREATE TABLE new_schema.new_table (a STRING);
+`,
+		},
+		{
+			name: "create schema with qualifiers",
+			query: `
+CREATE SCHEMA projectId.new_schema;
+CREATE TABLE projectId.new_schema.new_table (a STRING);
+`,
+		},
+		{
+			name: "create schema if not exists",
+			query: `
+CREATE SCHEMA IF NOT EXISTS new_schema_2;
+CREATE SCHEMA IF NOT EXISTS new_schema_2;
+`,
+		},
+		{
+			name: "drop schema",
+			query: `
+CREATE SCHEMA new_schema_3;
+DROP SCHEMA IF EXISTS new_schema_3;
+`,
+		},
+		{
 			name: "insert select",
 			query: `
 CREATE OR REPLACE TABLE TableA(product string, quantity int64);

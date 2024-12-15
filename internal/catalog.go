@@ -51,6 +51,7 @@ const (
 	TableSpecKind    CatalogSpecKind = "table"
 	ViewSpecKind     CatalogSpecKind = "view"
 	FunctionSpecKind CatalogSpecKind = "function"
+	SchemaSpecKind   CatalogSpecKind = "schema"
 	catalogName                      = "zetasqlite"
 )
 
@@ -60,9 +61,11 @@ type Catalog struct {
 	mu           sync.Mutex
 	tables       []*TableSpec
 	functions    []*FunctionSpec
+	schemas      []*SchemaSpec
 	catalog      *types.SimpleCatalog
 	tableMap     map[string]*TableSpec
 	funcMap      map[string]*FunctionSpec
+	schemaMap    map[string]*SchemaSpec
 }
 
 func newSimpleCatalog(name string) *types.SimpleCatalog {
@@ -73,10 +76,11 @@ func newSimpleCatalog(name string) *types.SimpleCatalog {
 
 func NewCatalog(db *sql.DB) *Catalog {
 	return &Catalog{
-		db:       db,
-		catalog:  newSimpleCatalog(catalogName),
-		tableMap: map[string]*TableSpec{},
-		funcMap:  map[string]*FunctionSpec{},
+		db:        db,
+		catalog:   newSimpleCatalog(catalogName),
+		tableMap:  map[string]*TableSpec{},
+		funcMap:   map[string]*FunctionSpec{},
+		schemaMap: map[string]*SchemaSpec{},
 	}
 }
 
@@ -208,6 +212,10 @@ func (c *Catalog) Sync(ctx context.Context, conn *Conn) error {
 			if err := c.loadFunctionSpec(spec); err != nil {
 				return fmt.Errorf("failed to load function spec: %w", err)
 			}
+		case SchemaSpecKind:
+			if err := c.loadSchemaSpec(spec); err != nil {
+				return fmt.Errorf("failed to load schema spec: %w", err)
+			}
 		default:
 			return fmt.Errorf("unknown catalog spec kind %s", kind)
 		}
@@ -242,6 +250,32 @@ func (c *Catalog) AddNewFunctionSpec(ctx context.Context, conn *Conn, spec *Func
 		if err := c.saveFunctionSpec(ctx, conn, spec); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func (c *Catalog) AddNewSchemaSpec(ctx context.Context, conn *Conn, spec *SchemaSpec) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if err := c.saveSchemaSpec(ctx, conn, spec); err != nil {
+		return fmt.Errorf("failed to save schema spec: %w", err)
+	}
+	if err := c.addSchemaSpec(spec); err != nil {
+		return fmt.Errorf("failed to add schema spec: %w", err)
+	}
+	return nil
+}
+
+func (c *Catalog) DeleteSchemaSpec(ctx context.Context, conn *Conn, name string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if err := c.deleteSchemaSpecByName(name); err != nil {
+		return err
+	}
+	if _, err := conn.ExecContext(ctx, deleteCatalogQuery, sql.Named("name", name)); err != nil {
+		return err
 	}
 	return nil
 }
@@ -310,12 +344,29 @@ func (c *Catalog) deleteFunctionSpecByName(name string) error {
 	return nil
 }
 
+func (c *Catalog) deleteSchemaSpecByName(name string) error {
+	spec, exists := c.schemaMap[name]
+	if !exists {
+		return nil
+	}
+	delete(c.schemaMap, name)
+	for i, s := range c.schemas {
+		if s == spec {
+			c.schemas = append(c.schemas[:i], c.schemas[i+1:]...)
+			break
+		}
+	}
+	return nil
+}
+
 func (c *Catalog) resetCatalog(tables []*TableSpec, functions []*FunctionSpec) error {
 	c.catalog = newSimpleCatalog(catalogName)
 	c.tables = []*TableSpec{}
 	c.functions = []*FunctionSpec{}
+	c.schemas = []*SchemaSpec{}
 	c.tableMap = map[string]*TableSpec{}
 	c.funcMap = map[string]*FunctionSpec{}
+	c.schemaMap = map[string]*SchemaSpec{}
 	for _, spec := range tables {
 		if err := c.addTableSpec(spec); err != nil {
 			return err
@@ -373,6 +424,26 @@ func (c *Catalog) saveFunctionSpec(ctx context.Context, conn *Conn, spec *Functi
 	return nil
 }
 
+func (c *Catalog) saveSchemaSpec(ctx context.Context, conn *Conn, spec *SchemaSpec) error {
+	if err := c.createCatalogTablesIfNotExists(ctx, conn); err != nil {
+		return err
+	}
+	data, err := json.Marshal(spec)
+	if err != nil {
+		return fmt.Errorf("failed to encode schema spec: %w", err)
+	}
+	if _, err := conn.ExecContext(ctx, upsertCatalogQuery,
+		spec.SchemaName(),
+		SchemaSpecKind,
+		string(data),
+		spec.UpdatedAt,
+		spec.CreatedAt,
+	); err != nil {
+		return fmt.Errorf("failed to save schema spec: %w", err)
+	}
+	return nil
+}
+
 func (c *Catalog) createCatalogTablesIfNotExists(ctx context.Context, conn *Conn) error {
 	if _, err := conn.ExecContext(ctx, createCatalogTableQuery); err != nil {
 		return fmt.Errorf("failed to create catalog table: %w", err)
@@ -398,6 +469,17 @@ func (c *Catalog) loadFunctionSpec(spec string) error {
 	}
 	if err := c.addFunctionSpec(&v); err != nil {
 		return fmt.Errorf("failed to add function spec to catalog: %w", err)
+	}
+	return nil
+}
+
+func (c *Catalog) loadSchemaSpec(spec string) error {
+	var s SchemaSpec
+	if err := json.Unmarshal([]byte(spec), &s); err != nil {
+		return fmt.Errorf("failed to decode schema spec: %w", err)
+	}
+	if err := c.addSchemaSpec(&s); err != nil {
+		return fmt.Errorf("failed to add schema spec: %w", err)
 	}
 	return nil
 }
@@ -434,6 +516,18 @@ func (c *Catalog) addTableSpec(spec *TableSpec) error {
 	return nil
 }
 
+func (c *Catalog) addSchemaSpec(spec *SchemaSpec) error {
+	name := spec.SchemaName()
+	if _, exists := c.schemaMap[name]; exists {
+		if err := c.deleteSchemaSpecByName(name); err != nil {
+			return err
+		}
+	}
+	c.schemas = append(c.schemas, spec)
+	c.schemaMap[name] = spec
+	return c.addSchemaSpecRecursive(c.catalog, spec)
+}
+
 func (c *Catalog) addTableSpecRecursive(cat *types.SimpleCatalog, spec *TableSpec) error {
 	if catalogId := spec.NamePath.GetCatalogId(); catalogId != "" {
 		subCatalogName := catalogId
@@ -461,11 +555,11 @@ func (c *Catalog) addTableSpecRecursive(cat *types.SimpleCatalog, spec *TableSpe
 		}
 		return nil
 	}
-	tableName := spec.NamePath.GetObjectId()
 	if spec.NamePath.Empty() {
 		return fmt.Errorf("table name is not found")
 	}
 
+	tableName := spec.NamePath.GetObjectId()
 	if c.existsTable(cat, tableName) {
 		return nil
 	}
@@ -536,6 +630,29 @@ func (c *Catalog) addFunctionSpecRecursive(cat *types.SimpleCatalog, spec *Funct
 	return nil
 }
 
+func (c *Catalog) addSchemaSpecRecursive(cat *types.SimpleCatalog, spec *SchemaSpec) error {
+	if spec.NamePath.Empty() {
+		return nil
+	}
+	name := spec.NamePath.path[0]
+	if c.existsSchema(cat, name) {
+		return nil
+	}
+	var subCat *types.SimpleCatalog
+	if !c.existsSchema(cat, name) {
+		subCat = types.NewSimpleCatalog(name)
+		cat.AddCatalog(subCat)
+	} else {
+		schema, _ := cat.Catalog(name)
+		subCat = schema
+	}
+	return c.addSchemaSpecRecursive(subCat, &SchemaSpec{
+		NamePath:  NamePath{path: spec.NamePath.path[1:]},
+		UpdatedAt: spec.UpdatedAt,
+		CreatedAt: spec.CreatedAt,
+	})
+}
+
 func (c *Catalog) existsTable(cat *types.SimpleCatalog, name string) bool {
 	foundTable, _ := cat.FindTable([]string{name})
 	return !c.isNilTable(foundTable)
@@ -544,6 +661,11 @@ func (c *Catalog) existsTable(cat *types.SimpleCatalog, name string) bool {
 func (c *Catalog) existsFunction(cat *types.SimpleCatalog, name string) bool {
 	foundFunc, _ := cat.FindFunction([]string{name})
 	return foundFunc != nil
+}
+
+func (c *Catalog) existsSchema(cat *types.SimpleCatalog, name string) bool {
+	schema, _ := cat.Catalog(name)
+	return schema != nil
 }
 
 func (c *Catalog) isNilTable(t types.Table) bool {
