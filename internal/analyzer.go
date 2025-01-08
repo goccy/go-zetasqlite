@@ -116,7 +116,7 @@ func (a *Analyzer) SetExplainMode(enabled bool) {
 }
 
 func (a *Analyzer) NamePath() []string {
-	return a.namePath.path
+	return a.namePath.Path()
 }
 
 func (a *Analyzer) SetNamePath(path []string) error {

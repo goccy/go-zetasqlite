@@ -54,7 +54,7 @@ func (t *WildcardTable) FormatSQL(ctx context.Context) (string, error) {
 				columns = append(columns, fmt.Sprintf("NULL as %s", column.Name))
 			}
 		}
-		fullName := strings.Join(table.NamePath, ".")
+		fullName := table.NamePath.FormatNamePath()
 		if len(fullName) <= len(t.prefix) {
 			return "", fmt.Errorf("failed to find table suffix from %s", fullName)
 		}
@@ -77,7 +77,7 @@ func (t *WildcardTable) FormatSQL(ctx context.Context) (string, error) {
 }
 
 func (t *WildcardTable) Name() string {
-	return strings.Join(t.spec.NamePath, ".")
+	return t.spec.NamePath.FormatNamePath()
 }
 
 func (t *WildcardTable) FullName() string {
@@ -95,7 +95,7 @@ func (t *WildcardTable) Column(idx int) types.Column {
 		return nil
 	}
 	return types.NewSimpleColumn(
-		strings.Join(t.spec.NamePath, "."), column.Name, typ,
+		t.spec.NamePath.FormatNamePath(), column.Name, typ,
 	)
 }
 
@@ -165,20 +165,19 @@ func (c *Catalog) createWildcardTable(path []string) (types.Table, error) {
 	spec := matchedSpecs[0]
 	wildcardTable := new(TableSpec)
 	*wildcardTable = *spec
-	wildcardTable.NamePath = append([]string{}, spec.NamePath...)
+	wildcardTable.NamePath = *spec.NamePath.Clone()
 	wildcardTable.Columns = append(wildcardTable.Columns, &ColumnSpec{
 		Name: tableSuffixColumnName,
 		Type: &Type{Kind: types.STRING},
 	})
-	lastNamePath := spec.NamePath[len(spec.NamePath)-1]
-	lastNamePath = lastNamePath[:len(path)-1]
-	wildcardTable.NamePath[len(spec.NamePath)-1] = fmt.Sprintf(
+	lastNamePath := spec.NamePath.GetObjectId()
+	wildcardTable.NamePath.replace(spec.NamePath.Length()-1, fmt.Sprintf(
 		"%s_wildcard_%d", lastNamePath, time.Now().Unix(),
-	)
+	))
 
 	// firstIdentifier may be omitted, so we need to check it.
 	prefix := name
-	firstIdentifier := spec.NamePath[0]
+	firstIdentifier := spec.NamePath.GetProjectId()
 	if !strings.HasPrefix(prefix, firstIdentifier+".") {
 		prefix = firstIdentifier + "." + prefix
 	}
