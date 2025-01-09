@@ -14,6 +14,7 @@ var (
 	_ driver.Stmt = &CreateFunctionStmt{}
 	_ driver.Stmt = &DMLStmt{}
 	_ driver.Stmt = &QueryStmt{}
+	_ driver.Stmt = &CreateSchemaStmt{}
 )
 
 type CreateTableStmt struct {
@@ -123,6 +124,51 @@ func newCreateFunctionStmt(conn *Conn, catalog *Catalog, spec *FunctionSpec) *Cr
 		catalog: catalog,
 		spec:    spec,
 	}
+}
+
+type CreateSchemaStmt struct {
+	conn    *Conn
+	catalog *Catalog
+	spec    *SchemaSpec
+}
+
+func newCreateSchemaStmt(conn *Conn, catalog *Catalog, spec *SchemaSpec) *CreateSchemaStmt {
+	return &CreateSchemaStmt{
+		conn:    conn,
+		catalog: catalog,
+		spec:    spec,
+	}
+}
+
+func (s *CreateSchemaStmt) Close() error {
+	return nil
+}
+
+func (s *CreateSchemaStmt) NumInput() int {
+	return 0
+}
+
+func (s *CreateSchemaStmt) Exec(args []driver.Value) (driver.Result, error) {
+	if err := s.catalog.AddNewSchemaSpec(context.Background(), s.conn, s.spec); err != nil {
+		return nil, fmt.Errorf("failed to add new schema spec: %w", err)
+	}
+	return nil, nil
+}
+
+func (s *CreateSchemaStmt) Query(args []driver.Value) (driver.Rows, error) {
+	return nil, fmt.Errorf("failed to query for CreateSchemaStmt")
+}
+
+func (s *CreateSchemaStmt) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+	return nil, fmt.Errorf("unimplemented ExecContext for CreateSchemaStmt")
+}
+
+func (s *CreateSchemaStmt) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+	return nil, fmt.Errorf("unsupported query for CreateSchemaStmt")
+}
+
+func (s *CreateSchemaStmt) CheckNamedValue(value *driver.NamedValue) error {
+	return nil
 }
 
 type DMLStmt struct {

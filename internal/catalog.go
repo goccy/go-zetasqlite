@@ -51,6 +51,7 @@ const (
 	TableSpecKind    CatalogSpecKind = "table"
 	ViewSpecKind     CatalogSpecKind = "view"
 	FunctionSpecKind CatalogSpecKind = "function"
+	SchemaSpecKind   CatalogSpecKind = "schema"
 	catalogName                      = "zetasqlite"
 )
 
@@ -60,9 +61,11 @@ type Catalog struct {
 	mu           sync.Mutex
 	tables       []*TableSpec
 	functions    []*FunctionSpec
+	schemas      []*SchemaSpec
 	catalog      *types.SimpleCatalog
 	tableMap     map[string]*TableSpec
 	funcMap      map[string]*FunctionSpec
+	schemaMap    map[string]*SchemaSpec
 }
 
 func newSimpleCatalog(name string) *types.SimpleCatalog {
@@ -73,10 +76,11 @@ func newSimpleCatalog(name string) *types.SimpleCatalog {
 
 func NewCatalog(db *sql.DB) *Catalog {
 	return &Catalog{
-		db:       db,
-		catalog:  newSimpleCatalog(catalogName),
-		tableMap: map[string]*TableSpec{},
-		funcMap:  map[string]*FunctionSpec{},
+		db:        db,
+		catalog:   newSimpleCatalog(catalogName),
+		tableMap:  map[string]*TableSpec{},
+		funcMap:   map[string]*FunctionSpec{},
+		schemaMap: map[string]*SchemaSpec{},
 	}
 }
 
@@ -147,23 +151,22 @@ func (c *Catalog) SuggestConstant(mistypedPath []string) string {
 	return c.catalog.SuggestConstant(mistypedPath)
 }
 
-func (c *Catalog) formatNamePath(path []string) string {
-	return strings.Join(path, "_")
+func (c *Catalog) formatNamePath(path *NamePath) string {
+	return path.CatalogPath()
 }
 
 func (c *Catalog) getFunctions(namePath *NamePath) []*FunctionSpec {
-	if namePath.empty() {
+	if namePath.Empty() {
 		return c.functions
 	}
-	key := c.formatNamePath(namePath.path)
+	key := c.formatNamePath(namePath)
 	specs := make([]*FunctionSpec, 0, len(c.functions))
 	for _, fn := range c.functions {
-		if len(fn.NamePath) == 1 {
-			// function name only
+		if fn.NamePath.HasSimpleName() {
 			specs = append(specs, fn)
 			continue
 		}
-		pathPrefixKey := c.formatNamePath(c.trimmedLastPath(fn.NamePath))
+		pathPrefixKey := c.formatNamePath(c.trimmedLastPath(&fn.NamePath))
 		if strings.Contains(pathPrefixKey, key) {
 			specs = append(specs, fn)
 		}
@@ -209,6 +212,10 @@ func (c *Catalog) Sync(ctx context.Context, conn *Conn) error {
 			if err := c.loadFunctionSpec(spec); err != nil {
 				return fmt.Errorf("failed to load function spec: %w", err)
 			}
+		case SchemaSpecKind:
+			if err := c.loadSchemaSpec(spec); err != nil {
+				return fmt.Errorf("failed to load schema spec: %w", err)
+			}
 		default:
 			return fmt.Errorf("unknown catalog spec kind %s", kind)
 		}
@@ -247,6 +254,32 @@ func (c *Catalog) AddNewFunctionSpec(ctx context.Context, conn *Conn, spec *Func
 	return nil
 }
 
+func (c *Catalog) AddNewSchemaSpec(ctx context.Context, conn *Conn, spec *SchemaSpec) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if err := c.saveSchemaSpec(ctx, conn, spec); err != nil {
+		return fmt.Errorf("failed to save schema spec: %w", err)
+	}
+	if err := c.addSchemaSpec(spec); err != nil {
+		return fmt.Errorf("failed to add schema spec: %w", err)
+	}
+	return nil
+}
+
+func (c *Catalog) DeleteSchemaSpec(ctx context.Context, conn *Conn, name string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if err := c.deleteSchemaSpecByName(name); err != nil {
+		return err
+	}
+	if _, err := conn.ExecContext(ctx, deleteCatalogQuery, sql.Named("name", name)); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (c *Catalog) DeleteTableSpec(ctx context.Context, conn *Conn, name string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -279,9 +312,9 @@ func (c *Catalog) deleteTableSpecByName(name string) error {
 		return fmt.Errorf("failed to find table spec from map by %s", name)
 	}
 	tables := make([]*TableSpec, 0, len(c.tables))
-	specName := c.formatNamePath(spec.NamePath)
+	specName := c.formatNamePath(&spec.NamePath)
 	for _, table := range c.tables {
-		if specName == c.formatNamePath(table.NamePath) {
+		if specName == c.formatNamePath(&table.NamePath) {
 			continue
 		}
 		tables = append(tables, table)
@@ -298,9 +331,9 @@ func (c *Catalog) deleteFunctionSpecByName(name string) error {
 		return fmt.Errorf("failed to find function spec from map by %s", name)
 	}
 	functions := make([]*FunctionSpec, 0, len(c.functions))
-	specName := c.formatNamePath(spec.NamePath)
+	specName := c.formatNamePath(&spec.NamePath)
 	for _, function := range c.functions {
-		if specName == c.formatNamePath(function.NamePath) {
+		if specName == c.formatNamePath(&function.NamePath) {
 			continue
 		}
 		functions = append(functions, function)
@@ -311,12 +344,29 @@ func (c *Catalog) deleteFunctionSpecByName(name string) error {
 	return nil
 }
 
+func (c *Catalog) deleteSchemaSpecByName(name string) error {
+	spec, exists := c.schemaMap[name]
+	if !exists {
+		return nil
+	}
+	delete(c.schemaMap, name)
+	for i, s := range c.schemas {
+		if s == spec {
+			c.schemas = append(c.schemas[:i], c.schemas[i+1:]...)
+			break
+		}
+	}
+	return nil
+}
+
 func (c *Catalog) resetCatalog(tables []*TableSpec, functions []*FunctionSpec) error {
 	c.catalog = newSimpleCatalog(catalogName)
 	c.tables = []*TableSpec{}
 	c.functions = []*FunctionSpec{}
+	c.schemas = []*SchemaSpec{}
 	c.tableMap = map[string]*TableSpec{}
 	c.funcMap = map[string]*FunctionSpec{}
+	c.schemaMap = map[string]*SchemaSpec{}
 	for _, spec := range tables {
 		if err := c.addTableSpec(spec); err != nil {
 			return err
@@ -374,6 +424,26 @@ func (c *Catalog) saveFunctionSpec(ctx context.Context, conn *Conn, spec *Functi
 	return nil
 }
 
+func (c *Catalog) saveSchemaSpec(ctx context.Context, conn *Conn, spec *SchemaSpec) error {
+	if err := c.createCatalogTablesIfNotExists(ctx, conn); err != nil {
+		return err
+	}
+	data, err := json.Marshal(spec)
+	if err != nil {
+		return fmt.Errorf("failed to encode schema spec: %w", err)
+	}
+	if _, err := conn.ExecContext(ctx, upsertCatalogQuery,
+		spec.SchemaName(),
+		SchemaSpecKind,
+		string(data),
+		spec.UpdatedAt,
+		spec.CreatedAt,
+	); err != nil {
+		return fmt.Errorf("failed to save schema spec: %w", err)
+	}
+	return nil
+}
+
 func (c *Catalog) createCatalogTablesIfNotExists(ctx context.Context, conn *Conn) error {
 	if _, err := conn.ExecContext(ctx, createCatalogTableQuery); err != nil {
 		return fmt.Errorf("failed to create catalog table: %w", err)
@@ -403,11 +473,19 @@ func (c *Catalog) loadFunctionSpec(spec string) error {
 	return nil
 }
 
-func (c *Catalog) trimmedLastPath(path []string) []string {
-	if len(path) == 0 {
-		return path
+func (c *Catalog) loadSchemaSpec(spec string) error {
+	var s SchemaSpec
+	if err := json.Unmarshal([]byte(spec), &s); err != nil {
+		return fmt.Errorf("failed to decode schema spec: %w", err)
 	}
-	return path[:len(path)-1]
+	if err := c.addSchemaSpec(&s); err != nil {
+		return fmt.Errorf("failed to add schema spec: %w", err)
+	}
+	return nil
+}
+
+func (c *Catalog) trimmedLastPath(path *NamePath) *NamePath {
+	return path.dropLast()
 }
 
 func (c *Catalog) addFunctionSpec(spec *FunctionSpec) error {
@@ -438,15 +516,27 @@ func (c *Catalog) addTableSpec(spec *TableSpec) error {
 	return nil
 }
 
+func (c *Catalog) addSchemaSpec(spec *SchemaSpec) error {
+	name := spec.SchemaName()
+	if _, exists := c.schemaMap[name]; exists {
+		if err := c.deleteSchemaSpecByName(name); err != nil {
+			return err
+		}
+	}
+	c.schemas = append(c.schemas, spec)
+	c.schemaMap[name] = spec
+	return c.addSchemaSpecRecursive(c.catalog, spec)
+}
+
 func (c *Catalog) addTableSpecRecursive(cat *types.SimpleCatalog, spec *TableSpec) error {
-	if len(spec.NamePath) > 1 {
-		subCatalogName := spec.NamePath[0]
+	if catalogId := spec.NamePath.GetCatalogId(); catalogId != "" {
+		subCatalogName := catalogId
 		subCatalog, _ := cat.Catalog(subCatalogName)
 		if subCatalog == nil {
 			subCatalog = newSimpleCatalog(subCatalogName)
 			cat.AddCatalog(subCatalog)
 		}
-		fullTableName := strings.Join(spec.NamePath, ".")
+		fullTableName := spec.NamePath.CatalogPath()
 		if !c.existsTable(cat, fullTableName) {
 			table, err := c.createSimpleTable(fullTableName, spec)
 			if err != nil {
@@ -454,7 +544,7 @@ func (c *Catalog) addTableSpecRecursive(cat *types.SimpleCatalog, spec *TableSpe
 			}
 			cat.AddTable(table)
 		}
-		newNamePath := spec.NamePath[1:]
+		newNamePath := spec.NamePath.dropFirst()
 		// add sub catalog to root catalog
 		if err := c.addTableSpecRecursive(cat, c.copyTableSpec(spec, newNamePath)); err != nil {
 			return fmt.Errorf("failed to add table spec to root catalog: %w", err)
@@ -465,11 +555,11 @@ func (c *Catalog) addTableSpecRecursive(cat *types.SimpleCatalog, spec *TableSpe
 		}
 		return nil
 	}
-	if len(spec.NamePath) == 0 {
+	if spec.NamePath.Empty() {
 		return fmt.Errorf("table name is not found")
 	}
 
-	tableName := spec.NamePath[0]
+	tableName := spec.NamePath.GetObjectId()
 	if c.existsTable(cat, tableName) {
 		return nil
 	}
@@ -496,14 +586,14 @@ func (c *Catalog) createSimpleTable(tableName string, spec *TableSpec) (*types.S
 }
 
 func (c *Catalog) addFunctionSpecRecursive(cat *types.SimpleCatalog, spec *FunctionSpec) error {
-	if len(spec.NamePath) > 1 {
-		subCatalogName := spec.NamePath[0]
+	if catalogId := spec.NamePath.GetCatalogId(); catalogId != "" {
+		subCatalogName := catalogId
 		subCatalog, _ := cat.Catalog(subCatalogName)
 		if subCatalog == nil {
 			subCatalog = newSimpleCatalog(subCatalogName)
 			cat.AddCatalog(subCatalog)
 		}
-		newNamePath := spec.NamePath[1:]
+		newNamePath := spec.NamePath.dropFirst()
 		// add sub catalog to root catalog
 		if err := c.addFunctionSpecRecursive(cat, c.copyFunctionSpec(spec, newNamePath)); err != nil {
 			return fmt.Errorf("failed to add function spec to root catalog: %w", err)
@@ -514,11 +604,11 @@ func (c *Catalog) addFunctionSpecRecursive(cat *types.SimpleCatalog, spec *Funct
 		}
 		return nil
 	}
-	if len(spec.NamePath) == 0 {
+	if spec.NamePath.Empty() {
 		return fmt.Errorf("function name is not found")
 	}
 
-	funcName := spec.NamePath[0]
+	funcName := spec.NamePath.GetObjectId()
 	if c.existsFunction(cat, funcName) {
 		return nil
 	}
@@ -540,6 +630,29 @@ func (c *Catalog) addFunctionSpecRecursive(cat *types.SimpleCatalog, spec *Funct
 	return nil
 }
 
+func (c *Catalog) addSchemaSpecRecursive(cat *types.SimpleCatalog, spec *SchemaSpec) error {
+	if spec.NamePath.Empty() {
+		return nil
+	}
+	name := spec.NamePath.path[0]
+	if c.existsSchema(cat, name) {
+		return nil
+	}
+	var subCat *types.SimpleCatalog
+	if !c.existsSchema(cat, name) {
+		subCat = types.NewSimpleCatalog(name)
+		cat.AddCatalog(subCat)
+	} else {
+		schema, _ := cat.Catalog(name)
+		subCat = schema
+	}
+	return c.addSchemaSpecRecursive(subCat, &SchemaSpec{
+		NamePath:  NamePath{path: spec.NamePath.path[1:]},
+		UpdatedAt: spec.UpdatedAt,
+		CreatedAt: spec.CreatedAt,
+	})
+}
+
 func (c *Catalog) existsTable(cat *types.SimpleCatalog, name string) bool {
 	foundTable, _ := cat.FindTable([]string{name})
 	return !c.isNilTable(foundTable)
@@ -550,6 +663,11 @@ func (c *Catalog) existsFunction(cat *types.SimpleCatalog, name string) bool {
 	return foundFunc != nil
 }
 
+func (c *Catalog) existsSchema(cat *types.SimpleCatalog, name string) bool {
+	schema, _ := cat.Catalog(name)
+	return schema != nil
+}
+
 func (c *Catalog) isNilTable(t types.Table) bool {
 	v := reflect.ValueOf(t)
 	if !v.IsValid() {
@@ -558,17 +676,17 @@ func (c *Catalog) isNilTable(t types.Table) bool {
 	return v.IsNil()
 }
 
-func (c *Catalog) copyTableSpec(spec *TableSpec, newNamePath []string) *TableSpec {
+func (c *Catalog) copyTableSpec(spec *TableSpec, newNamePath *NamePath) *TableSpec {
 	return &TableSpec{
-		NamePath:   newNamePath,
+		NamePath:   *newNamePath,
 		Columns:    spec.Columns,
 		CreateMode: spec.CreateMode,
 	}
 }
 
-func (c *Catalog) copyFunctionSpec(spec *FunctionSpec, newNamePath []string) *FunctionSpec {
+func (c *Catalog) copyFunctionSpec(spec *FunctionSpec, newPath *NamePath) *FunctionSpec {
 	return &FunctionSpec{
-		NamePath: newNamePath,
+		NamePath: *newPath,
 		Language: spec.Language,
 		Args:     spec.Args,
 		Return:   spec.Return,

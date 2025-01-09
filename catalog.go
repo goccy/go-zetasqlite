@@ -17,7 +17,10 @@ type (
 	NameWithType    = internal.NameWithType
 	ColumnSpec      = internal.ColumnSpec
 	Type            = internal.Type
+	NamePath        = internal.NamePath
 )
+
+var NewNamePath = internal.NewNamePath
 
 // ChangedCatalogFromRows retrieve modified catalog information from sql.Rows.
 // NOTE: This API relies on the internal structure of sql.Rows, so not will work for all Go versions.

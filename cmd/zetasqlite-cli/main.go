@@ -203,7 +203,7 @@ func (cli *CLI) showTablesCommand(ctx context.Context) error {
 		if err := json.Unmarshal([]byte(spec), &table); err != nil {
 			return err
 		}
-		fmt.Fprintf(cli.out, "%s\n", strings.Join(table.NamePath, "."))
+		fmt.Fprintf(cli.out, "%s\n", table.NamePath.FormatNamePath())
 	}
 	return nil
 }
@@ -231,7 +231,7 @@ func (cli *CLI) showFunctionsCommand(ctx context.Context) error {
 		if err := json.Unmarshal([]byte(spec), &fn); err != nil {
 			return err
 		}
-		fmt.Fprintf(cli.out, "%s\n", strings.Join(fn.NamePath, "."))
+		fmt.Fprintf(cli.out, "%s\n", fn.NamePath.FormatNamePath())
 	}
 	return nil
 }

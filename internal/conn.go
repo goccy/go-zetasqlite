@@ -8,17 +8,28 @@ import (
 type ChangedCatalog struct {
 	Table    *ChangedTable
 	Function *ChangedFunction
+	Schema   *ChangedSchema
 }
 
 func newChangedCatalog() *ChangedCatalog {
 	return &ChangedCatalog{
 		Table:    &ChangedTable{},
 		Function: &ChangedFunction{},
+		Schema:   &ChangedSchema{},
 	}
 }
 
 func (c *ChangedCatalog) Changed() bool {
-	return c.Table.Changed() || c.Function.Changed()
+	return c.Table.Changed() || c.Function.Changed() || c.Schema.Changed()
+}
+
+type ChangedSchema struct {
+	Added   []*SchemaSpec
+	Deleted []*SchemaSpec
+}
+
+func (s *ChangedSchema) Changed() bool {
+	return len(s.Added) != 0 || len(s.Deleted) != 0
 }
 
 type ChangedTable struct {
@@ -75,6 +86,16 @@ func (c *Conn) QueryContext(ctx context.Context, query string, args ...interface
 	return c.conn.QueryContext(ctx, query, args...)
 }
 
+func (c *Conn) addSchema(spec *SchemaSpec) {
+	c.removeFromDeletedSchemasIfExists(spec)
+	c.cc.Schema.Added = append(c.cc.Schema.Added, spec)
+}
+
+func (c *Conn) deleteSchema(spec *SchemaSpec) {
+	c.removeFromAddedSchemasIfExists(spec)
+	c.cc.Schema.Deleted = append(c.cc.Schema.Deleted, spec)
+}
+
 func (c *Conn) addTable(spec *TableSpec) {
 	c.removeFromDeletedTablesIfExists(spec)
 	c.cc.Table.Added = append(c.cc.Table.Added, spec)
@@ -98,6 +119,28 @@ func (c *Conn) addFunction(spec *FunctionSpec) {
 func (c *Conn) deleteFunction(spec *FunctionSpec) {
 	c.removeFromAddedFunctionsIfExists(spec)
 	c.cc.Function.Deleted = append(c.cc.Function.Deleted, spec)
+}
+
+func (c *Conn) removeFromDeletedSchemasIfExists(spec *SchemaSpec) {
+	schemas := make([]*SchemaSpec, 0, len(c.cc.Schema.Deleted))
+	for _, schema := range c.cc.Schema.Deleted {
+		if schema.SchemaName() == spec.SchemaName() {
+			continue
+		}
+		schemas = append(schemas, schema)
+	}
+	c.cc.Schema.Deleted = schemas
+}
+
+func (c *Conn) removeFromAddedSchemasIfExists(spec *SchemaSpec) {
+	schemas := make([]*SchemaSpec, 0, len(c.cc.Schema.Added))
+	for _, schema := range c.cc.Schema.Added {
+		if schema.SchemaName() == spec.SchemaName() {
+			continue
+		}
+		schemas = append(schemas, schema)
+	}
+	c.cc.Schema.Added = schemas
 }
 
 func (c *Conn) removeFromDeletedTablesIfExists(spec *TableSpec) {
