@@ -147,23 +147,22 @@ func (c *Catalog) SuggestConstant(mistypedPath []string) string {
 	return c.catalog.SuggestConstant(mistypedPath)
 }
 
-func (c *Catalog) formatNamePath(path []string) string {
-	return strings.Join(path, "_")
+func (c *Catalog) formatNamePath(path *NamePath) string {
+	return path.CatalogPath()
 }
 
 func (c *Catalog) getFunctions(namePath *NamePath) []*FunctionSpec {
-	if namePath.empty() {
+	if namePath.Empty() {
 		return c.functions
 	}
-	key := c.formatNamePath(namePath.path)
+	key := c.formatNamePath(namePath)
 	specs := make([]*FunctionSpec, 0, len(c.functions))
 	for _, fn := range c.functions {
-		if len(fn.NamePath) == 1 {
-			// function name only
+		if fn.NamePath.HasSimpleName() {
 			specs = append(specs, fn)
 			continue
 		}
-		pathPrefixKey := c.formatNamePath(c.trimmedLastPath(fn.NamePath))
+		pathPrefixKey := c.formatNamePath(c.trimmedLastPath(&fn.NamePath))
 		if strings.Contains(pathPrefixKey, key) {
 			specs = append(specs, fn)
 		}
@@ -279,9 +278,9 @@ func (c *Catalog) deleteTableSpecByName(name string) error {
 		return fmt.Errorf("failed to find table spec from map by %s", name)
 	}
 	tables := make([]*TableSpec, 0, len(c.tables))
-	specName := c.formatNamePath(spec.NamePath)
+	specName := c.formatNamePath(&spec.NamePath)
 	for _, table := range c.tables {
-		if specName == c.formatNamePath(table.NamePath) {
+		if specName == c.formatNamePath(&table.NamePath) {
 			continue
 		}
 		tables = append(tables, table)
@@ -298,9 +297,9 @@ func (c *Catalog) deleteFunctionSpecByName(name string) error {
 		return fmt.Errorf("failed to find function spec from map by %s", name)
 	}
 	functions := make([]*FunctionSpec, 0, len(c.functions))
-	specName := c.formatNamePath(spec.NamePath)
+	specName := c.formatNamePath(&spec.NamePath)
 	for _, function := range c.functions {
-		if specName == c.formatNamePath(function.NamePath) {
+		if specName == c.formatNamePath(&function.NamePath) {
 			continue
 		}
 		functions = append(functions, function)
@@ -403,11 +402,8 @@ func (c *Catalog) loadFunctionSpec(spec string) error {
 	return nil
 }
 
-func (c *Catalog) trimmedLastPath(path []string) []string {
-	if len(path) == 0 {
-		return path
-	}
-	return path[:len(path)-1]
+func (c *Catalog) trimmedLastPath(path *NamePath) *NamePath {
+	return path.dropLast()
 }
 
 func (c *Catalog) addFunctionSpec(spec *FunctionSpec) error {
@@ -439,14 +435,14 @@ func (c *Catalog) addTableSpec(spec *TableSpec) error {
 }
 
 func (c *Catalog) addTableSpecRecursive(cat *types.SimpleCatalog, spec *TableSpec) error {
-	if len(spec.NamePath) > 1 {
-		subCatalogName := spec.NamePath[0]
+	if catalogId := spec.NamePath.GetCatalogId(); catalogId != "" {
+		subCatalogName := catalogId
 		subCatalog, _ := cat.Catalog(subCatalogName)
 		if subCatalog == nil {
 			subCatalog = newSimpleCatalog(subCatalogName)
 			cat.AddCatalog(subCatalog)
 		}
-		fullTableName := strings.Join(spec.NamePath, ".")
+		fullTableName := spec.NamePath.CatalogPath()
 		if !c.existsTable(cat, fullTableName) {
 			table, err := c.createSimpleTable(fullTableName, spec)
 			if err != nil {
@@ -454,7 +450,7 @@ func (c *Catalog) addTableSpecRecursive(cat *types.SimpleCatalog, spec *TableSpe
 			}
 			cat.AddTable(table)
 		}
-		newNamePath := spec.NamePath[1:]
+		newNamePath := spec.NamePath.dropFirst()
 		// add sub catalog to root catalog
 		if err := c.addTableSpecRecursive(cat, c.copyTableSpec(spec, newNamePath)); err != nil {
 			return fmt.Errorf("failed to add table spec to root catalog: %w", err)
@@ -465,11 +461,11 @@ func (c *Catalog) addTableSpecRecursive(cat *types.SimpleCatalog, spec *TableSpe
 		}
 		return nil
 	}
-	if len(spec.NamePath) == 0 {
+	tableName := spec.NamePath.GetObjectId()
+	if spec.NamePath.Empty() {
 		return fmt.Errorf("table name is not found")
 	}
 
-	tableName := spec.NamePath[0]
 	if c.existsTable(cat, tableName) {
 		return nil
 	}
@@ -496,14 +492,14 @@ func (c *Catalog) createSimpleTable(tableName string, spec *TableSpec) (*types.S
 }
 
 func (c *Catalog) addFunctionSpecRecursive(cat *types.SimpleCatalog, spec *FunctionSpec) error {
-	if len(spec.NamePath) > 1 {
-		subCatalogName := spec.NamePath[0]
+	if catalogId := spec.NamePath.GetCatalogId(); catalogId != "" {
+		subCatalogName := catalogId
 		subCatalog, _ := cat.Catalog(subCatalogName)
 		if subCatalog == nil {
 			subCatalog = newSimpleCatalog(subCatalogName)
 			cat.AddCatalog(subCatalog)
 		}
-		newNamePath := spec.NamePath[1:]
+		newNamePath := spec.NamePath.dropFirst()
 		// add sub catalog to root catalog
 		if err := c.addFunctionSpecRecursive(cat, c.copyFunctionSpec(spec, newNamePath)); err != nil {
 			return fmt.Errorf("failed to add function spec to root catalog: %w", err)
@@ -514,11 +510,11 @@ func (c *Catalog) addFunctionSpecRecursive(cat *types.SimpleCatalog, spec *Funct
 		}
 		return nil
 	}
-	if len(spec.NamePath) == 0 {
+	if spec.NamePath.Empty() {
 		return fmt.Errorf("function name is not found")
 	}
 
-	funcName := spec.NamePath[0]
+	funcName := spec.NamePath.GetObjectId()
 	if c.existsFunction(cat, funcName) {
 		return nil
 	}
@@ -558,17 +554,17 @@ func (c *Catalog) isNilTable(t types.Table) bool {
 	return v.IsNil()
 }
 
-func (c *Catalog) copyTableSpec(spec *TableSpec, newNamePath []string) *TableSpec {
+func (c *Catalog) copyTableSpec(spec *TableSpec, newNamePath *NamePath) *TableSpec {
 	return &TableSpec{
-		NamePath:   newNamePath,
+		NamePath:   *newNamePath,
 		Columns:    spec.Columns,
 		CreateMode: spec.CreateMode,
 	}
 }
 
-func (c *Catalog) copyFunctionSpec(spec *FunctionSpec, newNamePath []string) *FunctionSpec {
+func (c *Catalog) copyFunctionSpec(spec *FunctionSpec, newPath *NamePath) *FunctionSpec {
 	return &FunctionSpec{
-		NamePath: newNamePath,
+		NamePath: *newPath,
 		Language: spec.Language,
 		Args:     spec.Args,
 		Return:   spec.Return,

@@ -124,7 +124,7 @@ CREATE TABLE IF NOT EXISTS Singers (
 		if len(resultCatalog.Table.Added) != 1 {
 			t.Fatal("failed to get created table spec")
 		}
-		if diff := cmp.Diff(resultCatalog.Table.Added[0].NamePath, []string{"Singers"}); diff != "" {
+		if diff := cmp.Diff(resultCatalog.Table.Added[0].NamePath.Path(), []string{"Singers"}); diff != "" {
 			t.Errorf("(-want +got):\n%s", diff)
 		}
 		rowsCatalog, err := zetasqlite.ChangedCatalogFromRows(rows)
@@ -137,7 +137,7 @@ CREATE TABLE IF NOT EXISTS Singers (
 		if len(rowsCatalog.Table.Deleted) != 1 {
 			t.Fatal("failed to get deleted table spec")
 		}
-		if diff := cmp.Diff(rowsCatalog.Table.Deleted[0].NamePath, []string{"Singers"}); diff != "" {
+		if diff := cmp.Diff(rowsCatalog.Table.Deleted[0].NamePath.Path(), []string{"Singers"}); diff != "" {
 			t.Errorf("(-want +got):\n%s", diff)
 		}
 	})
@@ -167,7 +167,7 @@ CREATE TABLE IF NOT EXISTS Singers (
 		if len(resultCatalog.Function.Added) != 1 {
 			t.Fatal("failed to get created function spec")
 		}
-		if diff := cmp.Diff(resultCatalog.Function.Added[0].NamePath, []string{"ANY_ADD"}); diff != "" {
+		if diff := cmp.Diff(resultCatalog.Function.Added[0].NamePath.Path(), []string{"ANY_ADD"}); diff != "" {
 			t.Errorf("(-want +got):\n%s", diff)
 		}
 		rowsCatalog, err := zetasqlite.ChangedCatalogFromRows(rows)
@@ -180,7 +180,7 @@ CREATE TABLE IF NOT EXISTS Singers (
 		if len(rowsCatalog.Function.Deleted) != 1 {
 			t.Fatal("failed to get deleted function spec")
 		}
-		if diff := cmp.Diff(rowsCatalog.Function.Deleted[0].NamePath, []string{"ANY_ADD"}); diff != "" {
+		if diff := cmp.Diff(rowsCatalog.Function.Deleted[0].NamePath.Path(), []string{"ANY_ADD"}); diff != "" {
 			t.Errorf("(-want +got):\n%s", diff)
 		}
 	})

@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
-	"strings"
 
 	ast "github.com/goccy/go-zetasql/resolved_ast"
 )
@@ -46,7 +45,7 @@ func (a *CreateTableStmtAction) createIndexAutomatically(ctx context.Context, co
 		if !col.Type.AvailableAutoIndex() {
 			continue
 		}
-		indexName := fmt.Sprintf("zetasqlite_autoindex_%s_%s", col.Name, strings.Join(a.spec.NamePath, "_"))
+		indexName := fmt.Sprintf("zetasqlite_autoindex_%s_%s", col.Name, a.spec.NamePath.CatalogPath())
 		createIndexQuery := fmt.Sprintf(
 			"CREATE INDEX IF NOT EXISTS %s ON `%s`(`%s`)",
 			indexName,
