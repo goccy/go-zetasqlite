@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	ast "github.com/goccy/go-zetasql/resolved_ast"
+	"github.com/goccy/go-zetasql/types"
 )
 
 type StmtAction interface {
@@ -15,6 +16,37 @@ type StmtAction interface {
 	QueryContext(context.Context, *Conn) (*Rows, error)
 	Cleanup(context.Context, *Conn) error
 	Args() []interface{}
+}
+
+
+type NullStmtAction struct {}
+
+
+const NullStatmentActionQuery = "SELECT 'unsupported statement';"
+func (a *NullStmtAction) Prepare(ctx context.Context, conn *Conn) (driver.Stmt, error) {
+	stmt, err := conn.PrepareContext(ctx, NullStatmentActionQuery)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare null statement action: %w", err)
+	}
+	return newQueryStmt(stmt, nil, NullStatmentActionQuery,[]*ColumnSpec{
+		&ColumnSpec{Name: "message", Type: &Type{Name: "string", Kind: types.STRING}},
+	}), nil
+}
+
+func (a *NullStmtAction) ExecContext(ctx context.Context, conn *Conn) (driver.Result, error) {
+	return &Result{conn: conn}, nil
+}
+
+func (a *NullStmtAction) QueryContext(ctx context.Context, conn *Conn) (*Rows, error) {
+	return &Rows{conn: conn}, nil
+}
+
+func (a *NullStmtAction) Args() []interface{} {
+	return []interface{}{}
+}
+
+func (a *NullStmtAction) Cleanup(ctx context.Context, conn *Conn) error {
+	return nil
 }
 
 type CreateTableStmtAction struct {

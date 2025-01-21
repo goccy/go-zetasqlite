@@ -95,6 +95,8 @@ func newAnalyzerOptions() (*zetasql.AnalyzerOptions, error) {
 		ast.CreateTableFunctionStmt,
 		ast.CreateViewStmt,
 		ast.DropFunctionStmt,
+		ast.DropRowAccessPolicyStmt,
+		ast.CreateRowAccessPolicyStmt,
 	})
 	// Enable QUALIFY without WHERE
 	//https://github.com/google/zetasql/issues/124
@@ -293,11 +295,18 @@ func (a *Analyzer) newStmtAction(ctx context.Context, query string, args []drive
 		return a.newBeginStmtAction(ctx, query, args, node)
 	case ast.CommitStmt:
 		return a.newCommitStmtAction(ctx, query, args, node)
+	case ast.CreateRowAccessPolicyStmt,
+	ast.DropRowAccessPolicyStmt:
+		return a.newNullStmtAction(ctx, query, args, node)
 	}
 	return nil, fmt.Errorf("unsupported stmt %s", node.DebugString())
 }
 
-func (a *Analyzer) newCreateTableStmtAction(ctx context.Context, query string, args []driver.NamedValue, node *ast.CreateTableStmtNode) (*CreateTableStmtAction, error) {
+func (a *Analyzer) newNullStmtAction(_ context.Context, query string, args []driver.NamedValue, node interface{}) (*NullStmtAction, error) {
+	return &NullStmtAction{}, nil
+}
+
+func (a *Analyzer) newCreateTableStmtAction(_ context.Context, query string, args []driver.NamedValue, node *ast.CreateTableStmtNode) (*CreateTableStmtAction, error) {
 	spec := newTableSpec(a.namePath, node)
 	params := getParamsFromNode(node)
 	queryArgs, err := getArgsFromParams(args, params)
