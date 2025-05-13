@@ -1,19 +1,22 @@
 package internal
 
 import (
+	"database/sql/driver"
 	"errors"
 	"fmt"
 	"github.com/goccy/go-json"
+	"modernc.org/sqlite"
 )
 
 type SQLiteFunction func(...interface{}) (interface{}, error)
 type BindFunction func(...Value) (Value, error)
-type AggregateBindFunction func() func() *Aggregator
-type WindowBindFunction func() func() *WindowAggregator
+type AggregateBindFunction func() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error)
+type WindowBindFunction func() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error)
 
 type FuncInfo struct {
 	Name     string
 	BindFunc BindFunction
+	SafeFunc BindFunction
 }
 
 type AggregateFuncInfo struct {
@@ -35,7 +38,7 @@ func existsNull(args []Value) bool {
 	return false
 }
 
-func convertArgs(args ...interface{}) ([]Value, error) {
+func convertArgs(args []driver.Value) ([]Value, error) {
 	values := make([]Value, 0, len(args))
 	for _, arg := range args {
 		value, err := DecodeValue(arg)
@@ -54,8 +57,8 @@ type Aggregator struct {
 	done        func() (Value, error)
 }
 
-func (a *Aggregator) Step(stepArgs ...interface{}) error {
-	values, err := convertArgs(stepArgs...)
+func (a *Aggregator) Step(ctx *sqlite.FunctionContext, stepArgs []driver.Value) error {
+	values, err := convertArgs(stepArgs)
 	if err != nil {
 		return err
 	}
@@ -99,7 +102,7 @@ func (a *Aggregator) Step(stepArgs ...interface{}) error {
 	return a.step(values, opt)
 }
 
-func (a *Aggregator) Done() (interface{}, error) {
+func (a *Aggregator) WindowValue(ctx *sqlite.FunctionContext) (driver.Value, error) {
 	ret, err := a.done()
 	if err != nil {
 		return nil, err
@@ -107,14 +110,26 @@ func (a *Aggregator) Done() (interface{}, error) {
 	return EncodeValue(ret)
 }
 
+func (a *Aggregator) Final(ctx *sqlite.FunctionContext) {
+	return
+}
+
+// WindowInverse is called to remove the oldest presently aggregated
+// result of Step from the current window. The arguments are those
+// passed to Step for the row being removed. The argument Values are not
+// valid past the return of the function.
+func (a *Aggregator) WindowInverse(ctx *sqlite.FunctionContext, rowArgs []driver.Value) error {
+	return nil
+}
+
 func newAggregator(
 	step func([]Value, *AggregatorOption) error,
-	done func() (Value, error)) *Aggregator {
+	done func() (Value, error)) (sqlite.AggregateFunction, error) {
 	return &Aggregator{
 		distinctMap: map[string]struct{}{},
 		step:        step,
 		done:        done,
-	}
+	}, nil
 }
 
 type WindowAggregator struct {
@@ -125,23 +140,23 @@ type WindowAggregator struct {
 	done    func(*WindowFuncAggregatedStatus) (Value, error)
 }
 
-func (a *WindowAggregator) Step(stepArgs ...interface{}) error {
-	values, err := convertArgs(stepArgs...)
+func (a *WindowAggregator) Step(ctx *sqlite.FunctionContext, stepArgs []driver.Value) error {
+	values, err := convertArgs(stepArgs)
 	if err != nil {
 		return err
 	}
 	return a.step(values, a.agg)
 }
 
-func (a *WindowAggregator) Inverse(stepArgs ...interface{}) error {
-	values, err := convertArgs(stepArgs...)
+func (a *WindowAggregator) WindowInverse(ctx *sqlite.FunctionContext, stepArgs []driver.Value) error {
+	values, err := convertArgs(stepArgs)
 	if err != nil {
 		return err
 	}
 	return a.inverse(values, a.agg)
 }
 
-func (a *WindowAggregator) Done() (interface{}, error) {
+func (a *WindowAggregator) WindowValue(ctx *sqlite.FunctionContext) (driver.Value, error) {
 	ret, err := a.done(a.agg)
 	if err != nil {
 		return nil, err
@@ -149,12 +164,8 @@ func (a *WindowAggregator) Done() (interface{}, error) {
 	return EncodeValue(ret)
 }
 
-func (a *WindowAggregator) Value() (interface{}, error) {
-	ret, err := a.value(a.agg)
-	if err != nil {
-		return nil, err
-	}
-	return EncodeValue(ret)
+func (a *WindowAggregator) Final(ctx *sqlite.FunctionContext) {
+	return
 }
 
 type WindowAggregatorMinimumImpl interface {
@@ -173,7 +184,7 @@ type CustomInverseWindowAggregate interface {
 	Inverse(values []Value, agg *WindowFuncAggregatedStatus) error
 }
 
-func newTupleItemWindowAggregator(impl WindowAggregatorMinimumImpl) *WindowAggregator {
+func newTupleItemWindowAggregator(impl WindowAggregatorMinimumImpl) (*WindowAggregator, error) {
 	return &WindowAggregator{
 		agg: newWindowFuncAggregatedStatus(),
 		step: func(args []Value, agg *WindowFuncAggregatedStatus) error {
@@ -201,10 +212,10 @@ func newTupleItemWindowAggregator(impl WindowAggregatorMinimumImpl) *WindowAggre
 		done: func(agg *WindowFuncAggregatedStatus) (Value, error) {
 			return impl.Done(agg)
 		},
-	}
+	}, nil
 }
 
-func newSingleItemWindowAggregator(impl WindowAggregatorMinimumImpl) *WindowAggregator {
+func newSingleItemWindowAggregator(impl WindowAggregatorMinimumImpl) (*WindowAggregator, error) {
 	return &WindowAggregator{
 		agg: newWindowFuncAggregatedStatus(),
 		step: func(args []Value, agg *WindowFuncAggregatedStatus) error {
@@ -241,10 +252,10 @@ func newSingleItemWindowAggregator(impl WindowAggregatorMinimumImpl) *WindowAggr
 		done: func(agg *WindowFuncAggregatedStatus) (Value, error) {
 			return impl.Done(agg)
 		},
-	}
+	}, nil
 }
 
-func newWindowAggregatorWithoutArguments(impl interface{}) *WindowAggregator {
+func newWindowAggregatorWithoutArguments(impl interface{}) (*WindowAggregator, error) {
 	return &WindowAggregator{
 		agg: newWindowFuncAggregatedStatus(),
 		step: func(args []Value, agg *WindowFuncAggregatedStatus) error {
@@ -267,7 +278,7 @@ func newWindowAggregatorWithoutArguments(impl interface{}) *WindowAggregator {
 		done: func(agg *WindowFuncAggregatedStatus) (Value, error) {
 			return impl.(WindowAggregatorMinimumImpl).Done(agg)
 		},
-	}
+	}, nil
 }
 
 func bindAdd(args ...Value) (Value, error) {
@@ -3169,8 +3180,8 @@ func bindNetSafeIpFromString(args ...Value) (Value, error) {
 	return NET_SAFE_IP_FROM_STRING(v)
 }
 
-func bindArray() func() *Aggregator {
-	return func() *Aggregator {
+func bindArray() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		fn := &ARRAY{}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
@@ -3183,8 +3194,8 @@ func bindArray() func() *Aggregator {
 	}
 }
 
-func bindAnyValue() func() *Aggregator {
-	return func() *Aggregator {
+func bindAnyValue() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		fn := &ANY_VALUE{}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
@@ -3197,8 +3208,8 @@ func bindAnyValue() func() *Aggregator {
 	}
 }
 
-func bindArrayAgg() func() *Aggregator {
-	return func() *Aggregator {
+func bindArrayAgg() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		fn := &ARRAY_AGG{}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
@@ -3211,8 +3222,8 @@ func bindArrayAgg() func() *Aggregator {
 	}
 }
 
-func bindArrayConcatAgg() func() *Aggregator {
-	return func() *Aggregator {
+func bindArrayConcatAgg() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		fn := &ARRAY_CONCAT_AGG{}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
@@ -3232,8 +3243,8 @@ func bindArrayConcatAgg() func() *Aggregator {
 	}
 }
 
-func bindAvg() func() *Aggregator {
-	return func() *Aggregator {
+func bindAvg() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		fn := &AVG{}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
@@ -3246,8 +3257,8 @@ func bindAvg() func() *Aggregator {
 	}
 }
 
-func bindCount() func() *Aggregator {
-	return func() *Aggregator {
+func bindCount() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		fn := &COUNT{}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
@@ -3260,8 +3271,8 @@ func bindCount() func() *Aggregator {
 	}
 }
 
-func bindCountStar() func() *Aggregator {
-	return func() *Aggregator {
+func bindCountStar() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		fn := &COUNT_STAR{}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
@@ -3274,8 +3285,8 @@ func bindCountStar() func() *Aggregator {
 	}
 }
 
-func bindBitAndAgg() func() *Aggregator {
-	return func() *Aggregator {
+func bindBitAndAgg() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		fn := &BIT_AND_AGG{IntValue(-1)}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
@@ -3288,8 +3299,8 @@ func bindBitAndAgg() func() *Aggregator {
 	}
 }
 
-func bindBitOrAgg() func() *Aggregator {
-	return func() *Aggregator {
+func bindBitOrAgg() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		fn := &BIT_OR_AGG{-1}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
@@ -3302,8 +3313,8 @@ func bindBitOrAgg() func() *Aggregator {
 	}
 }
 
-func bindBitXorAgg() func() *Aggregator {
-	return func() *Aggregator {
+func bindBitXorAgg() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		fn := &BIT_XOR_AGG{1}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
@@ -3316,8 +3327,8 @@ func bindBitXorAgg() func() *Aggregator {
 	}
 }
 
-func bindCountIf() func() *Aggregator {
-	return func() *Aggregator {
+func bindCountIf() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		fn := &COUNTIF{}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
@@ -3330,8 +3341,8 @@ func bindCountIf() func() *Aggregator {
 	}
 }
 
-func bindLogicalAnd() func() *Aggregator {
-	return func() *Aggregator {
+func bindLogicalAnd() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		fn := &LOGICAL_AND{true}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
@@ -3344,8 +3355,8 @@ func bindLogicalAnd() func() *Aggregator {
 	}
 }
 
-func bindLogicalOr() func() *Aggregator {
-	return func() *Aggregator {
+func bindLogicalOr() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		fn := &LOGICAL_OR{}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
@@ -3358,8 +3369,8 @@ func bindLogicalOr() func() *Aggregator {
 	}
 }
 
-func bindMax() func() *Aggregator {
-	return func() *Aggregator {
+func bindMax() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		fn := &MAX{}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
@@ -3372,8 +3383,8 @@ func bindMax() func() *Aggregator {
 	}
 }
 
-func bindMin() func() *Aggregator {
-	return func() *Aggregator {
+func bindMin() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		fn := &MIN{}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
@@ -3386,8 +3397,8 @@ func bindMin() func() *Aggregator {
 	}
 }
 
-func bindStringAgg() func() *Aggregator {
-	return func() *Aggregator {
+func bindStringAgg() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		fn := &STRING_AGG{}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
@@ -3407,8 +3418,8 @@ func bindStringAgg() func() *Aggregator {
 	}
 }
 
-func bindSum() func() *Aggregator {
-	return func() *Aggregator {
+func bindSum() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		fn := &SUM{}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
@@ -3421,8 +3432,8 @@ func bindSum() func() *Aggregator {
 	}
 }
 
-func bindCorr() func() *Aggregator {
-	return func() *Aggregator {
+func bindCorr() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		fn := &CORR{}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
@@ -3435,8 +3446,8 @@ func bindCorr() func() *Aggregator {
 	}
 }
 
-func bindCovarPop() func() *Aggregator {
-	return func() *Aggregator {
+func bindCovarPop() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		fn := &COVAR_POP{}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
@@ -3449,8 +3460,8 @@ func bindCovarPop() func() *Aggregator {
 	}
 }
 
-func bindCovarSamp() func() *Aggregator {
-	return func() *Aggregator {
+func bindCovarSamp() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		fn := &COVAR_SAMP{}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
@@ -3463,8 +3474,8 @@ func bindCovarSamp() func() *Aggregator {
 	}
 }
 
-func bindStddevPop() func() *Aggregator {
-	return func() *Aggregator {
+func bindStddevPop() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		fn := &STDDEV_POP{}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
@@ -3477,8 +3488,8 @@ func bindStddevPop() func() *Aggregator {
 	}
 }
 
-func bindStddevSamp() func() *Aggregator {
-	return func() *Aggregator {
+func bindStddevSamp() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		fn := &STDDEV_SAMP{}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
@@ -3491,8 +3502,8 @@ func bindStddevSamp() func() *Aggregator {
 	}
 }
 
-func bindStddev() func() *Aggregator {
-	return func() *Aggregator {
+func bindStddev() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		fn := &STDDEV{}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
@@ -3505,8 +3516,8 @@ func bindStddev() func() *Aggregator {
 	}
 }
 
-func bindVarPop() func() *Aggregator {
-	return func() *Aggregator {
+func bindVarPop() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		fn := &VAR_POP{}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
@@ -3519,8 +3530,8 @@ func bindVarPop() func() *Aggregator {
 	}
 }
 
-func bindVarSamp() func() *Aggregator {
-	return func() *Aggregator {
+func bindVarSamp() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		fn := &VAR_SAMP{}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
@@ -3533,8 +3544,8 @@ func bindVarSamp() func() *Aggregator {
 	}
 }
 
-func bindVariance() func() *Aggregator {
-	return func() *Aggregator {
+func bindVariance() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		fn := &VARIANCE{}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
@@ -3547,8 +3558,8 @@ func bindVariance() func() *Aggregator {
 	}
 }
 
-func bindApproxCountDistinct() func() *Aggregator {
-	return func() *Aggregator {
+func bindApproxCountDistinct() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		fn := &APPROX_COUNT_DISTINCT{}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
@@ -3561,8 +3572,8 @@ func bindApproxCountDistinct() func() *Aggregator {
 	}
 }
 
-func bindApproxQuantiles() func() *Aggregator {
-	return func() *Aggregator {
+func bindApproxQuantiles() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		fn := &APPROX_QUANTILES{}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
@@ -3582,8 +3593,8 @@ func bindApproxQuantiles() func() *Aggregator {
 	}
 }
 
-func bindApproxTopCount() func() *Aggregator {
-	return func() *Aggregator {
+func bindApproxTopCount() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		fn := &APPROX_TOP_COUNT{}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
@@ -3603,8 +3614,8 @@ func bindApproxTopCount() func() *Aggregator {
 	}
 }
 
-func bindApproxTopSum() func() *Aggregator {
-	return func() *Aggregator {
+func bindApproxTopSum() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		fn := &APPROX_TOP_SUM{}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
@@ -3624,8 +3635,8 @@ func bindApproxTopSum() func() *Aggregator {
 	}
 }
 
-func bindHllCountInit() func() *Aggregator {
-	return func() *Aggregator {
+func bindHllCountInit() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		fn := &HLL_COUNT_INIT{}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
@@ -3649,8 +3660,8 @@ func bindHllCountInit() func() *Aggregator {
 	}
 }
 
-func bindHllCountMerge() func() *Aggregator {
-	return func() *Aggregator {
+func bindHllCountMerge() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		fn := &HLL_COUNT_MERGE{}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
@@ -3670,8 +3681,8 @@ func bindHllCountMerge() func() *Aggregator {
 	}
 }
 
-func bindHllCountMergePartial() func() *Aggregator {
-	return func() *Aggregator {
+func bindHllCountMergePartial() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		fn := &HLL_COUNT_MERGE_PARTIAL{}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
@@ -3702,206 +3713,206 @@ func bindHllCountExtract(args ...Value) (Value, error) {
 	return HLL_COUNT_EXTRACT(b)
 }
 
-func bindWindowAnyValue() func() *WindowAggregator {
-	return func() *WindowAggregator {
+func bindWindowAnyValue() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		return newSingleItemWindowAggregator(&WINDOW_ANY_VALUE{})
 	}
 }
 
-func bindWindowArrayAgg() func() *WindowAggregator {
-	return func() *WindowAggregator {
+func bindWindowArrayAgg() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		return newSingleItemWindowAggregator(&WINDOW_ARRAY_AGG{})
 	}
 }
 
-func bindWindowAvg() func() *WindowAggregator {
-	return func() *WindowAggregator {
+func bindWindowAvg() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		return newSingleItemWindowAggregator(&WINDOW_AVG{})
 	}
 }
 
-func bindWindowCount() func() *WindowAggregator {
-	return func() *WindowAggregator {
+func bindWindowCount() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		return newSingleItemWindowAggregator(&WINDOW_COUNT{})
 	}
 }
 
-func bindWindowCountStar() func() *WindowAggregator {
-	return func() *WindowAggregator {
+func bindWindowCountStar() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		return newWindowAggregatorWithoutArguments(&WINDOW_COUNT_STAR{})
 	}
 }
 
-func bindWindowCountIf() func() *WindowAggregator {
-	return func() *WindowAggregator {
+func bindWindowCountIf() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		return newSingleItemWindowAggregator(&WINDOW_COUNTIF{})
 	}
 }
 
-func bindWindowLogicalAnd() func() *WindowAggregator {
-	return func() *WindowAggregator {
+func bindWindowLogicalAnd() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		return newSingleItemWindowAggregator(&WINDOW_LOGICAL_AND{})
 	}
 }
 
-func bindWindowLogicalOr() func() *WindowAggregator {
-	return func() *WindowAggregator {
+func bindWindowLogicalOr() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		return newSingleItemWindowAggregator(&WINDOW_LOGICAL_OR{})
 	}
 }
 
-func bindWindowMax() func() *WindowAggregator {
-	return func() *WindowAggregator {
+func bindWindowMax() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		return newSingleItemWindowAggregator(&WINDOW_MAX{})
 	}
 }
 
-func bindWindowMin() func() *WindowAggregator {
-	return func() *WindowAggregator {
+func bindWindowMin() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		return newSingleItemWindowAggregator(&WINDOW_MIN{})
 	}
 }
 
-func bindWindowStringAgg() func() *WindowAggregator {
-	return func() *WindowAggregator {
+func bindWindowStringAgg() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		return newSingleItemWindowAggregator(&WINDOW_STRING_AGG{})
 	}
 }
 
-func bindWindowSum() func() *WindowAggregator {
-	return func() *WindowAggregator {
+func bindWindowSum() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		return newSingleItemWindowAggregator(&WINDOW_SUM{})
 	}
 }
 
-func bindWindowCorr() func() *WindowAggregator {
-	return func() *WindowAggregator {
+func bindWindowCorr() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		return newTupleItemWindowAggregator(&WINDOW_CORR{})
 	}
 }
 
-func bindWindowCovarPop() func() *WindowAggregator {
-	return func() *WindowAggregator {
+func bindWindowCovarPop() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		return newTupleItemWindowAggregator(&WINDOW_COVAR_POP{})
 	}
 }
 
-func bindWindowCovarSamp() func() *WindowAggregator {
-	return func() *WindowAggregator {
+func bindWindowCovarSamp() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		return newTupleItemWindowAggregator(&WINDOW_COVAR_SAMP{})
 	}
 }
 
-func bindWindowStddevPop() func() *WindowAggregator {
-	return func() *WindowAggregator {
+func bindWindowStddevPop() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		return newSingleItemWindowAggregator(&WINDOW_STDDEV_POP{})
 	}
 }
 
-func bindWindowStddevSamp() func() *WindowAggregator {
-	return func() *WindowAggregator {
+func bindWindowStddevSamp() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		return newSingleItemWindowAggregator(&WINDOW_STDDEV_SAMP{})
 	}
 }
 
-func bindWindowStddev() func() *WindowAggregator {
-	return func() *WindowAggregator {
+func bindWindowStddev() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		return newSingleItemWindowAggregator(&WINDOW_STDDEV{})
 	}
 }
 
-func bindWindowVarPop() func() *WindowAggregator {
-	return func() *WindowAggregator {
+func bindWindowVarPop() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		return newSingleItemWindowAggregator(&WINDOW_VAR_POP{})
 	}
 }
 
-func bindWindowVarSamp() func() *WindowAggregator {
-	return func() *WindowAggregator {
+func bindWindowVarSamp() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		return newSingleItemWindowAggregator(&WINDOW_VAR_SAMP{})
 	}
 }
 
-func bindWindowVariance() func() *WindowAggregator {
-	return func() *WindowAggregator {
+func bindWindowVariance() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		return newSingleItemWindowAggregator(&WINDOW_VARIANCE{})
 	}
 }
 
-func bindWindowFirstValue() func() *WindowAggregator {
-	return func() *WindowAggregator {
+func bindWindowFirstValue() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		return newSingleItemWindowAggregator(&WINDOW_FIRST_VALUE{})
 	}
 }
 
-func bindWindowLastValue() func() *WindowAggregator {
-	return func() *WindowAggregator {
+func bindWindowLastValue() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		return newSingleItemWindowAggregator(&WINDOW_LAST_VALUE{})
 	}
 }
 
-func bindWindowLead() func() *WindowAggregator {
-	return func() *WindowAggregator {
+func bindWindowLead() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		return newSingleItemWindowAggregator(&WINDOW_LEAD{})
 	}
 }
 
-func bindWindowNthValue() func() *WindowAggregator {
-	return func() *WindowAggregator {
+func bindWindowNthValue() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		return newSingleItemWindowAggregator(&WINDOW_NTH_VALUE{})
 	}
 }
 
-func bindWindowLag() func() *WindowAggregator {
-	return func() *WindowAggregator {
+func bindWindowLag() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		return newSingleItemWindowAggregator(&WINDOW_LAG{})
 	}
 }
 
-func bindWindowPercentileCont() func() *WindowAggregator {
-	return func() *WindowAggregator {
+func bindWindowPercentileCont() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		return newSingleItemWindowAggregator(&WINDOW_PERCENTILE_CONT{})
 	}
 }
 
-func bindWindowPercentileDisc() func() *WindowAggregator {
-	return func() *WindowAggregator {
+func bindWindowPercentileDisc() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		return newSingleItemWindowAggregator(&WINDOW_PERCENTILE_DISC{})
 	}
 }
 
-func bindWindowRank() func() *WindowAggregator {
-	return func() *WindowAggregator {
+func bindWindowRank() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		return newWindowAggregatorWithoutArguments(&WINDOW_RANK{})
 	}
 }
 
-func bindWindowDenseRank() func() *WindowAggregator {
-	return func() *WindowAggregator {
+func bindWindowDenseRank() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		return newWindowAggregatorWithoutArguments(&WINDOW_DENSE_RANK{})
 	}
 }
 
-func bindWindowPercentRank() func() *WindowAggregator {
-	return func() *WindowAggregator {
+func bindWindowPercentRank() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		return newWindowAggregatorWithoutArguments(&WINDOW_PERCENT_RANK{})
 	}
 }
 
-func bindWindowCumeDist() func() *WindowAggregator {
-	return func() *WindowAggregator {
+func bindWindowCumeDist() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		return newWindowAggregatorWithoutArguments(&WINDOW_CUME_DIST{})
 	}
 }
 
-func bindWindowNtile() func() *WindowAggregator {
-	return func() *WindowAggregator {
+func bindWindowNtile() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		return newSingleItemWindowAggregator(&WINDOW_NTILE{})
 	}
 }
 
-func bindWindowRowNumber() func() *WindowAggregator {
-	return func() *WindowAggregator {
+func bindWindowRowNumber() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
+	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 		return newWindowAggregatorWithoutArguments(&WINDOW_ROW_NUMBER{})
 	}
 }

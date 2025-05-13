@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"database/sql/driver"
 	"encoding/base64"
 	"fmt"
 	"math/big"
@@ -10,7 +11,7 @@ import (
 	"github.com/goccy/go-json"
 )
 
-func DecodeValue(v interface{}) (Value, error) {
+func DecodeValue(v driver.Value) (Value, error) {
 	if isNullValue(v) {
 		return nil, nil
 	}

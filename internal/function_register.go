@@ -1,18 +1,20 @@
 package internal
 
 import (
+	"database/sql/driver"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/goccy/go-json"
-	"github.com/mattn/go-sqlite3"
+	"modernc.org/sqlite"
 )
 
 var normalFuncs = []*FuncInfo{
-	{Name: "add", BindFunc: bindAdd},
-	{Name: "subtract", BindFunc: bindSub},
-	{Name: "multiply", BindFunc: bindMul},
-	{Name: "divide", BindFunc: bindOpDiv},
+	{Name: "add", BindFunc: bindAdd, SafeFunc: bindSafeAdd},
+	{Name: "subtract", BindFunc: bindSub, SafeFunc: bindSafeSubtract},
+	{Name: "multiply", BindFunc: bindMul, SafeFunc: bindSafeMultiply},
+	{Name: "divide", BindFunc: bindOpDiv, SafeFunc: bindSafeDivide},
 	{Name: "equal", BindFunc: bindEqual},
 	{Name: "not_equal", BindFunc: bindNotEqual},
 	{Name: "greater", BindFunc: bindGreater},
@@ -29,10 +31,9 @@ var normalFuncs = []*FuncInfo{
 	{Name: "get_struct_field", BindFunc: bindStructField},
 	{Name: "get_json_field", BindFunc: bindJsonField},
 	{Name: "subscript", BindFunc: bindSubscript},
-	{Name: "array_at_offset", BindFunc: bindArrayAtOffset},
-	{Name: "array_at_ordinal", BindFunc: bindArrayAtOrdinal},
-	{Name: "safe_array_at_offset", BindFunc: bindSafeArrayAtOffset},
-	{Name: "safe_array_at_ordinal", BindFunc: bindSafeArrayAtOrdinal},
+	{Name: "array_at_offset", BindFunc: bindArrayAtOffset, SafeFunc: bindSafeArrayAtOffset},
+	{Name: "array_at_ordinal", BindFunc: bindArrayAtOrdinal, SafeFunc: bindSafeArrayAtOrdinal},
+	{Name: "safe_negate", BindFunc: bindSafeNegate},
 	{Name: "is_distinct_from", BindFunc: bindIsDistinctFrom},
 	{Name: "is_not_distinct_from", BindFunc: bindIsNotDistinctFrom},
 
@@ -148,7 +149,6 @@ var normalFuncs = []*FuncInfo{
 	{Name: "initcap", BindFunc: bindInitcap},
 	{Name: "instr", BindFunc: bindInstr},
 	{Name: "left", BindFunc: bindLeft},
-	{Name: "length", BindFunc: bindLength},
 	{Name: "lpad", BindFunc: bindLpad},
 	{Name: "lower", BindFunc: bindLower},
 	{Name: "ltrim", BindFunc: bindLtrim},
@@ -215,11 +215,6 @@ var normalFuncs = []*FuncInfo{
 	{Name: "greatest", BindFunc: bindGreatest},
 	{Name: "least", BindFunc: bindLeast},
 	{Name: "div", BindFunc: bindDiv},
-	{Name: "safe_divide", BindFunc: bindSafeDivide},
-	{Name: "safe_multiply", BindFunc: bindSafeMultiply},
-	{Name: "safe_negate", BindFunc: bindSafeNegate},
-	{Name: "safe_add", BindFunc: bindSafeAdd},
-	{Name: "safe_subtract", BindFunc: bindSafeSubtract},
 	{Name: "mod", BindFunc: bindMod},
 	{Name: "round", BindFunc: bindRound},
 	{Name: "trunc", BindFunc: bindTrunc},
@@ -370,15 +365,20 @@ var windowFuncs = []*WindowFuncInfo{
 
 type NameAndFunc struct {
 	Name string
-	Func interface{}
+	Func func(ctx *sqlite.FunctionContext, args []driver.Value) (driver.Value, error)
+}
+
+type AggregateNameAndFunc struct {
+	Name          string
+	MakeAggregate func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error)
 }
 
 var (
 	funcMapMu          sync.RWMutex
 	registerFuncOnce   sync.Once
 	normalFuncMap      = map[string][]*NameAndFunc{}
-	aggregateFuncMap   = map[string][]*NameAndFunc{}
-	windowFuncMap      = map[string][]*NameAndFunc{}
+	aggregateFuncMap   = map[string][]*AggregateNameAndFunc{}
+	windowFuncMap      = map[string][]*AggregateNameAndFunc{}
 	currentTimeFuncMap = map[string]struct{}{
 		"current_date":      struct{}{},
 		"current_datetime":  struct{}{},
@@ -387,7 +387,7 @@ var (
 	}
 )
 
-func RegisterFunctions(conn *sqlite3.SQLiteConn) error {
+func RegisterFunctions() error {
 	funcMapMu.RLock()
 	defer funcMapMu.RUnlock()
 
@@ -416,49 +416,59 @@ func RegisterFunctions(conn *sqlite3.SQLiteConn) error {
 		return onceErr
 	}
 
-	if err := conn.RegisterFunc("zetasqlite_decode_array", func(v interface{}) (string, error) {
-		decoded, err := DecodeValue(v)
-		if err != nil {
-			return "", err
-		}
-		if decoded == nil {
-			return "[]", nil
-		}
-		array, err := decoded.ToArray()
-		if err != nil {
-			return "", err
-		}
-		encodedValues := make([]interface{}, 0, len(array.values))
-		for _, value := range array.values {
-			v, err := EncodeValue(value)
-			if err != nil {
-				return "", err
-			}
-			encodedValues = append(encodedValues, v)
-		}
-		b, err := json.Marshal(encodedValues)
-		if err != nil {
-			return "", err
-		}
-		return string(b), err
-	}, true); err != nil {
+	if err := sqlite.RegisterFunction("zetasqlite_decode_array",
+		&sqlite.FunctionImpl{
+			Deterministic: true,
+			NArgs:         -1,
+			Scalar: func(ctx *sqlite.FunctionContext, args []driver.Value) (driver.Value, error) {
+				decoded, err := DecodeValue(args[0])
+				if err != nil {
+					return "", err
+				}
+				if decoded == nil {
+					return "[]", nil
+				}
+				array, err := decoded.ToArray()
+				if err != nil {
+					return "", err
+				}
+				encodedValues := make([]interface{}, 0, len(array.values))
+				for _, value := range array.values {
+					v, err := EncodeValue(value)
+					if err != nil {
+						return "", err
+					}
+					encodedValues = append(encodedValues, v)
+				}
+				b, err := json.Marshal(encodedValues)
+				if err != nil {
+					return "", err
+				}
+				return string(b), err
+			},
+		},
+	); err != nil {
 		return fmt.Errorf("failed to register decode_array function: %w", err)
 	}
 
-	if err := conn.RegisterFunc("zetasqlite_group_by", func(v interface{}) (interface{}, error) {
-		decoded, err := DecodeValue(v)
-		if err != nil {
-			return "", err
-		}
-		if decoded == nil {
-			return nil, nil
-		}
-		return decoded.Interface(), nil
-	}, true); err != nil {
-		return fmt.Errorf("failed to register group_by function: %w", err)
+	if err := sqlite.RegisterFunction("zetasqlite_group_by", &sqlite.FunctionImpl{
+		Deterministic: true,
+		NArgs:         -1,
+		Scalar: func(ctx *sqlite.FunctionContext, args []driver.Value) (driver.Value, error) {
+			decoded, err := DecodeValue(args[0])
+			if err != nil {
+				return "", err
+			}
+			if decoded == nil {
+				return nil, nil
+			}
+			return decoded.Interface(), nil
+		},
+	}); err != nil {
+		return fmt.Errorf("failed to register function zetasqlite_group_by: %w", err)
 	}
 
-	if err := conn.RegisterCollation("zetasqlite_collate", func(a, b string) int {
+	sqlite.MustRegisterCollationUtf8("zetasqlite_collate", func(a, b string) int {
 		va, _ := DecodeValue(a)
 		vb, _ := DecodeValue(b)
 		eq, _ := va.EQ(vb)
@@ -470,27 +480,37 @@ func RegisterFunctions(conn *sqlite3.SQLiteConn) error {
 			return 1
 		}
 		return -1
-	}); err != nil {
-		return fmt.Errorf("failed to register collate function: %w", err)
-	}
+	})
 
 	for _, values := range normalFuncMap {
 		for _, v := range values {
-			if err := conn.RegisterFunc(v.Name, v.Func, true); err != nil {
+			if err := sqlite.RegisterFunction(v.Name, &sqlite.FunctionImpl{
+				Deterministic: true,
+				NArgs:         -1,
+				Scalar:        v.Func,
+			}); err != nil {
 				return fmt.Errorf("failed to register function %s: %w", v.Name, err)
 			}
 		}
 	}
 	for _, values := range aggregateFuncMap {
 		for _, v := range values {
-			if err := conn.RegisterAggregator(v.Name, v.Func, true); err != nil {
+			if err := sqlite.RegisterFunction(v.Name, &sqlite.FunctionImpl{
+				Deterministic: true,
+				NArgs:         -1,
+				MakeAggregate: v.MakeAggregate,
+			}); err != nil {
 				return fmt.Errorf("failed to register aggregate function %s: %w", v.Name, err)
 			}
 		}
 	}
 	for _, values := range windowFuncMap {
 		for _, v := range values {
-			if err := conn.RegisterAggregator(v.Name, v.Func, true); err != nil {
+			if err := sqlite.RegisterFunction(v.Name, &sqlite.FunctionImpl{
+				Deterministic: true,
+				NArgs:         -1,
+				MakeAggregate: v.MakeAggregate,
+			}); err != nil {
 				return fmt.Errorf("failed to register window function %s: %w", v.Name, err)
 			}
 		}
@@ -501,49 +521,71 @@ func RegisterFunctions(conn *sqlite3.SQLiteConn) error {
 func setupNormalFuncMap(info *FuncInfo) error {
 	normalFuncMap[info.Name] = append(normalFuncMap[info.Name], &NameAndFunc{
 		Name: fmt.Sprintf("zetasqlite_%s", info.Name),
-		Func: func(args ...interface{}) (interface{}, error) {
-			values, err := convertArgs(args...)
+		Func: func(ctx *sqlite.FunctionContext, args []driver.Value) (driver.Value, error) {
+			values, err := convertArgs(args)
 			if err != nil {
 				return nil, err
 			}
 			ret, err := info.BindFunc(values...)
 			if err != nil {
 				return nil, err
-			}
-			return EncodeValue(ret)
-		},
-	}, &NameAndFunc{
-		Name: fmt.Sprintf("zetasqlite_safe_%s", info.Name),
-		Func: func(args ...interface{}) (interface{}, error) {
-			values, err := convertArgs(args...)
-			if err != nil {
-				return nil, err
-			}
-			ret, err := info.BindFunc(values...)
-			if err != nil {
-				// Note, this should only suppress semantic errors based on the
-				// input data. See
-				// https://github.com/google/zetasql/blob/master/docs/resolved_ast.md#resolvedfunctioncallbase
-				return nil, nil
 			}
 			return EncodeValue(ret)
 		},
 	})
+
+	if info.SafeFunc == nil && !strings.HasPrefix("safe_", info.Name) {
+		normalFuncMap[info.Name] = append(normalFuncMap[info.Name], &NameAndFunc{
+			Name: fmt.Sprintf("zetasqlite_safe_%s", info.Name),
+			Func: func(ctx *sqlite.FunctionContext, args []driver.Value) (driver.Value, error) {
+				values, err := convertArgs(args)
+				if err != nil {
+					return nil, err
+				}
+				ret, err := info.BindFunc(values...)
+				if err != nil {
+					// Note, this should only suppress semantic errors based on the
+					// input data. See
+					// https://github.com/google/zetasql/blob/master/docs/resolved_ast.md#resolvedfunctioncallbase
+					return nil, nil
+				}
+				return EncodeValue(ret)
+			},
+		})
+	} else {
+		normalFuncMap[info.Name] = append(normalFuncMap[info.Name], &NameAndFunc{
+			Name: fmt.Sprintf("zetasqlite_safe_%s", info.Name),
+			Func: func(ctx *sqlite.FunctionContext, args []driver.Value) (driver.Value, error) {
+				values, err := convertArgs(args)
+				if err != nil {
+					return nil, err
+				}
+				ret, err := info.SafeFunc(values...)
+				if err != nil {
+					// Note, this should only suppress semantic errors based on the
+					// input data. See
+					// https://github.com/google/zetasql/blob/master/docs/resolved_ast.md#resolvedfunctioncallbase
+					return nil, nil
+				}
+				return EncodeValue(ret)
+			},
+		})
+	}
 	return nil
 }
 
 func setupAggregateFuncMap(info *AggregateFuncInfo) error {
-	aggregateFuncMap[info.Name] = append(aggregateFuncMap[info.Name], &NameAndFunc{
-		Name: fmt.Sprintf("zetasqlite_%s", info.Name),
-		Func: info.BindFunc(),
+	aggregateFuncMap[info.Name] = append(aggregateFuncMap[info.Name], &AggregateNameAndFunc{
+		Name:          fmt.Sprintf("zetasqlite_%s", info.Name),
+		MakeAggregate: info.BindFunc(),
 	})
 	return nil
 }
 
 func setupWindowFuncMap(info *WindowFuncInfo) error {
-	windowFuncMap[info.Name] = append(windowFuncMap[info.Name], &NameAndFunc{
-		Name: fmt.Sprintf("zetasqlite_window_%s", info.Name),
-		Func: info.BindFunc(),
+	windowFuncMap[info.Name] = append(windowFuncMap[info.Name], &AggregateNameAndFunc{
+		Name:          fmt.Sprintf("zetasqlite_window_%s", info.Name),
+		MakeAggregate: info.BindFunc(),
 	})
 	return nil
 }

@@ -4,12 +4,11 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
-	"strings"
-
 	"github.com/goccy/go-zetasql"
 	parsed_ast "github.com/goccy/go-zetasql/ast"
 	ast "github.com/goccy/go-zetasql/resolved_ast"
 	"github.com/goccy/go-zetasql/types"
+	"strings"
 )
 
 type Analyzer struct {
@@ -180,6 +179,7 @@ func (a *Analyzer) getParameterMode(stmt parsed_ast.StatementNode) (zetasql.Para
 	if enabledNamedParameter && enabledPositionalParameter {
 		return zetasql.ParameterNone, fmt.Errorf("named parameter and positional parameter cannot be used together")
 	}
+
 	if enabledPositionalParameter {
 		return zetasql.ParameterPositional, nil
 	}

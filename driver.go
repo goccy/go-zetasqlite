@@ -5,10 +5,9 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"sync"
-
 	internal "github.com/goccy/go-zetasqlite/internal"
-	"github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
+	"sync"
 )
 
 var (
@@ -24,16 +23,11 @@ var (
 )
 
 func init() {
+	if err := internal.RegisterFunctions(); err != nil {
+		fmt.Printf("failed to register functions: %s", err)
+	}
+
 	sql.Register("zetasqlite", &ZetaSQLiteDriver{})
-	sql.Register("zetasqlite_sqlite3", &sqlite3.SQLiteDriver{
-		ConnectHook: func(conn *sqlite3.SQLiteConn) error {
-			if err := internal.RegisterFunctions(conn); err != nil {
-				return err
-			}
-			conn.SetLimit(sqlite3.SQLITE_LIMIT_VARIABLE_NUMBER, -1)
-			return nil
-		},
-	})
 }
 
 func newDBAndCatalog(name string) (*sql.DB, *internal.Catalog, error) {
@@ -43,7 +37,7 @@ func newDBAndCatalog(name string) (*sql.DB, *internal.Catalog, error) {
 	if exists {
 		return db, nameToCatalogMap[name], nil
 	}
-	db, err := sql.Open("zetasqlite_sqlite3", name)
+	db, err := sql.Open("sqlite", name)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to open database by %s: %w", name, err)
 	}

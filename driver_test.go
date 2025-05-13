@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS Singers (
 	if _, err := db.Exec(`INSERT Singers (SingerId, FirstName, LastName) VALUES (1, 'John', 'Titor')`); err != nil {
 		t.Fatal(err)
 	}
-	row := db.QueryRow("SELECT SingerID, FirstName, LastName FROM Singers WHERE SingerId = @id", 1)
+	row := db.QueryRow("SELECT SingerID, FirstName, LastName FROM Singers WHERE SingerId = @id", sql.Named("id", 1))
 	if row.Err() != nil {
 		t.Fatal(row.Err())
 	}
@@ -198,13 +198,13 @@ CREATE TABLE IF NOT EXISTS Singers (
 		if err != nil {
 			t.Fatal(err)
 		}
-		_, err = stmt.Exec(int64(1), "Kylie", "Minogue")
+		_, err = stmt.Exec(sql.Named("SingerID", int64(1)), sql.Named("FirstName", "Kylie"), sql.Named("LastName", "Minogue"))
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		_, err = stmt.Exec(int64(1), "Miss", "Kitten")
-		if !strings.HasSuffix(err.Error(), "UNIQUE constraint failed: Singers.SingerId") {
+		_, err = stmt.Exec(sql.Named("SingerID", int64(1)), sql.Named("FirstName", "Miss"), sql.Named("LastName", "Kitten"))
+		if !strings.Contains(err.Error(), "UNIQUE constraint failed: Singers.SingerId") {
 			t.Fatalf("expected failed unique constraint err, got: %s", err)
 		}
 	})

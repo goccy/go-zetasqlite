@@ -7,6 +7,7 @@ import (
 	"math"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -5215,7 +5216,7 @@ FROM (
   SELECT 'bar' AS value UNION ALL
   SELECT 'baz' AS value)`,
 			expectedRows: [][]interface{}{{"Value is foo."}, {"Value is bar."}},
-			expectedErr:  "Found unexpected value: baz",
+			expectedErr:  "SQL logic error: Found unexpected value: baz (1)",
 		},
 
 		// begin-end
@@ -6009,6 +6010,20 @@ SELECT @a + @b;
 			expectedErr: "not enough query arguments",
 		},
 		{
+			name: "single statement with params below default limit",
+			query: fmt.Sprintf(`
+SELECT 1 FROM (select 1) f WHERE %s ? > 0;
+`, strings.Repeat("? + ", 998)),
+			args: func() []interface{} {
+				args := make([]interface{}, 999)
+				for i := range args {
+					args[i] = sql.NamedArg{Value: 1}
+				}
+				return args
+			}(),
+			expectedRows: [][]interface{}{{int64(1)}},
+		},
+		{
 			name: "multiple statements with named params",
 			query: `
 CREATE TEMP TABLE t1 AS SELECT @a c1;
@@ -6046,6 +6061,22 @@ SELECT c1 * ? * ? FROM t1;
 `,
 			args:         []interface{}{int64(1), int64(2), int64(3)},
 			expectedRows: [][]interface{}{{int64(6)}},
+		},
+		{
+			name: "function call with many arguments - under limit",
+			query: fmt.Sprintf(
+				`select %s true in (true)`,
+				strings.Repeat("false in (true) or ", 999),
+			),
+			expectedRows: [][]interface{}{{true}},
+		},
+		{
+			name: "function call with many arguments - above limit",
+			query: fmt.Sprintf(
+				`select %s true in (true)`,
+				strings.Repeat("false in (true) or ", 1001),
+			),
+			expectedErr: "too many arguments on function",
 		},
 	} {
 		test := test

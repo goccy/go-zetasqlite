@@ -23,6 +23,10 @@ CREATE TABLE IF NOT EXISTS zetasqlite_catalog(
   createdAt TIMESTAMP NOT NULL
 )
 `
+	indexCatalogTableQuery = `
+CREATE INDEX IF NOT EXISTS catalog_last_updated_index ON zetasqlite_catalog(updatedAt DESC);
+`
+
 	upsertCatalogQuery = `
 INSERT INTO zetasqlite_catalog (
   name,
@@ -199,7 +203,7 @@ func (c *Catalog) Sync(ctx context.Context, conn *Conn) error {
 	rows, err := conn.QueryContext(
 		ctx,
 		`SELECT name, kind, spec FROM zetasqlite_catalog WHERE updatedAt >= @lastUpdatedAt`,
-		c.lastSyncedAt,
+		sql.Named("lastUpdatedAt", c.lastSyncedAt),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to query load catalog: %w", err)
@@ -391,6 +395,9 @@ func (c *Catalog) saveFunctionSpec(ctx context.Context, conn *Conn, spec *Functi
 func (c *Catalog) createCatalogTablesIfNotExists(ctx context.Context, conn *Conn) error {
 	if _, err := conn.ExecContext(ctx, createCatalogTableQuery); err != nil {
 		return fmt.Errorf("failed to create catalog table: %w", err)
+	}
+	if _, err := conn.ExecContext(ctx, indexCatalogTableQuery); err != nil {
+		return fmt.Errorf("failed to index catalog table: %w", err)
 	}
 	return nil
 }
