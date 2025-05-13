@@ -1,4 +1,4 @@
-module github.com/goccy/go-zetasqlite
+module github.com/Recidiviz/go-zetasqlite
 
 go 1.24.0
 
