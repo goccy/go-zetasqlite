@@ -89,6 +89,11 @@ UNION ALL
 			expectedRows: [][]interface{}{{float64(5)}},
 		},
 		{
+			name:         "safe div operator",
+			query:        "SELECT safe_divide(10, 2)",
+			expectedRows: [][]interface{}{{float64(5)}},
+		},
+		{
 			name:         "concat string operator",
 			query:        `SELECT "a" || "b"`,
 			expectedRows: [][]interface{}{{"ab"}},

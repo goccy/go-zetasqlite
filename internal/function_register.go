@@ -3,7 +3,6 @@ package internal
 import (
 	"database/sql/driver"
 	"fmt"
-	"strings"
 	"sync"
 
 	"github.com/goccy/go-json"
@@ -376,7 +375,7 @@ type AggregateNameAndFunc struct {
 var (
 	funcMapMu          sync.RWMutex
 	registerFuncOnce   sync.Once
-	normalFuncMap      = map[string][]*NameAndFunc{}
+	normalFuncMap      = map[string]*NameAndFunc{}
 	aggregateFuncMap   = map[string][]*AggregateNameAndFunc{}
 	windowFuncMap      = map[string][]*AggregateNameAndFunc{}
 	currentTimeFuncMap = map[string]struct{}{
@@ -482,15 +481,13 @@ func RegisterFunctions() error {
 		return -1
 	})
 
-	for _, values := range normalFuncMap {
-		for _, v := range values {
-			if err := sqlite.RegisterFunction(v.Name, &sqlite.FunctionImpl{
-				Deterministic: true,
-				NArgs:         -1,
-				Scalar:        v.Func,
-			}); err != nil {
-				return fmt.Errorf("failed to register function %s: %w", v.Name, err)
-			}
+	for _, value := range normalFuncMap {
+		if err := sqlite.RegisterFunction(value.Name, &sqlite.FunctionImpl{
+			Deterministic: true,
+			NArgs:         -1,
+			Scalar:        value.Func,
+		}); err != nil {
+			return fmt.Errorf("failed to register function %s: %w", value.Name, err)
 		}
 	}
 	for _, values := range aggregateFuncMap {
@@ -519,7 +516,7 @@ func RegisterFunctions() error {
 }
 
 func setupNormalFuncMap(info *FuncInfo) error {
-	normalFuncMap[info.Name] = append(normalFuncMap[info.Name], &NameAndFunc{
+	normalFuncMap[info.Name] = &NameAndFunc{
 		Name: fmt.Sprintf("zetasqlite_%s", info.Name),
 		Func: func(ctx *sqlite.FunctionContext, args []driver.Value) (driver.Value, error) {
 			values, err := convertArgs(args)
@@ -532,44 +529,30 @@ func setupNormalFuncMap(info *FuncInfo) error {
 			}
 			return EncodeValue(ret)
 		},
-	})
+	}
 
-	if info.SafeFunc == nil && !strings.HasPrefix("safe_", info.Name) {
-		normalFuncMap[info.Name] = append(normalFuncMap[info.Name], &NameAndFunc{
-			Name: fmt.Sprintf("zetasqlite_safe_%s", info.Name),
-			Func: func(ctx *sqlite.FunctionContext, args []driver.Value) (driver.Value, error) {
-				values, err := convertArgs(args)
-				if err != nil {
-					return nil, err
-				}
-				ret, err := info.BindFunc(values...)
-				if err != nil {
-					// Note, this should only suppress semantic errors based on the
-					// input data. See
-					// https://github.com/google/zetasql/blob/master/docs/resolved_ast.md#resolvedfunctioncallbase
-					return nil, nil
-				}
-				return EncodeValue(ret)
-			},
-		})
-	} else {
-		normalFuncMap[info.Name] = append(normalFuncMap[info.Name], &NameAndFunc{
-			Name: fmt.Sprintf("zetasqlite_safe_%s", info.Name),
-			Func: func(ctx *sqlite.FunctionContext, args []driver.Value) (driver.Value, error) {
-				values, err := convertArgs(args)
-				if err != nil {
-					return nil, err
-				}
-				ret, err := info.SafeFunc(values...)
-				if err != nil {
-					// Note, this should only suppress semantic errors based on the
-					// input data. See
-					// https://github.com/google/zetasql/blob/master/docs/resolved_ast.md#resolvedfunctioncallbase
-					return nil, nil
-				}
-				return EncodeValue(ret)
-			},
-		})
+	safeName := fmt.Sprintf("safe_%s", info.Name)
+	normalFuncMap[safeName] = &NameAndFunc{
+		Name: fmt.Sprintf("zetasqlite_%s", safeName),
+		Func: func(ctx *sqlite.FunctionContext, args []driver.Value) (driver.Value, error) {
+			values, err := convertArgs(args)
+			if err != nil {
+				return nil, err
+			}
+			var ret Value
+			if info.SafeFunc == nil {
+				ret, err = info.BindFunc(values...)
+			} else {
+				ret, err = info.SafeFunc(values...)
+			}
+			if err != nil {
+				// Note, this should only suppress semantic errors based on the
+				// input data. See
+				// https://github.com/google/zetasql/blob/master/docs/resolved_ast.md#resolvedfunctioncallbase
+				return nil, nil
+			}
+			return EncodeValue(ret)
+		},
 	}
 	return nil
 }
