@@ -557,6 +557,15 @@ SELECT t.customer.address.country FROM orders AS t`,
 			expectedRows: [][]interface{}{{createTimestampFormatFromTime(now.UTC()), false}},
 		},
 		{
+			name:  "struct with timestamp",
+			query: `SELECT STRUCT(CURRENT_TIMESTAMP() AS ts)`,
+			expectedRows: [][]interface{}{{
+				[]map[string]interface{}{{
+					"ts": createTimestampFormatFromTime(now.UTC()),
+				}},
+			}},
+		},
+		{
 			name: "array index access operator",
 			query: `
 WITH Items AS (SELECT ["coffee", "tea", "milk"] AS item_array)
@@ -2412,7 +2421,8 @@ SELECT ARRAY (
 					int64(1),
 				},
 			},
-		}, {
+		},
+		{
 			name:  "array_concat function",
 			query: `SELECT ARRAY_CONCAT([1, 2], [3, 4], [5, 6]) as count_to_six`,
 			expectedRows: [][]interface{}{
@@ -3884,7 +3894,8 @@ WITH letters AS (
 				{[]interface{}{"b", "c", "d"}},
 				{[]interface{}{}},
 			},
-		}, {
+		},
+		{
 			name:         "split null delimiter",
 			query:        `SELECT SPLIT('abc', NULL), SPLIT(b'\xab\xcd\xef\xaa\xbb', NULL)`,
 			expectedRows: [][]interface{}{{[]interface{}{}, []interface{}{}}},
@@ -4016,7 +4027,6 @@ WITH example AS (
 			expectedRows: [][]interface{}{{"2023-02-28"}},
 		},
 		{
-
 			name:         "date_add quarter",
 			query:        `SELECT DATE_ADD('2023-01-01', INTERVAL 1 QUARTER), DATE_ADD('2023-11-30', INTERVAL 1 QUARTER)`,
 			expectedRows: [][]interface{}{{"2023-04-01", "2024-02-29"}},
@@ -4872,7 +4882,8 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			query:        `SELECT PARSE_TIMESTAMP("%k", " 9");`,
 			expectedRows: [][]interface{}{{createTimestampFormatFromString("1970-01-01 09:00:00+00")}},
 		},
-		{name: "parse_timestamp with %D",
+		{
+			name:         "parse_timestamp with %D",
 			query:        `SELECT PARSE_TIMESTAMP("%D", "02/02/99");`,
 			expectedRows: [][]interface{}{{createTimestampFormatFromString("1999-02-02 00:00:00+00")}},
 		},
