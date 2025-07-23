@@ -313,7 +313,6 @@ func (r *Rows) assignInterfaceValue(src Value, dst reflect.Value, typ *Type) err
 				return err
 			}
 			fields[i][innerKey] = refV.Interface()
-
 		}
 		dst.Set(reflect.ValueOf(fields))
 	case types.ARRAY:
