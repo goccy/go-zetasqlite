@@ -441,15 +441,21 @@ func CastValue(t types.Type, v Value) (Value, error) {
 				if !ok {
 					return nil, fmt.Errorf("casting to struct returned non-struct: %T", casted)
 				}
-				ret.keys = append(ret.keys, st.keys...)
-				ret.values = append(ret.values, st.values...)
 				for i, k := range st.keys {
-					ret.m[k] = st.values[i]
+					prev, ok := ret.m[k]
+					if !ok || prev == nil {
+						ret.m[k] = st.values[i]
+					}
 				}
+			}
+			for k, v := range ret.m {
+				ret.keys = append(ret.keys, k)
+				ret.values = append(ret.values, v)
 			}
 			return ret, nil
 		}
 		return castStruct(t, v)
+
 	case types.NUMERIC:
 		r, err := v.ToRat()
 		if err != nil {

@@ -558,11 +558,12 @@ SELECT t.customer.address.country FROM orders AS t`,
 		},
 		{
 			name:  "struct with timestamp",
-			query: `SELECT STRUCT(CURRENT_TIMESTAMP() AS ts)`,
+			query: `SELECT STRUCT(CURRENT_TIMESTAMP() AS ts, "123" AS id)`,
 			expectedRows: [][]interface{}{{
-				[]map[string]interface{}{{
-					"ts": createTimestampFormatFromTime(now.UTC()),
-				}},
+				[]map[string]interface{}{
+					{"ts": createTimestampFormatFromTime(now.UTC())},
+					{"id": "123"},
+				},
 			}},
 		},
 		{
