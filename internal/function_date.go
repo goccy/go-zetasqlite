@@ -145,18 +145,12 @@ func DATE_DIFF(a, b time.Time, part string) (Value, error) {
 		return IntValue(result), nil
 	}
 
-	diff := a.Sub(b)
-
 	switch part {
 	case "DAY":
-		diffDay := diff / (24 * time.Hour)
-		mod := diff % (24 * time.Hour)
-		if mod > 0 {
-			diffDay++
-		} else if mod < 0 {
-			diffDay--
+		if a.After(b) {
+			return IntValue(diffDay(a, b)), nil
 		}
-		return IntValue(diffDay), nil
+		return IntValue(-1 * diffDay(b, a)), nil
 	case "ISOWEEK":
 		return IntValue((a.Year()-b.Year())*48 + weekA - weekB), nil
 	case "MONTH":
@@ -311,4 +305,25 @@ func addYear(t time.Time, y int) time.Time {
 		return first.AddDate(y, 1, -1)
 	}
 	return t.AddDate(y, 0, 0)
+}
+
+func diffDay(a, b time.Time) int64 {
+	diff := a.Sub(b)
+	if diff < 24*time.Hour {
+		if a.Day() == b.Day() {
+			return 0
+		}
+		return 1
+	}
+	diff = truncateToDay(a).Sub(b)
+	diffDay := diff / (24 * time.Hour)
+	mod := diff % (24 * time.Hour)
+	if mod > 0 {
+		diffDay++
+	}
+	return int64(diffDay)
+}
+
+func truncateToDay(t time.Time) time.Time {
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
 }

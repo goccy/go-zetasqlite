@@ -4342,7 +4342,7 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 		},
 		{
 			name: "date_diff with week day",
-			query: `SELECT 
+			query: `SELECT
   DATE_DIFF(DATE '2024-03-19', DATE '2024-03-24', WEEK(SUNDAY)),
   DATE_DIFF(DATE '2024-03-19', DATE '2024-03-24', WEEK(MONDAY)),
   DATE_DIFF(DATE '2024-03-25', DATE '2024-03-19', WEEK(SUNDAY)),
@@ -4364,7 +4364,7 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 		},
 		{
 			name: "datetime_diff with week day",
-			query: `SELECT 
+			query: `SELECT
   DATETIME_DIFF(DATETIME '2024-03-19', DATETIME '2024-03-24', WEEK(SUNDAY)),
   DATETIME_DIFF(DATETIME '2024-03-19', DATETIME '2024-03-24', WEEK(MONDAY)),
   DATETIME_DIFF(DATETIME '2024-03-25', DATETIME '2024-03-19', WEEK(SUNDAY)),
@@ -4386,7 +4386,7 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 		},
 		{
 			name: "datetime_diff with week day 1 week",
-			query: `SELECT 
+			query: `SELECT
 	DATETIME_DIFF(DATETIME '2024-02-21', DATETIME '2024-02-29', WEEK(MONDAY))`,
 			expectedRows: [][]interface{}{{
 				int64(-1),
@@ -4402,7 +4402,7 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 		},
 		{
 			name: "timestamp diff with week day",
-			query: `SELECT 
+			query: `SELECT
   TIMESTAMP_DIFF(DATETIME '2024-03-19', DATETIME '2024-03-24', WEEK(SUNDAY)),
   TIMESTAMP_DIFF(DATETIME '2024-03-19', DATETIME '2024-03-24', WEEK(MONDAY)),
   TIMESTAMP_DIFF(DATETIME '2024-03-25', DATETIME '2024-03-19', WEEK(SUNDAY)),
@@ -4660,9 +4660,34 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			expectedRows: [][]interface{}{{"2023-02-28T00:00:00"}},
 		},
 		{
-			name:         "datetime_diff with day",
+			name:         "datetime_diff with day, more than 24 hours",
 			query:        `SELECT DATETIME_DIFF(DATETIME "2010-07-07 10:20:00", DATETIME "2008-12-25 15:30:00", DAY)`,
 			expectedRows: [][]interface{}{{int64(559)}},
+		},
+		{
+			name:         "datetime_diff with day, less than 24 hours and does not cross boundary",
+			query:        `SELECT DATETIME_DIFF(DATETIME "2024-02-01 16:00:00", DATETIME "2024-02-01 15:30:00", DAY)`,
+			expectedRows: [][]interface{}{{int64(0)}},
+		},
+		{
+			name:         "datetime_diff with day, less than 24 hours and does cross boundary",
+			query:        `SELECT DATETIME_DIFF(DATETIME "2024-02-02 02:00:00", DATETIME "2024-02-01 15:30:00", DAY)`,
+			expectedRows: [][]interface{}{{int64(1)}},
+		},
+		{
+			name:         "datetime_diff with day, more than 24 hours, reverse",
+			query:        `SELECT DATETIME_DIFF(DATETIME "2008-12-25 15:30:00", DATETIME "2010-07-07 10:20:00", DAY)`,
+			expectedRows: [][]interface{}{{int64(-559)}},
+		},
+		{
+			name:         "datetime_diff with day, less than 24 hours and does not cross boundary, reverse",
+			query:        `SELECT DATETIME_DIFF(DATETIME "2024-02-01 15:30:00", DATETIME "2024-02-01 16:00:00", DAY)`,
+			expectedRows: [][]interface{}{{int64(0)}},
+		},
+		{
+			name:         "datetime_diff with day, less than 24 hours and does cross boundary, reverse",
+			query:        `SELECT DATETIME_DIFF(DATETIME "2024-02-01 15:30:00", DATETIME "2024-02-02 02:00:00", DAY)`,
+			expectedRows: [][]interface{}{{int64(-1)}},
 		},
 		{
 			name:         "datetime_diff with week",
