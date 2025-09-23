@@ -102,7 +102,7 @@ CREATE OR REPLACE TABLE NewArrivals
  warehouse string
 );
 
-INSERT Inventory (product, quantity)
+INSERT INTO Inventory (product, quantity)
 VALUES('top load washer', 10),
      ('front load washer', 20),
      ('dryer', 30),
@@ -119,6 +119,7 @@ BEGIN TRANSACTION;
 
 CREATE TEMP TABLE tmp AS SELECT * FROM NewArrivals WHERE warehouse = 'warehouse #1';
 DELETE NewArrivals WHERE warehouse = 'warehouse #1';
+
 MERGE Inventory AS I
 USING tmp AS T
 ON I.product = T.product

@@ -383,6 +383,11 @@ var (
 		"current_datetime":  struct{}{},
 		"current_time":      struct{}{},
 		"current_timestamp": struct{}{},
+
+		"zetasqlite_current_date":      struct{}{},
+		"zetasqlite_current_datetime":  struct{}{},
+		"zetasqlite_current_time":      struct{}{},
+		"zetasqlite_current_timestamp": struct{}{},
 	}
 )
 

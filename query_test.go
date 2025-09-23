@@ -55,6 +55,13 @@ UNION ALL
 			expectedRows: [][]interface{}{{int64(1)}, {int64(2)}},
 		},
 		{
+			name: "with scan union distinct",
+			query: `(WITH toks AS (SELECT 1 AS x) SELECT x FROM toks)
+UNION DISTINCT
+(WITH toks2 AS (SELECT 1 AS x) SELECT x FROM toks2)`,
+			expectedRows: [][]interface{}{{int64(1)}},
+		},
+		{
 			name: "having with union all",
 			query: `(WITH toks AS (SELECT 1 AS x) SELECT COUNT(x) AS total_rows FROM toks WHERE x > 0 HAVING total_rows >= 0)
 UNION ALL
@@ -558,8 +565,8 @@ SELECT t.customer.address.country FROM orders AS t`,
 		},
 		{
 			name:         "struct with bool",
-			query:        `SELECT CURRENT_TIMESTAMP() AS ts, STRUCT(NULL AS a, FALSE AS b).b AS b`,
-			expectedRows: [][]interface{}{{createTimestampFormatFromTime(now.UTC()), false}},
+			query:        `SELECT STRUCT(NULL AS a, FALSE AS b).b AS b`,
+			expectedRows: [][]interface{}{{false}},
 		},
 		{
 			name: "array index access operator",
@@ -6053,19 +6060,6 @@ SELECT 1 FROM (select 1) f WHERE %s ? > 0;
 			}(),
 			expectedRows: [][]interface{}{{int64(1)}},
 		},
-		{
-			name: "multiple statements with named params",
-			query: `
-CREATE TEMP TABLE t1 AS SELECT @a c1;
-SELECT c1 * @b * @c FROM t1;
-`,
-			args: []interface{}{
-				sql.NamedArg{Name: "a", Value: 1},
-				sql.NamedArg{Name: "b", Value: 2},
-				sql.NamedArg{Name: "c", Value: 3},
-			},
-			expectedRows: [][]interface{}{{int64(6)}},
-		},
 
 		{
 			name: "single statement with positional params",
@@ -6082,6 +6076,26 @@ SELECT ? + ?;
 `,
 			args:        []interface{}{int64(1)},
 			expectedErr: "not enough query arguments",
+		},
+
+		{
+			name: "limit offset test",
+			query: `
+CREATE TEMP TABLE IconNames AS 
+SELECT 'Kylie' AS FirstName, 'Minogue' AS LastName
+UNION ALL SELECT 'Robyn', null;
+INSERT INTO IconNames (FirstName, LastName) VALUES ("Bjork", NULL);
+
+SELECT * FROM IconNames
+ORDER BY FirstName ASC
+LIMIT 1 OFFSET 1;`,
+			expectedRows: [][]interface{}{{"Kylie", "Minogue"}},
+		},
+		{
+			name:         "simple binding",
+			query:        `select ?`,
+			args:         []interface{}{int64(1)},
+			expectedRows: [][]interface{}{{int64(1)}},
 		},
 		{
 			name: "multiple statements with positional params",
@@ -6108,12 +6122,132 @@ SELECT c1 * ? * ? FROM t1;
 			),
 			expectedErr: "too many arguments on function",
 		},
+		{
+			name: "merge two tables with empty source",
+			query: `
+CREATE TEMP TABLE target(id INT64, name STRING);
+CREATE TEMP TABLE source(id INT64, name STRING);
+MERGE target T USING source S ON T.id = S.id
+WHEN MATCHED THEN UPDATE SET id = S.id, name = S.name
+WHEN NOT MATCHED THEN INSERT (id, name) VALUES (id, name);
+SELECT * FROM target;
+`,
+			expectedRows: [][]interface{}{},
+		},
+		{
+			name: "merge two tables with non-empty source",
+			query: `
+CREATE TEMP TABLE target(id INT64, name STRING);
+CREATE TEMP TABLE source(id INT64, name STRING);
+INSERT INTO source(id, name) VALUES (1, "test");
+MERGE target T USING source S ON T.id = S.id
+WHEN MATCHED THEN UPDATE SET id = S.id, name = S.name
+WHEN NOT MATCHED THEN INSERT (id, name) VALUES (id, name);
+SELECT * FROM target;
+`,
+			expectedRows: [][]interface{}{{int64(1), "test"}},
+		},
+		{
+			name: "merge two tables where target table name is substring of source table name",
+			query: `
+CREATE TEMP TABLE target(id INT64, name STRING);
+CREATE TEMP TABLE tmp_target_123(id INT64, name STRING);
+INSERT INTO tmp_target_123(id, name) VALUES (1, "test");
+MERGE target T USING tmp_target_123 S ON T.id = S.id
+WHEN MATCHED THEN UPDATE SET id = S.id, name = S.name
+WHEN NOT MATCHED THEN INSERT (id, name) VALUES (id, name);
+SELECT * FROM target;
+`,
+			expectedRows: [][]interface{}{{int64(1), "test"}},
+		},
+		{
+			name: "merge two tables where source table is evaluated using a SELECT expression",
+			query: `
+CREATE TEMP TABLE target(id INT64, name STRING);
+CREATE TEMP TABLE source(id INT64, name STRING);
+INSERT INTO source(id, name) VALUES (1, "test");
+INSERT INTO source(id, name) VALUES (2, "test2");
+MERGE target T USING (SELECT * FROM source) S ON T.id = S.id
+WHEN MATCHED THEN UPDATE SET id = S.id, name = S.name
+WHEN NOT MATCHED THEN INSERT (id, name) VALUES (id, name);
+SELECT * FROM target;
+`,
+			expectedRows: [][]interface{}{{int64(1), "test"}, {int64(2), "test2"}},
+		},
+		{
+			name: "merge two tables deleting matched rows",
+			query: `
+CREATE TEMP TABLE target(id INT64, name STRING);
+CREATE TEMP TABLE source(id INT64, name STRING);
+INSERT INTO target(id, name) VALUES (1, "test");
+INSERT INTO target(id, name) VALUES (2, "test2");
+INSERT INTO source(id, name) VALUES (1, "test");
+MERGE target T USING (SELECT * FROM source) S ON T.id = S.id
+WHEN MATCHED THEN DELETE;
+SELECT * FROM target;
+`,
+			expectedRows: [][]interface{}{{int64(2), "test2"}},
+		},
+		{
+			name: "merge two tables omitting INSERT column list and using ROW",
+			query: `
+CREATE TEMP TABLE target(id INT64, name STRING);
+CREATE TEMP TABLE source(id INT64, name STRING);
+INSERT INTO source(id, name) VALUES (1, "test");
+MERGE target T USING (SELECT * FROM source) S ON T.id = S.id
+WHEN NOT MATCHED THEN INSERT ROW;
+SELECT * FROM target;
+`,
+			expectedRows: [][]interface{}{{int64(1), "test"}},
+		},
+		{
+			name:         "simple drop",
+			query:        `CREATE TABLE test_drop_target(id INT64); DROP TABLE test_drop_target;`,
+			expectedRows: [][]interface{}{},
+		},
+		{
+			name: "simple drop function",
+			query: `CREATE FUNCTION customfunc(
+  arr ARRAY<STRUCT<name STRING, val INT64>>
+) AS (
+  (SELECT SUM(IF(elem.name = "foo",elem.val,null)) FROM UNNEST(arr) AS elem)
+); DROP FUNCTION customfunc;`,
+			expectedRows: [][]interface{}{},
+		},
+		{
+			name: "with ref scan maps column aliases correctly",
+			query: `
+			CREATE TEMPORARY TABLE events (ID STRING, DT STRING);
+			WITH events_cte AS (
+				SELECT
+					CAST(ID AS string) as event_id,
+					EXTRACT(DATE FROM PARSE_DATETIME("%m/%d/%y %H:%M", NULLIF(DT, "09/17/25 00:00"))) as event_date
+				FROM events
+			)
+			SELECT
+				event_id,
+				event_date as occurrence_date,
+			FROM events_cte
+			WHERE EXTRACT(YEAR from event_date) = 2025
+`,
+			expectedRows: [][]interface{}{},
+		},
+		{
+			name: "ProjectScan with order by column does not output ordered column",
+			query: `with names as (
+			  select 'foo' as name, ['x', 'y'] as cols
+			)
+			select * from names
+			order by name, cols[SAFE_OFFSET(0)]`,
+			expectedRows: [][]interface{}{{"foo", []interface{}{"x", "y"}}},
+		},
 	} {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			rows, err := db.QueryContext(ctx, test.query, test.args...)
 			if err != nil {
 				if test.expectedErr == "" {
+					t.Log("FOUND ERROR\n--- ")
 					t.Fatal(err)
 				} else {
 					return

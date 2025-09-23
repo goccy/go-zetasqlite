@@ -2,11 +2,9 @@ package internal
 
 import (
 	"fmt"
+	"gonum.org/v1/gonum/floats/scalar"
 	"math"
 	"math/rand"
-	"time"
-
-	"gonum.org/v1/gonum/floats/scalar"
 )
 
 func ABS(a Value) (Value, error) {
@@ -83,7 +81,6 @@ func IEEE_DIVIDE(x, y Value) (Value, error) {
 }
 
 func RAND() (Value, error) {
-	rand.Seed(time.Now().UnixNano())
 	return FloatValue(rand.Float64()), nil
 }
 

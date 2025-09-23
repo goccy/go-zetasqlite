@@ -1,7 +1,6 @@
 package internal
 
 import (
-	"context"
 	"fmt"
 	"regexp"
 	"sort"
@@ -38,42 +37,6 @@ func (t *WildcardTable) existsColumn(table *TableSpec, column string) bool {
 		}
 	}
 	return false
-}
-
-func (t *WildcardTable) FormatSQL(ctx context.Context) (string, error) {
-	queries := make([]string, 0, len(t.tables))
-	for _, table := range t.tables {
-		var columns []string
-		for _, column := range t.spec.Columns {
-			if column.Name == tableSuffixColumnName {
-				continue
-			}
-			if t.existsColumn(table, column.Name) {
-				columns = append(columns, fmt.Sprintf("`%s`", column.Name))
-			} else {
-				columns = append(columns, fmt.Sprintf("NULL as %s", column.Name))
-			}
-		}
-		fullName := strings.Join(table.NamePath, ".")
-		if len(fullName) <= len(t.prefix) {
-			return "", fmt.Errorf("failed to find table suffix from %s", fullName)
-		}
-		tableSuffix := fullName[len(t.prefix):]
-		encodedSuffix, err := EncodeGoValue(types.StringType(), tableSuffix)
-		if err != nil {
-			return "", err
-		}
-		queries = append(queries,
-			fmt.Sprintf(
-				"SELECT %s, '%s' as _TABLE_SUFFIX FROM `%s`",
-				strings.Join(columns, ","),
-				encodedSuffix,
-				table.TableName(),
-			),
-		)
-	}
-
-	return strings.Join(queries, " UNION ALL "), nil
 }
 
 func (t *WildcardTable) Name() string {

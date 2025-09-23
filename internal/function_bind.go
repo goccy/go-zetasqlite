@@ -111,7 +111,6 @@ func (a *Aggregator) WindowValue(ctx *sqlite.FunctionContext) (driver.Value, err
 }
 
 func (a *Aggregator) Final(ctx *sqlite.FunctionContext) {
-	return
 }
 
 // WindowInverse is called to remove the oldest presently aggregated
@@ -164,9 +163,7 @@ func (a *WindowAggregator) WindowValue(ctx *sqlite.FunctionContext) (driver.Valu
 	return EncodeValue(ret)
 }
 
-func (a *WindowAggregator) Final(ctx *sqlite.FunctionContext) {
-	return
-}
+func (a *WindowAggregator) Final(ctx *sqlite.FunctionContext) {}
 
 type WindowAggregatorMinimumImpl interface {
 	Done(*WindowFuncAggregatedStatus) (Value, error)
@@ -1904,7 +1901,7 @@ func bindRound(args ...Value) (Value, error) {
 	if len(args) != 1 && len(args) != 2 {
 		return nil, fmt.Errorf("ROUND: invalid argument num %d", len(args))
 	}
-	var precision int = 0
+	var precision = 0
 	if len(args) == 2 {
 		i64, err := args[1].ToInt64()
 		if err != nil {
@@ -3035,12 +3032,21 @@ func bindEvalJavaScript(args ...Value) (Value, error) {
 	if len(args) == 2 {
 		return EVAL_JAVASCRIPT(code, &typ, nil, nil)
 	}
-	argNames, err := args[2].ToArray()
+	var argNamesList []string
+	b, err := args[2].ToBytes()
 	if err != nil {
 		return nil, err
 	}
-	names := make([]string, 0, len(argNames.values))
-	for _, val := range argNames.values {
+	if err := json.Unmarshal(b, &argNamesList); err != nil {
+		return nil, fmt.Errorf("failed to decode arg list information from %s: %w", encodedType, err)
+	}
+	argNames := make([]Value, len(argNamesList))
+	for i, name := range argNamesList {
+		argNames[i] = StringValue(name)
+	}
+	argNamesArray := &ArrayValue{values: argNames}
+	names := make([]string, 0, len(argNamesArray.values))
+	for _, val := range argNamesArray.values {
 		name, err := val.ToString()
 		if err != nil {
 			return nil, err

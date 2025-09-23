@@ -39,7 +39,7 @@ type FunctionSpec struct {
 	Language  string          `json:"language"`
 	Args      []*NameWithType `json:"args"`
 	Return    *Type           `json:"return"`
-	Body      string          `json:"body"`
+	Body      *SQLExpression  `json:"body"`
 	Code      string          `json:"code"`
 	UpdatedAt time.Time       `json:"updatedAt"`
 	CreatedAt time.Time       `json:"createdAt"`
@@ -65,17 +65,17 @@ func (s *FunctionSpec) SQL() string {
 	)
 }
 
-func (s *FunctionSpec) CallSQL(ctx context.Context, callNode *ast.BaseFunctionCallNode, argValues []string) (string, error) {
-	args := callNode.ArgumentList()
-	var body string
-	if s.Body == "" {
+func (s *FunctionSpec) CallSQL(ctx context.Context, functionData *FunctionCallData, argValues []*SQLExpression) (*SQLExpression, error) {
+	args := functionData.Arguments
+	var body *SQLExpression
+	if s.Body == nil {
 		// templated argument func
 		definedArgs := make([]string, 0, len(args))
-		for idx, arg := range args {
-			typeName := newType(arg.Type()).FormatType()
+		for i, arg := range functionData.Signature.Arguments {
+			typeName := newType(arg.Type).FormatType()
 			definedArgs = append(
 				definedArgs,
-				fmt.Sprintf("%s %s", s.Args[idx].Name, typeName),
+				fmt.Sprintf("%s %s", s.Args[i].Name, typeName),
 			)
 		}
 		funcName := strings.Join(s.NamePath, ".")
@@ -88,7 +88,7 @@ func (s *FunctionSpec) CallSQL(ctx context.Context, callNode *ast.BaseFunctionCa
 		analyzer := analyzerFromContext(ctx)
 		runtimeSpec, err := analyzer.analyzeTemplatedFunctionWithRuntimeArgument(ctx, runtimeDefinedFunc)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 		body = runtimeSpec.Body
 	} else {
@@ -97,9 +97,9 @@ func (s *FunctionSpec) CallSQL(ctx context.Context, callNode *ast.BaseFunctionCa
 	for i := 0; i < len(s.Args); i++ {
 		argRef := fmt.Sprintf("@%s", s.Args[i].Name)
 		value := argValues[i]
-		body = strings.Replace(body, argRef, value, -1)
+		body = NewLiteralExpression(strings.ReplaceAll(body.String(), argRef, value.String()))
 	}
-	return fmt.Sprintf("( %s )", body), nil
+	return NewLiteralExpression(fmt.Sprintf("( %s )", body.String())), nil
 }
 
 type TableSpec struct {
@@ -358,45 +358,64 @@ func newFunctionSpec(ctx context.Context, namePath *NamePath, stmt *ast.CreateFu
 		})
 	}
 
-	var body string
+	var body *SQLExpression
 	language := stmt.Language()
 	switch language {
 	case "js":
-		code, err := EncodeGoValue(types.StringType(), stmt.Code())
+		code, err := NewLiteralExpressionFromGoValue(types.StringType(), stmt.Code())
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to encode function code: %w", err)
 		}
 		encodedType, err := json.Marshal(newType(stmt.ReturnType()))
 		if err != nil {
 			return nil, err
 		}
-		retType, err := EncodeGoValue(types.StringType(), string(encodedType))
+		retType, err := NewLiteralExpressionFromGoValue(types.StringType(), string(encodedType))
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to encode function return type: %w", err)
 		}
-		argParams := make([]string, 0, len(args))
+		argParams := make([]*SQLExpression, 0, len(args))
 		argNames := make([]string, 0, len(args))
 		for _, arg := range args {
-			argParams = append(argParams, fmt.Sprintf("@%s", arg.Name))
+			literal := NewLiteralExpression(fmt.Sprintf("@%s", arg.Name))
+			argParams = append(argParams, literal)
 			argNames = append(argNames, arg.Name)
 		}
 		if len(argParams) == 0 {
-			body = fmt.Sprintf("zetasqlite_eval_javascript('%s', '%s')", code, retType)
+			body = NewFunctionExpression(
+				"zetasqlite_eval_javascript",
+				code,
+				retType,
+			)
 		} else {
-			arr, err := EncodeGoValue(types.StringArrayType(), argNames)
+			encoded, err := json.Marshal(argNames)
 			if err != nil {
 				return nil, err
 			}
-			body = fmt.Sprintf(
-				"zetasqlite_eval_javascript('%s', '%s', '%s', %s)",
-				code, retType, arr,
-				strings.Join(argParams, ","),
+			arr, err := NewLiteralExpressionFromGoValue(types.StringType(), string(encoded))
+			if err != nil {
+				return nil, fmt.Errorf("failed to encode function arg names: %w", err)
+			}
+
+			varArgs := []*SQLExpression{code, retType, arr}
+			varArgs = append(varArgs, argParams...)
+
+			body = NewFunctionExpression(
+				"zetasqlite_eval_javascript",
+				varArgs...,
 			)
 		}
 	default:
 		funcExpr := stmt.FunctionExpression()
 		if funcExpr != nil {
-			bodyQuery, err := newNode(funcExpr).FormatSQL(ctx)
+			transformContext := GetGlobalQueryTransformFactory().CreateTransformContext(ctx)
+			extractor := NewNodeExtractor()
+			funcExprData, err := extractor.ExtractExpressionData(funcExpr, transformContext)
+			if err != nil {
+				return nil, fmt.Errorf("failed to extract function expression data: %w", err)
+			}
+
+			bodyQuery, err := GetGlobalCoordinator().TransformExpression(funcExprData, transformContext)
 			if err != nil {
 				return nil, fmt.Errorf("failed to format function expression: %w", err)
 			}
@@ -463,13 +482,19 @@ func newTemplatedFunctionSpec(ctx context.Context, namePath *NamePath, stmt *ast
 		})
 	}
 	funcExpr := stmt.FunctionExpression()
-	var body string
+	var body *SQLExpression
 	if funcExpr != nil {
-		bodyQuery, err := newNode(funcExpr).FormatSQL(ctx)
+		transformContext := GetGlobalQueryTransformFactory().CreateTransformContext(ctx)
+		extractor := NewNodeExtractor()
+		funcExprData, err := extractor.ExtractExpressionData(funcExpr, transformContext)
 		if err != nil {
 			return nil, fmt.Errorf("failed to format function expression: %w", err)
 		}
-		body = bodyQuery
+		bodyExpr, err := GetGlobalCoordinator().TransformExpression(funcExprData, transformContext)
+		if err != nil {
+			return nil, fmt.Errorf("failed to format function expression: %w", err)
+		}
+		body = bodyExpr
 	}
 	now := time.Now()
 	return &FunctionSpec{
@@ -540,17 +565,7 @@ func newTableSpec(namePath *NamePath, stmt *ast.CreateTableStmtNode) *TableSpec 
 	}
 }
 
-func newTableAsViewSpec(namePath *NamePath, query string, stmt *ast.CreateViewStmtNode) *TableSpec {
-	var outputColumns []string
-	for _, column := range stmt.OutputColumnList() {
-		colName := column.Name()
-		refColumnName := column.Column().Name()
-		colID := column.Column().ColumnID()
-		outputColumns = append(
-			outputColumns,
-			fmt.Sprintf("`%s#%d` AS `%s`", refColumnName, colID, colName),
-		)
-	}
+func newTableAsViewSpec(namePath *NamePath, query SQLFragment, stmt *ast.CreateViewStmtNode) *TableSpec {
 	now := time.Now()
 	return &TableSpec{
 		IsTemp:     stmt.CreateScope() == ast.CreateScopeTemp,
@@ -558,23 +573,13 @@ func newTableAsViewSpec(namePath *NamePath, query string, stmt *ast.CreateViewSt
 		NamePath:   namePath.mergePath(stmt.NamePath()),
 		Columns:    newColumnsFromOutputColumns(stmt.OutputColumnList()),
 		CreateMode: stmt.CreateMode(),
-		Query:      fmt.Sprintf("SELECT %s FROM (%s)", strings.Join(outputColumns, ","), query),
+		Query:      query.String(),
 		UpdatedAt:  now,
 		CreatedAt:  now,
 	}
 }
 
-func newTableAsSelectSpec(namePath *NamePath, query string, stmt *ast.CreateTableAsSelectStmtNode) *TableSpec {
-	var outputColumns []string
-	for _, column := range stmt.OutputColumnList() {
-		colName := column.Name()
-		refColumnName := column.Column().Name()
-		colID := column.Column().ColumnID()
-		outputColumns = append(
-			outputColumns,
-			fmt.Sprintf("`%s#%d` AS `%s`", refColumnName, colID, colName),
-		)
-	}
+func newTableAsSelectSpec(namePath *NamePath, query SQLFragment, stmt *ast.CreateTableAsSelectStmtNode) *TableSpec {
 	now := time.Now()
 	return &TableSpec{
 		IsTemp:     stmt.CreateScope() == ast.CreateScopeTemp,
@@ -582,7 +587,7 @@ func newTableAsSelectSpec(namePath *NamePath, query string, stmt *ast.CreateTabl
 		Columns:    newColumnsFromDef(stmt.ColumnDefinitionList()),
 		PrimaryKey: newPrimaryKey(stmt.PrimaryKey()),
 		CreateMode: stmt.CreateMode(),
-		Query:      fmt.Sprintf("SELECT %s FROM (%s)", strings.Join(outputColumns, ","), query),
+		Query:      query.String(),
 		UpdatedAt:  now,
 		CreatedAt:  now,
 	}

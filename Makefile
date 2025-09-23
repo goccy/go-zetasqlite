@@ -29,4 +29,5 @@ lint: lint/install
 	$(GOBIN)/golangci-lint run --timeout 30m
 
 lint/install: | $(GOBIN)
-	GOBIN=$(GOBIN) go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.52.2
+	# binary will be $(go env GOPATH)/bin/golangci-lint
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b $(GOBIN) v2.4.0

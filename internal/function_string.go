@@ -1004,7 +1004,7 @@ func SPLIT(value, delimValue Value) (Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		var delim string = ","
+		var delim = ","
 		if delimValue != nil {
 			v, err := delimValue.ToString()
 			if err != nil {

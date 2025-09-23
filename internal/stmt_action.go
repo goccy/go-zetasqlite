@@ -18,17 +18,16 @@ type StmtAction interface {
 	Args() []interface{}
 }
 
-
-type NullStmtAction struct {}
-
+type NullStmtAction struct{}
 
 const NullStatmentActionQuery = "SELECT 'unsupported statement';"
+
 func (a *NullStmtAction) Prepare(ctx context.Context, conn *Conn) (driver.Stmt, error) {
 	stmt, err := conn.PrepareContext(ctx, NullStatmentActionQuery)
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare null statement action: %w", err)
 	}
-	return newQueryStmt(stmt, nil, NullStatmentActionQuery,[]*ColumnSpec{
+	return newQueryStmt(stmt, nil, NullStatmentActionQuery, []*ColumnSpec{
 		&ColumnSpec{Name: "message", Type: &Type{Name: "string", Kind: types.STRING}},
 	}), nil
 }
@@ -50,7 +49,7 @@ func (a *NullStmtAction) Cleanup(ctx context.Context, conn *Conn) error {
 }
 
 type CreateTableStmtAction struct {
-	query           string
+	query           SQLFragment
 	args            []interface{}
 	spec            *TableSpec
 	catalog         *Catalog
@@ -154,7 +153,7 @@ func (a *CreateTableStmtAction) Cleanup(ctx context.Context, conn *Conn) error {
 }
 
 type CreateViewStmtAction struct {
-	query   string
+	query   SQLFragment
 	spec    *TableSpec
 	catalog *Catalog
 }
@@ -168,7 +167,7 @@ func (a *CreateViewStmtAction) Prepare(ctx context.Context, conn *Conn) (driver.
 			return nil, err
 		}
 	}
-	stmt, err := conn.PrepareContext(ctx, a.spec.SQLiteSchema())
+	stmt, err := conn.PrepareContext(ctx, a.query.String())
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare %s: %w", a.query, err)
 	}
@@ -184,7 +183,7 @@ func (a *CreateViewStmtAction) exec(ctx context.Context, conn *Conn) error {
 			return err
 		}
 	}
-	if _, err := conn.ExecContext(ctx, a.spec.SQLiteSchema()); err != nil {
+	if _, err := conn.ExecContext(ctx, a.query.String()); err != nil {
 		return fmt.Errorf("failed to exec %s: %w", a.query, err)
 	}
 
