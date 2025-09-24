@@ -302,7 +302,7 @@ func (e *NodeExtractor) extractArgumentRefData(node *ast.ArgumentRefNode, ctx Tr
 // extractDMLDefaultData extracts data from DML default nodes
 func (e *NodeExtractor) extractDMLDefaultData(node *ast.DMLDefaultNode, ctx TransformContext) (ExpressionData, error) {
 	return ExpressionData{
-		Type: ExpressionTypeLiteral,
+		Type:    ExpressionTypeLiteral,
 		Literal: &LiteralData{
 			// DEFAULT keyword representation
 		},
@@ -797,6 +797,10 @@ func (e *NodeExtractor) extractWildcardTableAsSetOp(wildcardTable *WildcardTable
 				// Check if this column exists in the current table
 				var columnExpr ExpressionData
 				if wildcardTable.existsColumn(tableSpec, col.Name) {
+					t, err := col.Type.ToZetaSQLType()
+					if err != nil {
+						return ScanData{}, fmt.Errorf("failed to extract zetasqlite type: %w", err)
+					}
 					// Column exists - reference it directly
 					columnExpr = ExpressionData{
 						Type: ExpressionTypeColumn,
@@ -804,6 +808,7 @@ func (e *NodeExtractor) extractWildcardTableAsSetOp(wildcardTable *WildcardTable
 							ColumnID:   columnIdsByName[col.Name],
 							ColumnName: col.Name,
 							TableName:  tableSpec.TableName(),
+							Type:       t,
 						},
 					}
 				} else {

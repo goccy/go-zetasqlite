@@ -113,6 +113,7 @@ type CastData struct {
 // ColumnRefData represents column reference data
 type ColumnRefData struct {
 	Column     *ast.Column `json:"column,omitempty"`
+	Type       types.Type  `json:"type,omitempty"`
 	TableAlias string      `json:"table_alias,omitempty"`
 	ColumnName string      `json:"column_name,omitempty"`
 	ColumnID   int         `json:"column_id,omitempty"`
@@ -127,6 +128,7 @@ func NewColumnExpressionData(column *ast.Column) ExpressionData {
 			ColumnName: column.Name(),
 			ColumnID:   column.ColumnID(),
 			TableName:  column.TableName(),
+			Type:       column.Type(),
 		},
 	}
 }
