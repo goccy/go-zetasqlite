@@ -6201,6 +6201,16 @@ SELECT * FROM target;
 			expectedRows: [][]interface{}{{int64(1), "test"}},
 		},
 		{
+			name: "simple truncate",
+			query: `
+CREATE TEMP TABLE test_dataset.target(id INT64, name STRING);
+INSERT INTO test_dataset.target(id, name) VALUES (1, "test");
+TRUNCATE TABLE test_dataset.target;
+SELECT * FROM test_dataset.target;
+`,
+			expectedRows: [][]interface{}{},
+		},
+		{
 			name:         "simple drop",
 			query:        `CREATE TABLE test_drop_target(id INT64); DROP TABLE test_drop_target;`,
 			expectedRows: [][]interface{}{},

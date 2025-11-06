@@ -597,8 +597,30 @@ func (a *Analyzer) newCommitStmtAction(ctx context.Context, query string, args [
 }
 
 func (a *Analyzer) newTruncateStmtAction(ctx context.Context, query string, args []driver.NamedValue, node *ast.TruncateStmtNode) (*TruncateStmtAction, error) {
-	table := node.TableScan().Table().Name()
-	return &TruncateStmtAction{query: fmt.Sprintf("DELETE FROM `%s`", table)}, nil
+	unresolvedNodes := nodeMapFromContext(ctx).FindNodeFromResolvedNode(node)
+	if len(unresolvedNodes) == 0 {
+		return nil, fmt.Errorf("expected to find one node but got %d", len(unresolvedNodes))
+	}
+	var truncateNode parsed_ast.Node
+	for _, unresolvedNode := range unresolvedNodes {
+		if unresolvedNode.Kind() == parsed_ast.TrucateStatement {
+			truncateNode = unresolvedNode
+		}
+	}
+	if truncateNode == nil {
+		return nil, fmt.Errorf("expected to find a truncate statement but got %v", truncateNode)
+	}
+	namePath := []string{node.TableScan().Table().Name()}
+	for i := 0; i < truncateNode.NumChildren(); i++ {
+		if pathExpressionNode, ok := truncateNode.Child(i).(*parsed_ast.PathExpressionNode); ok {
+			var err error
+			namePath, err = getPathFromNode(pathExpressionNode)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get truncate path from node %d: %w ", i, err)
+			}
+		}
+	}
+	return &TruncateStmtAction{query: fmt.Sprintf("DELETE FROM `%s`", a.namePath.format(namePath))}, nil
 }
 
 func (a *Analyzer) newMergeStmtAction(ctx context.Context, query string, args []driver.NamedValue, node *ast.MergeStmtNode) (*MergeStmtAction, error) {
