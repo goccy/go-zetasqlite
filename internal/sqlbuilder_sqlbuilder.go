@@ -72,6 +72,8 @@ const (
 	ExpressionTypeLiteral
 	ExpressionTypeParameter
 	ExpressionTypeFunction
+	ExpressionTypeList
+	ExpressionTypeUnary
 	ExpressionTypeBinary
 	ExpressionTypeSubquery
 	ExpressionTypeStar
@@ -96,6 +98,34 @@ type WhenClause struct {
 // ExistsExpression represents SQL EXISTS expressions
 type ExistsExpression struct {
 	Subquery *SelectStatement
+}
+
+// ListExpression represents SQL list expressions
+type ListExpression struct {
+	Expressions []*SQLExpression
+}
+
+func (e *ListExpression) WriteSql(writer *SQLWriter) {
+	writer.Write("(")
+	for i, expr := range e.Expressions {
+		writer.Write(expr.String())
+		if i != len(e.Expressions)-1 {
+			writer.Write(",")
+		}
+	}
+	writer.Write(")")
+}
+
+// UnaryExpression represents SQL unary expressions
+type UnaryExpression struct {
+	Operator   string
+	Expression *SQLExpression
+}
+
+func (e *UnaryExpression) WriteSql(writer *SQLWriter) {
+	writer.Write(e.Operator)
+	writer.Write(" ")
+	e.Expression.WriteSql(writer)
 }
 
 type BinaryExpression struct {
@@ -125,6 +155,8 @@ func (e *BinaryExpression) String() string {
 type SQLExpression struct {
 	Type             ExpressionType
 	Value            string
+	ListExpression   *ListExpression
+	UnaryExpression  *UnaryExpression
 	BinaryExpression *BinaryExpression
 	FunctionCall     *FunctionCall
 	Subquery         *SelectStatement
@@ -145,6 +177,10 @@ func (e *SQLExpression) WriteSql(writer *SQLWriter) {
 		}
 	case ExpressionTypeLiteral:
 		writer.Write(e.Value)
+	case ExpressionTypeList:
+		e.ListExpression.WriteSql(writer)
+	case ExpressionTypeUnary:
+		e.UnaryExpression.WriteSql(writer)
 	case ExpressionTypeBinary:
 		e.BinaryExpression.WriteSql(writer)
 	case ExpressionTypeFunction:
@@ -1102,6 +1138,27 @@ func NewSubqueryFromItem(subquery *SelectStatement, alias string) *FromItem {
 		Type:     FromItemTypeSubquery,
 		Subquery: subquery,
 		Alias:    alias,
+	}
+}
+
+// NewListExpression creates a new list expression
+func NewListExpression(expressions []*SQLExpression) *SQLExpression {
+	return &SQLExpression{
+		Type: ExpressionTypeList,
+		ListExpression: &ListExpression{
+			Expressions: expressions,
+		},
+	}
+}
+
+// NewNotExpression creates a new NOT expression
+func NewNotExpression(expression *SQLExpression) *SQLExpression {
+	return &SQLExpression{
+		Type: ExpressionTypeUnary,
+		UnaryExpression: &UnaryExpression{
+			Operator:   "NOT",
+			Expression: expression,
+		},
 	}
 }
 

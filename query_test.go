@@ -6109,16 +6109,16 @@ SELECT c1 * ? * ? FROM t1;
 		{
 			name: "function call with many arguments - under limit",
 			query: fmt.Sprintf(
-				`select %s true in (true)`,
-				strings.Repeat("false in (true) or ", 999),
+				`select concat(%s "a")`,
+				strings.Repeat(`"a",`, 998),
 			),
-			expectedRows: [][]interface{}{{true}},
+			expectedRows: [][]interface{}{{strings.Repeat("a", 999)}},
 		},
 		{
 			name: "function call with many arguments - above limit",
 			query: fmt.Sprintf(
-				`select %s true in (true)`,
-				strings.Repeat("false in (true) or ", 1001),
+				`select concat(%s "a")`,
+				strings.Repeat(`"a",`, 1000),
 			),
 			expectedErr: "too many arguments on function",
 		},

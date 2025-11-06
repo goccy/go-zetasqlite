@@ -239,6 +239,12 @@ func canOptimizeFunction(function *FunctionCallData) bool {
 
 	// Check argument count requirements
 	switch function.Name {
+	case "zetasqlite_in":
+		return true
+	case "zetasqlite_not":
+		if len(function.Arguments) != 1 {
+			return false
+		}
 	case "zetasqlite_and", "zetasqlite_or":
 		if len(function.Arguments) < 2 {
 			return false
@@ -267,9 +273,11 @@ var functionToOperator = map[string]string{
 	"zetasqlite_greater":          ">",
 	"zetasqlite_less_or_equal":    "<=",
 	"zetasqlite_greater_or_equal": ">=",
+	"zetasqlite_in":               "IN",
 	// Logical operators
 	"zetasqlite_and": "AND",
 	"zetasqlite_or":  "OR",
+	"zetasqlite_not": "NOT",
 }
 
 // optimizeFunctionToSQL converts functions to direct SQL operators
@@ -291,6 +299,13 @@ func optimizeFunctionToSQL(functionName string, args []*SQLExpression) (*SQLExpr
 		}
 		return result, nil
 
+	case "zetasqlite_not":
+		if len(args) != 1 {
+			return nil, fmt.Errorf("%s expected only 1 argument, got %d", functionName, len(args))
+		}
+		return NewNotExpression(args[0]), nil
+	case "zetasqlite_in":
+		return NewBinaryExpression(args[0], operator, NewListExpression(args[1:])), nil
 	default: // comparison operators
 		if len(args) != 2 {
 			return nil, fmt.Errorf("%s expected 2 arguments, got %d", functionName, len(args))
