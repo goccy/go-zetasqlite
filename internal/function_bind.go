@@ -2887,12 +2887,74 @@ func bindArrayConcat(args ...Value) (Value, error) {
 	if len(args) == 0 {
 		return nil, fmt.Errorf("ARRAY_CONCAT: required arguments")
 	}
+	if existsNull(args) {
+		return nil, nil
+	}
 	return ARRAY_CONCAT(args...)
+}
+
+func bindArrayFirst(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("ARRAY_FIRST: invalid argument num %d", len(args))
+	}
+	if existsNull(args) {
+		return nil, nil
+	}
+	arr, err := args[0].ToArray()
+	if err != nil {
+		return nil, err
+	}
+	if len(arr.values) == 0 {
+		return nil, fmt.Errorf("ARRAY_FIRST: cannot get the first element of an empty array")
+	}
+	return ARRAY_FIRST(arr)
+}
+
+func bindArrayLast(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("ARRAY_LAST: invalid argument num %d", len(args))
+	}
+	if existsNull(args) {
+		return nil, nil
+	}
+	arr, err := args[0].ToArray()
+	if err != nil {
+		return nil, err
+	}
+	if len(arr.values) == 0 {
+		return nil, fmt.Errorf("ARRAY_LAST: cannot get the first element of an empty array")
+	}
+	return ARRAY_LAST(arr)
+}
+
+func bindArraySlice(args ...Value) (Value, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("ARRAY_SLICE: invalid argument num %d", len(args))
+	}
+	if existsNull(args) {
+		return nil, nil
+	}
+	arr, err := args[0].ToArray()
+	if err != nil {
+		return nil, err
+	}
+	startOffset, err := args[1].ToInt64()
+	if err != nil {
+		return nil, err
+	}
+	endOffset, err := args[2].ToInt64()
+	if err != nil {
+		return nil, err
+	}
+	return ARRAY_SLICE(arr, startOffset, endOffset)
 }
 
 func bindArrayLength(args ...Value) (Value, error) {
 	if len(args) != 1 {
 		return nil, fmt.Errorf("ARRAY_LENGTH: invalid argument num %d", len(args))
+	}
+	if existsNull(args) {
+		return nil, nil
 	}
 	arr, err := args[0].ToArray()
 	if err != nil {
@@ -2904,6 +2966,9 @@ func bindArrayLength(args ...Value) (Value, error) {
 func bindArrayToString(args ...Value) (Value, error) {
 	if len(args) < 2 {
 		return nil, fmt.Errorf("ARRAY_TO_STRING: invalid argument num %d", len(args))
+	}
+	if existsNull(args) {
+		return nil, nil
 	}
 	arr, err := args[0].ToArray()
 	if err != nil {
@@ -2927,6 +2992,9 @@ func bindGenerateArray(args ...Value) (Value, error) {
 	if len(args) != 3 && len(args) != 2 {
 		return nil, fmt.Errorf("GENERATE_ARRAY: invalid argument num %d", len(args))
 	}
+	if existsNull(args) {
+		return &ArrayValue{values: []Value{}}, nil
+	}
 	if len(args) == 3 {
 		return GENERATE_ARRAY(args[0], args[1], args[2])
 	}
@@ -2937,6 +3005,9 @@ func bindGenerateDateArray(args ...Value) (Value, error) {
 	if len(args) < 2 {
 		return nil, fmt.Errorf("GENERATE_DATE_ARRAY: invalid argument num %d", len(args))
 	}
+	if existsNull(args) {
+		return &ArrayValue{values: []Value{}}, nil
+	}
 	if len(args) == 2 {
 		return GENERATE_DATE_ARRAY(args[0], args[1])
 	}
@@ -2946,6 +3017,9 @@ func bindGenerateDateArray(args ...Value) (Value, error) {
 func bindGenerateTimestampArray(args ...Value) (Value, error) {
 	if len(args) != 4 {
 		return nil, fmt.Errorf("GENERATE_TIMESTAMP_ARRAY: invalid argument num %d", len(args))
+	}
+	if existsNull(args) {
+		return &ArrayValue{values: []Value{}}, nil
 	}
 	step, err := args[2].ToInt64()
 	if err != nil {
@@ -2961,6 +3035,9 @@ func bindGenerateTimestampArray(args ...Value) (Value, error) {
 func bindArrayReverse(args ...Value) (Value, error) {
 	if len(args) != 1 {
 		return nil, fmt.Errorf("ARRAY_REVERSE: invalid argument num %d", len(args))
+	}
+	if existsNull(args) {
+		return nil, nil
 	}
 	arr, err := args[0].ToArray()
 	if err != nil {

@@ -75,17 +75,12 @@ func newSimpleCatalog(name string) *types.SimpleCatalog {
 	return catalog
 }
 
-func NewCatalog(db *sql.DB) (*Catalog, error) {
-	catalog := &Catalog{
-		db:       db,
-		catalog:  newSimpleCatalog(catalogName),
-		tableMap: map[string]*TableSpec{},
-		funcMap:  map[string]*FunctionSpec{},
-	}
-
+// These function definitions are missing from go-zetasql, either due to being on an older version
+// or upstream issues (i.e. google/zetasql#135)
+var MISSING_FUNCTIONS = []*FunctionSpec{
 	// Add missing CONTAINS_SUBSTR function to the catalog
 	// https://github.com/google/zetasql/issues/135#issuecomment-1490908494
-	if err := catalog.addFunctionSpec(&FunctionSpec{
+	{
 		IsTemp:   false,
 		NamePath: []string{"contains_substr"},
 		Language: "SQL",
@@ -94,8 +89,54 @@ func NewCatalog(db *sql.DB) (*Catalog, error) {
 			{Name: "search_value_literal", Type: &Type{Name: "search_value_literal", Kind: types.STRING, SignatureKind: types.ArgTypeFixed}},
 		},
 		Return: &Type{Name: "BOOL", Kind: types.BOOL, SignatureKind: types.ArgTypeFixed},
-	}); err != nil {
-		return nil, err
+	},
+	{
+		IsTemp:   false,
+		NamePath: []string{"array_slice"},
+		Language: "SQL",
+		Args: []*NameWithType{
+			{Name: "array_to_slice", Type: &Type{
+				Name:          "array_to_slice",
+				Kind:          types.ARRAY,
+				SignatureKind: types.ArgArrayTypeAny1,
+			}},
+			{Name: "start_offset", Type: &Type{Name: "start_offset", Kind: types.INT64, SignatureKind: types.ArgTypeFixed}},
+			{Name: "end_offset", Type: &Type{Name: "end_offset", Kind: types.INT64, SignatureKind: types.ArgTypeFixed}},
+		},
+		Return: &Type{Kind: types.ARRAY, SignatureKind: types.ArgArrayTypeAny1},
+	},
+	{
+		IsTemp:   false,
+		NamePath: []string{"array_first"},
+		Language: "SQL",
+		Args: []*NameWithType{
+			{Name: "array", Type: &Type{Name: "array", Kind: types.ARRAY, SignatureKind: types.ArgArrayTypeAny1}},
+		},
+		Return: &Type{SignatureKind: types.ArgTypeAny1},
+	},
+	{
+		IsTemp:   false,
+		NamePath: []string{"array_last"},
+		Language: "SQL",
+		Args: []*NameWithType{
+			{Name: "array", Type: &Type{Name: "array", Kind: types.ARRAY, SignatureKind: types.ArgArrayTypeAny1}},
+		},
+		Return: &Type{SignatureKind: types.ArgTypeAny1},
+	},
+}
+
+func NewCatalog(db *sql.DB) (*Catalog, error) {
+	catalog := &Catalog{
+		db:       db,
+		catalog:  newSimpleCatalog(catalogName),
+		tableMap: map[string]*TableSpec{},
+		funcMap:  map[string]*FunctionSpec{},
+	}
+
+	for _, spec := range MISSING_FUNCTIONS {
+		if err := catalog.addFunctionSpec(spec); err != nil {
+			return nil, err
+		}
 	}
 
 	return catalog, nil

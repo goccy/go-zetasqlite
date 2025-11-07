@@ -18,6 +18,48 @@ func ARRAY_CONCAT(args ...Value) (Value, error) {
 	return arr, nil
 }
 
+func ARRAY_FIRST(v *ArrayValue) (Value, error) {
+	return v.values[0], nil
+}
+
+func ARRAY_LAST(v *ArrayValue) (Value, error) {
+	return v.values[len(v.values)-1], nil
+}
+
+func ARRAY_SLICE(v *ArrayValue, startOffset, endOffset int64) (Value, error) {
+	arrLen := int64(len(v.values))
+
+	// Convert negative offsets to positive
+	start := startOffset
+	if start < 0 {
+		start = arrLen + start
+	}
+
+	end := endOffset
+	if end < 0 {
+		end = arrLen + end
+	}
+
+	// Clamp to array bounds
+	if start < 0 {
+		start = 0
+	}
+	if end >= arrLen {
+		end = arrLen - 1
+	}
+
+	// Handle edge cases
+	if start > end || start >= arrLen {
+		return &ArrayValue{}, nil
+	}
+
+	// Slice the array (end is inclusive, so we add 1)
+	result := &ArrayValue{
+		values: v.values[start : end+1],
+	}
+	return result, nil
+}
+
 func ARRAY_LENGTH(v *ArrayValue) (Value, error) {
 	return IntValue(len(v.values)), nil
 }

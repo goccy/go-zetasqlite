@@ -2615,9 +2615,121 @@ SELECT ARRAY (
 			},
 		},
 		{
+			name:         "array_first function",
+			query:        `SELECT ARRAY_FIRST([1, 2, 3, 4]), ARRAY_FIRST(null)`,
+			expectedRows: [][]interface{}{{int64(1), nil}},
+		},
+		{
+			name:        "array_first function empty",
+			query:       `SELECT ARRAY_FIRST(ARRAY<STRING>[])`,
+			expectedErr: "ARRAY_FIRST: cannot get the first element of an empty array",
+		},
+		{
+			name:         "array_last function",
+			query:        `SELECT ARRAY_LAST([1, 2, 3, 4]), ARRAY_LAST(null)`,
+			expectedRows: [][]interface{}{{int64(4), nil}},
+		},
+		{
+			name:        "array_last function empty",
+			query:       `SELECT ARRAY_LAST(ARRAY<STRING>[])`,
+			expectedErr: "ARRAY_LAST: cannot get the first element of an empty array",
+		},
+		{
+			name:         "array_slice basic",
+			query:        `SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 1, 3)`,
+			expectedRows: [][]interface{}{{[]interface{}{"b", "c", "d"}}},
+		},
+		{
+			name:         "array_slice negative indices",
+			query:        `SELECT ARRAY_SLICE([1, 2, 3, 4, 5], -3, -1)`,
+			expectedRows: [][]interface{}{{[]interface{}{int64(3), int64(4), int64(5)}}},
+		},
+		{
+			name:         "array_slice start from beginning",
+			query:        `SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 0, 2)`,
+			expectedRows: [][]interface{}{{[]interface{}{"a", "b", "c"}}},
+		},
+		{
+			name:         "array_slice to end",
+			query:        `SELECT ARRAY_SLICE([1, 2, 3, 4, 5], 2, 10)`,
+			expectedRows: [][]interface{}{{[]interface{}{int64(3), int64(4), int64(5)}}},
+		},
+		{
+			name:         "array_slice out of bounds negative",
+			query:        `SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], -30, 2)`,
+			expectedRows: [][]interface{}{{[]interface{}{"a", "b", "c"}}},
+		},
+		{
+			name:         "array_slice out of bounds start",
+			query:        `SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], 5, 30)`,
+			expectedRows: [][]interface{}{{[]interface{}{}}},
+		},
+		{
+			name:         "array_slice start after end",
+			query:        `SELECT ARRAY_SLICE([1, 2, 3, 4, 5], 3, 1)`,
+			expectedRows: [][]interface{}{{[]interface{}{}}},
+		},
+		{
+			name:         "array_slice null array",
+			query:        `SELECT ARRAY_SLICE(NULL, 0, 2)`,
+			expectedRows: [][]interface{}{{nil}},
+		},
+		{
+			name:         "array_slice null start",
+			query:        `SELECT ARRAY_SLICE([1, 2, 3], NULL, 2)`,
+			expectedRows: [][]interface{}{{nil}},
+		},
+		{
+			name:         "array_slice null end",
+			query:        `SELECT ARRAY_SLICE([1, 2, 3], 0, NULL)`,
+			expectedRows: [][]interface{}{{nil}},
+		},
+		{
+			name:         "array_slice empty array",
+			query:        `SELECT ARRAY_SLICE(ARRAY<INT64>[], 0, 2)`,
+			expectedRows: [][]interface{}{{[]interface{}{}}},
+		},
+		{
+			name:         "array_slice mixed negative positive",
+			query:        `SELECT ARRAY_SLICE(['a', 'b', 'c', 'd', 'e'], -4, 3)`,
+			expectedRows: [][]interface{}{{[]interface{}{"b", "c", "d"}}},
+		},
+		{
+			name:         "array_slice single element",
+			query:        `SELECT ARRAY_SLICE([10, 20, 30, 40, 50], 2, 2)`,
+			expectedRows: [][]interface{}{{[]interface{}{int64(30)}}},
+		},
+		{
 			name:         "array_length function",
 			query:        `SELECT ARRAY_LENGTH([1, 2, 3, 4]) as length`,
 			expectedRows: [][]interface{}{{int64(4)}},
+		},
+		{
+			name:         "array_length null",
+			query:        `SELECT ARRAY_LENGTH(NULL), ARRAY_LENGTH(NULL) IS NULL`,
+			expectedRows: [][]interface{}{{nil, true}},
+		},
+		{
+			name: "array length comparison",
+			query: `
+SELECT t1.*
+FROM (
+    SELECT 1 as idx, 1 as col1, [1, 2, 3] as arr_col
+    UNION ALL
+    SELECT 2 as idx, 2 as col1, [1, 2, 3] as arr_col
+    UNION ALL
+    SELECT 3 as idx, 3 as col1, [1, 2, 3, 4] as arr_col
+) as t1
+LEFT JOIN (
+    SELECT 1 as idx, 1 as col1, [1, 2, 3] as arr_col
+    UNION ALL
+    SELECT 3 as idx, 3 as col1, [1, 2, 3] as arr_col
+    UNION ALL
+    SELECT 4 as idx, 4 as col1, [1, 2, 3] as arr_col
+) as t2
+ON t1.idx = t2.idx
+WHERE ARRAY_LENGTH(t1.arr_col) <> ARRAY_LENGTH(t2.arr_col)`,
+			expectedRows: [][]interface{}{{int64(3), int64(3), []interface{}{int64(1), int64(2), int64(3), int64(4)}}},
 		},
 		{
 			name: "array_to_string function",
@@ -2630,6 +2742,13 @@ SELECT ARRAY_TO_STRING(list, '--') AS text FROM items`,
 			expectedRows: [][]interface{}{
 				{"coffee--tea--milk"},
 				{"cake--pie"},
+			},
+		},
+		{
+			name:  "array_to_string null",
+			query: `SELECT ARRAY_TO_STRING(NULL, '--')`,
+			expectedRows: [][]interface{}{
+				{nil},
 			},
 		},
 		{
@@ -2650,6 +2769,11 @@ SELECT ARRAY_TO_STRING(list, '--', 'MISSING') AS text FROM items`,
 			name:         "generate_array function",
 			query:        `SELECT GENERATE_ARRAY(1, 5) AS example_array`,
 			expectedRows: [][]interface{}{{[]interface{}{int64(1), int64(2), int64(3), int64(4), int64(5)}}},
+		},
+		{
+			name:         "generate_array nil",
+			query:        `SELECT GENERATE_ARRAY(NULL, 5) AS example_array`,
+			expectedRows: [][]interface{}{{[]interface{}{}}},
 		},
 		{
 			name:         "generate_array function with step",
@@ -2674,7 +2798,7 @@ SELECT ARRAY_TO_STRING(list, '--', 'MISSING') AS text FROM items`,
 		{
 			name:         "generate_array function with null",
 			query:        `SELECT GENERATE_ARRAY(5, NULL, 1) AS example_array`,
-			expectedRows: [][]interface{}{{nil}},
+			expectedRows: [][]interface{}{{[]interface{}{}}},
 		},
 		{
 			name:  "generate_array function for generate multiple array",
@@ -2690,6 +2814,13 @@ SELECT ARRAY_TO_STRING(list, '--', 'MISSING') AS text FROM items`,
 			query: `SELECT GENERATE_DATE_ARRAY('2016-10-05', '2016-10-08') AS example`,
 			expectedRows: [][]interface{}{
 				{[]interface{}{"2016-10-05", "2016-10-06", "2016-10-07", "2016-10-08"}},
+			},
+		},
+		{
+			name:  "generate_date_array nil",
+			query: `SELECT GENERATE_DATE_ARRAY('2016-10-05', NULL, INTERVAL 2 DAY) AS example`,
+			expectedRows: [][]interface{}{
+				{[]interface{}{}},
 			},
 		},
 		{
@@ -2724,7 +2855,7 @@ SELECT ARRAY_TO_STRING(list, '--', 'MISSING') AS text FROM items`,
 			name:  "generate_date_array function with null",
 			query: `SELECT GENERATE_DATE_ARRAY('2016-10-05', NULL) AS example`,
 			expectedRows: [][]interface{}{
-				{nil},
+				{[]interface{}{}},
 			},
 		},
 		{
@@ -2812,7 +2943,7 @@ FROM (
 			name:  "generate_timestamp_array function with null",
 			query: `SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-05 00:00:00+00', NULL, INTERVAL 1 HOUR) AS timestamp_array`,
 			expectedRows: [][]interface{}{
-				{nil},
+				{[]interface{}{}},
 			},
 		},
 		{
@@ -2884,6 +3015,13 @@ WITH example AS (
 				{[]interface{}{int64(3), int64(2), int64(1)}},
 				{[]interface{}{int64(5), int64(4)}},
 				{[]interface{}{}},
+			},
+		},
+		{
+			name:  "array_reverse null",
+			query: `SELECT ARRAY_REVERSE(null)`,
+			expectedRows: [][]interface{}{
+				{nil},
 			},
 		},
 		{

@@ -237,6 +237,9 @@ var normalFuncs = []*FuncInfo{
 
 	// array functions
 	{Name: "array_concat", BindFunc: bindArrayConcat},
+	{Name: "array_first", BindFunc: bindArrayFirst},
+	{Name: "array_last", BindFunc: bindArrayLast},
+	{Name: "array_slice", BindFunc: bindArraySlice},
 	{Name: "array_length", BindFunc: bindArrayLength},
 	{Name: "array_to_string", BindFunc: bindArrayToString},
 	{Name: "generate_array", BindFunc: bindGenerateArray},
