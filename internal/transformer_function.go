@@ -239,8 +239,6 @@ func canOptimizeFunction(function *FunctionCallData) bool {
 
 	// Check argument count requirements
 	switch function.Name {
-	case "zetasqlite_in":
-		return true
 	case "zetasqlite_not":
 		if len(function.Arguments) != 1 {
 			return false

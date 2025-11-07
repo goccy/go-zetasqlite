@@ -36,6 +36,8 @@ func (w *SQLWriter) WriteLine(s string) {
 	w.builder.WriteString(s)
 	if w.useNewlines {
 		w.builder.WriteString("\n")
+	} else {
+		w.builder.WriteString(" ")
 	}
 }
 
@@ -124,8 +126,9 @@ type UnaryExpression struct {
 
 func (e *UnaryExpression) WriteSql(writer *SQLWriter) {
 	writer.Write(e.Operator)
-	writer.Write(" ")
+	writer.Write(" (")
 	e.Expression.WriteSql(writer)
+	writer.Write(")")
 }
 
 type BinaryExpression struct {
@@ -216,7 +219,7 @@ func (e *SQLExpression) WriteSql(writer *SQLWriter) {
 		writer.Write(fmt.Sprintf(" COLLATE %s", e.Collation))
 	}
 
-	if e.Alias != "" {
+	if e.Alias != "" && !(e.Type == ExpressionTypeColumn && e.Alias == e.Value) {
 		writer.Write(" AS ")
 		writer.Write("`" + e.Alias + "`")
 	}
@@ -426,7 +429,7 @@ func (s *SelectListItem) WriteSql(writer *SQLWriter) {
 		}
 	} else {
 		s.Expression.WriteSql(writer)
-		if s.Alias != "" {
+		if s.Alias != "" && !(s.Expression.Type == ExpressionTypeColumn && s.Alias == s.Expression.Value) {
 			writer.Write(" AS `" + s.Alias + "`")
 		}
 	}

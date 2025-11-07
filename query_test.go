@@ -232,6 +232,11 @@ UNION ALL
 			expectedRows: [][]interface{}{{true, nil, nil}},
 		},
 		{
+			name:         "in operator with function",
+			query:        `SELECT NOT(RIGHT('apple', 3) IN (SELECT DISTINCT c FROM (select 'ple' as c)))`,
+			expectedRows: [][]interface{}{{false}},
+		},
+		{
 			name: "recursive cte",
 			// These direct equality comparisons compare the fields of the struct pairwise in ordinal order ignoring
 			// any field names. If instead you want to compare identically named fields of a struct,
