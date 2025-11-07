@@ -8,12 +8,12 @@ import (
 
 // DefaultTransformContext provides a default implementation of TransformContext
 type DefaultTransformContext struct {
-	ctx             context.Context
-	fragmentContext FragmentContextProvider
-	config          *TransformConfig
-	scope           *ScopeManager
-	//symbolTable     *SymbolTableManager  // Hierarchical symbol table
-	withMappings map[string][]string // WITH query name -> position-based column mappings
+	ctx              context.Context
+	fragmentContext  FragmentContextProvider
+	config           *TransformConfig
+	scope            *ScopeManager
+	withMappings     map[string][]string // WITH query name -> position-based column mappings
+	recursiveCTEName string              // Current recursive CTE being defined
 }
 
 // NewDefaultTransformContext creates a new transform context
@@ -64,6 +64,16 @@ func (c *DefaultTransformContext) GetWithEntryMapping(name string) []string {
 		return mapping
 	}
 	return nil
+}
+
+// SetRecursiveCTEName sets the name of the CTE currently being recursively defined
+func (c *DefaultTransformContext) SetRecursiveCTEName(name string) {
+	c.recursiveCTEName = name
+}
+
+// GetRecursiveCTEName returns the name of the CTE currently being recursively defined
+func (c *DefaultTransformContext) GetRecursiveCTEName() string {
+	return c.recursiveCTEName
 }
 
 // ColumnInfo stores metadata about available columns

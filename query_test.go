@@ -4,19 +4,17 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	zetasqlite "github.com/goccy/go-zetasqlite"
+	"github.com/google/go-cmp/cmp"
 	"math"
-	"os"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
-
-	zetasqlite "github.com/goccy/go-zetasqlite"
-	"github.com/google/go-cmp/cmp"
 )
 
 func TestQuery(t *testing.T) {
-	os.Setenv("TZ", "UTC")
+	t.Setenv("TZ", "UTC")
 	now := time.Now()
 	ctx := context.Background()
 	ctx = zetasqlite.WithCurrentTime(ctx, now)
@@ -232,6 +230,276 @@ UNION ALL
 			query: `SELECT 3 IN (1, 2, 3, 4), null IN (1), null IN (null)`,
 			// When left-hand side is null, null is always returned
 			expectedRows: [][]interface{}{{true, nil, nil}},
+		},
+		{
+			name: "recursive cte",
+			// These direct equality comparisons compare the fields of the struct pairwise in ordinal order ignoring
+			// any field names. If instead you want to compare identically named fields of a struct,
+			// you can compare the individual fields directly.
+			// https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types#limited_comparisons_for_structs
+			query: `WITH RECURSIVE
+  CTE_1 AS (
+    (SELECT 1 AS iteration UNION ALL SELECT 1 AS iteration)
+    UNION ALL
+    SELECT iteration + 1 AS iteration FROM CTE_1 WHERE iteration < 3
+  )
+SELECT iteration FROM CTE_1
+ORDER BY 1 ASC;`,
+			expectedRows: [][]interface{}{
+				{int64(1)},
+				{int64(1)},
+				{int64(2)},
+				{int64(2)},
+				{int64(3)},
+				{int64(3)},
+			},
+		},
+		{
+			name: "recursive cte 2",
+			query: `
+			WITH RECURSIVE
+			  GraphData AS (
+				--    1          5
+				--   / \        / \
+				--  2 - 3      6   7
+				--      |       \ /
+				--      4        8
+				SELECT 1 AS from_node, 2 AS to_node UNION ALL
+				SELECT 1, 3 UNION ALL
+				SELECT 2, 3 UNION ALL
+				SELECT 3, 4 UNION ALL
+				SELECT 5, 6 UNION ALL
+				SELECT 5, 7 UNION ALL
+				SELECT 6, 8 UNION ALL
+				SELECT 7, 8
+			  ),
+			  R AS (
+				(SELECT 5 AS node)
+				UNION ALL
+				(
+				  SELECT GraphData.to_node AS node
+				  FROM R
+				  INNER JOIN GraphData
+					ON (R.node = GraphData.from_node)
+				)
+			  )
+			SELECT DISTINCT node FROM R ORDER BY node;`,
+			expectedRows: [][]interface{}{
+				{int64(5)},
+				{int64(6)},
+				{int64(7)},
+				{int64(8)},
+			},
+		},
+		{
+			name: "recursive cte 3",
+			query: `WITH RECURSIVE
+  T0 AS (SELECT 1 AS n),
+  T1 AS ((SELECT * FROM T0) UNION ALL (SELECT n + 1 FROM T1 WHERE n < 4)),
+  T2 AS ((SELECT 1 AS n) UNION ALL (SELECT n + 1 FROM T2 WHERE n < 4)),
+  T3 AS (SELECT * FROM T1 INNER JOIN T2 USING (n))
+SELECT * FROM T3 ORDER BY n`,
+			expectedRows: [][]interface{}{
+				{int64(1)},
+				{int64(2)},
+				{int64(3)},
+				{int64(4)},
+			},
+		},
+		{
+
+			name: "recursive cte 4",
+			query: `WITH RECURSIVE
+	  T1 AS (
+		(SELECT 1 AS n) UNION ALL
+		(SELECT n + 2 FROM T1 WHERE n < 4))
+	SELECT * FROM T1 ORDER BY n
+	`,
+			expectedRows: [][]interface{}{
+				{int64(1)},
+				{int64(3)},
+				{int64(5)},
+			},
+		},
+		{
+			name: "recursive cte 5",
+			query: `WITH RECURSIVE
+  T0 AS (SELECT * FROM UNNEST ([60, 20, 30])),
+  T1 AS ((SELECT 1 AS n) UNION ALL (SELECT n + (SELECT COUNT(*) FROM T0) FROM T1 WHERE n < 4))
+SELECT * FROM T1 ORDER BY n`,
+			expectedRows: [][]interface{}{{int64(1)}, {int64(4)}},
+		},
+		{
+			name: "recursive cte 6",
+			query: `WITH RECURSIVE
+  T0 AS (SELECT 1 AS n),
+  T1 AS ((SELECT 1 AS n) UNION ALL (SELECT n + 1 FROM T1 INNER JOIN T0 USING (n)))
+SELECT * FROM T1 ORDER BY n`,
+			expectedRows: [][]interface{}{{int64(1)}, {int64(2)}},
+		},
+		{
+			name: "recursive cte 7",
+			query: `WITH RECURSIVE
+  T0 AS (SELECT 2 AS p),
+  T1 AS ((SELECT 1 AS n) UNION ALL (SELECT T1.n + T0.p FROM T1 CROSS JOIN T0 WHERE T1.n < 4))
+SELECT * FROM T1 CROSS JOIN T0 ORDER BY n`,
+			expectedRows: [][]interface{}{
+				{int64(1), int64(2)},
+				{int64(3), int64(2)},
+				{int64(5), int64(2)}},
+		},
+		{
+			name: "recursive cte integration",
+			query: `CREATE TEMP TABLE grid_interior_resources (
+  id STRING,
+  type STRING,
+  length_m FLOAT64,
+  upline_parent STRING,
+  upline_feeder STRING,
+);
+
+CREATE TEMP TABLE ancestry (
+  id STRING,
+  type STRING,
+  upline_resource_id STRING,
+  upline_resource_type STRING,
+  upline_resource_hops INT64,
+  upline_resource_distance FLOAT64
+);
+
+INSERT INTO grid_interior_resources
+  (id, type, length_m, upline_parent, upline_feeder) 
+VALUES
+  ("m1", "m", 1, "t1", "f1"),
+  ("t1", "t", 1, "f1", "f1"),
+  ("f1", "f", 1, NULL, "f1")
+;
+
+INSERT INTO ancestry (id, type, upline_resource_id, upline_resource_hops, upline_resource_distance, upline_resource_type)
+
+WITH RECURSIVE
+
+CTE_1 AS (
+  SELECT id, type, upline_parent, 1 pos, 1 iteration, coalesce(length_m, 0.0) as distance_meters
+    FROM grid_interior_resources
+  UNION ALL
+  SELECT a.id, a.type, b.upline_parent, pos + 1, iteration + 1, distance_meters + coalesce(length_m, 0.0)
+    FROM grid_interior_resources a INNER JOIN CTE_1 b
+    ON b.id = a.upline_parent
+    WHERE iteration < 500
+),
+
+CTE_2 AS (
+  SELECT * FROM CTE_1 WHERE iteration = 500 * 1
+  UNION ALL
+  SELECT a.id, a.type, b.upline_parent, pos + 1, iteration + 1, distance_meters + coalesce(length_m, 0.0)
+    FROM grid_interior_resources a INNER JOIN CTE_2 b
+    ON b.id = a.upline_parent
+    WHERE iteration < 500 * 2
+),
+
+CTE_3 AS (
+  SELECT * FROM CTE_2 WHERE iteration = 500 * 2
+  UNION ALL
+  SELECT a.id, a.type, b.upline_parent, pos + 1, iteration + 1, distance_meters + coalesce(length_m, 0.0)
+    FROM grid_interior_resources a INNER JOIN CTE_3 b
+    ON b.id = a.upline_parent
+    WHERE iteration < 500 * 3
+)
+
+SELECT
+	r.id as id,
+	r.type as type,
+	r.upline_parent as upline_resource_id,
+	r.pos as upline_resource_hops,
+	r.distance_meters as upline_resource_distance,
+	b.type as upline_resource_type
+FROM (
+	SELECT * FROM CTE_1
+	UNION ALL SELECT * FROM CTE_2 WHERE iteration > 500 * 1
+	UNION ALL SELECT * FROM CTE_3 WHERE iteration > 500 * 2
+) as r
+LEFT JOIN grid_interior_resources as b
+	ON r.upline_parent = b.id
+;
+
+SELECT
+  *
+FROM
+  ancestry
+ORDER BY
+  id,
+  upline_resource_hops
+;
+`,
+			expectedRows: [][]interface{}{
+				{
+					"f1",
+					"f",
+					nil,
+					nil,
+					int64(1),
+					float64(1.0),
+				}, {
+					"m1",
+					"m",
+					"t1",
+					"t",
+					int64(1),
+					float64(1.0),
+				}, {
+					"m1",
+					"m",
+					"f1",
+					"f",
+					int64(2),
+					float64(2.0),
+				}, {
+					"m1",
+					"m",
+					nil,
+					nil,
+					int64(3),
+					float64(3.0),
+				}, {
+					"t1",
+					"t",
+					"f1",
+					"f",
+					int64(1),
+					float64(1.0),
+				}, {
+					"t1",
+					"t",
+					nil,
+					nil,
+					int64(2),
+					float64(2.0),
+				},
+			},
+		},
+		{
+			name: "recursive cte integration 2",
+			query: `CREATE TEMP TABLE numbers (num INT64);
+-- Insert rows 1-5
+INSERT INTO numbers (num)
+WITH RECURSIVE seq AS (
+  -- Base case
+  SELECT 1 AS num
+
+  UNION ALL
+
+  -- Recursive case
+  SELECT num + 1
+  FROM seq
+  WHERE num < 5
+)
+SELECT num FROM seq;
+
+-- Select remaining numbers
+SELECT * FROM numbers;
+`,
+			expectedRows: [][]interface{}{{int64(1)}, {int64(2)}, {int64(3)}, {int64(4)}, {int64(5)}},
 		},
 		{
 			name:  "not in operator",
@@ -6389,6 +6657,73 @@ SELECT * FROM test_dataset.target;
 			order by name, cols[SAFE_OFFSET(0)]`,
 			expectedRows: [][]interface{}{{"foo", []interface{}{"x", "y"}}},
 		},
+		{
+			name: "recursive cte with star expression",
+			query: `WITH RECURSIVE
+  T0 AS (SELECT 1 AS n, 'a' AS letter),
+  T1 AS (
+    (SELECT * FROM T0)
+    UNION ALL
+    (SELECT n + 1, letter FROM T1 WHERE n < 3)
+  )
+SELECT * FROM T1 ORDER BY n`,
+			expectedRows: [][]interface{}{
+				{int64(1), "a"},
+				{int64(2), "a"},
+				{int64(3), "a"},
+			},
+		},
+		{
+			name: "recursive cte with list expression in WHERE",
+			query: `WITH RECURSIVE
+  T1 AS (
+    (SELECT 1 AS n, 'start' AS status)
+    UNION ALL
+    (SELECT n + 1, 'progress' FROM T1 WHERE n < 5 AND status IN ('start', 'progress', 'active'))
+  )
+SELECT n, status FROM T1 ORDER BY n`,
+			expectedRows: [][]interface{}{
+				{int64(1), "start"},
+				{int64(2), "progress"},
+				{int64(3), "progress"},
+				{int64(4), "progress"},
+				{int64(5), "progress"},
+			},
+		},
+		{
+			name: "recursive cte with unary expression",
+			query: `WITH RECURSIVE
+  T1 AS (
+    (SELECT 1 AS n, TRUE AS active)
+    UNION ALL
+    (SELECT n + 1, NOT active FROM T1 WHERE n < 4)
+  )
+SELECT n, active FROM T1 ORDER BY n`,
+			expectedRows: [][]interface{}{
+				{int64(1), true},
+				{int64(2), false},
+				{int64(3), true},
+				{int64(4), false},
+			},
+		},
+		{
+			name: "recursive cte with complex list and star in join",
+			query: `WITH RECURSIVE
+  T0 AS (SELECT 1 AS id, 'root' AS name),
+  T1 AS (
+    (SELECT * FROM T0)
+    UNION ALL
+    (SELECT T1.id + 1, CONCAT(T1.name, '_child')
+     FROM T1
+     INNER JOIN (SELECT * FROM T0) AS base ON T1.id = base.id
+     WHERE T1.id IN (1, 2, 3))
+  )
+SELECT id, name FROM T1 ORDER BY id`,
+			expectedRows: [][]interface{}{
+				{int64(1), "root"},
+				{int64(2), "root_child"},
+			},
+		},
 	} {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
@@ -6449,7 +6784,6 @@ SELECT * FROM test_dataset.target;
 			}
 		})
 	}
-	os.Unsetenv("TZ")
 }
 
 func createTimestampFormatFromTime(t time.Time) string {

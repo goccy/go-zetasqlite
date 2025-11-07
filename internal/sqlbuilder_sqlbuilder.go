@@ -637,6 +637,7 @@ func (o *OrderByItem) String() string {
 type WithClause struct {
 	Name         string
 	Materialized bool
+	Recursive    bool
 	Columns      []string
 	Query        *SelectStatement
 }
@@ -743,7 +744,21 @@ type LimitClause struct {
 func (s *SelectStatement) WriteSql(writer *SQLWriter) {
 	// WITH clause
 	if len(s.WithClauses) > 0 {
-		writer.Write("WITH ")
+		// Check if any WITH clause is recursive
+		hasRecursive := false
+		for _, withClause := range s.WithClauses {
+			if withClause.Recursive {
+				hasRecursive = true
+				break
+			}
+		}
+
+		if hasRecursive {
+			writer.Write("WITH RECURSIVE ")
+		} else {
+			writer.Write("WITH ")
+		}
+
 		for i, withClause := range s.WithClauses {
 			if i > 0 {
 				writer.Write(", ")

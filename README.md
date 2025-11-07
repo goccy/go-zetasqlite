@@ -188,9 +188,9 @@ A list of ZetaSQL ( Google Standard SQL ) specifications and features supported 
   - [x] EXCEPT
 - [x] LIMIT and OFFSET clauses
 - [x] WITH clause
-  - [ ] RECURSIVE keyword
+  - [x] RECURSIVE keyword
   - [x] Non-recursive CTEs
-  - [ ] Recursive CTEs
+  - [x] Recursive CTEs
   - [x] CTE rules and constraints
   - [x] CTE visibility
 - [x] Using aliases

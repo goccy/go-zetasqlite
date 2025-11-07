@@ -226,9 +226,11 @@ type ScanData struct {
 	SetOperationScan *SetOperationData  `json:"set_operation_scan,omitempty"`
 	WithScan         *WithScanData      `json:"with_scan,omitempty"`
 	WithRefScan      *WithRefScanData   `json:"with_ref_scan,omitempty"`
-	WithEntryScan    *WithEntryData     `json:"with_entry_scan,omitempty"`
-	ArrayScan        *ArrayScanData     `json:"array_scan,omitempty"`
-	AnalyticScan     *AnalyticScanData  `json:"analytic_scan,omitempty"`
+	WithEntryScan    *WithEntryData        `json:"with_entry_scan,omitempty"`
+	ArrayScan        *ArrayScanData        `json:"array_scan,omitempty"`
+	AnalyticScan     *AnalyticScanData     `json:"analytic_scan,omitempty"`
+	RecursiveScan    *RecursiveScanData    `json:"recursive_scan,omitempty"`
+	RecursiveRefScan *RecursiveRefScanData `json:"recursive_ref_scan,omitempty"`
 }
 
 func (s *ScanData) FindColumnByID(id int) *ColumnData {
@@ -258,6 +260,8 @@ const (
 	ScanTypeWithEntry
 	ScanTypeArray
 	ScanTypeAnalytic
+	ScanTypeRecursive
+	ScanTypeRecursiveRef
 )
 
 // TableScanData represents table scan data
@@ -465,6 +469,7 @@ type WithScanData struct {
 	WithEntryList []*WithEntryData `json:"with_entry_list,omitempty"`
 	Query         ScanData         `json:"query,omitempty"`
 	ColumnList    []*ColumnData    `json:"column_list,omitempty"`
+	Recursive     bool             `json:"recursive,omitempty"` // Whether this is a recursive CTE
 }
 
 // WithRefScanData represents WITH reference scan data (references to CTEs)
@@ -478,6 +483,19 @@ type WithEntryData struct {
 	WithQueryName string        `json:"with_query_name,omitempty"`
 	WithSubquery  ScanData      `json:"with_subquery,omitempty"`
 	ColumnList    []*ColumnData `json:"column_list,omitempty"`
+}
+
+// RecursiveScanData represents recursive CTE scan data
+type RecursiveScanData struct {
+	OpType           string        `json:"op_type,omitempty"`            // Operation type (e.g., "UNION_ALL")
+	NonRecursiveTerm StatementData `json:"non_recursive_term,omitempty"` // Base case of the recursion
+	RecursiveTerm    StatementData `json:"recursive_term,omitempty"`     // Recursive case
+}
+
+// RecursiveRefScanData represents a reference to the recursive CTE being defined
+type RecursiveRefScanData struct {
+	WithQueryName string        `json:"with_query_name,omitempty"` // Name of the CTE being referenced recursively
+	ColumnList    []*ColumnData `json:"column_list,omitempty"`     // Columns from the recursive reference
 }
 
 // MergeData represents MERGE statement data

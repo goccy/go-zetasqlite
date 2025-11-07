@@ -37,21 +37,44 @@ func (t *WithEntryTransformer) Transform(data ScanData, ctx TransformContext) (*
 
 	withEntryData := data.WithEntryScan
 
+	// For recursive CTEs, register column mappings BEFORE transforming the subquery
+	// so that the recursive reference can see the CTE's columns
+	isRecursive := ctx.GetRecursiveCTEName() == withEntryData.WithQueryName
+	if isRecursive {
+		ctx.AddWithEntryColumnMapping(
+			withEntryData.WithQueryName,
+			withEntryData.ColumnList,
+		)
+	}
+
 	// Transform the subquery
 	subqueryFromItem, err := t.coordinator.TransformScan(withEntryData.WithSubquery, ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to transform WITH entry subquery: %w", err)
 	}
 
-	// Register the WITH entry's column mappings in the context
-	ctx.AddWithEntryColumnMapping(
-		withEntryData.WithQueryName,
-		withEntryData.ColumnList,
-	)
+	// For non-recursive CTEs, register column mappings AFTER transforming
+	if !isRecursive {
+		ctx.AddWithEntryColumnMapping(
+			withEntryData.WithQueryName,
+			withEntryData.ColumnList,
+		)
+	}
+
+	// For recursive CTEs, use the subquery directly to preserve the UNION ALL structure
+	// For non-recursive CTEs, wrap in a SELECT *
+	var queryStatement *SelectStatement
+	if isRecursive && subqueryFromItem.Type == FromItemTypeSubquery && subqueryFromItem.Subquery != nil {
+		// Use the inner SelectStatement directly to preserve recursive structure
+		queryStatement = subqueryFromItem.Subquery
+	} else {
+		// Wrap in SELECT * for non-recursive CTEs
+		queryStatement = NewSelectStarStatement(subqueryFromItem)
+	}
 
 	// Create the WithClause
 	return &WithClause{
 		Name:  withEntryData.WithQueryName,
-		Query: NewSelectStarStatement(subqueryFromItem),
+		Query: queryStatement,
 	}, nil
 }

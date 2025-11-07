@@ -302,7 +302,7 @@ func (e *NodeExtractor) extractArgumentRefData(node *ast.ArgumentRefNode, ctx Tr
 // extractDMLDefaultData extracts data from DML default nodes
 func (e *NodeExtractor) extractDMLDefaultData(node *ast.DMLDefaultNode, ctx TransformContext) (ExpressionData, error) {
 	return ExpressionData{
-		Type:    ExpressionTypeLiteral,
+		Type: ExpressionTypeLiteral,
 		Literal: &LiteralData{
 			// DEFAULT keyword representation
 		},
@@ -691,6 +691,10 @@ func (e *NodeExtractor) ExtractScanData(node ast.Node, ctx TransformContext) (Sc
 		return e.extractArrayScanData(n, ctx)
 	case *ast.AnalyticScanNode:
 		return e.extractAnalyticScanData(n, ctx)
+	case *ast.RecursiveScanNode:
+		return e.extractRecursiveScanData(n, ctx)
+	case *ast.RecursiveRefScanNode:
+		return e.extractRecursiveRefScanData(n, ctx)
 	default:
 		return ScanData{}, fmt.Errorf("unsupported scan node type: %T", node)
 	}
@@ -1109,6 +1113,7 @@ func (e *NodeExtractor) extractWithScanNode(n *ast.WithScanNode, ctx TransformCo
 		WithScan: &WithScanData{
 			WithEntryList: withEntryList,
 			Query:         query,
+			Recursive:     n.Recursive(),
 		},
 	}, nil
 }
@@ -1804,6 +1809,95 @@ func (e *NodeExtractor) extractCreateViewStatementData(node *ast.CreateViewStmtN
 		Create: &CreateData{
 			Type: CreateTypeView,
 			View: createViewData,
+		},
+	}, nil
+}
+
+// extractRecursiveScanData extracts data from recursive CTE scan nodes
+func (e *NodeExtractor) extractRecursiveScanData(node *ast.RecursiveScanNode, ctx TransformContext) (ScanData, error) {
+	// Map the operation type
+	var opType string
+	switch node.OpType() {
+	case ast.RecursiveSetOperationTypeUnionAll:
+		opType = "UNION ALL"
+	case ast.RecursiveSetOperationTypeUnionDistinct:
+		opType = "UNION"
+	default:
+		return ScanData{}, fmt.Errorf("unsupported recursive scan operation type: %v", node.OpType())
+	}
+
+	// Extract non-recursive term (base case)
+	var nonRecursiveTerm StatementData
+	if node.NonRecursiveTerm() != nil {
+		// Extract the scan from the SetOperationItem
+		scanData, err := e.ExtractScanData(node.NonRecursiveTerm().Scan(), ctx)
+		if err != nil {
+			return ScanData{}, fmt.Errorf("failed to extract non-recursive term scan: %w", err)
+		}
+
+		// Create select items from output column list
+		selectItems := make([]*SelectItemData, 0, len(node.NonRecursiveTerm().OutputColumnList()))
+		for _, col := range node.NonRecursiveTerm().OutputColumnList() {
+			selectItems = append(selectItems, &SelectItemData{
+				Expression: NewColumnExpressionData(col),
+				Alias:      col.Name(),
+			})
+		}
+
+		nonRecursiveTerm = StatementData{
+			Type: StatementTypeSelect,
+			Select: &SelectData{
+				SelectList: selectItems,
+				FromClause: &scanData,
+			},
+		}
+	}
+
+	// Extract recursive term (recursive case)
+	var recursiveTerm StatementData
+	if node.RecursiveTerm() != nil {
+		// Extract the scan from the SetOperationItem
+		scanData, err := e.ExtractScanData(node.RecursiveTerm().Scan(), ctx)
+		if err != nil {
+			return ScanData{}, fmt.Errorf("failed to extract recursive term scan: %w", err)
+		}
+
+		// Create select items from output column list
+		selectItems := make([]*SelectItemData, 0, len(node.RecursiveTerm().OutputColumnList()))
+		for _, col := range node.RecursiveTerm().OutputColumnList() {
+			selectItems = append(selectItems, &SelectItemData{
+				Expression: NewColumnExpressionData(col),
+				Alias:      col.Name(),
+			})
+		}
+
+		recursiveTerm = StatementData{
+			Type: StatementTypeSelect,
+			Select: &SelectData{
+				SelectList: selectItems,
+				FromClause: &scanData,
+			},
+		}
+	}
+
+	return ScanData{
+		Type:       ScanTypeRecursive,
+		ColumnList: extractColumnDataList(node.ColumnList()),
+		RecursiveScan: &RecursiveScanData{
+			OpType:           opType,
+			NonRecursiveTerm: nonRecursiveTerm,
+			RecursiveTerm:    recursiveTerm,
+		},
+	}, nil
+}
+
+// extractRecursiveRefScanData extracts data from recursive reference scan nodes
+func (e *NodeExtractor) extractRecursiveRefScanData(node *ast.RecursiveRefScanNode, ctx TransformContext) (ScanData, error) {
+	return ScanData{
+		Type:       ScanTypeRecursiveRef,
+		ColumnList: extractColumnDataList(node.ColumnList()),
+		RecursiveRefScan: &RecursiveRefScanData{
+			ColumnList: extractColumnDataList(node.ColumnList()),
 		},
 	}, nil
 }

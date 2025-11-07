@@ -37,6 +37,11 @@ func (t *WithScanTransformer) Transform(data ScanData, ctx TransformContext) (*F
 	// Process all WITH entries to create CTE definitions
 	withClauses := []*WithClause{}
 	for _, entryData := range withScanData.WithEntryList {
+		// If this is a recursive CTE, set the CTE name in context before transforming
+		if withScanData.Recursive {
+			ctx.SetRecursiveCTEName(entryData.WithQueryName)
+		}
+
 		// Transform each WITH entry to a WithClause
 		entryScanData := ScanData{
 			Type:          ScanTypeWithEntry,
@@ -48,7 +53,17 @@ func (t *WithScanTransformer) Transform(data ScanData, ctx TransformContext) (*F
 			return nil, fmt.Errorf("failed to transform WITH entry: %w", err)
 		}
 
+		// Mark the WITH clause as recursive if needed
+		if withScanData.Recursive {
+			withClause.Recursive = true
+		}
+
 		withClauses = append(withClauses, withClause)
+
+		// Clear the recursive CTE name after processing
+		if withScanData.Recursive {
+			ctx.SetRecursiveCTEName("")
+		}
 	}
 
 	// Transform the main query that uses the CTEs

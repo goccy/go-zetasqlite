@@ -56,6 +56,10 @@ type TransformContext interface {
 	// WITH clause support
 	AddWithEntryColumnMapping(name string, columns []*ColumnData)
 	GetWithEntryMapping(name string) []string
+
+	// Recursive CTE support
+	SetRecursiveCTEName(name string)
+	GetRecursiveCTEName() string
 }
 
 // FragmentContextProvider abstracts the fragment context functionality

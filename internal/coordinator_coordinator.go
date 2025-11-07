@@ -28,19 +28,21 @@ type QueryCoordinator struct {
 	mergeStmtTransformer               StatementTransformer
 
 	// Scan transformers - direct references
-	tableScanTransformer     ScanTransformer
-	projectScanTransformer   ScanTransformer
-	filterScanTransformer    ScanTransformer
-	joinScanTransformer      ScanTransformer
-	aggregateScanTransformer ScanTransformer
-	orderByScanTransformer   ScanTransformer
-	limitScanTransformer     ScanTransformer
-	setOpScanTransformer     ScanTransformer
-	singleRowScanTransformer ScanTransformer
-	withScanTransformer      ScanTransformer
-	withRefScanTransformer   ScanTransformer
-	arrayScanTransformer     ScanTransformer
-	analyticScanTransformer  ScanTransformer
+	tableScanTransformer        ScanTransformer
+	projectScanTransformer      ScanTransformer
+	filterScanTransformer       ScanTransformer
+	joinScanTransformer         ScanTransformer
+	aggregateScanTransformer    ScanTransformer
+	orderByScanTransformer      ScanTransformer
+	limitScanTransformer        ScanTransformer
+	setOpScanTransformer        ScanTransformer
+	singleRowScanTransformer    ScanTransformer
+	withScanTransformer         ScanTransformer
+	withRefScanTransformer      ScanTransformer
+	arrayScanTransformer        ScanTransformer
+	analyticScanTransformer     ScanTransformer
+	recursiveScanTransformer    ScanTransformer
+	recursiveRefScanTransformer ScanTransformer
 
 	// Node data extractors
 	extractor *NodeExtractor
@@ -85,6 +87,8 @@ func NewQueryCoordinator(extractor *NodeExtractor) *QueryCoordinator {
 	coordinator.withRefScanTransformer = NewWithRefScanTransformer(coordinator)
 	coordinator.arrayScanTransformer = NewArrayScanTransformer(coordinator)
 	coordinator.analyticScanTransformer = NewAnalyticScanTransformer(coordinator)
+	coordinator.recursiveScanTransformer = NewRecursiveScanTransformer(coordinator)
+	coordinator.recursiveRefScanTransformer = NewRecursiveRefScanTransformer(coordinator)
 
 	return coordinator
 }
@@ -267,6 +271,12 @@ func (c *QueryCoordinator) TransformScan(scanData ScanData, ctx TransformContext
 	case ScanTypeAnalytic:
 		alias = "analytic_scan"
 		fromItem, err = c.analyticScanTransformer.Transform(scanData, ctx)
+	case ScanTypeRecursive:
+		alias = "recursive_scan"
+		fromItem, err = c.recursiveScanTransformer.Transform(scanData, ctx)
+	case ScanTypeRecursiveRef:
+		alias = "recursive_ref_scan"
+		fromItem, err = c.recursiveRefScanTransformer.Transform(scanData, ctx)
 	default:
 		return nil, fmt.Errorf("unsupported scan data type: %v", scanData.Type)
 	}
@@ -399,6 +409,12 @@ func (c *QueryCoordinator) validateColumnData(fromItem *FromItem, expectedColumn
 
 // getSelectListRecursive extracts SelectList from a SelectStatement, handling Select Star subqueries recursively
 func (c *QueryCoordinator) getSelectListRecursive(stmt *SelectStatement) []*SelectListItem {
+	if stmt.SetOperation != nil {
+		items := []*SelectListItem{}
+		items = append(items, c.getSelectListRecursive(stmt.SetOperation.Items[0])...)
+		return items
+	}
+
 	if stmt == nil || len(stmt.SelectList) == 0 {
 		return nil
 	}
@@ -418,7 +434,6 @@ func (c *QueryCoordinator) getSelectListRecursive(stmt *SelectStatement) []*Sele
 				return items
 			}
 		}
-
 	}
 
 	// Return the current SelectList
