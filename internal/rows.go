@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"reflect"
-	"time"
 
 	"github.com/goccy/go-json"
 	"github.com/goccy/go-zetasql/types"
@@ -232,74 +231,86 @@ func (r *Rows) assignInterfaceValue(src Value, dst reflect.Value, typ *Type) err
 		}
 		dst.Set(reflect.ValueOf(f64))
 	case types.BYTES:
-		s, err := src.ToString()
+		s, err := src.ToApiString()
 		if err != nil {
 			return err
 		}
 		dst.Set(reflect.ValueOf(s))
 	case types.STRING:
-		s, err := src.ToString()
+		s, err := src.ToApiString()
 		if err != nil {
 			return err
 		}
 		dst.Set(reflect.ValueOf(s))
 	case types.NUMERIC:
-		s, err := src.ToString()
+		s, err := src.ToApiString()
 		if err != nil {
 			return err
 		}
 		dst.Set(reflect.ValueOf(s))
 	case types.BIG_NUMERIC:
-		s, err := src.ToString()
+		s, err := src.ToApiString()
 		if err != nil {
 			return err
 		}
 		dst.Set(reflect.ValueOf(s))
 	case types.DATE:
-		date, err := src.ToJSON()
+		date, err := src.ToApiString()
 		if err != nil {
 			return err
 		}
 		dst.Set(reflect.ValueOf(date))
 	case types.DATETIME:
-		datetime, err := src.ToJSON()
+		datetime, err := src.ToApiString()
 		if err != nil {
 			return err
 		}
 		dst.Set(reflect.ValueOf(datetime))
 	case types.TIME:
-		time, err := src.ToJSON()
+		time, err := src.ToApiString()
 		if err != nil {
 			return err
 		}
 		dst.Set(reflect.ValueOf(time))
 	case types.TIMESTAMP:
-		t, err := src.ToTime()
+		t, err := src.ToApiString()
 		if err != nil {
 			return err
 		}
-		unixmicro := t.UnixMicro()
-		sec := unixmicro / int64(time.Millisecond)
-		nsec := unixmicro - sec*int64(time.Millisecond)
-		dst.Set(reflect.ValueOf(fmt.Sprintf("%d.%d", sec, nsec)))
+		dst.Set(reflect.ValueOf(t))
 	case types.INTERVAL:
-		s, err := src.ToString()
+		s, err := src.ToApiString()
 		if err != nil {
 			return err
 		}
 		dst.Set(reflect.ValueOf(s))
 	case types.JSON:
-		json, err := src.ToJSON()
+		j, err := src.ToApiString()
 		if err != nil {
 			return err
 		}
-		dst.Set(reflect.ValueOf(json))
+		dst.Set(reflect.ValueOf(j))
 	case types.STRUCT:
 		s, err := src.ToStruct()
 		if err != nil {
 			return err
 		}
-		dst.Set(reflect.ValueOf(s.Interface()))
+		m := make(map[string]interface{}, len(s.keys))
+		for i, key := range s.keys {
+			var child interface{}
+			if s.values[i] != nil {
+				fieldType := typ.FieldTypes[i].Type
+				if err := r.assignInterfaceValue(
+					s.values[i],
+					reflect.ValueOf(&child).Elem(),
+					fieldType,
+				); err != nil {
+					return err
+				}
+			}
+			m[key] = child
+		}
+		dst.Set(reflect.ValueOf(m))
 	case types.ARRAY:
 		array, err := src.ToArray()
 		if err != nil {

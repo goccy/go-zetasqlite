@@ -472,18 +472,12 @@ func CastValue(t types.Type, v Value) (Value, error) {
 			return nil, err
 		}
 		typ := t.AsStruct()
-		anonymousStruct := true
-		for _, key := range s.keys {
-			if key != "" {
-				anonymousStruct = false
-			}
-		}
-		if anonymousStruct {
-			return s, nil
-		}
 		ret := &StructValue{m: s.m}
 		for i := 0; i < typ.NumFields(); i++ {
 			key := typ.Field(i).Name()
+			if key == "" {
+				key = fmt.Sprintf("_field_%d", i+1)
+			}
 			value, exists := s.m[key]
 			if !exists {
 				ret.keys = append(ret.keys, key)

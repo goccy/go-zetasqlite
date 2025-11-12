@@ -179,14 +179,14 @@ CREATE TABLE table (
 	defer rows.Close()
 	type queryRow struct {
 		Value  interface{}
-		FieldB []map[string]interface{}
+		FieldB map[string]interface{}
 		FieldY string
 	}
 	var results []*queryRow
 	for rows.Next() {
 		var (
 			value  interface{}
-			fieldB []map[string]interface{}
+			fieldB map[string]interface{}
 			fieldY string
 		)
 		if err := rows.Scan(&value, &fieldB, &fieldY); err != nil {
