@@ -2747,6 +2747,185 @@ ORDER BY offset DESC;`,
 			expectedRows: [][]interface{}{{"baz", int64(2)}, {"bar", int64(1)}, {"foo", int64(0)}},
 		},
 		{
+			name: "unnest struct",
+			query: `-- Create the table with nested struct schema
+  CREATE TABLE events_1 (
+    event_params ARRAY<STRUCT<
+      key STRING,
+      value STRUCT<string_value STRING, int_value INT64>
+    >>
+  );
+
+  -- Insert test data
+  INSERT INTO events_1 (event_params)
+  VALUES (
+    [
+      STRUCT(
+        'param1' AS key,
+        STRUCT('value1' AS string_value, CAST(NULL AS INT64) as int_value) AS value
+      ),
+      STRUCT(
+        'param2' AS key,
+        STRUCT(CAST(NULL AS STRING) as string_value, 123 AS int_value) AS value
+      )
+    ]
+  );
+
+  -- Query with UNNEST
+  SELECT
+    event_param.key AS param_key,
+    event_param.value.string_value AS param_value_string,
+    event_param.value.int_value AS param_value_int
+  FROM
+    events_1, UNNEST(event_params) AS event_param;`,
+			expectedRows: [][]interface{}{{"param1", "value1", nil}, {"param2", nil, int64(123)}},
+		},
+		{
+			name: "unnest struct with offset and filter",
+			query: `SELECT
+    person.name,
+    person.age,
+    pos
+  FROM UNNEST([
+    STRUCT('Alice' AS name, 30 AS age),
+    STRUCT('Bob' AS name, 25 AS age),
+    STRUCT('Charlie' AS name, 35 AS age)
+  ]) AS person WITH OFFSET AS pos
+  WHERE person.age >= 30
+  ORDER BY pos;`,
+			expectedRows: [][]interface{}{
+				{"Alice", int64(30), int64(0)},
+				{"Charlie", int64(35), int64(2)},
+			},
+		},
+		{
+			name: "unnest struct array with aggregation",
+			query: `WITH products AS (
+    SELECT 'order1' AS order_id, [
+      STRUCT('apple' AS product, 2 AS quantity, 1.5 AS price),
+      STRUCT('banana' AS product, 3 AS quantity, 0.5 AS price)
+    ] AS items
+    UNION ALL
+    SELECT 'order2' AS order_id, [
+      STRUCT('apple' AS product, 1 AS quantity, 1.5 AS price),
+      STRUCT('orange' AS product, 5 AS quantity, 0.8 AS price)
+    ] AS items
+  )
+  SELECT
+    order_id,
+    SUM(item.quantity) AS total_items,
+    SUM(item.quantity * item.price) AS total_cost
+  FROM products, UNNEST(items) AS item
+  GROUP BY order_id
+  ORDER BY order_id;`,
+			expectedRows: [][]interface{}{
+				{"order1", int64(5), float64(4.5)},
+				{"order2", int64(6), float64(5.5)},
+			},
+		},
+		{
+			name: "unnest simple struct inline",
+			query: `SELECT
+    coord.x,
+    coord.y,
+    coord.x + coord.y AS sum
+  FROM UNNEST([
+    STRUCT(1 AS x, 2 AS y),
+    STRUCT(3 AS x, 4 AS y),
+    STRUCT(5 AS x, 6 AS y)
+  ]) AS coord
+  WHERE coord.x > 1;`,
+			expectedRows: [][]interface{}{
+				{int64(3), int64(4), int64(7)},
+				{int64(5), int64(6), int64(11)},
+			},
+		},
+		{
+			name: "unnest struct with multiple tables",
+			query: `CREATE TABLE users (
+    user_id INT64,
+    tags ARRAY<STRUCT<tag_name STRING, tag_value STRING>>
+  );
+
+  INSERT INTO users (user_id, tags) VALUES
+    (1, [STRUCT('level' AS tag_name, 'gold' AS tag_value), STRUCT('region' AS tag_name, 'west' AS tag_value)]),
+    (2, [STRUCT('level' AS tag_name, 'silver' AS tag_value)]);
+
+  SELECT
+    user_id,
+    tag.tag_name,
+    tag.tag_value
+  FROM users, UNNEST(tags) AS tag
+  WHERE tag.tag_name = 'level'
+  ORDER BY user_id;`,
+			expectedRows: [][]interface{}{
+				{int64(1), "level", "gold"},
+				{int64(2), "level", "silver"},
+			},
+		},
+		{
+			name: "unnest struct with nested arrays",
+			query: `WITH test_data AS (
+    SELECT [
+      STRUCT(
+        'order1' AS order_id,
+        [
+          STRUCT('item1' AS item_name, [10, 20, 30] AS quantities),
+          STRUCT('item2' AS item_name, [5, 15] AS quantities)
+        ] AS items
+      ),
+      STRUCT(
+        'order2' AS order_id,
+        [
+          STRUCT('item3' AS item_name, [25] AS quantities)
+        ] AS items
+      )
+    ] AS orders
+  )
+  SELECT
+    o.order_id,
+    item.item_name,
+    qty
+  FROM test_data,
+    UNNEST(orders) AS o,
+    UNNEST(o.items) AS item,
+    UNNEST(item.quantities) AS qty
+  WHERE qty > 10
+  ORDER BY o.order_id, item.item_name, qty;`,
+			expectedRows: [][]interface{}{
+				{"order1", "item1", int64(20)},
+				{"order1", "item1", int64(30)},
+				{"order1", "item2", int64(15)},
+				{"order2", "item3", int64(25)},
+			},
+		},
+		{
+			name: "unnest struct with cross join",
+			query: `WITH departments AS (
+    SELECT [
+      STRUCT('Engineering' AS dept, 'Alice' AS manager),
+      STRUCT('Sales' AS dept, 'Bob' AS manager)
+    ] AS dept_list
+  ), employees AS (
+    SELECT [
+      STRUCT('Charlie' AS name, 'Engineering' AS dept),
+      STRUCT('Diana' AS name, 'Sales' AS dept)
+    ] AS emp_list
+  )
+  SELECT
+    d.dept,
+    d.manager,
+    e.name AS employee
+  FROM departments, UNNEST(dept_list) AS d
+  CROSS JOIN employees, UNNEST(emp_list) AS e
+  WHERE d.dept = e.dept
+  ORDER BY d.dept, e.name;`,
+			expectedRows: [][]interface{}{
+				{"Engineering", "Alice", "Charlie"},
+				{"Sales", "Bob", "Diana"},
+			},
+		},
+		{
 			name:  "array function",
 			query: `SELECT ARRAY (SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3) AS new_array`,
 			expectedRows: [][]interface{}{

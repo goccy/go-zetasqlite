@@ -1228,7 +1228,25 @@ func (av *ArrayValue) ToArray() (*ArrayValue, error) {
 }
 
 func (av *ArrayValue) ToStruct() (*StructValue, error) {
-	return nil, fmt.Errorf("failed to convert struct from array %v", av)
+	var keys = []string{}
+	var values []Value
+	m := map[string]Value{}
+	for _, v := range av.values {
+		st, err := v.ToStruct()
+		if err != nil {
+			return nil, fmt.Errorf("cannot convert an array of non-struct elements into struct: %v", av)
+		}
+		for i, key := range st.keys {
+			keys = append(keys, key)
+			values = append(values, st.values[i])
+			m[key] = st.values[i]
+		}
+	}
+	return &StructValue{
+		keys:   keys,
+		values: values,
+		m:      m,
+	}, nil
 }
 
 func (av *ArrayValue) ToJSON() (string, error) {
