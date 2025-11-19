@@ -41,23 +41,90 @@ func (f *ARRAY) Done() (Value, error) {
 }
 
 type ANY_VALUE struct {
-	once  sync.Once
-	opt   *AggregatorOption
-	value Value
+	once         sync.Once
+	opt          *AggregatorOption
+	value        Value
+	havingValues []Value // stores (value, having_value) pairs when HAVING modifier is present
 }
 
 func (f *ANY_VALUE) Step(v Value, opt *AggregatorOption) error {
 	if v == nil {
 		return nil
 	}
+
 	f.once.Do(func() {
 		f.opt = opt
-		f.value = v
 	})
+
+	// If there's a HAVING modifier, collect all (value, having_value) pairs
+	if opt != nil && opt.HavingModifier != nil {
+		// Store the value along with its having expression value
+		f.havingValues = append(f.havingValues, v, opt.HavingModifier.Value)
+		return nil
+	}
+
+	// Without HAVING modifier, just take the first value
+	if f.value == nil {
+		f.value = v
+	}
 	return nil
 }
 
 func (f *ANY_VALUE) Done() (Value, error) {
+	// If HAVING modifier was used, filter to rows with max/min having value
+	if f.opt != nil && f.opt.HavingModifier != nil && len(f.havingValues) > 0 {
+		// Find the max/min having_value
+		var targetHavingValue Value
+		for i := 1; i < len(f.havingValues); i += 2 {
+			havingValue := f.havingValues[i]
+			if havingValue == nil {
+				continue
+			}
+
+			if targetHavingValue == nil {
+				targetHavingValue = havingValue
+				continue
+			}
+
+			var shouldUpdate bool
+			if f.opt.HavingModifier.Kind == "MAX" {
+				// Check if havingValue > targetHavingValue
+				gt, err := havingValue.GT(targetHavingValue)
+				if err != nil {
+					return nil, err
+				}
+				shouldUpdate = gt
+			} else { // MIN
+				// Check if havingValue < targetHavingValue
+				lt, err := havingValue.LT(targetHavingValue)
+				if err != nil {
+					return nil, err
+				}
+				shouldUpdate = lt
+			}
+
+			if shouldUpdate {
+				targetHavingValue = havingValue
+			}
+		}
+
+		// Find the first value with the target having_value and return it
+		for i := 0; i < len(f.havingValues); i += 2 {
+			havingValue := f.havingValues[i+1]
+			if havingValue == nil {
+				continue
+			}
+
+			eq, err := havingValue.EQ(targetHavingValue)
+			if err != nil {
+				return nil, err
+			}
+			if eq {
+				return f.havingValues[i], nil
+			}
+		}
+	}
+
 	return f.value, nil
 }
 

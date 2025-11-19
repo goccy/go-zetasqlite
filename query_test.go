@@ -933,6 +933,190 @@ FROM Items`,
 				{"banana", "apple"},
 			},
 		},
+		// HAVING MAX/MIN tests - https://github.com/goccy/bigquery-emulator/issues/327
+		{
+			name: "any_value with having max",
+			query: `
+				WITH Store AS (
+					SELECT 20 AS sold, "apples" AS fruit
+					UNION ALL SELECT 10 AS sold, "apples" AS fruit
+					UNION ALL SELECT 40 AS sold, "pears" AS fruit
+					UNION ALL SELECT 10 AS sold, "oranges" AS fruit
+					UNION ALL SELECT 30 AS sold, "bananas" AS fruit
+					UNION ALL SELECT 10 AS sold, "bananas" AS fruit
+				)
+				SELECT
+					fruit,
+					ANY_VALUE(sold HAVING MAX sold) AS max_sales
+				FROM Store
+				GROUP BY fruit
+				ORDER BY fruit
+			`,
+			expectedRows: [][]interface{}{
+				{"apples", int64(20)},
+				{"bananas", int64(30)},
+				{"oranges", int64(10)},
+				{"pears", int64(40)},
+			},
+		},
+		{
+			name: "any_value with having min",
+			query: `
+				WITH Store AS (
+					SELECT 20 AS sold, "apples" AS fruit
+					UNION ALL SELECT 10 AS sold, "apples" AS fruit
+					UNION ALL SELECT 40 AS sold, "pears" AS fruit
+					UNION ALL SELECT 10 AS sold, "oranges" AS fruit
+					UNION ALL SELECT 30 AS sold, "bananas" AS fruit
+					UNION ALL SELECT 10 AS sold, "bananas" AS fruit
+				)
+				SELECT
+					fruit,
+					ANY_VALUE(sold HAVING MIN sold) AS min_sales
+				FROM Store
+				GROUP BY fruit
+				ORDER BY fruit
+			`,
+			expectedRows: [][]interface{}{
+				{"apples", int64(10)},
+				{"bananas", int64(10)},
+				{"oranges", int64(10)},
+				{"pears", int64(40)},
+			},
+		},
+		{
+			name: "any_value having max with struct",
+			query: `
+				WITH Store AS (
+					SELECT 20 AS sold, "apples" AS fruit
+					UNION ALL SELECT 10 AS sold, "apples" AS fruit
+					UNION ALL SELECT 40 AS sold, "pears" AS fruit
+					UNION ALL SELECT 10 AS sold, "oranges" AS fruit
+					UNION ALL SELECT 30 AS sold, "bananas" AS fruit
+					UNION ALL SELECT 10 AS sold, "bananas" AS fruit
+				)
+				SELECT
+					ANY_VALUE(STRUCT(sold, fruit) HAVING MAX sold) AS most_sales
+				FROM Store
+			`,
+			expectedRows: [][]interface{}{
+				{map[string]interface{}{"sold": int64(40), "fruit": "pears"}},
+			},
+		},
+		{
+			name: "any_value having min with struct",
+			query: `
+				WITH Store AS (
+					SELECT 20 AS sold, "apples" AS fruit
+					UNION ALL SELECT 10 AS sold, "apples" AS fruit
+					UNION ALL SELECT 40 AS sold, "pears" AS fruit
+					UNION ALL SELECT 50 AS sold, "oranges" AS fruit
+					UNION ALL SELECT 30 AS sold, "bananas" AS fruit
+					UNION ALL SELECT 10 AS sold, "bananas" AS fruit
+				)
+				SELECT
+					ANY_VALUE(STRUCT(sold, fruit) HAVING MIN sold) AS least_sales
+				FROM Store
+			`,
+			expectedRows: [][]interface{}{
+				{map[string]interface{}{"sold": int64(10), "fruit": "apples"}},
+			},
+		},
+		{
+			name: "any_value having max and min together",
+			query: `
+				WITH Store AS (
+					SELECT 20 AS sold, "apples" AS fruit
+					UNION ALL SELECT 10 AS sold, "apples" AS fruit
+					UNION ALL SELECT 40 AS sold, "pears" AS fruit
+					UNION ALL SELECT 10 AS sold, "oranges" AS fruit
+					UNION ALL SELECT 30 AS sold, "bananas" AS fruit
+					UNION ALL SELECT 10 AS sold, "bananas" AS fruit
+				)
+				SELECT
+					fruit,
+					ANY_VALUE(sold HAVING MIN sold) AS least_sales,
+					ANY_VALUE(sold HAVING MAX sold) AS most_sales
+				FROM Store
+				GROUP BY fruit
+				ORDER BY fruit
+			`,
+			expectedRows: [][]interface{}{
+				{"apples", int64(10), int64(20)},
+				{"bananas", int64(10), int64(30)},
+				{"oranges", int64(10), int64(10)},
+				{"pears", int64(40), int64(40)},
+			},
+		},
+		{
+			name: "any_value having max with different expression",
+			query: `
+				WITH Produce AS (
+					SELECT "apple" AS name, 3 AS count, 0.50 AS price
+					UNION ALL SELECT "apple" AS name, 2 AS count, 0.75 AS price
+					UNION ALL SELECT "banana" AS name, 5 AS count, 0.25 AS price
+					UNION ALL SELECT "banana" AS name, 1 AS count, 0.30 AS price
+				)
+				SELECT
+					name,
+					ANY_VALUE(price HAVING MAX count) AS price_at_max_count
+				FROM Produce
+				GROUP BY name
+				ORDER BY name
+			`,
+			expectedRows: [][]interface{}{
+				{"apple", float64(0.50)},
+				{"banana", float64(0.25)},
+			},
+		},
+		{
+			name: "min_by basic",
+			query: `
+				WITH Store AS (
+					SELECT 20 AS sold, "apples" AS fruit
+					UNION ALL SELECT 40 AS sold, "pears" AS fruit
+					UNION ALL SELECT 50 AS sold, "oranges" AS fruit
+					UNION ALL SELECT 30 AS sold, "bananas" AS fruit
+					UNION ALL SELECT 10 AS sold, "bananas" AS fruit
+				)
+				SELECT
+					fruit,
+					MIN_BY(sold, sold) AS min_sales
+				FROM Store
+				GROUP BY fruit
+				ORDER BY fruit
+			`,
+			expectedRows: [][]interface{}{
+				{"apples", int64(20)},
+				{"bananas", int64(10)},
+				{"oranges", int64(50)},
+				{"pears", int64(40)},
+			},
+		},
+		{
+			name: "max_by basic",
+			query: `
+				WITH Store AS (
+					SELECT 20 AS sold, "apples" AS fruit
+					UNION ALL SELECT 40 AS sold, "pears" AS fruit
+					UNION ALL SELECT 50 AS sold, "oranges" AS fruit
+					UNION ALL SELECT 30 AS sold, "bananas" AS fruit
+					UNION ALL SELECT 10 AS sold, "bananas" AS fruit
+				)
+				SELECT
+					fruit,
+					MAX_BY(sold, sold) AS max_sales
+				FROM Store
+				GROUP BY fruit
+				ORDER BY fruit
+			`,
+			expectedRows: [][]interface{}{
+				{"apples", int64(20)},
+				{"bananas", int64(30)},
+				{"oranges", int64(50)},
+				{"pears", int64(40)},
+			},
+		},
 		{
 			name:  "array_agg",
 			query: `SELECT ARRAY_AGG(x) AS array_agg FROM UNNEST([2, 1,-2, 3, -2, 1, 2]) AS x`,

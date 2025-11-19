@@ -34,15 +34,16 @@ func (t *NameWithType) FunctionArgumentType() (*types.FunctionArgumentType, erro
 }
 
 type FunctionSpec struct {
-	IsTemp    bool            `json:"isTemp"`
-	NamePath  []string        `json:"name"`
-	Language  string          `json:"language"`
-	Args      []*NameWithType `json:"args"`
-	Return    *Type           `json:"return"`
-	Body      *SQLExpression  `json:"body"`
-	Code      string          `json:"code"`
-	UpdatedAt time.Time       `json:"updatedAt"`
-	CreatedAt time.Time       `json:"createdAt"`
+	IsTemp      bool            `json:"isTemp"`
+	NamePath    []string        `json:"name"`
+	Language    string          `json:"language"`
+	Args        []*NameWithType `json:"args"`
+	Return      *Type           `json:"return"`
+	Body        *SQLExpression  `json:"body"`
+	Code        string          `json:"code"`
+	IsAggregate bool            `json:"isAggregate"`
+	UpdatedAt   time.Time       `json:"updatedAt"`
+	CreatedAt   time.Time       `json:"createdAt"`
 }
 
 func (s *FunctionSpec) FuncName() string {

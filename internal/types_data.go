@@ -216,16 +216,16 @@ type ScanData struct {
 	Type       ScanType      `json:"type,omitempty"`
 	ColumnList []*ColumnData `json:"column_list,omitempty"` // Output columns from this scan
 
-	TableScan        *TableScanData     `json:"table_scan,omitempty"`
-	JoinScan         *JoinScanData      `json:"join_scan,omitempty"`
-	FilterScan       *FilterScanData    `json:"filter_scan,omitempty"`
-	ProjectScan      *ProjectScanData   `json:"project_scan,omitempty"`
-	AggregateScan    *AggregateScanData `json:"aggregate_scan,omitempty"`
-	OrderByScan      *OrderByScanData   `json:"order_by_scan,omitempty"`
-	LimitScan        *LimitScanData     `json:"limit_scan,omitempty"`
-	SetOperationScan *SetOperationData  `json:"set_operation_scan,omitempty"`
-	WithScan         *WithScanData      `json:"with_scan,omitempty"`
-	WithRefScan      *WithRefScanData   `json:"with_ref_scan,omitempty"`
+	TableScan        *TableScanData        `json:"table_scan,omitempty"`
+	JoinScan         *JoinScanData         `json:"join_scan,omitempty"`
+	FilterScan       *FilterScanData       `json:"filter_scan,omitempty"`
+	ProjectScan      *ProjectScanData      `json:"project_scan,omitempty"`
+	AggregateScan    *AggregateScanData    `json:"aggregate_scan,omitempty"`
+	OrderByScan      *OrderByScanData      `json:"order_by_scan,omitempty"`
+	LimitScan        *LimitScanData        `json:"limit_scan,omitempty"`
+	SetOperationScan *SetOperationData     `json:"set_operation_scan,omitempty"`
+	WithScan         *WithScanData         `json:"with_scan,omitempty"`
+	WithRefScan      *WithRefScanData      `json:"with_ref_scan,omitempty"`
 	WithEntryScan    *WithEntryData        `json:"with_entry_scan,omitempty"`
 	ArrayScan        *ArrayScanData        `json:"array_scan,omitempty"`
 	AnalyticScan     *AnalyticScanData     `json:"analytic_scan,omitempty"`

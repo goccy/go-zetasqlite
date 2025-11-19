@@ -211,6 +211,38 @@ func (e *NodeExtractor) extractFunctionCallData(node *ast.BaseFunctionCallNode, 
 		signature.Arguments = append(signature.Arguments, argInfo)
 	}
 
+	// Translate MIN_BY and MAX_BY to ANY_VALUE with HAVING MIN/MAX
+	// MIN_BY(x, y) -> ANY_VALUE(x HAVING MIN y)
+	// MAX_BY(x, y) -> ANY_VALUE(x HAVING MAX y)
+	originalFuncName := node.Function().FullName(false)
+	if originalFuncName == "min_by" || originalFuncName == "max_by" {
+		if len(arguments) != 2 {
+			return ExpressionData{}, fmt.Errorf("%s requires exactly 2 arguments", strings.ToUpper(originalFuncName))
+		}
+
+		// Determine the HAVING modifier type
+		var havingFunc string
+		if originalFuncName == "min_by" {
+			havingFunc = "zetasqlite_having_min"
+		} else {
+			havingFunc = "zetasqlite_having_max"
+		}
+
+		// Transform to ANY_VALUE with HAVING modifier
+		// Arguments: [x, HAVING_MIN/MAX(y)]
+		return ExpressionData{
+			Type: ExpressionTypeFunction,
+			Function: &FunctionCallData{
+				Name: "zetasqlite_any_value",
+				Arguments: []ExpressionData{
+					arguments[0], // x - the value to return
+					NewFunctionCallExpressionData(havingFunc, arguments[1]), // HAVING MIN/MAX(y)
+				},
+				Signature: signature,
+			},
+		}, nil
+	}
+
 	return ExpressionData{
 		Type: ExpressionTypeFunction,
 		Function: &FunctionCallData{
@@ -302,7 +334,7 @@ func (e *NodeExtractor) extractArgumentRefData(node *ast.ArgumentRefNode, ctx Tr
 // extractDMLDefaultData extracts data from DML default nodes
 func (e *NodeExtractor) extractDMLDefaultData(node *ast.DMLDefaultNode, ctx TransformContext) (ExpressionData, error) {
 	return ExpressionData{
-		Type: ExpressionTypeLiteral,
+		Type:    ExpressionTypeLiteral,
 		Literal: &LiteralData{
 			// DEFAULT keyword representation
 		},
@@ -434,6 +466,28 @@ func (e *NodeExtractor) extractAggregateFunctionCallData(node *ast.AggregateFunc
 		}
 
 		function.Arguments = append(function.Arguments, NewFunctionCallExpressionData("zetasqlite_limit", limit))
+	}
+
+	// Extract HAVING MAX/MIN modifier if present
+	if node.HavingModifier() != nil {
+		havingModifier := node.HavingModifier()
+		havingExprData, err := e.ExtractExpressionData(havingModifier.HavingExpr(), ctx)
+		if err != nil {
+			return ExpressionData{}, fmt.Errorf("failed to extract having modifier expression: %w", err)
+		}
+
+		// Add the HAVING modifier as a function argument, similar to ORDER_BY, DISTINCT, etc.
+		var havingFunc string
+		switch havingModifier.ModifierKind() {
+		case ast.HavingModifierKindMax:
+			havingFunc = "zetasqlite_having_max"
+		case ast.HavingModifierKindMin:
+			havingFunc = "zetasqlite_having_min"
+		default:
+			return ExpressionData{}, fmt.Errorf("unsupported having modifier kind: %v", havingModifier.ModifierKind())
+		}
+
+		function.Arguments = append(function.Arguments, NewFunctionCallExpressionData(havingFunc, havingExprData))
 	}
 
 	switch node.NullHandlingModifier() {

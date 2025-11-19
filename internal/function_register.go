@@ -261,6 +261,8 @@ var normalFuncs = []*FuncInfo{
 	{Name: "limit", BindFunc: bindLimit},
 	{Name: "order_by", BindFunc: bindOrderBy},
 	{Name: "ignore_nulls", BindFunc: bindIgnoreNulls},
+	{Name: "having_max", BindFunc: bindHavingMax},
+	{Name: "having_min", BindFunc: bindHavingMin},
 
 	// javascript funcs
 	{Name: "eval_javascript", BindFunc: bindEvalJavaScript},

@@ -3093,6 +3093,20 @@ func bindOrderBy(args ...Value) (Value, error) {
 	return ORDER_BY(args[0], b)
 }
 
+func bindHavingMax(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("HAVING_MAX: invalid argument num %d", len(args))
+	}
+	return HAVING_MAX(args[0])
+}
+
+func bindHavingMin(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("HAVING_MIN: invalid argument num %d", len(args))
+	}
+	return HAVING_MIN(args[0])
+}
+
 func bindEvalJavaScript(args ...Value) (Value, error) {
 	code, err := args[0].ToString()
 	if err != nil {

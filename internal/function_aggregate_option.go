@@ -36,6 +36,18 @@ func (o *AggregatorFuncOption) UnmarshalJSON(b []byte) error {
 			return err
 		}
 		o.Value = value.Value
+	case AggregatorFuncOptionHavingMax, AggregatorFuncOptionHavingMin:
+		var value struct {
+			Value interface{} `json:"value"`
+		}
+		if err := json.Unmarshal(b, &value); err != nil {
+			return err
+		}
+		havingValue, err := ValueFromGoValue(value.Value)
+		if err != nil {
+			return err
+		}
+		o.Value = havingValue
 	}
 	return nil
 }
@@ -48,6 +60,8 @@ const (
 	AggregatorFuncOptionLimit       AggregatorFuncOptionType = "aggregate_limit"
 	AggregatorFuncOptionOrderBy     AggregatorFuncOptionType = "aggregate_order_by"
 	AggregatorFuncOptionIgnoreNulls AggregatorFuncOptionType = "aggregate_ignore_nulls"
+	AggregatorFuncOptionHavingMax   AggregatorFuncOptionType = "aggregate_having_max"
+	AggregatorFuncOptionHavingMin   AggregatorFuncOptionType = "aggregate_having_min"
 )
 
 func DISTINCT() (Value, error) {
@@ -105,11 +119,33 @@ func ORDER_BY(value Value, isAsc bool) (Value, error) {
 	return StringValue(string(b)), nil
 }
 
+func HAVING_MAX(value Value) (Value, error) {
+	b, _ := json.Marshal(&AggregatorFuncOption{
+		Type:  AggregatorFuncOptionHavingMax,
+		Value: value,
+	})
+	return StringValue(string(b)), nil
+}
+
+func HAVING_MIN(value Value) (Value, error) {
+	b, _ := json.Marshal(&AggregatorFuncOption{
+		Type:  AggregatorFuncOptionHavingMin,
+		Value: value,
+	})
+	return StringValue(string(b)), nil
+}
+
+type AggregateHavingModifier struct {
+	Kind  string // "MAX" or "MIN"
+	Value Value
+}
+
 type AggregatorOption struct {
-	Distinct    bool
-	IgnoreNulls bool
-	Limit       *int64
-	OrderBy     []*AggregateOrderBy
+	Distinct       bool
+	IgnoreNulls    bool
+	Limit          *int64
+	OrderBy        []*AggregateOrderBy
+	HavingModifier *AggregateHavingModifier
 }
 
 func parseAggregateOptions(args ...Value) ([]Value, *AggregatorOption, error) {
@@ -142,6 +178,16 @@ func parseAggregateOptions(args ...Value) ([]Value, *AggregatorOption, error) {
 			opt.Limit = &i64
 		case AggregatorFuncOptionOrderBy:
 			opt.OrderBy = append(opt.OrderBy, v.Value.(*AggregateOrderBy))
+		case AggregatorFuncOptionHavingMax:
+			opt.HavingModifier = &AggregateHavingModifier{
+				Kind:  "MAX",
+				Value: v.Value.(Value),
+			}
+		case AggregatorFuncOptionHavingMin:
+			opt.HavingModifier = &AggregateHavingModifier{
+				Kind:  "MIN",
+				Value: v.Value.(Value),
+			}
 		default:
 			filteredArgs = append(filteredArgs, arg)
 			continue

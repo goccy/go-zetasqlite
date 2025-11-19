@@ -123,6 +123,30 @@ var MISSING_FUNCTIONS = []*FunctionSpec{
 		},
 		Return: &Type{SignatureKind: types.ArgTypeAny1},
 	},
+	// MIN_BY and MAX_BY are aliases for ANY_VALUE(x HAVING MIN/MAX y)
+	// https://github.com/goccy/bigquery-emulator/issues/388
+	{
+		IsTemp:      false,
+		NamePath:    []string{"min_by"},
+		Language:    "SQL",
+		IsAggregate: true,
+		Args: []*NameWithType{
+			{Name: "x", Type: &Type{Name: "x", SignatureKind: types.ArgTypeAny1}},
+			{Name: "y", Type: &Type{Name: "y", SignatureKind: types.ArgTypeAny2}},
+		},
+		Return: &Type{SignatureKind: types.ArgTypeAny1},
+	},
+	{
+		IsTemp:      false,
+		NamePath:    []string{"max_by"},
+		Language:    "SQL",
+		IsAggregate: true,
+		Args: []*NameWithType{
+			{Name: "x", Type: &Type{Name: "x", SignatureKind: types.ArgTypeAny1}},
+			{Name: "y", Type: &Type{Name: "y", SignatureKind: types.ArgTypeAny2}},
+		},
+		Return: &Type{SignatureKind: types.ArgTypeAny1},
+	},
 }
 
 func NewCatalog(db *sql.DB) (*Catalog, error) {
@@ -597,7 +621,14 @@ func (c *Catalog) addFunctionSpecRecursive(cat *types.SimpleCatalog, spec *Funct
 		return err
 	}
 	sig := types.NewFunctionSignature(retType, argTypes)
-	newFunc := types.NewFunction([]string{funcName}, "", types.ScalarMode, []*types.FunctionSignature{sig})
+
+	// Use AggregateMode for aggregate functions, ScalarMode otherwise
+	mode := types.ScalarMode
+	if spec.IsAggregate {
+		mode = types.AggregateMode
+	}
+
+	newFunc := types.NewFunction([]string{funcName}, "", mode, []*types.FunctionSignature{sig})
 	cat.AddFunction(newFunc)
 	return nil
 }
