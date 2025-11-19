@@ -79,6 +79,8 @@ func newAnalyzerOptions() (*zetasql.AnalyzerOptions, error) {
 		zetasql.FeatureDMLUpdateWithJoin,
 		zetasql.FeatureV13OmitInsertColumnList,
 		zetasql.FeatureV13WithRecursive,
+		zetasql.FeatureV12GroupByArray,
+		zetasql.FeatureV12GroupByStruct,
 	})
 	langOpt.SetSupportedStatementKinds([]ast.Kind{
 		ast.BeginStmt,

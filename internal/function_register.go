@@ -3,6 +3,7 @@ package internal
 import (
 	"database/sql/driver"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/goccy/go-json"
@@ -469,7 +470,25 @@ func RegisterFunctions() error {
 			if decoded == nil {
 				return nil, nil
 			}
-			return decoded.Interface(), nil
+			// Structs and Arrays are not valid driver.Value values so they must be handled specially when grouping
+			var values []Value
+			switch v := decoded.(type) {
+			case *StructValue:
+				values = v.values
+			case *ArrayValue:
+				values = v.values
+			default:
+				return decoded.Interface(), nil
+			}
+			elems := make([]string, len(values))
+			for i, val := range values {
+				str, err := val.ToString()
+				if err != nil {
+					return "", err
+				}
+				elems[i] = str
+			}
+			return strings.Join(elems, "||"), nil
 		},
 	}); err != nil {
 		return fmt.Errorf("failed to register function zetasqlite_group_by: %w", err)

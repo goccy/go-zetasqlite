@@ -6923,6 +6923,117 @@ SELECT conductor.length FROM conductors;`,
 			},
 			args: []interface{}{map[string]float64{}},
 		},
+		{
+			name: "group by struct values basic",
+			query: `SELECT person, COUNT(*) AS count
+FROM (
+  SELECT STRUCT('Alice' AS name, 30 AS age) AS person
+  UNION ALL
+  SELECT STRUCT('Alice' AS name, 30 AS age) AS person
+  UNION ALL
+  SELECT STRUCT('Bob' AS name, 25 AS age) AS person
+)
+GROUP BY person
+ORDER BY count DESC`,
+			expectedRows: [][]interface{}{
+				{map[string]interface{}{"name": "Alice", "age": int64(30)}, int64(2)},
+				{map[string]interface{}{"name": "Bob", "age": int64(25)}, int64(1)},
+			},
+		},
+		{
+			name: "group by struct values with aggregation",
+			query: `SELECT person, SUM(amount) AS total
+FROM (
+  SELECT STRUCT('Alice' AS name, 'Sales' AS dept) AS person, 100 AS amount
+  UNION ALL
+  SELECT STRUCT('Alice' AS name, 'Sales' AS dept) AS person, 200 AS amount
+  UNION ALL
+  SELECT STRUCT('Bob' AS name, 'Engineering' AS dept) AS person, 150 AS amount
+  UNION ALL
+  SELECT STRUCT('Bob' AS name, 'Engineering' AS dept) AS person, 250 AS amount
+)
+GROUP BY person
+ORDER BY total DESC`,
+			expectedRows: [][]interface{}{
+				{map[string]interface{}{"name": "Bob", "dept": "Engineering"}, int64(400)},
+				{map[string]interface{}{"name": "Alice", "dept": "Sales"}, int64(300)},
+			},
+		},
+		{
+			name: "group by array values basic",
+			query: `SELECT tags, COUNT(*) AS count
+FROM (
+  SELECT ['go', 'sql'] AS tags
+  UNION ALL
+  SELECT ['go', 'sql'] AS tags
+  UNION ALL
+  SELECT ['python', 'data'] AS tags
+)
+GROUP BY tags
+ORDER BY count DESC`,
+			expectedRows: [][]interface{}{
+				{[]interface{}{"go", "sql"}, int64(2)},
+				{[]interface{}{"python", "data"}, int64(1)},
+			},
+		},
+		{
+			name: "group by array values with aggregation",
+			query: `SELECT labels, SUM(value) AS total
+FROM (
+  SELECT ['A', 'B'] AS labels, 10 AS value
+  UNION ALL
+  SELECT ['A', 'B'] AS labels, 20 AS value
+  UNION ALL
+  SELECT ['C', 'D'] AS labels, 30 AS value
+  UNION ALL
+  SELECT ['C', 'D'] AS labels, 40 AS value
+)
+GROUP BY labels
+ORDER BY total DESC`,
+			expectedRows: [][]interface{}{
+				{[]interface{}{"C", "D"}, int64(70)},
+				{[]interface{}{"A", "B"}, int64(30)},
+			},
+		},
+		{
+			name: "group by nested struct with arrays",
+			query: `SELECT data, COUNT(*) AS count
+FROM (
+  SELECT STRUCT(['tag1', 'tag2'] AS tags, 'user1' AS user_id) AS data
+  UNION ALL
+  SELECT STRUCT(['tag1', 'tag2'] AS tags, 'user1' AS user_id) AS data
+  UNION ALL
+  SELECT STRUCT(['tag3'] AS tags, 'user2' AS user_id) AS data
+)
+GROUP BY data
+ORDER BY count DESC`,
+			expectedRows: [][]interface{}{
+				{map[string]interface{}{"tags": []interface{}{"tag1", "tag2"}, "user_id": "user1"}, int64(2)},
+				{map[string]interface{}{"tags": []interface{}{"tag3"}, "user_id": "user2"}, int64(1)},
+			},
+		},
+		{
+			name: "group by array of structs",
+			query: `SELECT items, SUM(total) AS sum_total
+FROM (
+  SELECT [STRUCT('item1' AS name, 10 AS price), STRUCT('item2' AS name, 20 AS price)] AS items, 100 AS total
+  UNION ALL
+  SELECT [STRUCT('item1' AS name, 10 AS price), STRUCT('item2' AS name, 20 AS price)] AS items, 200 AS total
+  UNION ALL
+  SELECT [STRUCT('item3' AS name, 30 AS price)] AS items, 150 AS total
+)
+GROUP BY items
+ORDER BY sum_total DESC`,
+			expectedRows: [][]interface{}{
+				{[]interface{}{
+					map[string]interface{}{"name": "item1", "price": int64(10)},
+					map[string]interface{}{"name": "item2", "price": int64(20)},
+				}, int64(300)},
+				{[]interface{}{
+					map[string]interface{}{"name": "item3", "price": int64(30)},
+				}, int64(150)},
+			},
+		},
 	} {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
