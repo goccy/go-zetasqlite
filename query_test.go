@@ -6499,6 +6499,45 @@ FROM CoordinatesTable AS t`,
 			},
 		},
 		{
+			name:  "to_json_string_null",
+			query: `SELECT TO_JSON_STRING(NULL) AS a`,
+			expectedRows: [][]interface{}{
+				{`null`},
+			},
+		},
+		{
+			name: "compare_arrays_with_json_null_only",
+			query: `
+WITH input_rows AS (
+    SELECT a, b
+    FROM UNNEST([
+       STRUCT(NULL AS a, [] AS b)
+    ])
+)
+SELECT TO_JSON_STRING(a) AS result
+FROM input_rows`,
+			expectedRows: [][]interface{}{
+				{`null`},
+			},
+		},
+		{
+			name: "compare_arrays_with_json_mixed",
+			query: `
+WITH input_rows AS (
+    SELECT a, b
+    FROM UNNEST([
+       STRUCT([1] AS a, [] AS b),
+       STRUCT(NULL AS a, [] AS b)
+    ])
+)
+SELECT TO_JSON_STRING(a) AS result
+FROM input_rows`,
+			expectedRows: [][]interface{}{
+				{"[1]"},
+				{`null`},
+			},
+		},
+		{
 			name:         "json_string",
 			query:        `SELECT STRING(JSON '"purple"') AS color`,
 			expectedRows: [][]interface{}{{"purple"}},

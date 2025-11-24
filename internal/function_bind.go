@@ -1696,6 +1696,9 @@ func bindToJsonString(args ...Value) (Value, error) {
 	}
 	var prettyPrint bool
 	if len(args) == 2 {
+		if args[1] == nil {
+			return nil, nil
+		}
 		b, err := args[1].ToBool()
 		if err != nil {
 			return nil, err

@@ -325,6 +325,9 @@ func TO_JSON(v Value, stringifyWideNumbers bool) (Value, error) {
 }
 
 func TO_JSON_STRING(v Value, prettyPrint bool) (Value, error) {
+	if v == nil {
+		return StringValue(`null`), nil
+	}
 	s, err := v.ToJSON()
 	if err != nil {
 		return nil, err
