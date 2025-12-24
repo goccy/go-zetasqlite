@@ -88,7 +88,23 @@ func (c *Catalog) FindTable(path []string) (types.Table, error) {
 	if c.isWildcardTable(path) {
 		return c.createWildcardTable(path)
 	}
-	return c.catalog.FindTable(path)
+	table, err := c.catalog.FindTable(path)
+	if err != nil {
+		normalizedPath := c.normalizeTablePath(path)
+		if len(normalizedPath) != len(path) {
+			return c.catalog.FindTable(normalizedPath)
+		}
+	}
+	return table, err
+}
+
+func (c *Catalog) normalizeTablePath(path []string) []string {
+	result := []string{}
+	for _, p := range path {
+		parts := strings.Split(p, ".")
+		result = append(result, parts...)
+	}
+	return result
 }
 
 func (c *Catalog) FindModel(path []string) (types.Model, error) {
