@@ -119,6 +119,11 @@ var normalFuncs = []*FuncInfo{
 	{Name: "justify_hours", BindFunc: bindJustifyHours},
 	{Name: "justify_interval", BindFunc: bindJustifyInterval},
 
+	// geography functions
+	{Name: "st_geogpoint", BindFunc: bindStGeogPoint},
+	{Name: "st_geogfromtext", BindFunc: bindStGeogFromText},
+	{Name: "st_distance", BindFunc: bindStDistance},
+
 	// numeric/bignumeric functions
 	{Name: "parse_numeric", BindFunc: bindParseNumeric},
 	{Name: "parse_bignumeric", BindFunc: bindParseBigNumeric},

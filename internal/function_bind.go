@@ -594,6 +594,56 @@ func bindJustifyInterval(args ...Value) (Value, error) {
 	return JUSTIFY_INTERVAL(interval)
 }
 
+func bindStGeogPoint(args ...Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("ST_GEOGPOINT: invalid argument num %d", len(args))
+	}
+	if existsNull(args) {
+		return nil, nil
+	}
+
+	longitude, err := args[0].ToFloat64()
+	if err != nil {
+		return nil, fmt.Errorf("ST_GEOGPOINT: invalid longitude argument: %w", err)
+	}
+	latitude, err := args[1].ToFloat64()
+	if err != nil {
+		return nil, fmt.Errorf("ST_GEOGPOINT: invalid latitude argument: %w", err)
+	}
+
+	return ST_GEOGPOINT(longitude, latitude)
+}
+
+func bindStGeogFromText(args ...Value) (Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("ST_GEOGFROMTEXT: invalid argument num %d", len(args))
+	}
+
+	wkt, err := args[0].ToString()
+	if err != nil {
+		return nil, fmt.Errorf("ST_GEOGFROMTEXT: invalid argument: %w", err)
+	}
+
+	return ST_GEOGFROMTEXT(wkt)
+}
+
+func bindStDistance(args ...Value) (Value, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("ST_DISTANCE: invalid argument num %d", len(args))
+	}
+
+	geo1, ok := args[0].(*GeographyValue)
+	if !ok {
+		return nil, fmt.Errorf("ST_DISTANCE: unexpected argument type %T", args[0])
+	}
+	geo2, ok := args[1].(*GeographyValue)
+	if !ok {
+		return nil, fmt.Errorf("ST_DISTANCE: unexpected argument type %T", args[0])
+	}
+
+	return ST_DISTANCE(geo1, geo2)
+}
+
 func bindParseNumeric(args ...Value) (Value, error) {
 	numeric, err := args[0].ToString()
 	if err != nil {

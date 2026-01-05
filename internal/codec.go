@@ -18,6 +18,7 @@ const (
 	TimeValueType       ValueType = "time"
 	TimestampValueType  ValueType = "timestamp"
 	IntervalValueType   ValueType = "interval"
+	GeographyValueType  ValueType = "geography"
 )
 
 type ValueLayout struct {

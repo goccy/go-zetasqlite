@@ -122,6 +122,12 @@ func decodeFromValueLayout(layout *ValueLayout) (Value, error) {
 		ret.values = values
 		ret.m = m
 		return ret, nil
+	case GeographyValueType:
+		ret, err := GeographyFromWKT(layout.Body)
+		if err != nil {
+			return nil, fmt.Errorf("decodeFromValueLayout failed: %w", err)
+		}
+		return ret, nil
 	}
 	return nil, fmt.Errorf("unexpected value header: %s", layout.Header)
 }
