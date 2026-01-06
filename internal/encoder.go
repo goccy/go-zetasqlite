@@ -714,6 +714,15 @@ func valueLayoutFromValue(v Value) (*ValueLayout, error) {
 			Header: StructValueType,
 			Body:   string(body),
 		}, nil
+	case *GeographyValue:
+		s, err := vv.ToWKT()
+		if err != nil {
+			return nil, err
+		}
+		return &ValueLayout{
+			Header: GeographyValueType,
+			Body:   s,
+		}, nil
 	}
 	return nil, fmt.Errorf("unexpected value type to get value layout: %T", v)
 }

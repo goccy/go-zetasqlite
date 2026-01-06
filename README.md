@@ -617,6 +617,16 @@ A list of ZetaSQL ( Google Standard SQL ) specifications and features supported 
 - [x] JUSTIFY_HOURS
 - [x] JUSTIFY_INTERVAL
 
+### Geography types
+
+- [x] Point
+- [ ] LineString
+- [ ] Polygon
+- [ ] MultiPoint
+- [ ] MultiLineString
+- [ ] MultiPolygon
+- [ ] GeometryCollection
+
 ### Geography functions
 
 - [ ] S2_CELLIDFROMPOINT
@@ -642,7 +652,7 @@ A list of ZetaSQL ( Google Standard SQL ) specifications and features supported 
 - [ ] ST_DIFFERENCE
 - [ ] ST_DIMENSION
 - [ ] ST_DISJOINT
-- [ ] ST_DISTANCE
+- [x] ST_DISTANCE
 - [ ] ST_DUMP
 - [ ] ST_DWITHIN
 - [ ] ST_ENDPOINT
@@ -651,9 +661,9 @@ A list of ZetaSQL ( Google Standard SQL ) specifications and features supported 
 - [ ] ST_EXTERIORRING
 - [ ] ST_GEOGFROM
 - [ ] ST_GEOGFROMGEOJSON
-- [ ] ST_GEOGFROMTEXT
+- [x] ST_GEOGFROMTEXT
 - [ ] ST_GEOGFROMWKB
-- [ ] ST_GEOGPOINT
+- [x] ST_GEOGPOINT
 - [ ] ST_GEOGPOINTFROMGEOHASH
 - [ ] ST_GEOHASH
 - [ ] ST_GEOMETRYTYPE
