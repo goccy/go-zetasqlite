@@ -94,7 +94,17 @@ A list of ZetaSQL ( Google Standard SQL ) specifications and features supported 
 - [x] STRUCT
 - [x] JSON
 - [x] RECORD
-- [ ] GEOGRAPHY
+- [x] GEOGRAPHY
+
+### Geography types
+
+- [x] Point
+- [ ] LineString
+- [ ] Polygon
+- [ ] MultiPoint
+- [ ] MultiLineString
+- [ ] MultiPolygon
+- [ ] GeometryCollection
 
 ## Expressions
 
@@ -616,16 +626,6 @@ A list of ZetaSQL ( Google Standard SQL ) specifications and features supported 
 - [x] JUSTIFY_DAYS
 - [x] JUSTIFY_HOURS
 - [x] JUSTIFY_INTERVAL
-
-### Geography types
-
-- [x] Point
-- [ ] LineString
-- [ ] Polygon
-- [ ] MultiPoint
-- [ ] MultiLineString
-- [ ] MultiPolygon
-- [ ] GeometryCollection
 
 ### Geography functions
 
