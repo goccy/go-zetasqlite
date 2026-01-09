@@ -215,7 +215,7 @@ func (r *Rows) assignInterfaceValue(src Value, dst reflect.Value, typ *Type) err
 		if err != nil {
 			return err
 		}
-		dst.Set(reflect.ValueOf(i64))
+		dst.Set(reflect.ValueOf(i64).Convert(dst.Type()))
 	case types.BOOL:
 		b, err := src.ToBool()
 		if err != nil {
@@ -296,7 +296,25 @@ func (r *Rows) assignInterfaceValue(src Value, dst reflect.Value, typ *Type) err
 		if err != nil {
 			return err
 		}
-		dst.Set(reflect.ValueOf(s.Interface()))
+		fields := s.Interface().([]map[string]interface{})
+
+		// Assign interface values for all child fields
+		for i := range s.keys {
+			innerKey := s.keys[i]
+			innerValue := s.values[i]
+			innerType := typ.FieldTypes[i].Type
+			if innerValue == nil {
+				continue
+			}
+
+			refT := reflect.TypeOf(innerValue.Interface())
+			refV := reflect.New(refT).Elem()
+			if err := r.assignInterfaceValue(innerValue, refV, innerType); err != nil {
+				return err
+			}
+			fields[i][innerKey] = refV.Interface()
+		}
+		dst.Set(reflect.ValueOf(fields))
 	case types.ARRAY:
 		array, err := src.ToArray()
 		if err != nil {

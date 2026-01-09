@@ -280,9 +280,7 @@ func timestampValueFromLiteral(t time.Time) (TimestampValue, error) {
 	return TimestampValue(t), nil
 }
 
-var (
-	numericLiteralPattern = regexp.MustCompile(`NUMERIC "(.+)"`)
-)
+var numericLiteralPattern = regexp.MustCompile(`NUMERIC "(.+)"`)
 
 func numericValueFromLiteral(lit string) (*NumericValue, error) {
 	matches := numericLiteralPattern.FindAllStringSubmatch(lit, -1)
@@ -305,9 +303,7 @@ func jsonValueFromLiteral(lit string) (JsonValue, error) {
 	return JsonValue(lit), nil
 }
 
-var (
-	intervalLiteralPattern = regexp.MustCompile(`INTERVAL "(.+)"`)
-)
+var intervalLiteralPattern = regexp.MustCompile(`INTERVAL "(.+)"`)
 
 func intervalValueFromLiteral(lit string) (*IntervalValue, error) {
 	matches := intervalLiteralPattern.FindAllStringSubmatch(lit, -1)
@@ -437,50 +433,29 @@ func CastValue(t types.Type, v Value) (Value, error) {
 		if array, ok := v.(*ArrayValue); ok {
 			ret := &StructValue{m: map[string]Value{}}
 			for _, value := range array.values {
-				st, err := value.ToStruct()
+				casted, err := castStruct(t.AsStruct(), value)
 				if err != nil {
 					return nil, err
 				}
-				ret.keys = append(ret.keys, st.keys...)
-				ret.values = append(ret.values, st.values...)
-				for i, k := range st.keys {
-					ret.m[k] = st.values[i]
+				st, ok := casted.(*StructValue)
+				if !ok {
+					return nil, fmt.Errorf("casting to struct returned non-struct: %T", casted)
 				}
+				for i, k := range st.keys {
+					prev, ok := ret.m[k]
+					if !ok || prev == nil {
+						ret.m[k] = st.values[i]
+					}
+				}
+			}
+			for k, v := range ret.m {
+				ret.keys = append(ret.keys, k)
+				ret.values = append(ret.values, v)
 			}
 			return ret, nil
 		}
-		s, err := v.ToStruct()
-		if err != nil {
-			return nil, err
-		}
-		typ := t.AsStruct()
-		anonymousStruct := true
-		for _, key := range s.keys {
-			if key != "" {
-				anonymousStruct = false
-			}
-		}
-		if anonymousStruct {
-			return s, nil
-		}
-		ret := &StructValue{m: s.m}
-		for i := 0; i < typ.NumFields(); i++ {
-			key := typ.Field(i).Name()
-			value, exists := s.m[key]
-			if !exists {
-				ret.keys = append(ret.keys, key)
-				ret.values = append(ret.values, nil)
-				continue
-			}
-			casted, err := CastValue(typ.Field(i).Type(), value)
-			if err != nil {
-				return nil, err
-			}
-			ret.keys = append(ret.keys, key)
-			ret.values = append(ret.values, casted)
-			ret.m[key] = casted
-		}
-		return ret, nil
+		return castStruct(t, v)
+
 	case types.NUMERIC:
 		r, err := v.ToRat()
 		if err != nil {
@@ -503,6 +478,41 @@ func CastValue(t types.Type, v Value) (Value, error) {
 		return v, nil
 	}
 	return nil, fmt.Errorf("unsupported cast %s value", t.Kind())
+}
+
+func castStruct(t types.Type, v Value) (Value, error) {
+	s, err := v.ToStruct()
+	if err != nil {
+		return nil, err
+	}
+	typ := t.AsStruct()
+	anonymousStruct := true
+	for _, key := range s.keys {
+		if key != "" {
+			anonymousStruct = false
+		}
+	}
+	if anonymousStruct {
+		return s, nil
+	}
+	ret := &StructValue{m: s.m}
+	for i := 0; i < typ.NumFields(); i++ {
+		key := typ.Field(i).Name()
+		value, exists := s.m[key]
+		if !exists {
+			ret.keys = append(ret.keys, key)
+			ret.values = append(ret.values, nil)
+			continue
+		}
+		casted, err := CastValue(typ.Field(i).Type(), value)
+		if err != nil {
+			return nil, err
+		}
+		ret.keys = append(ret.keys, key)
+		ret.values = append(ret.values, casted)
+		ret.m[key] = casted
+	}
+	return ret, nil
 }
 
 func ValueFromGoValue(v interface{}) (Value, error) {
