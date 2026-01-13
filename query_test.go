@@ -68,9 +68,25 @@ UNION ALL
 			expectedRows: [][]interface{}{{int64(1)}},
 		},
 		{
-			name:         "unary minus operator",
+			name:         "unary minus operator with literal",
 			query:        "SELECT -2",
 			expectedRows: [][]interface{}{{int64(-2)}},
+		},
+		{
+			name: "unary minus operator with column",
+			query: `WITH x AS (
+						SELECT 2 AS i, 2.0 AS f
+						UNION ALL
+						SELECT NULL, -9223372036854775808
+					) SELECT -i, -f FROM x`,
+			expectedRows: [][]interface{}{
+				{int64(-2), float64(-2.0)},
+				{nil, float64(9223372036854775808)}},
+		},
+		{
+			name:        "unary minus operator overflow",
+			query:       "WITH x AS (SELECT -9223372036854775807-1 as v) SELECT -v FROM x",
+			expectedErr: "int64 overflow: --9223372036854775808",
 		},
 		{
 			name:         "bit not operator",
