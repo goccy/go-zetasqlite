@@ -144,17 +144,14 @@ func DATE_DIFF(a, b time.Time, part string) (Value, error) {
 		return IntValue(result), nil
 	}
 
-	diff := a.Sub(b)
 
 	switch part {
 	case "DAY":
-		diffDay := diff / (24 * time.Hour)
-		mod := diff % (24 * time.Hour)
-		if mod > 0 {
-			diffDay++
-		} else if mod < 0 {
-			diffDay--
-		}
+		// Count the number of day boundaries (midnights) between b and a.
+		// Truncate both to midnight and compute the difference in days.
+		aDay := time.Date(a.Year(), a.Month(), a.Day(), 0, 0, 0, 0, a.Location())
+		bDay := time.Date(b.Year(), b.Month(), b.Day(), 0, 0, 0, 0, b.Location())
+		diffDay := aDay.Sub(bDay) / (24 * time.Hour)
 		return IntValue(diffDay), nil
 	case "ISOWEEK":
 		return IntValue((a.Year()-b.Year())*48 + weekA - weekB), nil
