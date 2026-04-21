@@ -9,369 +9,369 @@ func newNode(node googlesql.ResolvedNodeNode) Formatter {
 		return nil
 	}
 	switch node.Kind() {
-	case googlesql.ResolvedLiteral:
+	case googlesql.ResolvedNodeKindResolvedLiteral:
 		return newLiteralNode(node.(*googlesql.ResolvedLiteralNode))
-	case googlesql.ResolvedParameter:
+	case googlesql.ResolvedNodeKindResolvedParameter:
 		return newParameterNode(node.(*googlesql.ResolvedParameterNode))
-	case googlesql.ResolvedExpressionColumn:
+	case googlesql.ResolvedNodeKindResolvedExpressionColumn:
 		return newExpressionColumnNode(node.(*googlesql.ResolvedExpressionColumnNode))
-	case googlesql.ResolvedColumnRef:
+	case googlesql.ResolvedNodeKindResolvedColumnRef:
 		return newColumnRefNode(node.(*googlesql.ResolvedColumnRefNode))
-	case googlesql.ResolvedConstant:
+	case googlesql.ResolvedNodeKindResolvedConstant:
 		return newConstantNode(node.(*googlesql.ResolvedConstantNode))
-	case googlesql.ResolvedSystemVariable:
+	case googlesql.ResolvedNodeKindResolvedSystemVariable:
 		return newSystemVariableNode(node.(*googlesql.ResolvedSystemVariableNode))
-	case googlesql.ResolvedInlineLambda:
+	case googlesql.ResolvedNodeKindResolvedInlineLambda:
 		return newInlineLambdaNode(node.(*googlesql.ResolvedInlineLambdaNode))
-	case googlesql.ResolvedFilterFieldArg:
+	case googlesql.ResolvedNodeKindResolvedFilterFieldArg:
 		return newFilterFieldArgNode(node.(*googlesql.ResolvedFilterFieldArgNode))
-	case googlesql.ResolvedFilterField:
+	case googlesql.ResolvedNodeKindResolvedFilterField:
 		return newFilterFieldNode(node.(*googlesql.ResolvedFilterFieldNode))
-	case googlesql.ResolvedFunctionCall:
+	case googlesql.ResolvedNodeKindResolvedFunctionCall:
 		return newFunctionCallNode(node.(*googlesql.ResolvedFunctionCallNode))
-	case googlesql.ResolvedAggregateFunctionCall:
+	case googlesql.ResolvedNodeKindResolvedAggregateFunctionCall:
 		return newAggregateFunctionCallNode(node.(*googlesql.ResolvedAggregateFunctionCallNode))
-	case googlesql.ResolvedAnalyticFunctionCall:
+	case googlesql.ResolvedNodeKindResolvedAnalyticFunctionCall:
 		return newAnalyticFunctionCallNode(node.(*googlesql.ResolvedAnalyticFunctionCallNode))
-	case googlesql.ResolvedExtendedCastElement:
+	case googlesql.ResolvedNodeKindResolvedExtendedCastElement:
 		return newExtendedCastElementNode(node.(*googlesql.ResolvedExtendedCastElementNode))
-	case googlesql.ResolvedExtendedCast:
+	case googlesql.ResolvedNodeKindResolvedExtendedCast:
 		return newExtendedCastNode(node.(*googlesql.ResolvedExtendedCastNode))
-	case googlesql.ResolvedCast:
+	case googlesql.ResolvedNodeKindResolvedCast:
 		return newCastNode(node.(*googlesql.ResolvedCastNode))
-	case googlesql.ResolvedMakeStruct:
+	case googlesql.ResolvedNodeKindResolvedMakeStruct:
 		return newMakeStructNode(node.(*googlesql.ResolvedMakeStructNode))
-	case googlesql.ResolvedMakeProto:
+	case googlesql.ResolvedNodeKindResolvedMakeProto:
 		return newMakeProtoNode(node.(*googlesql.ResolvedMakeProtoNode))
-	case googlesql.ResolvedMakeProtoField:
+	case googlesql.ResolvedNodeKindResolvedMakeProtoField:
 		return newMakeProtoFieldNode(node.(*googlesql.ResolvedMakeProtoFieldNode))
-	case googlesql.ResolvedGetStructField:
+	case googlesql.ResolvedNodeKindResolvedGetStructField:
 		return newGetStructFieldNode(node.(*googlesql.ResolvedGetStructFieldNode))
-	case googlesql.ResolvedGetProtoField:
+	case googlesql.ResolvedNodeKindResolvedGetProtoField:
 		return newGetProtoFieldNode(node.(*googlesql.ResolvedGetProtoFieldNode))
-	case googlesql.ResolvedGetJsonField:
+	case googlesql.ResolvedNodeKindResolvedGetJsonField:
 		return newGetJsonFieldNode(node.(*googlesql.ResolvedGetJsonFieldNode))
-	case googlesql.ResolvedFlatten:
+	case googlesql.ResolvedNodeKindResolvedFlatten:
 		return newFlattenNode(node.(*googlesql.ResolvedFlattenNode))
-	case googlesql.ResolvedFlattenedArg:
+	case googlesql.ResolvedNodeKindResolvedFlattenedArg:
 		return newFlattenedArgNode(node.(*googlesql.ResolvedFlattenedArgNode))
-	case googlesql.ResolvedReplaceFieldItem:
+	case googlesql.ResolvedNodeKindResolvedReplaceFieldItem:
 		return newReplaceFieldItemNode(node.(*googlesql.ResolvedReplaceFieldItemNode))
-	case googlesql.ResolvedReplaceField:
+	case googlesql.ResolvedNodeKindResolvedReplaceField:
 		return newReplaceFieldNode(node.(*googlesql.ResolvedReplaceFieldNode))
-	case googlesql.ResolvedSubqueryExpr:
+	case googlesql.ResolvedNodeKindResolvedSubqueryExpr:
 		return newSubqueryExprNode(node.(*googlesql.ResolvedSubqueryExprNode))
 	case ResolvedLetExpr:
 		return newLetExprNode(node.(*ResolvedLetExprNode))
-	case googlesql.ResolvedModel:
+	case googlesql.ResolvedNodeKindResolvedModel:
 		return newModelNode(node.(*googlesql.ResolvedModelNode))
-	case googlesql.ResolvedConnection:
+	case googlesql.ResolvedNodeKindResolvedConnection:
 		return newConnectionNode(node.(*googlesql.ResolvedConnectionNode))
-	case googlesql.ResolvedDescriptor:
+	case googlesql.ResolvedNodeKindResolvedDescriptor:
 		return newDescriptorNode(node.(*googlesql.ResolvedDescriptorNode))
-	case googlesql.ResolvedSingleRowScan:
+	case googlesql.ResolvedNodeKindResolvedSingleRowScan:
 		return newSingleRowScanNode(node.(*googlesql.ResolvedSingleRowScanNode))
-	case googlesql.ResolvedTableScan:
+	case googlesql.ResolvedNodeKindResolvedTableScan:
 		return newTableScanNode(node.(*googlesql.ResolvedTableScanNode))
-	case googlesql.ResolvedJoinScan:
+	case googlesql.ResolvedNodeKindResolvedJoinScan:
 		return newJoinScanNode(node.(*googlesql.ResolvedJoinScanNode))
-	case googlesql.ResolvedArrayScan:
+	case googlesql.ResolvedNodeKindResolvedArrayScan:
 		return newArrayScanNode(node.(*googlesql.ResolvedArrayScanNode))
-	case googlesql.ResolvedColumnHolder:
+	case googlesql.ResolvedNodeKindResolvedColumnHolder:
 		return newColumnHolderNode(node.(*googlesql.ResolvedColumnHolderNode))
-	case googlesql.ResolvedFilterScan:
+	case googlesql.ResolvedNodeKindResolvedFilterScan:
 		return newFilterScanNode(node.(*googlesql.ResolvedFilterScanNode))
-	case googlesql.ResolvedGroupingSet:
+	case googlesql.ResolvedNodeKindResolvedGroupingSet:
 		return newGroupingSetNode(node.(*googlesql.ResolvedGroupingSetNode))
-	case googlesql.ResolvedAggregateScan:
+	case googlesql.ResolvedNodeKindResolvedAggregateScan:
 		return newAggregateScanNode(node.(*googlesql.ResolvedAggregateScanNode))
-	case googlesql.ResolvedAnonymizedAggregateScan:
+	case googlesql.ResolvedNodeKindResolvedAnonymizedAggregateScan:
 		return newAnonymizedAggregateScanNode(node.(*googlesql.ResolvedAnonymizedAggregateScanNode))
-	case googlesql.ResolvedSetOperationItem:
+	case googlesql.ResolvedNodeKindResolvedSetOperationItem:
 		return newSetOperationItemNode(node.(*googlesql.ResolvedSetOperationItemNode))
-	case googlesql.ResolvedSetOperationScan:
+	case googlesql.ResolvedNodeKindResolvedSetOperationScan:
 		return newSetOperationScanNode(node.(*googlesql.ResolvedSetOperationScanNode))
-	case googlesql.ResolvedOrderByScan:
+	case googlesql.ResolvedNodeKindResolvedOrderByScan:
 		return newOrderByScanNode(node.(*googlesql.ResolvedOrderByScanNode))
-	case googlesql.ResolvedLimitOffsetScan:
+	case googlesql.ResolvedNodeKindResolvedLimitOffsetScan:
 		return newLimitOffsetScanNode(node.(*googlesql.ResolvedLimitOffsetScanNode))
-	case googlesql.ResolvedWithRefScan:
+	case googlesql.ResolvedNodeKindResolvedWithRefScan:
 		return newWithRefScanNode(node.(*googlesql.ResolvedWithRefScanNode))
-	case googlesql.ResolvedAnalyticScan:
+	case googlesql.ResolvedNodeKindResolvedAnalyticScan:
 		return newAnalyticScanNode(node.(*googlesql.ResolvedAnalyticScanNode))
-	case googlesql.ResolvedSampleScan:
+	case googlesql.ResolvedNodeKindResolvedSampleScan:
 		return newSampleScanNode(node.(*googlesql.ResolvedSampleScanNode))
-	case googlesql.ResolvedComputedColumn:
+	case googlesql.ResolvedNodeKindResolvedComputedColumn:
 		return newComputedColumnNode(node.(*googlesql.ResolvedComputedColumnNode))
-	case googlesql.ResolvedOrderByItem:
+	case googlesql.ResolvedNodeKindResolvedOrderByItem:
 		return newOrderByItemNode(node.(*googlesql.ResolvedOrderByItemNode))
-	case googlesql.ResolvedColumnAnnotations:
+	case googlesql.ResolvedNodeKindResolvedColumnAnnotations:
 		return newColumnAnnotationsNode(node.(*googlesql.ResolvedColumnAnnotationsNode))
-	case googlesql.ResolvedGeneratedColumnInfo:
+	case googlesql.ResolvedNodeKindResolvedGeneratedColumnInfo:
 		return newGeneratedColumnInfoNode(node.(*googlesql.ResolvedGeneratedColumnInfoNode))
-	case googlesql.ResolvedColumnDefaultValue:
+	case googlesql.ResolvedNodeKindResolvedColumnDefaultValue:
 		return newColumnDefaultValueNode(node.(*googlesql.ResolvedColumnDefaultValueNode))
-	case googlesql.ResolvedColumnDefinition:
+	case googlesql.ResolvedNodeKindResolvedColumnDefinition:
 		return newColumnDefinitionNode(node.(*googlesql.ResolvedColumnDefinitionNode))
-	case googlesql.ResolvedPrimaryKey:
+	case googlesql.ResolvedNodeKindResolvedPrimaryKey:
 		return newPrimaryKeyNode(node.(*googlesql.ResolvedPrimaryKeyNode))
-	case googlesql.ResolvedForeignKey:
+	case googlesql.ResolvedNodeKindResolvedForeignKey:
 		return newForeignKeyNode(node.(*googlesql.ResolvedForeignKeyNode))
-	case googlesql.ResolvedCheckConstraint:
+	case googlesql.ResolvedNodeKindResolvedCheckConstraint:
 		return newCheckConstraintNode(node.(*googlesql.ResolvedCheckConstraintNode))
-	case googlesql.ResolvedOutputColumn:
+	case googlesql.ResolvedNodeKindResolvedOutputColumn:
 		return newOutputColumnNode(node.(*googlesql.ResolvedOutputColumnNode))
-	case googlesql.ResolvedProjectScan:
+	case googlesql.ResolvedNodeKindResolvedProjectScan:
 		return newProjectScanNode(node.(*googlesql.ResolvedProjectScanNode))
-	case googlesql.ResolvedTVFScan:
+	case googlesql.ResolvedNodeKindResolvedTVFScan:
 		return newTVFScanNode(node.(*googlesql.ResolvedTVFScanNode))
-	case googlesql.ResolvedGroupRowsScan:
+	case googlesql.ResolvedNodeKindResolvedGroupRowsScan:
 		return newGroupRowsScanNode(node.(*googlesql.ResolvedGroupRowsScanNode))
-	case googlesql.ResolvedFunctionArgument:
+	case googlesql.ResolvedNodeKindResolvedFunctionArgument:
 		return newFunctionArgumentNode(node.(*googlesql.ResolvedFunctionArgumentNode))
-	case googlesql.ResolvedExplainStmt:
+	case googlesql.ResolvedNodeKindResolvedExplainStmt:
 		return newExplainStmtNode(node.(*googlesql.ResolvedExplainStmtNode))
-	case googlesql.ResolvedQueryStmt:
+	case googlesql.ResolvedNodeKindResolvedQueryStmt:
 		return newQueryStmtNode(node.(*googlesql.ResolvedQueryStmtNode))
-	case googlesql.ResolvedCreateDatabaseStmt:
+	case googlesql.ResolvedNodeKindResolvedCreateDatabaseStmt:
 		return newCreateDatabaseStmtNode(node.(*googlesql.ResolvedCreateDatabaseStmtNode))
-	case googlesql.ResolvedIndexItem:
+	case googlesql.ResolvedNodeKindResolvedIndexItem:
 		return newIndexItemNode(node.(*googlesql.ResolvedIndexItemNode))
-	case googlesql.ResolvedUnnestItem:
+	case googlesql.ResolvedNodeKindResolvedUnnestItem:
 		return newUnnestItemNode(node.(*googlesql.ResolvedUnnestItemNode))
-	case googlesql.ResolvedCreateIndexStmt:
+	case googlesql.ResolvedNodeKindResolvedCreateIndexStmt:
 		return newCreateIndexStmtNode(node.(*googlesql.ResolvedCreateIndexStmtNode))
-	case googlesql.ResolvedCreateSchemaStmt:
+	case googlesql.ResolvedNodeKindResolvedCreateSchemaStmt:
 		return newCreateSchemaStmtNode(node.(*googlesql.ResolvedCreateSchemaStmtNode))
-	case googlesql.ResolvedCreateTableStmt:
+	case googlesql.ResolvedNodeKindResolvedCreateTableStmt:
 		return newCreateTableStmtNode(node.(*googlesql.ResolvedCreateTableStmtNode))
-	case googlesql.ResolvedCreateTableAsSelectStmt:
+	case googlesql.ResolvedNodeKindResolvedCreateTableAsSelectStmt:
 		return newCreateTableAsSelectStmtNode(node.(*googlesql.ResolvedCreateTableAsSelectStmtNode))
-	case googlesql.ResolvedCreateModelStmt:
+	case googlesql.ResolvedNodeKindResolvedCreateModelStmt:
 		return newCreateModelStmtNode(node.(*googlesql.ResolvedCreateModelStmtNode))
-	case googlesql.ResolvedCreateViewStmt:
+	case googlesql.ResolvedNodeKindResolvedCreateViewStmt:
 		return newCreateViewStmtNode(node.(*googlesql.ResolvedCreateViewStmtNode))
-	case googlesql.ResolvedWithPartitionColumns:
+	case googlesql.ResolvedNodeKindResolvedWithPartitionColumns:
 		return newWithPartitionColumnsNode(node.(*googlesql.ResolvedWithPartitionColumnsNode))
-	case googlesql.ResolvedCreateSnapshotTableStmt:
+	case googlesql.ResolvedNodeKindResolvedCreateSnapshotTableStmt:
 		return newCreateSnapshotTableStmtNode(node.(*googlesql.ResolvedCreateSnapshotTableStmtNode))
-	case googlesql.ResolvedCreateExternalTableStmt:
+	case googlesql.ResolvedNodeKindResolvedCreateExternalTableStmt:
 		return newCreateExternalTableStmtNode(node.(*googlesql.ResolvedCreateExternalTableStmtNode))
-	case googlesql.ResolvedExportModelStmt:
+	case googlesql.ResolvedNodeKindResolvedExportModelStmt:
 		return newExportModelStmtNode(node.(*googlesql.ResolvedExportModelStmtNode))
-	case googlesql.ResolvedExportDataStmt:
+	case googlesql.ResolvedNodeKindResolvedExportDataStmt:
 		return newExportDataStmtNode(node.(*googlesql.ResolvedExportDataStmtNode))
-	case googlesql.ResolvedDefineTableStmt:
+	case googlesql.ResolvedNodeKindResolvedDefineTableStmt:
 		return newDefineTableStmtNode(node.(*googlesql.ResolvedDefineTableStmtNode))
-	case googlesql.ResolvedDescribeStmt:
+	case googlesql.ResolvedNodeKindResolvedDescribeStmt:
 		return newDescribeStmtNode(node.(*googlesql.ResolvedDescribeStmtNode))
-	case googlesql.ResolvedShowStmt:
+	case googlesql.ResolvedNodeKindResolvedShowStmt:
 		return newShowStmtNode(node.(*googlesql.ResolvedShowStmtNode))
-	case googlesql.ResolvedBeginStmt:
+	case googlesql.ResolvedNodeKindResolvedBeginStmt:
 		return newBeginStmtNode(node.(*googlesql.ResolvedBeginStmtNode))
-	case googlesql.ResolvedSetTransactionStmt:
+	case googlesql.ResolvedNodeKindResolvedSetTransactionStmt:
 		return newSetTransactionStmtNode(node.(*googlesql.ResolvedSetTransactionStmtNode))
-	case googlesql.ResolvedCommitStmt:
+	case googlesql.ResolvedNodeKindResolvedCommitStmt:
 		return newCommitStmtNode(node.(*googlesql.ResolvedCommitStmtNode))
-	case googlesql.ResolvedRollbackStmt:
+	case googlesql.ResolvedNodeKindResolvedRollbackStmt:
 		return newRollbackStmtNode(node.(*googlesql.ResolvedRollbackStmtNode))
-	case googlesql.ResolvedStartBatchStmt:
+	case googlesql.ResolvedNodeKindResolvedStartBatchStmt:
 		return newStartBatchStmtNode(node.(*googlesql.ResolvedStartBatchStmtNode))
-	case googlesql.ResolvedRunBatchStmt:
+	case googlesql.ResolvedNodeKindResolvedRunBatchStmt:
 		return newRunBatchStmtNode(node.(*googlesql.ResolvedRunBatchStmtNode))
-	case googlesql.ResolvedAbortBatchStmt:
+	case googlesql.ResolvedNodeKindResolvedAbortBatchStmt:
 		return newAbortBatchStmtNode(node.(*googlesql.ResolvedAbortBatchStmtNode))
-	case googlesql.ResolvedDropStmt:
+	case googlesql.ResolvedNodeKindResolvedDropStmt:
 		return newDropStmtNode(node.(*googlesql.ResolvedDropStmtNode))
-	case googlesql.ResolvedDropMaterializedViewStmt:
+	case googlesql.ResolvedNodeKindResolvedDropMaterializedViewStmt:
 		return newDropMaterializedViewStmtNode(node.(*googlesql.ResolvedDropMaterializedViewStmtNode))
-	case googlesql.ResolvedDropSnapshotTableStmt:
+	case googlesql.ResolvedNodeKindResolvedDropSnapshotTableStmt:
 		return newDropSnapshotTableStmtNode(node.(*googlesql.ResolvedDropSnapshotTableStmtNode))
-	case googlesql.ResolvedRecursiveRefScan:
+	case googlesql.ResolvedNodeKindResolvedRecursiveRefScan:
 		return newRecursiveRefScanNode(node.(*googlesql.ResolvedRecursiveRefScanNode))
-	case googlesql.ResolvedRecursiveScan:
+	case googlesql.ResolvedNodeKindResolvedRecursiveScan:
 		return newRecursiveScanNode(node.(*googlesql.ResolvedRecursiveScanNode))
-	case googlesql.ResolvedWithScan:
+	case googlesql.ResolvedNodeKindResolvedWithScan:
 		return newWithScanNode(node.(*googlesql.ResolvedWithScanNode))
-	case googlesql.ResolvedWithEntry:
+	case googlesql.ResolvedNodeKindResolvedWithEntry:
 		return newWithEntryNode(node.(*googlesql.ResolvedWithEntryNode))
-	case googlesql.ResolvedOption:
+	case googlesql.ResolvedNodeKindResolvedOption:
 		return newOptionNode(node.(*googlesql.ResolvedOptionNode))
-	case googlesql.ResolvedWindowPartitioning:
+	case googlesql.ResolvedNodeKindResolvedWindowPartitioning:
 		return newWindowPartitioningNode(node.(*googlesql.ResolvedWindowPartitioningNode))
-	case googlesql.ResolvedWindowOrdering:
+	case googlesql.ResolvedNodeKindResolvedWindowOrdering:
 		return newWindowOrderingNode(node.(*googlesql.ResolvedWindowOrderingNode))
-	case googlesql.ResolvedWindowFrame:
+	case googlesql.ResolvedNodeKindResolvedWindowFrame:
 		return newWindowFrameNode(node.(*googlesql.ResolvedWindowFrameNode))
-	case googlesql.ResolvedAnalyticFunctionGroup:
+	case googlesql.ResolvedNodeKindResolvedAnalyticFunctionGroup:
 		return newAnalyticFunctionGroupNode(node.(*googlesql.ResolvedAnalyticFunctionGroupNode))
-	case googlesql.ResolvedWindowFrameExpr:
+	case googlesql.ResolvedNodeKindResolvedWindowFrameExpr:
 		return newWindowFrameExprNode(node.(*googlesql.ResolvedWindowFrameExprNode))
-	case googlesql.ResolvedDMLValue:
+	case googlesql.ResolvedNodeKindResolvedDMLValue:
 		return newDMLValueNode(node.(*googlesql.ResolvedDMLValueNode))
-	case googlesql.ResolvedDMLDefault:
+	case googlesql.ResolvedNodeKindResolvedDMLDefault:
 		return newDMLDefaultNode(node.(*googlesql.ResolvedDMLDefaultNode))
-	case googlesql.ResolvedAssertStmt:
+	case googlesql.ResolvedNodeKindResolvedAssertStmt:
 		return newAssertStmtNode(node.(*googlesql.ResolvedAssertStmtNode))
-	case googlesql.ResolvedAssertRowsModified:
+	case googlesql.ResolvedNodeKindResolvedAssertRowsModified:
 		return newAssertRowsModifiedNode(node.(*googlesql.ResolvedAssertRowsModifiedNode))
-	case googlesql.ResolvedInsertRow:
+	case googlesql.ResolvedNodeKindResolvedInsertRow:
 		return newInsertRowNode(node.(*googlesql.ResolvedInsertRowNode))
-	case googlesql.ResolvedInsertStmt:
+	case googlesql.ResolvedNodeKindResolvedInsertStmt:
 		return newInsertStmtNode(node.(*googlesql.ResolvedInsertStmtNode))
-	case googlesql.ResolvedDeleteStmt:
+	case googlesql.ResolvedNodeKindResolvedDeleteStmt:
 		return newDeleteStmtNode(node.(*googlesql.ResolvedDeleteStmtNode))
-	case googlesql.ResolvedUpdateItem:
+	case googlesql.ResolvedNodeKindResolvedUpdateItem:
 		return newUpdateItemNode(node.(*googlesql.ResolvedUpdateItemNode))
 	case ResolvedUpdateArrayItem:
 		return newUpdateArrayItemNode(node.(*ResolvedUpdateArrayItemNode))
-	case googlesql.ResolvedUpdateStmt:
+	case googlesql.ResolvedNodeKindResolvedUpdateStmt:
 		return newUpdateStmtNode(node.(*googlesql.ResolvedUpdateStmtNode))
-	case googlesql.ResolvedMergeWhen:
+	case googlesql.ResolvedNodeKindResolvedMergeWhen:
 		return newMergeWhenNode(node.(*googlesql.ResolvedMergeWhenNode))
-	case googlesql.ResolvedMergeStmt:
+	case googlesql.ResolvedNodeKindResolvedMergeStmt:
 		return newMergeStmtNode(node.(*googlesql.ResolvedMergeStmtNode))
-	case googlesql.ResolvedTruncateStmt:
+	case googlesql.ResolvedNodeKindResolvedTruncateStmt:
 		return newTruncateStmtNode(node.(*googlesql.ResolvedTruncateStmtNode))
-	case googlesql.ResolvedObjectUnit:
+	case googlesql.ResolvedNodeKindResolvedObjectUnit:
 		return newObjectUnitNode(node.(*googlesql.ResolvedObjectUnitNode))
-	case googlesql.ResolvedPrivilege:
+	case googlesql.ResolvedNodeKindResolvedPrivilege:
 		return newPrivilegeNode(node.(*googlesql.ResolvedPrivilegeNode))
-	case googlesql.ResolvedGrantStmt:
+	case googlesql.ResolvedNodeKindResolvedGrantStmt:
 		return newGrantStmtNode(node.(*googlesql.ResolvedGrantStmtNode))
-	case googlesql.ResolvedRevokeStmt:
+	case googlesql.ResolvedNodeKindResolvedRevokeStmt:
 		return newRevokeStmtNode(node.(*googlesql.ResolvedRevokeStmtNode))
-	case googlesql.ResolvedAlterDatabaseStmt:
+	case googlesql.ResolvedNodeKindResolvedAlterDatabaseStmt:
 		return newAlterDatabaseStmtNode(node.(*googlesql.ResolvedAlterDatabaseStmtNode))
-	case googlesql.ResolvedAlterMaterializedViewStmt:
+	case googlesql.ResolvedNodeKindResolvedAlterMaterializedViewStmt:
 		return newAlterMaterializedViewStmtNode(node.(*googlesql.ResolvedAlterMaterializedViewStmtNode))
-	case googlesql.ResolvedAlterSchemaStmt:
+	case googlesql.ResolvedNodeKindResolvedAlterSchemaStmt:
 		return newAlterSchemaStmtNode(node.(*googlesql.ResolvedAlterSchemaStmtNode))
-	case googlesql.ResolvedAlterTableStmt:
+	case googlesql.ResolvedNodeKindResolvedAlterTableStmt:
 		return newAlterTableStmtNode(node.(*googlesql.ResolvedAlterTableStmtNode))
-	case googlesql.ResolvedAlterViewStmt:
+	case googlesql.ResolvedNodeKindResolvedAlterViewStmt:
 		return newAlterViewStmtNode(node.(*googlesql.ResolvedAlterViewStmtNode))
-	case googlesql.ResolvedSetOptionsAction:
+	case googlesql.ResolvedNodeKindResolvedSetOptionsAction:
 		return newSetOptionsActionNode(node.(*googlesql.ResolvedSetOptionsActionNode))
-	case googlesql.ResolvedAddColumnAction:
+	case googlesql.ResolvedNodeKindResolvedAddColumnAction:
 		return newAddColumnActionNode(node.(*googlesql.ResolvedAddColumnActionNode))
-	case googlesql.ResolvedAddConstraintAction:
+	case googlesql.ResolvedNodeKindResolvedAddConstraintAction:
 		return newAddConstraintActionNode(node.(*googlesql.ResolvedAddConstraintActionNode))
-	case googlesql.ResolvedDropConstraintAction:
+	case googlesql.ResolvedNodeKindResolvedDropConstraintAction:
 		return newDropConstraintActionNode(node.(*googlesql.ResolvedDropConstraintActionNode))
-	case googlesql.ResolvedDropPrimaryKeyAction:
+	case googlesql.ResolvedNodeKindResolvedDropPrimaryKeyAction:
 		return newDropPrimaryKeyActionNode(node.(*googlesql.ResolvedDropPrimaryKeyActionNode))
-	case googlesql.ResolvedAlterColumnOptionsAction:
+	case googlesql.ResolvedNodeKindResolvedAlterColumnOptionsAction:
 		return newAlterColumnOptionsActionNode(node.(*googlesql.ResolvedAlterColumnOptionsActionNode))
-	case googlesql.ResolvedAlterColumnDropNotNullAction:
+	case googlesql.ResolvedNodeKindResolvedAlterColumnDropNotNullAction:
 		return newAlterColumnDropNotNullActionNode(node.(*googlesql.ResolvedAlterColumnDropNotNullActionNode))
-	case googlesql.ResolvedAlterColumnSetDataTypeAction:
+	case googlesql.ResolvedNodeKindResolvedAlterColumnSetDataTypeAction:
 		return newAlterColumnSetDataTypeActionNode(node.(*googlesql.ResolvedAlterColumnSetDataTypeActionNode))
-	case googlesql.ResolvedAlterColumnSetDefaultAction:
+	case googlesql.ResolvedNodeKindResolvedAlterColumnSetDefaultAction:
 		return newAlterColumnSetDefaultActionNode(node.(*googlesql.ResolvedAlterColumnSetDefaultActionNode))
-	case googlesql.ResolvedAlterColumnDropDefaultAction:
+	case googlesql.ResolvedNodeKindResolvedAlterColumnDropDefaultAction:
 		return newAlterColumnDropDefaultActionNode(node.(*googlesql.ResolvedAlterColumnDropDefaultActionNode))
-	case googlesql.ResolvedDropColumnAction:
+	case googlesql.ResolvedNodeKindResolvedDropColumnAction:
 		return newDropColumnActionNode(node.(*googlesql.ResolvedDropColumnActionNode))
-	case googlesql.ResolvedRenameColumnAction:
+	case googlesql.ResolvedNodeKindResolvedRenameColumnAction:
 		return newRenameColumnActionNode(node.(*googlesql.ResolvedRenameColumnActionNode))
-	case googlesql.ResolvedSetAsAction:
+	case googlesql.ResolvedNodeKindResolvedSetAsAction:
 		return newSetAsActionNode(node.(*googlesql.ResolvedSetAsActionNode))
-	case googlesql.ResolvedSetCollateClause:
+	case googlesql.ResolvedNodeKindResolvedSetCollateClause:
 		return newSetCollateClauseNode(node.(*googlesql.ResolvedSetCollateClauseNode))
-	case googlesql.ResolvedAlterTableSetOptionsStmt:
+	case googlesql.ResolvedNodeKindResolvedAlterTableSetOptionsStmt:
 		return newAlterTableSetOptionsStmtNode(node.(*googlesql.ResolvedAlterTableSetOptionsStmtNode))
-	case googlesql.ResolvedRenameStmt:
+	case googlesql.ResolvedNodeKindResolvedRenameStmt:
 		return newRenameStmtNode(node.(*googlesql.ResolvedRenameStmtNode))
-	case googlesql.ResolvedCreatePrivilegeRestrictionStmt:
+	case googlesql.ResolvedNodeKindResolvedCreatePrivilegeRestrictionStmt:
 		return newCreatePrivilegeRestrictionStmtNode(node.(*googlesql.ResolvedCreatePrivilegeRestrictionStmtNode))
-	case googlesql.ResolvedCreateRowAccessPolicyStmt:
+	case googlesql.ResolvedNodeKindResolvedCreateRowAccessPolicyStmt:
 		return newCreateRowAccessPolicyStmtNode(node.(*googlesql.ResolvedCreateRowAccessPolicyStmtNode))
-	case googlesql.ResolvedDropPrivilegeRestrictionStmt:
+	case googlesql.ResolvedNodeKindResolvedDropPrivilegeRestrictionStmt:
 		return newDropPrivilegeRestrictionStmtNode(node.(*googlesql.ResolvedDropPrivilegeRestrictionStmtNode))
-	case googlesql.ResolvedDropRowAccessPolicyStmt:
+	case googlesql.ResolvedNodeKindResolvedDropRowAccessPolicyStmt:
 		return newDropRowAccessPolicyStmtNode(node.(*googlesql.ResolvedDropRowAccessPolicyStmtNode))
 	case ResolvedDropSearchIndexStmt:
 		return newDropSearchIndexStmtNode(node.(*ResolvedDropSearchIndexStmtNode))
-	case googlesql.ResolvedGrantToAction:
+	case googlesql.ResolvedNodeKindResolvedGrantToAction:
 		return newGrantToActionNode(node.(*googlesql.ResolvedGrantToActionNode))
-	case googlesql.ResolvedRestrictToAction:
+	case googlesql.ResolvedNodeKindResolvedRestrictToAction:
 		return newRestrictToActionNode(node.(*googlesql.ResolvedRestrictToActionNode))
-	case googlesql.ResolvedAddToRestricteeListAction:
+	case googlesql.ResolvedNodeKindResolvedAddToRestricteeListAction:
 		return newAddToRestricteeListActionNode(node.(*googlesql.ResolvedAddToRestricteeListActionNode))
-	case googlesql.ResolvedRemoveFromRestricteeListAction:
+	case googlesql.ResolvedNodeKindResolvedRemoveFromRestricteeListAction:
 		return newRemoveFromRestricteeListActionNode(node.(*googlesql.ResolvedRemoveFromRestricteeListActionNode))
-	case googlesql.ResolvedFilterUsingAction:
+	case googlesql.ResolvedNodeKindResolvedFilterUsingAction:
 		return newFilterUsingActionNode(node.(*googlesql.ResolvedFilterUsingActionNode))
-	case googlesql.ResolvedRevokeFromAction:
+	case googlesql.ResolvedNodeKindResolvedRevokeFromAction:
 		return newRevokeFromActionNode(node.(*googlesql.ResolvedRevokeFromActionNode))
-	case googlesql.ResolvedRenameToAction:
+	case googlesql.ResolvedNodeKindResolvedRenameToAction:
 		return newRenameToActionNode(node.(*googlesql.ResolvedRenameToActionNode))
-	case googlesql.ResolvedAlterPrivilegeRestrictionStmt:
+	case googlesql.ResolvedNodeKindResolvedAlterPrivilegeRestrictionStmt:
 		return newAlterPrivilegeRestrictionStmtNode(node.(*googlesql.ResolvedAlterPrivilegeRestrictionStmtNode))
-	case googlesql.ResolvedAlterRowAccessPolicyStmt:
+	case googlesql.ResolvedNodeKindResolvedAlterRowAccessPolicyStmt:
 		return newAlterRowAccessPolicyStmtNode(node.(*googlesql.ResolvedAlterRowAccessPolicyStmtNode))
-	case googlesql.ResolvedAlterAllRowAccessPoliciesStmt:
+	case googlesql.ResolvedNodeKindResolvedAlterAllRowAccessPoliciesStmt:
 		return newAlterAllRowAccessPoliciesStmtNode(node.(*googlesql.ResolvedAlterAllRowAccessPoliciesStmtNode))
-	case googlesql.ResolvedCreateConstantStmt:
+	case googlesql.ResolvedNodeKindResolvedCreateConstantStmt:
 		return newCreateConstantStmtNode(node.(*googlesql.ResolvedCreateConstantStmtNode))
-	case googlesql.ResolvedCreateFunctionStmt:
+	case googlesql.ResolvedNodeKindResolvedCreateFunctionStmt:
 		return newCreateFunctionStmtNode(node.(*googlesql.ResolvedCreateFunctionStmtNode))
-	case googlesql.ResolvedArgumentDef:
+	case googlesql.ResolvedNodeKindResolvedArgumentDef:
 		return newArgumentDefNode(node.(*googlesql.ResolvedArgumentDefNode))
-	case googlesql.ResolvedArgumentRef:
+	case googlesql.ResolvedNodeKindResolvedArgumentRef:
 		return newArgumentRefNode(node.(*googlesql.ResolvedArgumentRefNode))
-	case googlesql.ResolvedCreateTableFunctionStmt:
+	case googlesql.ResolvedNodeKindResolvedCreateTableFunctionStmt:
 		return newCreateTableFunctionStmtNode(node.(*googlesql.ResolvedCreateTableFunctionStmtNode))
-	case googlesql.ResolvedRelationArgumentScan:
+	case googlesql.ResolvedNodeKindResolvedRelationArgumentScan:
 		return newRelationArgumentScanNode(node.(*googlesql.ResolvedRelationArgumentScanNode))
-	case googlesql.ResolvedArgumentList:
+	case googlesql.ResolvedNodeKindResolvedArgumentList:
 		return newArgumentListNode(node.(*googlesql.ResolvedArgumentListNode))
-	case googlesql.ResolvedFunctionSignatureHolder:
+	case googlesql.ResolvedNodeKindResolvedFunctionSignatureHolder:
 		return newFunctionSignatureHolderNode(node.(*googlesql.ResolvedFunctionSignatureHolderNode))
-	case googlesql.ResolvedDropFunctionStmt:
+	case googlesql.ResolvedNodeKindResolvedDropFunctionStmt:
 		return newDropFunctionStmtNode(node.(*googlesql.ResolvedDropFunctionStmtNode))
-	case googlesql.ResolvedDropTableFunctionStmt:
+	case googlesql.ResolvedNodeKindResolvedDropTableFunctionStmt:
 		return newDropTableFunctionStmtNode(node.(*googlesql.ResolvedDropTableFunctionStmtNode))
-	case googlesql.ResolvedCallStmt:
+	case googlesql.ResolvedNodeKindResolvedCallStmt:
 		return newCallStmtNode(node.(*googlesql.ResolvedCallStmtNode))
-	case googlesql.ResolvedImportStmt:
+	case googlesql.ResolvedNodeKindResolvedImportStmt:
 		return newImportStmtNode(node.(*googlesql.ResolvedImportStmtNode))
-	case googlesql.ResolvedModuleStmt:
+	case googlesql.ResolvedNodeKindResolvedModuleStmt:
 		return newModuleStmtNode(node.(*googlesql.ResolvedModuleStmtNode))
-	case googlesql.ResolvedAggregateHavingModifier:
+	case googlesql.ResolvedNodeKindResolvedAggregateHavingModifier:
 		return newAggregateHavingModifierNode(node.(*googlesql.ResolvedAggregateHavingModifierNode))
-	case googlesql.ResolvedCreateMaterializedViewStmt:
+	case googlesql.ResolvedNodeKindResolvedCreateMaterializedViewStmt:
 		return newCreateMaterializedViewStmtNode(node.(*googlesql.ResolvedCreateMaterializedViewStmtNode))
-	case googlesql.ResolvedCreateProcedureStmt:
+	case googlesql.ResolvedNodeKindResolvedCreateProcedureStmt:
 		return newCreateProcedureStmtNode(node.(*googlesql.ResolvedCreateProcedureStmtNode))
-	case googlesql.ResolvedExecuteImmediateArgument:
+	case googlesql.ResolvedNodeKindResolvedExecuteImmediateArgument:
 		return newExecuteImmediateArgumentNode(node.(*googlesql.ResolvedExecuteImmediateArgumentNode))
-	case googlesql.ResolvedExecuteImmediateStmt:
+	case googlesql.ResolvedNodeKindResolvedExecuteImmediateStmt:
 		return newExecuteImmediateStmtNode(node.(*googlesql.ResolvedExecuteImmediateStmtNode))
-	case googlesql.ResolvedAssignmentStmt:
+	case googlesql.ResolvedNodeKindResolvedAssignmentStmt:
 		return newAssignmentStmtNode(node.(*googlesql.ResolvedAssignmentStmtNode))
-	case googlesql.ResolvedCreateEntityStmt:
+	case googlesql.ResolvedNodeKindResolvedCreateEntityStmt:
 		return newCreateEntityStmtNode(node.(*googlesql.ResolvedCreateEntityStmtNode))
-	case googlesql.ResolvedAlterEntityStmt:
+	case googlesql.ResolvedNodeKindResolvedAlterEntityStmt:
 		return newAlterEntityStmtNode(node.(*googlesql.ResolvedAlterEntityStmtNode))
-	case googlesql.ResolvedPivotColumn:
+	case googlesql.ResolvedNodeKindResolvedPivotColumn:
 		return newPivotColumnNode(node.(*googlesql.ResolvedPivotColumnNode))
-	case googlesql.ResolvedPivotScan:
+	case googlesql.ResolvedNodeKindResolvedPivotScan:
 		return newPivotScanNode(node.(*googlesql.ResolvedPivotScanNode))
-	case googlesql.ResolvedReturningClause:
+	case googlesql.ResolvedNodeKindResolvedReturningClause:
 		return newReturningClauseNode(node.(*googlesql.ResolvedReturningClauseNode))
-	case googlesql.ResolvedUnpivotArg:
+	case googlesql.ResolvedNodeKindResolvedUnpivotArg:
 		return newUnpivotArgNode(node.(*googlesql.ResolvedUnpivotArgNode))
-	case googlesql.ResolvedUnpivotScan:
+	case googlesql.ResolvedNodeKindResolvedUnpivotScan:
 		return newUnpivotScanNode(node.(*googlesql.ResolvedUnpivotScanNode))
-	case googlesql.ResolvedCloneDataStmt:
+	case googlesql.ResolvedNodeKindResolvedCloneDataStmt:
 		return newCloneDataStmtNode(node.(*googlesql.ResolvedCloneDataStmtNode))
-	case googlesql.ResolvedTableAndColumnInfo:
+	case googlesql.ResolvedNodeKindResolvedTableAndColumnInfo:
 		return newTableAndColumnInfoNode(node.(*googlesql.ResolvedTableAndColumnInfoNode))
-	case googlesql.ResolvedAnalyzeStmt:
+	case googlesql.ResolvedNodeKindResolvedAnalyzeStmt:
 		return newAnalyzeStmtNode(node.(*googlesql.ResolvedAnalyzeStmtNode))
-	case googlesql.ResolvedAuxLoadDataStmt:
+	case googlesql.ResolvedNodeKindResolvedAuxLoadDataStmt:
 		return newAuxLoadDataStmtNode(node.(*googlesql.ResolvedAuxLoadDataStmtNode))
 	}
 	return nil

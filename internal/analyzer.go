@@ -76,22 +76,22 @@ func newAnalyzerOptions() (*googlesql.AnalyzerOptions, error) {
 		googlesql.LanguageFeatureFeatureCreateTableAsSelectColumnList,
 	})
 	langOpt.SetSupportedStatementKinds([]googlesql.ResolvedNodeKind{
-		googlesql.ResolvedBeginStmt,
-		googlesql.ResolvedCommitStmt,
-		googlesql.ResolvedMergeStmt,
-		googlesql.ResolvedQueryStmt,
-		googlesql.ResolvedInsertStmt,
-		googlesql.ResolvedUpdateStmt,
-		googlesql.ResolvedDeleteStmt,
-		googlesql.ResolvedDropStmt,
-		googlesql.ResolvedTruncateStmt,
-		googlesql.ResolvedCreateTableStmt,
-		googlesql.ResolvedCreateTableAsSelectStmt,
-		googlesql.ResolvedCreateProcedureStmt,
-		googlesql.ResolvedCreateFunctionStmt,
-		googlesql.ResolvedCreateTableFunctionStmt,
-		googlesql.ResolvedCreateViewStmt,
-		googlesql.ResolvedDropFunctionStmt,
+		googlesql.ResolvedNodeKindResolvedBeginStmt,
+		googlesql.ResolvedNodeKindResolvedCommitStmt,
+		googlesql.ResolvedNodeKindResolvedMergeStmt,
+		googlesql.ResolvedNodeKindResolvedQueryStmt,
+		googlesql.ResolvedNodeKindResolvedInsertStmt,
+		googlesql.ResolvedNodeKindResolvedUpdateStmt,
+		googlesql.ResolvedNodeKindResolvedDeleteStmt,
+		googlesql.ResolvedNodeKindResolvedDropStmt,
+		googlesql.ResolvedNodeKindResolvedTruncateStmt,
+		googlesql.ResolvedNodeKindResolvedCreateTableStmt,
+		googlesql.ResolvedNodeKindResolvedCreateTableAsSelectStmt,
+		googlesql.ResolvedNodeKindResolvedCreateProcedureStmt,
+		googlesql.ResolvedNodeKindResolvedCreateFunctionStmt,
+		googlesql.ResolvedNodeKindResolvedCreateTableFunctionStmt,
+		googlesql.ResolvedNodeKindResolvedCreateViewStmt,
+		googlesql.ResolvedNodeKindResolvedDropFunctionStmt,
 	})
 	// Enable QUALIFY without WHERE
 	// https://github.com/google/zetasql/issues/124
@@ -261,33 +261,33 @@ func (a *Analyzer) analyzeTemplatedFunctionWithRuntimeArgument(ctx context.Conte
 
 func (a *Analyzer) newStmtAction(ctx context.Context, query string, args []driver.NamedValue, node googlesql.ResolvedStatementNode) (StmtAction, error) {
 	switch node.Kind() {
-	case googlesql.ResolvedCreateTableStmt:
+	case googlesql.ResolvedNodeKindResolvedCreateTableStmt:
 		return a.newCreateTableStmtAction(ctx, query, args, node.(*googlesql.ResolvedCreateTableStmtNode))
-	case googlesql.ResolvedCreateTableAsSelectStmt:
+	case googlesql.ResolvedNodeKindResolvedCreateTableAsSelectStmt:
 		ctx = withUseColumnID(ctx)
 		return a.newCreateTableAsSelectStmtAction(ctx, query, args, node.(*googlesql.ResolvedCreateTableAsSelectStmtNode))
-	case googlesql.ResolvedCreateFunctionStmt:
+	case googlesql.ResolvedNodeKindResolvedCreateFunctionStmt:
 		return a.newCreateFunctionStmtAction(ctx, query, args, node.(*googlesql.ResolvedCreateFunctionStmtNode))
-	case googlesql.ResolvedCreateViewStmt:
+	case googlesql.ResolvedNodeKindResolvedCreateViewStmt:
 		ctx = withUseColumnID(ctx)
 		return a.newCreateViewStmtAction(ctx, query, args, node.(*googlesql.ResolvedCreateViewStmtNode))
-	case googlesql.ResolvedDropStmt:
+	case googlesql.ResolvedNodeKindResolvedDropStmt:
 		return a.newDropStmtAction(ctx, query, args, node.(*googlesql.ResolvedDropStmtNode))
-	case googlesql.ResolvedDropFunctionStmt:
+	case googlesql.ResolvedNodeKindResolvedDropFunctionStmt:
 		return a.newDropFunctionStmtAction(ctx, query, args, node.(*googlesql.ResolvedDropFunctionStmtNode))
-	case googlesql.ResolvedInsertStmt, googlesql.ResolvedUpdateStmt, googlesql.ResolvedDeleteStmt:
+	case googlesql.ResolvedNodeKindResolvedInsertStmt, googlesql.ResolvedNodeKindResolvedUpdateStmt, googlesql.ResolvedNodeKindResolvedDeleteStmt:
 		return a.newDMLStmtAction(ctx, query, args, node)
-	case googlesql.ResolvedTruncateStmt:
+	case googlesql.ResolvedNodeKindResolvedTruncateStmt:
 		return a.newTruncateStmtAction(ctx, query, args, node.(*googlesql.ResolvedTruncateStmtNode))
-	case googlesql.ResolvedMergeStmt:
+	case googlesql.ResolvedNodeKindResolvedMergeStmt:
 		ctx = withUseColumnID(ctx)
 		return a.newMergeStmtAction(ctx, query, args, node.(*googlesql.ResolvedMergeStmtNode))
-	case googlesql.ResolvedQueryStmt:
+	case googlesql.ResolvedNodeKindResolvedQueryStmt:
 		ctx = withUseColumnID(ctx)
 		return a.newQueryStmtAction(ctx, query, args, node.(*googlesql.ResolvedQueryStmtNode))
-	case googlesql.ResolvedBeginStmt:
+	case googlesql.ResolvedNodeKindResolvedBeginStmt:
 		return a.newBeginStmtAction(ctx, query, args, node)
-	case googlesql.ResolvedCommitStmt:
+	case googlesql.ResolvedNodeKindResolvedCommitStmt:
 		return a.newCommitStmtAction(ctx, query, args, node)
 	}
 	return nil, fmt.Errorf("unsupported stmt %s", node.DebugString())
