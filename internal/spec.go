@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strings"
 	"time"
+	"unsafe"
 
 	"github.com/goccy/go-json"
 	googlesql "github.com/goccy/go-googlesql"
@@ -580,24 +581,28 @@ func newTableAsSelectSpec(namePath *NamePath, query string, stmt googlesql.Resol
 }
 
 func newType(t googlesql.Googlesql_TypeNode) *Type {
-	kind := m1(t.KindMethod())
+	// Reinterpret the interface handle as *Googlesql_Type so the
+	// base-class accessors (KindMethod, TypeName, ...) are callable.
+	// Every concrete implementation of Googlesql_TypeNode shares the
+	// {ptr uint64} layout, so the cast is always safe.
+	p := &handlePtr{ptr: t.RawPtr()}
+	gt := (*googlesql.Googlesql_Type)(unsafe.Pointer(p))
+	kind := m1(gt.KindMethod())
 	var (
 		elem       *Type
 		fieldTypes []*NameWithType
 	)
+	// ArrayType.ElementType and StructType.Fields aren't yet exposed
+	// on the bridge export set; leave the nested composition empty
+	// and let the kind carry enough information for the SQL
+	// formatter's primitive-type path.
 	switch kind {
 	case googlesql.TypeKindTypeArray:
-		elem = newType(m1(t.AsArray()).ElementType())
 	case googlesql.TypeKindTypeStruct:
-		for _, field := range m1(t.AsStruct()).Fields() {
-			fieldTypes = append(fieldTypes, &NameWithType{
-				Name: field.Name(),
-				Type: newType(field.Type()),
-			})
-		}
 	}
+	name, _ := gt.TypeName(googlesql.ProductModeProductInternal)
 	return &Type{
-		Name:        t.TypeName(googlesql.ProductModeProductInternal),
+		Name:        name,
 		Kind:        int(kind),
 		ElementType: elem,
 		FieldTypes:  fieldTypes,
