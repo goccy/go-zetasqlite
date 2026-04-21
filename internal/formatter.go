@@ -87,7 +87,7 @@ func uniqueColumnName(ctx context.Context, col *googlesql.ResolvedColumn) string
 		return fmt.Sprintf("%s.%s", col.TableName(), colName)
 	}
 	if useColumnID(ctx) {
-		colID := col.ColumnID()
+		colID := col.ColumnId()
 		return fmt.Sprintf("%s#%d", colName, colID)
 	}
 	return colName

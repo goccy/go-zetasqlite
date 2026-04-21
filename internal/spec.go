@@ -530,7 +530,7 @@ func newTableAsViewSpec(namePath *NamePath, query string, stmt *googlesql.Resolv
 	for _, column := range stmt.OutputColumnList() {
 		colName := column.Name()
 		refColumnName := column.Column().Name()
-		colID := column.Column().ColumnID()
+		colID := column.Column().ColumnId()
 		outputColumns = append(
 			outputColumns,
 			fmt.Sprintf("`%s#%d` AS `%s`", refColumnName, colID, colName),
@@ -554,7 +554,7 @@ func newTableAsSelectSpec(namePath *NamePath, query string, stmt *googlesql.Reso
 	for _, column := range stmt.OutputColumnList() {
 		colName := column.Name()
 		refColumnName := column.Column().Name()
-		colID := column.Column().ColumnID()
+		colID := column.Column().ColumnId()
 		outputColumns = append(
 			outputColumns,
 			fmt.Sprintf("`%s#%d` AS `%s`", refColumnName, colID, colName),

@@ -212,7 +212,7 @@ func (a *Analyzer) Analyze(ctx context.Context, conn *Conn, query string, args [
 			if err != nil {
 				return nil, fmt.Errorf("failed to analyze: %w", err)
 			}
-			stmtNode := out.Statement()
+			stmtNode := out.ResolvedStatementMethod()
 			ctx = a.context(ctx, funcMap, stmtNode, stmt)
 			action, err := a.newStmtAction(ctx, query, args, stmtNode)
 			if err != nil {
@@ -247,7 +247,7 @@ func (a *Analyzer) analyzeTemplatedFunctionWithRuntimeArgument(ctx context.Conte
 	if err != nil {
 		return nil, fmt.Errorf("failed to analyze: %w", err)
 	}
-	node := out.Statement()
+	node := out.ResolvedStatementMethod()
 	stmt, ok := node.(*googlesql.ResolvedCreateFunctionStmtNode)
 	if !ok {
 		return nil, fmt.Errorf("unexpected create function query %s", query)
@@ -386,7 +386,7 @@ func (a *Analyzer) inferTemplatedTypeByRealType(query string, node *googlesql.Re
 	var stmts []*googlesql.ResolvedCreateFunctionStmtNode
 	for _, typ := range inferTypes {
 		if out, err := googlesql.AnalyzeStatement(a.buildScalarTypeFuncFromTemplatedFunc(node, typ), a.catalog, a.opt); err == nil {
-			stmts = append(stmts, out.Statement().(*googlesql.ResolvedCreateFunctionStmtNode))
+			stmts = append(stmts, out.ResolvedStatementMethod().(*googlesql.ResolvedCreateFunctionStmtNode))
 		}
 	}
 	if len(stmts) != 0 {
@@ -394,7 +394,7 @@ func (a *Analyzer) inferTemplatedTypeByRealType(query string, node *googlesql.Re
 	}
 	for _, typ := range inferTypes {
 		if out, err := googlesql.AnalyzeStatement(a.buildArrayTypeFuncFromTemplatedFunc(node, typ), a.catalog, a.opt); err == nil {
-			stmts = append(stmts, out.Statement().(*googlesql.ResolvedCreateFunctionStmtNode))
+			stmts = append(stmts, out.ResolvedStatementMethod().(*googlesql.ResolvedCreateFunctionStmtNode))
 		}
 	}
 	if len(stmts) != 0 {
