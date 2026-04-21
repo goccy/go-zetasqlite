@@ -66,8 +66,8 @@ type Catalog struct {
 }
 
 func newSimpleCatalog(name string) *googlesql.SimpleCatalog {
-	catalog := googlesql.NewSimpleCatalog(name)
-	catalog.AddZetaSQLBuiltinFunctions(nil)
+	catalog := NewSimpleCatalog(name)
+	_ = catalog.AddGoogleSQLFunctions()
 	return catalog
 }
 
@@ -81,21 +81,20 @@ func NewCatalog(db *sql.DB) *Catalog {
 }
 
 func (c *Catalog) FullName() string {
-	return c.catalog.FullName()
+	s, _ := c.catalog.FullName()
+	return s
 }
 
-func (c *Catalog) FindTable(path []string) (googlesql.Table, error) {
+// Find* methods are currently unsupported through the wasm bridge: the
+// underlying googlesql::Catalog templated Find<T>(...) variants use
+// output-pointer parameters the bridge cannot marshal today. Returning
+// the stored SimpleCatalog handle via FindOptions would require a
+// Go-side callback catalog wrapper, which is tracked separately.
+func (c *Catalog) FindTable(path []string) (googlesql.TableNode, error) {
 	if c.isWildcardTable(path) {
 		return c.createWildcardTable(path)
 	}
-	table, err := c.catalog.FindTable(path)
-	if err != nil {
-		normalizedPath := c.normalizeTablePath(path)
-		if len(normalizedPath) != len(path) {
-			return c.catalog.FindTable(normalizedPath)
-		}
-	}
-	return table, err
+	return nil, fmt.Errorf("catalog: FindTable not yet supported via wasm bridge")
 }
 
 func (c *Catalog) normalizeTablePath(path []string) []string {
@@ -107,60 +106,65 @@ func (c *Catalog) normalizeTablePath(path []string) []string {
 	return result
 }
 
-func (c *Catalog) FindModel(path []string) (googlesql.Model, error) {
-	return c.catalog.FindModel(path)
+func (c *Catalog) FindModel(path []string) (googlesql.ModelNode, error) {
+	return nil, fmt.Errorf("catalog: FindModel not yet supported via wasm bridge")
 }
 
-func (c *Catalog) FindConnection(path []string) (googlesql.Connection, error) {
-	return c.catalog.FindConnection(path)
+func (c *Catalog) FindConnection(path []string) (googlesql.ConnectionNode, error) {
+	return nil, fmt.Errorf("catalog: FindConnection not yet supported via wasm bridge")
 }
 
 func (c *Catalog) FindFunction(path []string) (*googlesql.Function, error) {
-	return c.catalog.FindFunction(path)
+	return nil, fmt.Errorf("catalog: FindFunction not yet supported via wasm bridge")
 }
 
-func (c *Catalog) FindTableValuedFunction(path []string) (googlesql.TableValuedFunction, error) {
-	return c.catalog.FindTableValuedFunction(path)
+func (c *Catalog) FindTableValuedFunction(path []string) (*googlesql.TableValuedFunction, error) {
+	return nil, fmt.Errorf("catalog: FindTableValuedFunction not yet supported via wasm bridge")
 }
 
 func (c *Catalog) FindProcedure(path []string) (*googlesql.Procedure, error) {
-	return c.catalog.FindProcedure(path)
+	return nil, fmt.Errorf("catalog: FindProcedure not yet supported via wasm bridge")
 }
 
-func (c *Catalog) FindType(path []string) (googlesql.Googlesql_Type, error) {
-	return c.catalog.FindType(path)
+func (c *Catalog) FindType(path []string) (googlesql.Googlesql_TypeNode, error) {
+	return nil, fmt.Errorf("catalog: FindType not yet supported via wasm bridge")
 }
 
-func (c *Catalog) FindConstant(path []string) (googlesql.Constant, int, error) {
-	return c.catalog.FindConstant(path)
+func (c *Catalog) FindConstant(path []string) (googlesql.ConstantNode, int, error) {
+	return nil, 0, fmt.Errorf("catalog: FindConstant not yet supported via wasm bridge")
 }
 
-func (c *Catalog) FindConversion(from, to googlesql.Googlesql_Type) (googlesql.Conversion, error) {
-	return c.catalog.FindConversion(from, to)
+func (c *Catalog) FindConversion(from, to googlesql.Googlesql_TypeNode) (*googlesql.Conversion, error) {
+	return nil, fmt.Errorf("catalog: FindConversion not yet supported via wasm bridge")
 }
 
-func (c *Catalog) ExtendedTypeSuperTypes(typ googlesql.Googlesql_Type) (*googlesql.TypeListView, error) {
-	return c.catalog.ExtendedTypeSuperTypes(typ)
+func (c *Catalog) ExtendedTypeSuperTypes(typ googlesql.Googlesql_TypeNode) (*googlesql.TypeListView, error) {
+	return nil, fmt.Errorf("catalog: ExtendedTypeSuperTypes not yet supported via wasm bridge")
 }
 
 func (c *Catalog) SuggestTable(mistypedPath []string) string {
-	return c.catalog.SuggestTable(mistypedPath)
+	s, _ := c.catalog.SuggestTable(strings.Join(mistypedPath, "."))
+	return s
 }
 
 func (c *Catalog) SuggestModel(mistypedPath []string) string {
-	return c.catalog.SuggestModel(mistypedPath)
+	// SuggestModel isn't exposed on SimpleCatalog via the wasm bridge.
+	return ""
 }
 
 func (c *Catalog) SuggestFunction(mistypedPath []string) string {
-	return c.catalog.SuggestFunction(mistypedPath)
+	s, _ := c.catalog.SuggestFunction(strings.Join(mistypedPath, "."))
+	return s
 }
 
 func (c *Catalog) SuggestTableValuedFunction(mistypedPath []string) string {
-	return c.catalog.SuggestTableValuedFunction(mistypedPath)
+	s, _ := c.catalog.SuggestTableValuedFunction(strings.Join(mistypedPath, "."))
+	return s
 }
 
 func (c *Catalog) SuggestConstant(mistypedPath []string) string {
-	return c.catalog.SuggestConstant(mistypedPath)
+	s, _ := c.catalog.SuggestConstant(strings.Join(mistypedPath, "."))
+	return s
 }
 
 func (c *Catalog) formatNamePath(path []string) string {
@@ -457,18 +461,18 @@ func (c *Catalog) addTableSpec(spec *TableSpec) error {
 func (c *Catalog) addTableSpecRecursive(cat *googlesql.SimpleCatalog, spec *TableSpec) error {
 	if len(spec.NamePath) > 1 {
 		subCatalogName := spec.NamePath[0]
-		subCatalog, _ := cat.Catalog(subCatalogName)
-		if subCatalog == nil {
-			subCatalog = newSimpleCatalog(subCatalogName)
-			cat.AddCatalog(subCatalog)
-		}
+		// googlesql bridge doesn't currently expose a per-name Catalog()
+		// lookup on SimpleCatalog; always create a fresh sub-catalog.
+		// TODO: replace with lookup once the bridge exposes it.
+		subCatalog := newSimpleCatalog(subCatalogName)
+		_ = cat.AddCatalog(subCatalog)
 		fullTableName := strings.Join(spec.NamePath, ".")
 		if !c.existsTable(cat, fullTableName) {
 			table, err := c.createSimpleTable(fullTableName, spec)
 			if err != nil {
 				return err
 			}
-			cat.AddTable(table)
+			_ = cat.AddTable(table)
 		}
 		newNamePath := spec.NamePath[1:]
 		// add sub catalog to root catalog
@@ -493,32 +497,31 @@ func (c *Catalog) addTableSpecRecursive(cat *googlesql.SimpleCatalog, spec *Tabl
 	if err != nil {
 		return err
 	}
-	cat.AddTable(table)
+	_ = cat.AddTable(table)
 	return nil
 }
 
 func (c *Catalog) createSimpleTable(tableName string, spec *TableSpec) (*googlesql.SimpleTable, error) {
-	columns := []googlesql.Googlesql_Column{}
+	columns := []*googlesql.SimpleColumn{}
 	for _, column := range spec.Columns {
 		typ, err := column.Type.ToZetaSQLType()
 		if err != nil {
 			return nil, err
 		}
-		columns = append(columns, googlesql.NewSimpleColumn(
+		columns = append(columns, NewSimpleColumn(
 			tableName, column.Name, typ,
 		))
 	}
-	return googlesql.NewSimpleTable(tableName, columns), nil
+	return NewSimpleTable(tableName, columns), nil
 }
 
 func (c *Catalog) addFunctionSpecRecursive(cat *googlesql.SimpleCatalog, spec *FunctionSpec) error {
 	if len(spec.NamePath) > 1 {
 		subCatalogName := spec.NamePath[0]
-		subCatalog, _ := cat.Catalog(subCatalogName)
-		if subCatalog == nil {
-			subCatalog = newSimpleCatalog(subCatalogName)
-			cat.AddCatalog(subCatalog)
-		}
+		// See note in addTableSpecRecursive — SimpleCatalog doesn't
+		// expose a per-name Catalog lookup through the bridge yet.
+		subCatalog := newSimpleCatalog(subCatalogName)
+		_ = cat.AddCatalog(subCatalog)
 		newNamePath := spec.NamePath[1:]
 		// add sub catalog to root catalog
 		if err := c.addFunctionSpecRecursive(cat, c.copyFunctionSpec(spec, newNamePath)); err != nil {
@@ -550,23 +553,30 @@ func (c *Catalog) addFunctionSpecRecursive(cat *googlesql.SimpleCatalog, spec *F
 	if err != nil {
 		return err
 	}
-	sig := googlesql.NewFunctionSignature(retType, argTypes)
-	newFunc := NewFunction([]string{funcName}, "", ScalarMode, []*googlesql.FunctionSignature{sig})
-	cat.AddFunction(newFunc)
+	sig := NewFunctionSignature(retType, argTypes)
+	newFunc, err := NewFunction([]string{funcName}, "", int(ScalarMode(0)), []*googlesql.FunctionSignature{sig}, nil)
+	if err != nil {
+		return err
+	}
+	_ = cat.AddFunction(newFunc)
 	return nil
 }
 
 func (c *Catalog) existsTable(cat *googlesql.SimpleCatalog, name string) bool {
-	foundTable, _ := cat.FindTable([]string{name})
-	return !c.isNilTable(foundTable)
+	// FindTable isn't exposed on SimpleCatalog through the bridge; table
+	// presence is tracked in Go via c.tableMap so this is a soft check.
+	_, ok := c.tableMap[name]
+	return ok
 }
 
 func (c *Catalog) existsFunction(cat *googlesql.SimpleCatalog, name string) bool {
-	foundFunc, _ := cat.FindFunction([]string{name})
-	return foundFunc != nil
+	// Similar to existsTable, bridge doesn't expose FindFunction — rely
+	// on the Go-side funcMap.
+	_, ok := c.funcMap[name]
+	return ok
 }
 
-func (c *Catalog) isNilTable(t googlesql.Table) bool {
+func (c *Catalog) isNilTable(t googlesql.TableNode) bool {
 	v := reflect.ValueOf(t)
 	if !v.IsValid() {
 		return true

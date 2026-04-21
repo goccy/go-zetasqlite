@@ -307,7 +307,7 @@ func (a *DropStmtAction) Cleanup(ctx context.Context, conn *Conn) error {
 
 type DMLStmtAction struct {
 	query          string
-	params         []*googlesql.ResolvedParameterNode
+	params         []googlesql.ResolvedParameterNode
 	args           []interface{}
 	formattedQuery string
 }
@@ -353,7 +353,7 @@ func (a *DMLStmtAction) Cleanup(ctx context.Context, conn *Conn) error {
 
 type QueryStmtAction struct {
 	query          string
-	params         []*googlesql.ResolvedParameterNode
+	params         []googlesql.ResolvedParameterNode
 	args           []interface{}
 	formattedQuery string
 	outputColumns  []*ColumnSpec

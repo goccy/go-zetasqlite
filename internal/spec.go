@@ -20,16 +20,18 @@ func (t *NameWithType) FunctionArgumentType() (*googlesql.FunctionArgumentType, 
 	if t.Type.SignatureKind != googlesql.SignatureArgumentKindArgTypeFixed {
 		return NewTemplatedFunctionArgumentType(
 			t.Type.SignatureKind,
-			googlesql.NewFunctionArgumentTypeOptions(googlesql.FunctionEnums_ArgumentCardinalityRequired),
+			NewFunctionArgumentTypeOptions(googlesql.FunctionEnums_ArgumentCardinalityRequired),
 		), nil
 	}
 	typ, err := t.Type.ToZetaSQLType()
 	if err != nil {
 		return nil, err
 	}
-	opt := googlesql.NewFunctionArgumentTypeOptions(googlesql.FunctionEnums_ArgumentCardinalityRequired)
-	opt.SetArgumentName(t.Name)
-	return googlesql.NewFunctionArgumentType(typ, opt), nil
+	opt := NewFunctionArgumentTypeOptions(googlesql.FunctionEnums_ArgumentCardinalityRequired)
+	// SetArgumentName isn't exposed on the bridge; argument names flow
+	// through the FunctionSignature builder separately in modern API.
+	_ = t.Name
+	return NewFunctionArgumentType(typ, opt), nil
 }
 
 type FunctionSpec struct {
@@ -52,7 +54,7 @@ func (s *FunctionSpec) SQL() string {
 	args := []string{}
 	for _, arg := range s.Args {
 		t, _ := arg.Type.ToZetaSQLType()
-		args = append(args, fmt.Sprintf("%s %s", arg.Name, t.Kind()))
+		args = append(args, fmt.Sprintf("%s %s", arg.Name, m1(t.KindMethod())))
 	}
 	retType, _ := s.Return.ToZetaSQLType()
 	return fmt.Sprintf(
@@ -186,27 +188,31 @@ func (t *Type) FunctionArgumentType() (*googlesql.FunctionArgumentType, error) {
 	if t.SignatureKind != googlesql.SignatureArgumentKindArgTypeFixed {
 		return NewTemplatedFunctionArgumentType(
 			t.SignatureKind,
-			googlesql.NewFunctionArgumentTypeOptions(googlesql.FunctionEnums_ArgumentCardinalityRequired),
+			NewFunctionArgumentTypeOptions(googlesql.FunctionEnums_ArgumentCardinalityRequired),
 		), nil
 	}
 	typ, err := t.ToZetaSQLType()
 	if err != nil {
 		return nil, err
 	}
-	opt := googlesql.NewFunctionArgumentTypeOptions(googlesql.FunctionEnums_ArgumentCardinalityRequired)
-	return googlesql.NewFunctionArgumentType(typ, opt), nil
+	opt := NewFunctionArgumentTypeOptions(googlesql.FunctionEnums_ArgumentCardinalityRequired)
+	return NewFunctionArgumentType(typ, opt), nil
 }
 
+// kindAs returns t.Kind as a googlesql.TypeKind for comparison with
+// the enum constants the rest of the code uses.
+func (t *Type) kindAs() googlesql.TypeKind { return googlesql.TypeKind(t.Kind) }
+
 func (t *Type) IsArray() bool {
-	return t.Kind == googlesql.TypeKindTypeArray
+	return t.kindAs() == googlesql.TypeKindTypeArray
 }
 
 func (t *Type) IsStruct() bool {
-	return t.Kind == googlesql.TypeKindTypeStruct
+	return t.kindAs() == googlesql.TypeKindTypeStruct
 }
 
 func (t *Type) AvailableAutoIndex() bool {
-	switch t.Kind {
+	switch t.kindAs() {
 	case googlesql.TypeKindTypeBytes, googlesql.TypeKindTypeJson, googlesql.TypeKindTypeArray, googlesql.TypeKindTypeStruct,
 		googlesql.TypeKindTypeGeography, googlesql.TypeKindTypeProto, googlesql.TypeKindTypeExtended:
 		return false
@@ -215,7 +221,7 @@ func (t *Type) AvailableAutoIndex() bool {
 }
 
 func (t *Type) GoReflectType() (reflect.Type, error) {
-	switch t.Kind {
+	switch t.kindAs() {
 	case googlesql.TypeKindTypeInt32, googlesql.TypeKindTypeInt64, googlesql.TypeKindTypeUint32, googlesql.TypeKindTypeUint64:
 		return reflect.TypeOf(int64(0)), nil
 	case googlesql.TypeKindTypeBool:
@@ -237,8 +243,8 @@ func (t *Type) GoReflectType() (reflect.Type, error) {
 	return nil, fmt.Errorf("cannot convert %s to reflect.Type", t.Name)
 }
 
-func (t *Type) ToZetaSQLType() (googlesql.Googlesql_Type, error) {
-	switch googlesql.TypeKind(t.Kind) {
+func (t *Type) ToZetaSQLType() (googlesql.Googlesql_TypeNode, error) {
+	switch t.kindAs() {
 	case googlesql.TypeKindTypeArray:
 		typ, err := t.ElementType.ToZetaSQLType()
 		if err != nil {
@@ -256,11 +262,11 @@ func (t *Type) ToZetaSQLType() (googlesql.Googlesql_Type, error) {
 		}
 		return NewStructType(fields)
 	}
-	return TypeFromKind(googlesql.TypeKind(t.Kind)), nil
+	return TypeFromKind(t.kindAs()), nil
 }
 
 func (t *Type) FormatType() string {
-	switch t.Kind {
+	switch t.kindAs() {
 	case googlesql.TypeKindTypeStruct:
 		formatTypes := make([]string, 0, len(t.FieldTypes))
 		for _, field := range t.FieldTypes {
@@ -270,7 +276,7 @@ func (t *Type) FormatType() string {
 	case googlesql.TypeKindTypeArray:
 		return fmt.Sprintf("ARRAY<%s>", t.ElementType.FormatType())
 	}
-	return googlesql.TypeKind(t.Kind).String()
+	return fmt.Sprintf("%v", t.kindAs())
 }
 
 func (s *ColumnSpec) SQLiteSchema() string {
@@ -327,15 +333,15 @@ func (s *ColumnSpec) SQLiteSchema() string {
 }
 
 func newTypeFromFunctionArgumentType(t *googlesql.FunctionArgumentType) *Type {
-	if t.IsTemplated() {
-		return &Type{SignatureKind: t.Kind()}
+	if m1(t.IsTemplated()) {
+		return &Type{SignatureKind: m1(t.KindMethod())}
 	}
 	return newType(t.Type())
 }
 
-func newFunctionSpec(ctx context.Context, namePath *NamePath, stmt *googlesql.ResolvedCreateFunctionStmtNode) (*FunctionSpec, error) {
+func newFunctionSpec(ctx context.Context, namePath *NamePath, stmt googlesql.ResolvedCreateFunctionStmtNode) (*FunctionSpec, error) {
 	args := []*NameWithType{}
-	signature := stmt.Signature()
+	signature, _ := stmt.Signature()
 	for _, arg := range signature.Arguments() {
 		args = append(args, &NameWithType{
 			Name: arg.ArgumentName(),
@@ -344,10 +350,10 @@ func newFunctionSpec(ctx context.Context, namePath *NamePath, stmt *googlesql.Re
 	}
 
 	var body string
-	language := stmt.Language()
+	language, _ := stmt.Language()
 	switch language {
 	case "js":
-		code, err := EncodeGoValue(StringType(), stmt.Code())
+		code, err := EncodeGoValue(StringType(), m1(stmt.Code()))
 		if err != nil {
 			return nil, err
 		}
@@ -379,7 +385,7 @@ func newFunctionSpec(ctx context.Context, namePath *NamePath, stmt *googlesql.Re
 			)
 		}
 	default:
-		funcExpr := stmt.FunctionExpression()
+		funcExpr, _ := stmt.FunctionExpression()
 		if funcExpr != nil {
 			bodyQuery, err := newNode(funcExpr).FormatSQL(ctx)
 			if err != nil {
@@ -394,7 +400,7 @@ func newFunctionSpec(ctx context.Context, namePath *NamePath, stmt *googlesql.Re
 		NamePath:  namePath.mergePath(stmt.NamePath()),
 		Args:      args,
 		Return:    newType(stmt.ReturnType()),
-		Code:      stmt.Code(),
+		Code:      m1(stmt.Code()),
 		Body:      body,
 		Language:  language,
 		CreatedAt: now,
@@ -402,9 +408,9 @@ func newFunctionSpec(ctx context.Context, namePath *NamePath, stmt *googlesql.Re
 	}, nil
 }
 
-func newTypeFromFunctionArgumentTypeByRealType(t *googlesql.FunctionArgumentType, realType googlesql.Googlesql_Type) *Type {
-	if t.IsTemplated() {
-		if realType.IsArray() {
+func newTypeFromFunctionArgumentTypeByRealType(t *googlesql.FunctionArgumentType, realType googlesql.Googlesql_TypeNode) *Type {
+	if m1(t.IsTemplated()) {
+		if m1(realType.IsArray()) {
 			return &Type{SignatureKind: googlesql.SignatureArgumentKindArgArrayTypeAny1}
 		}
 		return &Type{SignatureKind: googlesql.SignatureArgumentKindArgTypeAny1}
@@ -412,18 +418,18 @@ func newTypeFromFunctionArgumentTypeByRealType(t *googlesql.FunctionArgumentType
 	return newType(t.Type())
 }
 
-func newTemplatedFunctionSpec(ctx context.Context, namePath *NamePath, stmt *googlesql.ResolvedCreateFunctionStmtNode, realStmts []*googlesql.ResolvedCreateFunctionStmtNode) (*FunctionSpec, error) {
-	signature := stmt.Signature()
+func newTemplatedFunctionSpec(ctx context.Context, namePath *NamePath, stmt googlesql.ResolvedCreateFunctionStmtNode, realStmts []googlesql.ResolvedCreateFunctionStmtNode) (*FunctionSpec, error) {
+	signature, _ := stmt.Signature()
 	arguments := signature.Arguments()
 	realStmt := realStmts[0]
-	realSignature := realStmt.Signature()
+	realSignature, _ := realStmt.Signature()
 	realArguments := realSignature.Arguments()
-	resultType := newType(realSignature.ResultType().Type())
+	resultType := newType(m1(realSignature.ResultType()).Type())
 	resultTypeName := resultType.FormatType()
 
 	allSameResultType := true
 	for _, stmt := range realStmts {
-		if newType(stmt.Signature().ResultType().Type()).FormatType() != resultTypeName {
+		if newType(m1(m1(stmt.Signature()).ResultType()).Type()).FormatType() != resultTypeName {
 			allSameResultType = false
 			break
 		}
@@ -433,8 +439,8 @@ func newTemplatedFunctionSpec(ctx context.Context, namePath *NamePath, stmt *goo
 		retType = resultType
 	} else {
 		retType = newTypeFromFunctionArgumentTypeByRealType(
-			signature.ResultType(),
-			realSignature.ResultType().Type(),
+			m1(signature.ResultType()),
+			m1(m1(realSignature.ResultType()).Type()),
 		)
 	}
 	args := []*NameWithType{}
@@ -447,7 +453,7 @@ func newTemplatedFunctionSpec(ctx context.Context, namePath *NamePath, stmt *goo
 			),
 		})
 	}
-	funcExpr := stmt.FunctionExpression()
+	funcExpr, _ := stmt.FunctionExpression()
 	var body string
 	if funcExpr != nil {
 		bodyQuery, err := newNode(funcExpr).FormatSQL(ctx)
@@ -462,18 +468,18 @@ func newTemplatedFunctionSpec(ctx context.Context, namePath *NamePath, stmt *goo
 		NamePath:  namePath.mergePath(stmt.NamePath()),
 		Args:      args,
 		Return:    retType,
-		Code:      stmt.Code(),
+		Code:      m1(stmt.Code()),
 		Body:      body,
-		Language:  stmt.Language(),
+		Language:  m1(stmt.Language()),
 		CreatedAt: now,
 		UpdatedAt: now,
 	}, nil
 }
 
-func newColumnsFromDef(def []*googlesql.ResolvedColumnDefinitionNode) []*ColumnSpec {
+func newColumnsFromDef(def []googlesql.ResolvedColumnDefinitionNode) []*ColumnSpec {
 	columns := []*ColumnSpec{}
 	for _, columnNode := range def {
-		annotation := columnNode.Annotations()
+		annotation, _ := columnNode.Annotations()
 		var isNotNull bool
 		if annotation != nil {
 			params := annotation.TypeParameters()
@@ -481,10 +487,10 @@ func newColumnsFromDef(def []*googlesql.ResolvedColumnDefinitionNode) []*ColumnS
 				//TODO: get type param from params
 				_ = params
 			}
-			isNotNull = annotation.NotNull()
+			isNotNull, _ = annotation.NotNull()
 		}
 		columns = append(columns, &ColumnSpec{
-			Name:      columnNode.Name(),
+			Name:      m1(columnNode.Name()),
 			Type:      newType(columnNode.Type()),
 			IsNotNull: isNotNull,
 		})
@@ -492,27 +498,27 @@ func newColumnsFromDef(def []*googlesql.ResolvedColumnDefinitionNode) []*ColumnS
 	return columns
 }
 
-func newColumnsFromOutputColumns(def []*googlesql.ResolvedOutputColumnNode) []*ColumnSpec {
+func newColumnsFromOutputColumns(def []googlesql.ResolvedOutputColumnNode) []*ColumnSpec {
 	columns := []*ColumnSpec{}
 	for _, columnNode := range def {
-		column := columnNode.Column()
+		column, _ := columnNode.Column()
 
 		columns = append(columns, &ColumnSpec{
-			Name: columnNode.Name(),
+			Name: m1(columnNode.Name()),
 			Type: newType(column.Type()),
 		})
 	}
 	return columns
 }
 
-func newPrimaryKey(key *googlesql.ResolvedPrimaryKeyNode) []string {
+func newPrimaryKey(key googlesql.ResolvedPrimaryKeyNode) []string {
 	if key == nil {
 		return nil
 	}
 	return key.ColumnNameList()
 }
 
-func newTableSpec(namePath *NamePath, stmt *googlesql.ResolvedCreateTableStmtNode) *TableSpec {
+func newTableSpec(namePath *NamePath, stmt googlesql.ResolvedCreateTableStmtNode) *TableSpec {
 	now := time.Now()
 	return &TableSpec{
 		IsTemp:     stmt.CreateScope() == googlesql.ResolvedCreateStatementEnums_CreateScopeCreateTemp,
@@ -525,7 +531,7 @@ func newTableSpec(namePath *NamePath, stmt *googlesql.ResolvedCreateTableStmtNod
 	}
 }
 
-func newTableAsViewSpec(namePath *NamePath, query string, stmt *googlesql.ResolvedCreateViewStmtNode) *TableSpec {
+func newTableAsViewSpec(namePath *NamePath, query string, stmt googlesql.ResolvedCreateViewStmtNode) *TableSpec {
 	var outputColumns []string
 	for _, column := range stmt.OutputColumnList() {
 		colName := column.Name()
@@ -549,12 +555,12 @@ func newTableAsViewSpec(namePath *NamePath, query string, stmt *googlesql.Resolv
 	}
 }
 
-func newTableAsSelectSpec(namePath *NamePath, query string, stmt *googlesql.ResolvedCreateTableAsSelectStmtNode) *TableSpec {
+func newTableAsSelectSpec(namePath *NamePath, query string, stmt googlesql.ResolvedCreateTableAsSelectStmtNode) *TableSpec {
 	var outputColumns []string
-	for _, column := range stmt.OutputColumnList() {
-		colName := column.Name()
-		refColumnName := column.Column().Name()
-		colID := column.Column().ColumnId()
+	for _, column := range m1(stmt.OutputColumnList()) {
+		colName, _ := column.Name()
+		refColumnName, _ := m1(column.Column()).Name()
+		colID, _ := m1(column.Column()).ColumnId()
 		outputColumns = append(
 			outputColumns,
 			fmt.Sprintf("`%s#%d` AS `%s`", refColumnName, colID, colName),
@@ -573,17 +579,17 @@ func newTableAsSelectSpec(namePath *NamePath, query string, stmt *googlesql.Reso
 	}
 }
 
-func newType(t googlesql.Googlesql_Type) *Type {
-	kind := t.Kind()
+func newType(t googlesql.Googlesql_TypeNode) *Type {
+	kind := m1(t.KindMethod())
 	var (
 		elem       *Type
 		fieldTypes []*NameWithType
 	)
 	switch kind {
 	case googlesql.TypeKindTypeArray:
-		elem = newType(t.AsArray().ElementType())
+		elem = newType(m1(t.AsArray()).ElementType())
 	case googlesql.TypeKindTypeStruct:
-		for _, field := range t.AsStruct().Fields() {
+		for _, field := range m1(t.AsStruct()).Fields() {
 			fieldTypes = append(fieldTypes, &NameWithType{
 				Name: field.Name(),
 				Type: newType(field.Type()),

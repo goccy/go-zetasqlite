@@ -48,11 +48,11 @@ zetasqlite_javascript_func();
 	return value, nil
 }
 
-func castJavaScriptValue(t googlesql.Googlesql_Type, v goja.Value) (Value, error) {
+func castJavaScriptValue(t googlesql.Googlesql_TypeNode, v goja.Value) (Value, error) {
 	if v == nil {
 		return nil, nil
 	}
-	switch t.Kind() {
+	switch m1(t.KindMethod()) {
 	case googlesql.TypeKindTypeInt32, googlesql.TypeKindTypeInt64, googlesql.TypeKindTypeUint32, googlesql.TypeKindTypeUint64:
 		return IntValue(v.ToInteger()), nil
 	case googlesql.TypeKindTypeBool:
@@ -100,7 +100,7 @@ func castJavaScriptValue(t googlesql.Googlesql_Type, v goja.Value) (Value, error
 	case googlesql.TypeKindTypeJson:
 		return JsonValue(v.ToString().String()), nil
 	case googlesql.TypeKindTypeArray:
-		elemType := t.AsArray().ElementType()
+		elemType := m1(t.AsArray()).ElementType()
 		var ret ArrayValue
 		for _, vv := range v.Export().([]interface{}) {
 			base, err := ValueFromGoValue(vv)
@@ -127,5 +127,5 @@ func castJavaScriptValue(t googlesql.Googlesql_Type, v goja.Value) (Value, error
 		}
 		return CastValue(t, base)
 	}
-	return nil, fmt.Errorf("unsupported cast %s from JavaScript value", t.Kind())
+	return nil, fmt.Errorf("unsupported cast %s from JavaScript value", m1(t.KindMethod()))
 }

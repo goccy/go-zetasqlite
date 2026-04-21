@@ -127,11 +127,11 @@ func newCreateFunctionStmt(conn *Conn, catalog *Catalog, spec *FunctionSpec) *Cr
 
 type DMLStmt struct {
 	stmt           *sql.Stmt
-	args           []*googlesql.ResolvedParameterNode
+	args           []googlesql.ResolvedParameterNode
 	formattedQuery string
 }
 
-func newDMLStmt(stmt *sql.Stmt, args []*googlesql.ResolvedParameterNode, formattedQuery string) *DMLStmt {
+func newDMLStmt(stmt *sql.Stmt, args []googlesql.ResolvedParameterNode, formattedQuery string) *DMLStmt {
 	return &DMLStmt{
 		stmt:           stmt,
 		args:           args,
@@ -186,12 +186,12 @@ func (s *DMLStmt) QueryContext(ctx context.Context, query string, args []driver.
 
 type QueryStmt struct {
 	stmt           *sql.Stmt
-	args           []*googlesql.ResolvedParameterNode
+	args           []googlesql.ResolvedParameterNode
 	formattedQuery string
 	outputColumns  []*ColumnSpec
 }
 
-func newQueryStmt(stmt *sql.Stmt, args []*googlesql.ResolvedParameterNode, formattedQuery string, outputColumns []*ColumnSpec) *QueryStmt {
+func newQueryStmt(stmt *sql.Stmt, args []googlesql.ResolvedParameterNode, formattedQuery string, outputColumns []*ColumnSpec) *QueryStmt {
 	return &QueryStmt{
 		stmt:           stmt,
 		args:           args,
