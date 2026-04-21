@@ -4,8 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/goccy/go-zetasql"
-	ast "github.com/goccy/go-zetasql/resolved_ast"
+	googlesql "github.com/goccy/go-googlesql"
 )
 
 type (
@@ -48,16 +47,16 @@ func withNamePath(ctx context.Context, namePath *NamePath) context.Context {
 	return context.WithValue(ctx, namePathKey{}, namePath)
 }
 
-func withNodeMap(ctx context.Context, m *zetasql.NodeMap) context.Context {
+func withNodeMap(ctx context.Context, m *NodeMap) context.Context {
 	return context.WithValue(ctx, nodeMapKey{}, m)
 }
 
-func nodeMapFromContext(ctx context.Context) *zetasql.NodeMap {
+func nodeMapFromContext(ctx context.Context) *NodeMap {
 	value := ctx.Value(nodeMapKey{})
 	if value == nil {
 		return nil
 	}
-	return value.(*zetasql.NodeMap)
+	return value.(*NodeMap)
 }
 
 func withColumnRefMap(ctx context.Context, m map[string]string) context.Context {
@@ -173,16 +172,16 @@ func useTableNameForColumn(ctx context.Context) bool {
 	return value.(bool)
 }
 
-func withTableNameToColumnListMap(ctx context.Context, v map[string][]*ast.Column) context.Context {
+func withTableNameToColumnListMap(ctx context.Context, v map[string][]*googlesql.ResolvedColumn) context.Context {
 	return context.WithValue(ctx, tableNameToColumnListMapKey{}, v)
 }
 
-func tableNameToColumnListMap(ctx context.Context) map[string][]*ast.Column {
+func tableNameToColumnListMap(ctx context.Context) map[string][]*googlesql.ResolvedColumn {
 	value := ctx.Value(tableNameToColumnListMapKey{})
 	if value == nil {
 		return nil
 	}
-	return value.(map[string][]*ast.Column)
+	return value.(map[string][]*googlesql.ResolvedColumn)
 }
 
 func WithCurrentTime(ctx context.Context, now time.Time) context.Context {

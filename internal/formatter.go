@@ -7,20 +7,19 @@ import (
 	"strings"
 
 	"github.com/goccy/go-json"
-	parsed_ast "github.com/goccy/go-zetasql/ast"
-	ast "github.com/goccy/go-zetasql/resolved_ast"
-	"github.com/goccy/go-zetasql/types"
+	parsed_googlesql "github.com/goccy/go-googlesql"
+	googlesql "github.com/goccy/go-googlesql"
 )
 
 type Formatter interface {
 	FormatSQL(context.Context) (string, error)
 }
 
-func New(node ast.Node) Formatter {
+func New(node googlesql.ResolvedNodeNode) Formatter {
 	return newNode(node)
 }
 
-func getTableName(ctx context.Context, n ast.Node) (string, error) {
+func getTableName(ctx context.Context, n googlesql.ResolvedNodeNode) (string, error) {
 	nodeMap := nodeMapFromContext(ctx)
 	found := nodeMap.FindNodeFromResolvedNode(n)
 	if len(found) == 0 {
@@ -34,15 +33,15 @@ func getTableName(ctx context.Context, n ast.Node) (string, error) {
 	return namePath.format(path), nil
 }
 
-func getFuncName(ctx context.Context, n ast.Node) (string, error) {
+func getFuncName(ctx context.Context, n googlesql.ResolvedNodeNode) (string, error) {
 	nodeMap := nodeMapFromContext(ctx)
 	found := nodeMap.FindNodeFromResolvedNode(n)
 	if len(found) == 0 {
 		return "", fmt.Errorf("failed to find path node from function node %T", n)
 	}
-	var foundCallNode *parsed_ast.FunctionCallNode
+	var foundCallNode *googlesql.ASTFunctionCallNode
 	for _, node := range found {
-		fcallNode, ok := node.(*parsed_ast.FunctionCallNode)
+		fcallNode, ok := node.(*googlesql.ASTFunctionCallNode)
 		if !ok {
 			continue
 		}
@@ -60,16 +59,16 @@ func getFuncName(ctx context.Context, n ast.Node) (string, error) {
 	return namePath.format(path), nil
 }
 
-func getPathFromNode(n parsed_ast.Node) ([]string, error) {
+func getPathFromNode(n googlesql.ASTNodeNode) ([]string, error) {
 	var path []string
 	switch node := n.(type) {
-	case *parsed_ast.IdentifierNode:
+	case *googlesql.ASTIdentifierNode:
 		path = append(path, node.Name())
-	case *parsed_ast.PathExpressionNode:
+	case *googlesql.ASTPathExpressionNode:
 		for _, name := range node.Names() {
 			path = append(path, name.Name())
 		}
-	case *parsed_ast.TablePathExpressionNode:
+	case *googlesql.ASTTablePathExpressionNode:
 		switch {
 		case node.PathExpr() != nil:
 			for _, name := range node.PathExpr().Names() {
@@ -82,7 +81,7 @@ func getPathFromNode(n parsed_ast.Node) ([]string, error) {
 	return path, nil
 }
 
-func uniqueColumnName(ctx context.Context, col *ast.Column) string {
+func uniqueColumnName(ctx context.Context, col *googlesql.ResolvedColumn) string {
 	colName := col.Name()
 	if useTableNameForColumn(ctx) {
 		return fmt.Sprintf("%s.%s", col.TableName(), colName)
@@ -131,7 +130,7 @@ func formatInput(input string) (string, error) {
 	return "", fmt.Errorf("unexpected input pattern: %s", input)
 }
 
-func getFuncNameAndArgs(ctx context.Context, node *ast.BaseFunctionCallNode, isWindowFunc bool) (string, []string, error) {
+func getFuncNameAndArgs(ctx context.Context, node *ResolvedBaseFunctionCallNode, isWindowFunc bool) (string, []string, error) {
 	args := []string{}
 	for _, a := range node.ArgumentList() {
 		arg, err := newNode(a).FormatSQL(ctx)
@@ -150,7 +149,7 @@ func getFuncNameAndArgs(ctx context.Context, node *ast.BaseFunctionCallNode, isW
 	currentTime := CurrentTime(ctx)
 
 	funcPrefix := "zetasqlite"
-	if node.ErrorMode() == ast.SafeErrorMode {
+	if node.ErrorMode() == googlesql.ResolvedFunctionCallBaseEnums_ErrorModeSafeErrorMode {
 		if !existsNormalFunc {
 			return "", nil, fmt.Errorf("SAFE is not supported for function %s", funcName)
 		}
@@ -339,9 +338,9 @@ func (n *AggregateFunctionCallNode) FormatSQL(ctx context.Context) (string, erro
 		opts = append(opts, fmt.Sprintf("zetasqlite_limit(%s)", limitValue))
 	}
 	switch n.node.NullHandlingModifier() {
-	case ast.IgnoreNulls:
+	case googlesql.ResolvedNonScalarFunctionCallBaseEnums_NullHandlingModifierIgnoreNulls:
 		opts = append(opts, "zetasqlite_ignore_nulls()")
-	case ast.RespectNulls:
+	case googlesql.ResolvedNonScalarFunctionCallBaseEnums_NullHandlingModifierRespectNulls:
 	}
 	args = append(args, opts...)
 	return fmt.Sprintf(
@@ -366,7 +365,7 @@ func (n *AnalyticFunctionCallNode) FormatSQL(ctx context.Context) (string, error
 		opts = append(opts, "zetasqlite_distinct()")
 	}
 	switch n.node.NullHandlingModifier() {
-	case ast.RespectNulls:
+	case googlesql.ResolvedNonScalarFunctionCallBaseEnums_NullHandlingModifierRespectNulls:
 		// do nothing
 	default:
 		opts = append(opts, "zetasqlite_ignore_nulls()")
@@ -405,15 +404,15 @@ func (n *AnalyticFunctionCallNode) FormatSQL(ctx context.Context) (string, error
 	), nil
 }
 
-func (n *AnalyticFunctionCallNode) getWindowBoundaryOptionFuncSQL(ctx context.Context, expr *ast.WindowFrameExprNode, isStart bool) (string, error) {
+func (n *AnalyticFunctionCallNode) getWindowBoundaryOptionFuncSQL(ctx context.Context, expr *googlesql.ResolvedWindowFrameExprNode, isStart bool) (string, error) {
 	typ := expr.BoundaryType()
 	switch typ {
-	case ast.UnboundedPrecedingType, ast.CurrentRowType, ast.UnboundedFollowingType:
+	case googlesql.ResolvedWindowFrameExprEnums_BoundaryTypeUnboundedPreceding, googlesql.ResolvedWindowFrameExprEnums_BoundaryTypeCurrentRow, googlesql.ResolvedWindowFrameExprEnums_BoundaryTypeUnboundedFollowing:
 		if isStart {
 			return getWindowBoundaryStartOptionFuncSQL(typ, ""), nil
 		}
 		return getWindowBoundaryEndOptionFuncSQL(typ, ""), nil
-	case ast.OffsetPrecedingType, ast.OffsetFollowingType:
+	case googlesql.ResolvedWindowFrameExprEnums_BoundaryTypeOffsetPreceding, googlesql.ResolvedWindowFrameExprEnums_BoundaryTypeOffsetFollowing:
 		literal, err := newNode(expr.Expression()).FormatSQL(ctx)
 		if err != nil {
 			return "", err
@@ -448,11 +447,11 @@ func (n *CastNode) FormatSQL(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	encodedFromType, err := EncodeGoValue(types.StringType(), string(jsonEncodedFromType))
+	encodedFromType, err := EncodeGoValue(StringType(), string(jsonEncodedFromType))
 	if err != nil {
 		return "", err
 	}
-	encodedToType, err := EncodeGoValue(types.StringType(), string(jsonEncodedToType))
+	encodedToType, err := EncodeGoValue(StringType(), string(jsonEncodedToType))
 	if err != nil {
 		return "", err
 	}
@@ -523,7 +522,7 @@ func (n *GetJsonFieldNode) FormatSQL(ctx context.Context) (string, error) {
 		return "", err
 	}
 	name := n.node.FieldName()
-	encodedName, err := EncodeGoValue(types.StringType(), name)
+	encodedName, err := EncodeGoValue(StringType(), name)
 	if err != nil {
 		return "", err
 	}
@@ -557,23 +556,23 @@ func (n *SubqueryExprNode) FormatSQL(ctx context.Context) (string, error) {
 		return "", err
 	}
 	switch n.node.SubqueryType() {
-	case ast.SubqueryTypeScalar:
-	case ast.SubqueryTypeArray:
+	case googlesql.ResolvedSubqueryExprEnums_SubqueryTypeScalar:
+	case googlesql.ResolvedSubqueryExprEnums_SubqueryTypeArray:
 		if len(n.node.Subquery().ColumnList()) == 0 {
 			return "", fmt.Errorf("failed to find computed column names for array subquery")
 		}
 		colName := uniqueColumnName(ctx, n.node.Subquery().ColumnList()[0])
 		return fmt.Sprintf("(SELECT zetasqlite_array(`%s`) FROM (%s))", colName, sql), nil
-	case ast.SubqueryTypeExists:
+	case googlesql.ResolvedSubqueryExprEnums_SubqueryTypeExists:
 		return fmt.Sprintf("EXISTS (%s)", sql), nil
-	case ast.SubqueryTypeIn:
+	case googlesql.ResolvedSubqueryExprEnums_SubqueryTypeIn:
 		expr, err := newNode(n.node.InExpr()).FormatSQL(ctx)
 		if err != nil {
 			return "", err
 		}
 		return fmt.Sprintf("%s IN (%s)", expr, sql), nil
-	case ast.SubqueryTypeLikeAny:
-	case ast.SubqueryTypeLikeAll:
+	case googlesql.ResolvedSubqueryExprEnums_SubqueryTypeLikeAny:
+	case googlesql.ResolvedSubqueryExprEnums_SubqueryTypeLikeAll:
 	}
 	return fmt.Sprintf("(%s)", sql), nil
 }
@@ -652,13 +651,13 @@ func (n *JoinScanNode) FormatSQL(ctx context.Context) (string, error) {
 		return "", err
 	}
 	switch n.node.JoinType() {
-	case ast.JoinTypeInner:
+	case googlesql.ResolvedJoinScanEnums_JoinTypeInner:
 		return fmt.Sprintf("%s JOIN %s ON %s", left, right, joinExpr), nil
-	case ast.JoinTypeLeft:
+	case googlesql.ResolvedJoinScanEnums_JoinTypeLeft:
 		return fmt.Sprintf("%s LEFT JOIN %s ON %s", left, right, joinExpr), nil
-	case ast.JoinTypeRight:
+	case googlesql.ResolvedJoinScanEnums_JoinTypeRight:
 		return fmt.Sprintf("%s RIGHT JOIN %s ON %s", left, right, joinExpr), nil
-	case ast.JoinTypeFull:
+	case googlesql.ResolvedJoinScanEnums_JoinTypeFull:
 		return fmt.Sprintf("%s FULL OUTER JOIN %s ON %s", left, right, joinExpr), nil
 	}
 	return "", fmt.Errorf("unexpected join type %d", n.node.JoinType())
@@ -907,17 +906,17 @@ func (n *SetOperationScanNode) FormatSQL(ctx context.Context) (string, error) {
 	}
 	var opType string
 	switch n.node.OpType() {
-	case ast.SetOperationTypeUnionAll:
+	case googlesql.ResolvedSetOperationScanEnums_SetOperationTypeUnionAll:
 		opType = "UNION ALL"
-	case ast.SetOperationTypeUnionDistinct:
+	case googlesql.ResolvedSetOperationScanEnums_SetOperationTypeUnionDistinct:
 		opType = "UNION"
-	case ast.SetOperationTypeIntersectAll:
+	case googlesql.ResolvedSetOperationScanEnums_SetOperationTypeIntersectAll:
 		opType = "INTERSECT ALL"
-	case ast.SetOperationTypeIntersectDistinct:
+	case googlesql.ResolvedSetOperationScanEnums_SetOperationTypeIntersectDistinct:
 		opType = "INTERSECT"
-	case ast.SetOperationTypeExceptAll:
+	case googlesql.ResolvedSetOperationScanEnums_SetOperationTypeExceptAll:
 		opType = "EXCEPT ALL"
-	case ast.SetOperationTypeExceptDistinct:
+	case googlesql.ResolvedSetOperationScanEnums_SetOperationTypeExceptDistinct:
 		opType = "EXCEPT"
 	default:
 		opType = "UNKNOWN"
@@ -992,12 +991,12 @@ func (n *OrderByScanNode) FormatSQL(ctx context.Context) (string, error) {
 	for _, item := range n.node.OrderByItemList() {
 		colName := uniqueColumnName(ctx, item.ColumnRef().Column())
 		switch item.NullOrder() {
-		case ast.NullOrderModeNullsFirst:
+		case googlesql.ResolvedOrderByItemEnums_NullOrderModeNullsFirst:
 			orderByColumns = append(
 				orderByColumns,
 				fmt.Sprintf("(`%s` IS NOT NULL)", colName),
 			)
-		case ast.NullOrderModeNullsLast:
+		case googlesql.ResolvedOrderByItemEnums_NullOrderModeNullsLast:
 			orderByColumns = append(
 				orderByColumns,
 				fmt.Sprintf("(`%s` IS NULL)", colName),

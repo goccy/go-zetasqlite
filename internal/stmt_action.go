@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	ast "github.com/goccy/go-zetasql/resolved_ast"
+	googlesql "github.com/goccy/go-googlesql"
 )
 
 type StmtAction interface {
@@ -26,7 +26,7 @@ type CreateTableStmtAction struct {
 }
 
 func (a *CreateTableStmtAction) Prepare(ctx context.Context, conn *Conn) (driver.Stmt, error) {
-	if a.spec.CreateMode == ast.CreateOrReplaceMode {
+	if a.spec.CreateMode == googlesql.ResolvedCreateStatementEnums_CreateModeCreateOrReplace {
 		if _, err := conn.ExecContext(
 			ctx,
 			fmt.Sprintf("DROP TABLE IF EXISTS `%s`", a.spec.TableName()),
@@ -61,7 +61,7 @@ func (a *CreateTableStmtAction) createIndexAutomatically(ctx context.Context, co
 }
 
 func (a *CreateTableStmtAction) exec(ctx context.Context, conn *Conn) error {
-	if a.spec.CreateMode == ast.CreateOrReplaceMode {
+	if a.spec.CreateMode == googlesql.ResolvedCreateStatementEnums_CreateModeCreateOrReplace {
 		if _, err := conn.ExecContext(
 			ctx,
 			fmt.Sprintf("DROP TABLE IF EXISTS `%s`", a.spec.TableName()),
@@ -128,7 +128,7 @@ type CreateViewStmtAction struct {
 }
 
 func (a *CreateViewStmtAction) Prepare(ctx context.Context, conn *Conn) (driver.Stmt, error) {
-	if a.spec.CreateMode == ast.CreateOrReplaceMode {
+	if a.spec.CreateMode == googlesql.ResolvedCreateStatementEnums_CreateModeCreateOrReplace {
 		if _, err := conn.ExecContext(
 			ctx,
 			fmt.Sprintf("DROP VIEW IF EXISTS `%s`", a.spec.TableName()),
@@ -144,7 +144,7 @@ func (a *CreateViewStmtAction) Prepare(ctx context.Context, conn *Conn) (driver.
 }
 
 func (a *CreateViewStmtAction) exec(ctx context.Context, conn *Conn) error {
-	if a.spec.CreateMode == ast.CreateOrReplaceMode {
+	if a.spec.CreateMode == googlesql.ResolvedCreateStatementEnums_CreateModeCreateOrReplace {
 		if _, err := conn.ExecContext(
 			ctx,
 			fmt.Sprintf("DROP VIEW IF EXISTS `%s`", a.spec.TableName()),
@@ -307,7 +307,7 @@ func (a *DropStmtAction) Cleanup(ctx context.Context, conn *Conn) error {
 
 type DMLStmtAction struct {
 	query          string
-	params         []*ast.ParameterNode
+	params         []*googlesql.ResolvedParameterNode
 	args           []interface{}
 	formattedQuery string
 }
@@ -353,7 +353,7 @@ func (a *DMLStmtAction) Cleanup(ctx context.Context, conn *Conn) error {
 
 type QueryStmtAction struct {
 	query          string
-	params         []*ast.ParameterNode
+	params         []*googlesql.ResolvedParameterNode
 	args           []interface{}
 	formattedQuery string
 	outputColumns  []*ColumnSpec

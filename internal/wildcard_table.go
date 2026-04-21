@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/goccy/go-zetasql/types"
+	googlesql "github.com/goccy/go-googlesql"
 )
 
 const tableSuffixColumnName = "_TABLE_SUFFIX"
@@ -59,7 +59,7 @@ func (t *WildcardTable) FormatSQL(ctx context.Context) (string, error) {
 			return "", fmt.Errorf("failed to find table suffix from %s", fullName)
 		}
 		tableSuffix := fullName[len(t.prefix):]
-		encodedSuffix, err := EncodeGoValue(types.StringType(), tableSuffix)
+		encodedSuffix, err := EncodeGoValue(StringType(), tableSuffix)
 		if err != nil {
 			return "", err
 		}
@@ -88,13 +88,13 @@ func (t *WildcardTable) NumColumns() int {
 	return len(t.spec.Columns)
 }
 
-func (t *WildcardTable) Column(idx int) types.Column {
+func (t *WildcardTable) Column(idx int) googlesql.Googlesql_Column {
 	column := t.spec.Columns[idx]
 	typ, err := column.Type.ToZetaSQLType()
 	if err != nil {
 		return nil
 	}
-	return types.NewSimpleColumn(
+	return googlesql.NewSimpleColumn(
 		strings.Join(t.spec.NamePath, "."), column.Name, typ,
 	)
 }
@@ -103,14 +103,14 @@ func (t *WildcardTable) PrimaryKey() []int {
 	return nil
 }
 
-func (t *WildcardTable) FindColumnByName(name string) types.Column {
+func (t *WildcardTable) FindColumnByName(name string) googlesql.Googlesql_Column {
 	for _, col := range t.spec.Columns {
 		if col.Name == name {
 			typ, err := col.Type.ToZetaSQLType()
 			if err != nil {
 				return nil
 			}
-			return types.NewSimpleColumn(
+			return googlesql.NewSimpleColumn(
 				t.spec.TableName(), col.Name, typ,
 			)
 		}
@@ -126,11 +126,11 @@ func (t *WildcardTable) SerializationID() int64 {
 	return 0
 }
 
-func (t *WildcardTable) CreateEvaluatorTableIterator(columnIdxs []int) (*types.EvaluatorTableIterator, error) {
+func (t *WildcardTable) CreateEvaluatorTableIterator(columnIdxs []int) (*googlesql.EvaluatorTableIterator, error) {
 	return nil, nil
 }
 
-func (t *WildcardTable) AnonymizationInfo() *types.AnonymizationInfo {
+func (t *WildcardTable) AnonymizationInfo() *googlesql.AnonymizationInfo {
 	return nil
 }
 
@@ -138,11 +138,11 @@ func (t *WildcardTable) SupportsAnonymization() bool {
 	return false
 }
 
-func (t *WildcardTable) TableTypeName(mode types.ProductMode) string {
+func (t *WildcardTable) TableTypeName(mode googlesql.ProductMode) string {
 	return ""
 }
 
-func (c *Catalog) createWildcardTable(path []string) (types.Table, error) {
+func (c *Catalog) createWildcardTable(path []string) (googlesql.Table, error) {
 	name := strings.Join(path, "_")
 	name = strings.TrimRight(name, "*")
 	re, err := regexp.Compile(name)
@@ -168,7 +168,7 @@ func (c *Catalog) createWildcardTable(path []string) (types.Table, error) {
 	wildcardTable.NamePath = append([]string{}, spec.NamePath...)
 	wildcardTable.Columns = append(wildcardTable.Columns, &ColumnSpec{
 		Name: tableSuffixColumnName,
-		Type: &Type{Kind: types.STRING},
+		Type: &Type{Kind: googlesql.TypeKindTypeString},
 	})
 	lastNamePath := spec.NamePath[len(spec.NamePath)-1]
 	lastNamePath = lastNamePath[:len(path)-1]

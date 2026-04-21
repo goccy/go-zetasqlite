@@ -1,1834 +1,1834 @@
 package internal
 
 import (
-	ast "github.com/goccy/go-zetasql/resolved_ast"
+	googlesql "github.com/goccy/go-googlesql"
 )
 
-func newNode(node ast.Node) Formatter {
+func newNode(node googlesql.ResolvedNodeNode) Formatter {
 	if node == nil {
 		return nil
 	}
 	switch node.Kind() {
-	case ast.Literal:
-		return newLiteralNode(node.(*ast.LiteralNode))
-	case ast.Parameter:
-		return newParameterNode(node.(*ast.ParameterNode))
-	case ast.ExpressionColumn:
-		return newExpressionColumnNode(node.(*ast.ExpressionColumnNode))
-	case ast.ColumnRef:
-		return newColumnRefNode(node.(*ast.ColumnRefNode))
-	case ast.Constant:
-		return newConstantNode(node.(*ast.ConstantNode))
-	case ast.SystemVariable:
-		return newSystemVariableNode(node.(*ast.SystemVariableNode))
-	case ast.InlineLambda:
-		return newInlineLambdaNode(node.(*ast.InlineLambdaNode))
-	case ast.FilterFieldArg:
-		return newFilterFieldArgNode(node.(*ast.FilterFieldArgNode))
-	case ast.FilterField:
-		return newFilterFieldNode(node.(*ast.FilterFieldNode))
-	case ast.FunctionCall:
-		return newFunctionCallNode(node.(*ast.FunctionCallNode))
-	case ast.AggregateFunctionCall:
-		return newAggregateFunctionCallNode(node.(*ast.AggregateFunctionCallNode))
-	case ast.AnalyticFunctionCall:
-		return newAnalyticFunctionCallNode(node.(*ast.AnalyticFunctionCallNode))
-	case ast.ExtendedCastElement:
-		return newExtendedCastElementNode(node.(*ast.ExtendedCastElementNode))
-	case ast.ExtendedCast:
-		return newExtendedCastNode(node.(*ast.ExtendedCastNode))
-	case ast.Cast:
-		return newCastNode(node.(*ast.CastNode))
-	case ast.MakeStruct:
-		return newMakeStructNode(node.(*ast.MakeStructNode))
-	case ast.MakeProto:
-		return newMakeProtoNode(node.(*ast.MakeProtoNode))
-	case ast.MakeProtoField:
-		return newMakeProtoFieldNode(node.(*ast.MakeProtoFieldNode))
-	case ast.GetStructField:
-		return newGetStructFieldNode(node.(*ast.GetStructFieldNode))
-	case ast.GetProtoField:
-		return newGetProtoFieldNode(node.(*ast.GetProtoFieldNode))
-	case ast.GetJsonField:
-		return newGetJsonFieldNode(node.(*ast.GetJsonFieldNode))
-	case ast.Flatten:
-		return newFlattenNode(node.(*ast.FlattenNode))
-	case ast.FlattenedArg:
-		return newFlattenedArgNode(node.(*ast.FlattenedArgNode))
-	case ast.ReplaceFieldItem:
-		return newReplaceFieldItemNode(node.(*ast.ReplaceFieldItemNode))
-	case ast.ReplaceField:
-		return newReplaceFieldNode(node.(*ast.ReplaceFieldNode))
-	case ast.SubqueryExpr:
-		return newSubqueryExprNode(node.(*ast.SubqueryExprNode))
-	case ast.LetExpr:
-		return newLetExprNode(node.(*ast.LetExprNode))
-	case ast.Model:
-		return newModelNode(node.(*ast.ModelNode))
-	case ast.Connection:
-		return newConnectionNode(node.(*ast.ConnectionNode))
-	case ast.Descriptor:
-		return newDescriptorNode(node.(*ast.DescriptorNode))
-	case ast.SingleRowScan:
-		return newSingleRowScanNode(node.(*ast.SingleRowScanNode))
-	case ast.TableScan:
-		return newTableScanNode(node.(*ast.TableScanNode))
-	case ast.JoinScan:
-		return newJoinScanNode(node.(*ast.JoinScanNode))
-	case ast.ArrayScan:
-		return newArrayScanNode(node.(*ast.ArrayScanNode))
-	case ast.ColumnHolder:
-		return newColumnHolderNode(node.(*ast.ColumnHolderNode))
-	case ast.FilterScan:
-		return newFilterScanNode(node.(*ast.FilterScanNode))
-	case ast.GroupingSet:
-		return newGroupingSetNode(node.(*ast.GroupingSetNode))
-	case ast.AggregateScan:
-		return newAggregateScanNode(node.(*ast.AggregateScanNode))
-	case ast.AnonymizedAggregateScan:
-		return newAnonymizedAggregateScanNode(node.(*ast.AnonymizedAggregateScanNode))
-	case ast.SetOperationItem:
-		return newSetOperationItemNode(node.(*ast.SetOperationItemNode))
-	case ast.SetOperationScan:
-		return newSetOperationScanNode(node.(*ast.SetOperationScanNode))
-	case ast.OrderByScan:
-		return newOrderByScanNode(node.(*ast.OrderByScanNode))
-	case ast.LimitOffsetScan:
-		return newLimitOffsetScanNode(node.(*ast.LimitOffsetScanNode))
-	case ast.WithRefScan:
-		return newWithRefScanNode(node.(*ast.WithRefScanNode))
-	case ast.AnalyticScan:
-		return newAnalyticScanNode(node.(*ast.AnalyticScanNode))
-	case ast.SampleScan:
-		return newSampleScanNode(node.(*ast.SampleScanNode))
-	case ast.ComputedColumn:
-		return newComputedColumnNode(node.(*ast.ComputedColumnNode))
-	case ast.OrderByItem:
-		return newOrderByItemNode(node.(*ast.OrderByItemNode))
-	case ast.ColumnAnnotations:
-		return newColumnAnnotationsNode(node.(*ast.ColumnAnnotationsNode))
-	case ast.GeneratedColumnInfo:
-		return newGeneratedColumnInfoNode(node.(*ast.GeneratedColumnInfoNode))
-	case ast.ColumnDefaultValue:
-		return newColumnDefaultValueNode(node.(*ast.ColumnDefaultValueNode))
-	case ast.ColumnDefinition:
-		return newColumnDefinitionNode(node.(*ast.ColumnDefinitionNode))
-	case ast.PrimaryKey:
-		return newPrimaryKeyNode(node.(*ast.PrimaryKeyNode))
-	case ast.ForeignKey:
-		return newForeignKeyNode(node.(*ast.ForeignKeyNode))
-	case ast.CheckConstraint:
-		return newCheckConstraintNode(node.(*ast.CheckConstraintNode))
-	case ast.OutputColumn:
-		return newOutputColumnNode(node.(*ast.OutputColumnNode))
-	case ast.ProjectScan:
-		return newProjectScanNode(node.(*ast.ProjectScanNode))
-	case ast.TVFScan:
-		return newTVFScanNode(node.(*ast.TVFScanNode))
-	case ast.GroupRowsScan:
-		return newGroupRowsScanNode(node.(*ast.GroupRowsScanNode))
-	case ast.FunctionArgument:
-		return newFunctionArgumentNode(node.(*ast.FunctionArgumentNode))
-	case ast.ExplainStmt:
-		return newExplainStmtNode(node.(*ast.ExplainStmtNode))
-	case ast.QueryStmt:
-		return newQueryStmtNode(node.(*ast.QueryStmtNode))
-	case ast.CreateDatabaseStmt:
-		return newCreateDatabaseStmtNode(node.(*ast.CreateDatabaseStmtNode))
-	case ast.IndexItem:
-		return newIndexItemNode(node.(*ast.IndexItemNode))
-	case ast.UnnestItem:
-		return newUnnestItemNode(node.(*ast.UnnestItemNode))
-	case ast.CreateIndexStmt:
-		return newCreateIndexStmtNode(node.(*ast.CreateIndexStmtNode))
-	case ast.CreateSchemaStmt:
-		return newCreateSchemaStmtNode(node.(*ast.CreateSchemaStmtNode))
-	case ast.CreateTableStmt:
-		return newCreateTableStmtNode(node.(*ast.CreateTableStmtNode))
-	case ast.CreateTableAsSelectStmt:
-		return newCreateTableAsSelectStmtNode(node.(*ast.CreateTableAsSelectStmtNode))
-	case ast.CreateModelStmt:
-		return newCreateModelStmtNode(node.(*ast.CreateModelStmtNode))
-	case ast.CreateViewStmt:
-		return newCreateViewStmtNode(node.(*ast.CreateViewStmtNode))
-	case ast.WithPartitionColumns:
-		return newWithPartitionColumnsNode(node.(*ast.WithPartitionColumnsNode))
-	case ast.CreateSnapshotTableStmt:
-		return newCreateSnapshotTableStmtNode(node.(*ast.CreateSnapshotTableStmtNode))
-	case ast.CreateExternalTableStmt:
-		return newCreateExternalTableStmtNode(node.(*ast.CreateExternalTableStmtNode))
-	case ast.ExportModelStmt:
-		return newExportModelStmtNode(node.(*ast.ExportModelStmtNode))
-	case ast.ExportDataStmt:
-		return newExportDataStmtNode(node.(*ast.ExportDataStmtNode))
-	case ast.DefineTableStmt:
-		return newDefineTableStmtNode(node.(*ast.DefineTableStmtNode))
-	case ast.DescribeStmt:
-		return newDescribeStmtNode(node.(*ast.DescribeStmtNode))
-	case ast.ShowStmt:
-		return newShowStmtNode(node.(*ast.ShowStmtNode))
-	case ast.BeginStmt:
-		return newBeginStmtNode(node.(*ast.BeginStmtNode))
-	case ast.SetTransactionStmt:
-		return newSetTransactionStmtNode(node.(*ast.SetTransactionStmtNode))
-	case ast.CommitStmt:
-		return newCommitStmtNode(node.(*ast.CommitStmtNode))
-	case ast.RollbackStmt:
-		return newRollbackStmtNode(node.(*ast.RollbackStmtNode))
-	case ast.StartBatchStmt:
-		return newStartBatchStmtNode(node.(*ast.StartBatchStmtNode))
-	case ast.RunBatchStmt:
-		return newRunBatchStmtNode(node.(*ast.RunBatchStmtNode))
-	case ast.AbortBatchStmt:
-		return newAbortBatchStmtNode(node.(*ast.AbortBatchStmtNode))
-	case ast.DropStmt:
-		return newDropStmtNode(node.(*ast.DropStmtNode))
-	case ast.DropMaterializedViewStmt:
-		return newDropMaterializedViewStmtNode(node.(*ast.DropMaterializedViewStmtNode))
-	case ast.DropSnapshotTableStmt:
-		return newDropSnapshotTableStmtNode(node.(*ast.DropSnapshotTableStmtNode))
-	case ast.RecursiveRefScan:
-		return newRecursiveRefScanNode(node.(*ast.RecursiveRefScanNode))
-	case ast.RecursiveScan:
-		return newRecursiveScanNode(node.(*ast.RecursiveScanNode))
-	case ast.WithScan:
-		return newWithScanNode(node.(*ast.WithScanNode))
-	case ast.WithEntry:
-		return newWithEntryNode(node.(*ast.WithEntryNode))
-	case ast.Option:
-		return newOptionNode(node.(*ast.OptionNode))
-	case ast.WindowPartitioning:
-		return newWindowPartitioningNode(node.(*ast.WindowPartitioningNode))
-	case ast.WindowOrdering:
-		return newWindowOrderingNode(node.(*ast.WindowOrderingNode))
-	case ast.WindowFrame:
-		return newWindowFrameNode(node.(*ast.WindowFrameNode))
-	case ast.AnalyticFunctionGroup:
-		return newAnalyticFunctionGroupNode(node.(*ast.AnalyticFunctionGroupNode))
-	case ast.WindowFrameExpr:
-		return newWindowFrameExprNode(node.(*ast.WindowFrameExprNode))
-	case ast.DMLValue:
-		return newDMLValueNode(node.(*ast.DMLValueNode))
-	case ast.DMLDefault:
-		return newDMLDefaultNode(node.(*ast.DMLDefaultNode))
-	case ast.AssertStmt:
-		return newAssertStmtNode(node.(*ast.AssertStmtNode))
-	case ast.AssertRowsModified:
-		return newAssertRowsModifiedNode(node.(*ast.AssertRowsModifiedNode))
-	case ast.InsertRow:
-		return newInsertRowNode(node.(*ast.InsertRowNode))
-	case ast.InsertStmt:
-		return newInsertStmtNode(node.(*ast.InsertStmtNode))
-	case ast.DeleteStmt:
-		return newDeleteStmtNode(node.(*ast.DeleteStmtNode))
-	case ast.UpdateItem:
-		return newUpdateItemNode(node.(*ast.UpdateItemNode))
-	case ast.UpdateArrayItem:
-		return newUpdateArrayItemNode(node.(*ast.UpdateArrayItemNode))
-	case ast.UpdateStmt:
-		return newUpdateStmtNode(node.(*ast.UpdateStmtNode))
-	case ast.MergeWhen:
-		return newMergeWhenNode(node.(*ast.MergeWhenNode))
-	case ast.MergeStmt:
-		return newMergeStmtNode(node.(*ast.MergeStmtNode))
-	case ast.TruncateStmt:
-		return newTruncateStmtNode(node.(*ast.TruncateStmtNode))
-	case ast.ObjectUnit:
-		return newObjectUnitNode(node.(*ast.ObjectUnitNode))
-	case ast.Privilege:
-		return newPrivilegeNode(node.(*ast.PrivilegeNode))
-	case ast.GrantStmt:
-		return newGrantStmtNode(node.(*ast.GrantStmtNode))
-	case ast.RevokeStmt:
-		return newRevokeStmtNode(node.(*ast.RevokeStmtNode))
-	case ast.AlterDatabaseStmt:
-		return newAlterDatabaseStmtNode(node.(*ast.AlterDatabaseStmtNode))
-	case ast.AlterMaterializedViewStmt:
-		return newAlterMaterializedViewStmtNode(node.(*ast.AlterMaterializedViewStmtNode))
-	case ast.AlterSchemaStmt:
-		return newAlterSchemaStmtNode(node.(*ast.AlterSchemaStmtNode))
-	case ast.AlterTableStmt:
-		return newAlterTableStmtNode(node.(*ast.AlterTableStmtNode))
-	case ast.AlterViewStmt:
-		return newAlterViewStmtNode(node.(*ast.AlterViewStmtNode))
-	case ast.SetOptionsAction:
-		return newSetOptionsActionNode(node.(*ast.SetOptionsActionNode))
-	case ast.AddColumnAction:
-		return newAddColumnActionNode(node.(*ast.AddColumnActionNode))
-	case ast.AddConstraintAction:
-		return newAddConstraintActionNode(node.(*ast.AddConstraintActionNode))
-	case ast.DropConstraintAction:
-		return newDropConstraintActionNode(node.(*ast.DropConstraintActionNode))
-	case ast.DropPrimaryKeyAction:
-		return newDropPrimaryKeyActionNode(node.(*ast.DropPrimaryKeyActionNode))
-	case ast.AlterColumnOptionsAction:
-		return newAlterColumnOptionsActionNode(node.(*ast.AlterColumnOptionsActionNode))
-	case ast.AlterColumnDropNotNullAction:
-		return newAlterColumnDropNotNullActionNode(node.(*ast.AlterColumnDropNotNullActionNode))
-	case ast.AlterColumnSetDataTypeAction:
-		return newAlterColumnSetDataTypeActionNode(node.(*ast.AlterColumnSetDataTypeActionNode))
-	case ast.AlterColumnSetDefaultAction:
-		return newAlterColumnSetDefaultActionNode(node.(*ast.AlterColumnSetDefaultActionNode))
-	case ast.AlterColumnDropDefaultAction:
-		return newAlterColumnDropDefaultActionNode(node.(*ast.AlterColumnDropDefaultActionNode))
-	case ast.DropColumnAction:
-		return newDropColumnActionNode(node.(*ast.DropColumnActionNode))
-	case ast.RenameColumnAction:
-		return newRenameColumnActionNode(node.(*ast.RenameColumnActionNode))
-	case ast.SetAsAction:
-		return newSetAsActionNode(node.(*ast.SetAsActionNode))
-	case ast.SetCollateClause:
-		return newSetCollateClauseNode(node.(*ast.SetCollateClauseNode))
-	case ast.AlterTableSetOptionsStmt:
-		return newAlterTableSetOptionsStmtNode(node.(*ast.AlterTableSetOptionsStmtNode))
-	case ast.RenameStmt:
-		return newRenameStmtNode(node.(*ast.RenameStmtNode))
-	case ast.CreatePrivilegeRestrictionStmt:
-		return newCreatePrivilegeRestrictionStmtNode(node.(*ast.CreatePrivilegeRestrictionStmtNode))
-	case ast.CreateRowAccessPolicyStmt:
-		return newCreateRowAccessPolicyStmtNode(node.(*ast.CreateRowAccessPolicyStmtNode))
-	case ast.DropPrivilegeRestrictionStmt:
-		return newDropPrivilegeRestrictionStmtNode(node.(*ast.DropPrivilegeRestrictionStmtNode))
-	case ast.DropRowAccessPolicyStmt:
-		return newDropRowAccessPolicyStmtNode(node.(*ast.DropRowAccessPolicyStmtNode))
-	case ast.DropSearchIndexStmt:
-		return newDropSearchIndexStmtNode(node.(*ast.DropSearchIndexStmtNode))
-	case ast.GrantToAction:
-		return newGrantToActionNode(node.(*ast.GrantToActionNode))
-	case ast.RestrictToAction:
-		return newRestrictToActionNode(node.(*ast.RestrictToActionNode))
-	case ast.AddToRestricteeListAction:
-		return newAddToRestricteeListActionNode(node.(*ast.AddToRestricteeListActionNode))
-	case ast.RemoveFromRestricteeListAction:
-		return newRemoveFromRestricteeListActionNode(node.(*ast.RemoveFromRestricteeListActionNode))
-	case ast.FilterUsingAction:
-		return newFilterUsingActionNode(node.(*ast.FilterUsingActionNode))
-	case ast.RevokeFromAction:
-		return newRevokeFromActionNode(node.(*ast.RevokeFromActionNode))
-	case ast.RenameToAction:
-		return newRenameToActionNode(node.(*ast.RenameToActionNode))
-	case ast.AlterPrivilegeRestrictionStmt:
-		return newAlterPrivilegeRestrictionStmtNode(node.(*ast.AlterPrivilegeRestrictionStmtNode))
-	case ast.AlterRowAccessPolicyStmt:
-		return newAlterRowAccessPolicyStmtNode(node.(*ast.AlterRowAccessPolicyStmtNode))
-	case ast.AlterAllRowAccessPoliciesStmt:
-		return newAlterAllRowAccessPoliciesStmtNode(node.(*ast.AlterAllRowAccessPoliciesStmtNode))
-	case ast.CreateConstantStmt:
-		return newCreateConstantStmtNode(node.(*ast.CreateConstantStmtNode))
-	case ast.CreateFunctionStmt:
-		return newCreateFunctionStmtNode(node.(*ast.CreateFunctionStmtNode))
-	case ast.ArgumentDef:
-		return newArgumentDefNode(node.(*ast.ArgumentDefNode))
-	case ast.ArgumentRef:
-		return newArgumentRefNode(node.(*ast.ArgumentRefNode))
-	case ast.CreateTableFunctionStmt:
-		return newCreateTableFunctionStmtNode(node.(*ast.CreateTableFunctionStmtNode))
-	case ast.RelationArgumentScan:
-		return newRelationArgumentScanNode(node.(*ast.RelationArgumentScanNode))
-	case ast.ArgumentList:
-		return newArgumentListNode(node.(*ast.ArgumentListNode))
-	case ast.FunctionSignatureHolder:
-		return newFunctionSignatureHolderNode(node.(*ast.FunctionSignatureHolderNode))
-	case ast.DropFunctionStmt:
-		return newDropFunctionStmtNode(node.(*ast.DropFunctionStmtNode))
-	case ast.DropTableFunctionStmt:
-		return newDropTableFunctionStmtNode(node.(*ast.DropTableFunctionStmtNode))
-	case ast.CallStmt:
-		return newCallStmtNode(node.(*ast.CallStmtNode))
-	case ast.ImportStmt:
-		return newImportStmtNode(node.(*ast.ImportStmtNode))
-	case ast.ModuleStmt:
-		return newModuleStmtNode(node.(*ast.ModuleStmtNode))
-	case ast.AggregateHavingModifier:
-		return newAggregateHavingModifierNode(node.(*ast.AggregateHavingModifierNode))
-	case ast.CreateMaterializedViewStmt:
-		return newCreateMaterializedViewStmtNode(node.(*ast.CreateMaterializedViewStmtNode))
-	case ast.CreateProcedureStmt:
-		return newCreateProcedureStmtNode(node.(*ast.CreateProcedureStmtNode))
-	case ast.ExecuteImmediateArgument:
-		return newExecuteImmediateArgumentNode(node.(*ast.ExecuteImmediateArgumentNode))
-	case ast.ExecuteImmediateStmt:
-		return newExecuteImmediateStmtNode(node.(*ast.ExecuteImmediateStmtNode))
-	case ast.AssignmentStmt:
-		return newAssignmentStmtNode(node.(*ast.AssignmentStmtNode))
-	case ast.CreateEntityStmt:
-		return newCreateEntityStmtNode(node.(*ast.CreateEntityStmtNode))
-	case ast.AlterEntityStmt:
-		return newAlterEntityStmtNode(node.(*ast.AlterEntityStmtNode))
-	case ast.PivotColumn:
-		return newPivotColumnNode(node.(*ast.PivotColumnNode))
-	case ast.PivotScan:
-		return newPivotScanNode(node.(*ast.PivotScanNode))
-	case ast.ReturningClause:
-		return newReturningClauseNode(node.(*ast.ReturningClauseNode))
-	case ast.UnpivotArg:
-		return newUnpivotArgNode(node.(*ast.UnpivotArgNode))
-	case ast.UnpivotScan:
-		return newUnpivotScanNode(node.(*ast.UnpivotScanNode))
-	case ast.CloneDataStmt:
-		return newCloneDataStmtNode(node.(*ast.CloneDataStmtNode))
-	case ast.TableAndColumnInfo:
-		return newTableAndColumnInfoNode(node.(*ast.TableAndColumnInfoNode))
-	case ast.AnalyzeStmt:
-		return newAnalyzeStmtNode(node.(*ast.AnalyzeStmtNode))
-	case ast.AuxLoadDataStmt:
-		return newAuxLoadDataStmtNode(node.(*ast.AuxLoadDataStmtNode))
+	case googlesql.ResolvedLiteral:
+		return newLiteralNode(node.(*googlesql.ResolvedLiteralNode))
+	case googlesql.ResolvedParameter:
+		return newParameterNode(node.(*googlesql.ResolvedParameterNode))
+	case googlesql.ResolvedExpressionColumn:
+		return newExpressionColumnNode(node.(*googlesql.ResolvedExpressionColumnNode))
+	case googlesql.ResolvedColumnRef:
+		return newColumnRefNode(node.(*googlesql.ResolvedColumnRefNode))
+	case googlesql.ResolvedConstant:
+		return newConstantNode(node.(*googlesql.ResolvedConstantNode))
+	case googlesql.ResolvedSystemVariable:
+		return newSystemVariableNode(node.(*googlesql.ResolvedSystemVariableNode))
+	case googlesql.ResolvedInlineLambda:
+		return newInlineLambdaNode(node.(*googlesql.ResolvedInlineLambdaNode))
+	case googlesql.ResolvedFilterFieldArg:
+		return newFilterFieldArgNode(node.(*googlesql.ResolvedFilterFieldArgNode))
+	case googlesql.ResolvedFilterField:
+		return newFilterFieldNode(node.(*googlesql.ResolvedFilterFieldNode))
+	case googlesql.ResolvedFunctionCall:
+		return newFunctionCallNode(node.(*googlesql.ResolvedFunctionCallNode))
+	case googlesql.ResolvedAggregateFunctionCall:
+		return newAggregateFunctionCallNode(node.(*googlesql.ResolvedAggregateFunctionCallNode))
+	case googlesql.ResolvedAnalyticFunctionCall:
+		return newAnalyticFunctionCallNode(node.(*googlesql.ResolvedAnalyticFunctionCallNode))
+	case googlesql.ResolvedExtendedCastElement:
+		return newExtendedCastElementNode(node.(*googlesql.ResolvedExtendedCastElementNode))
+	case googlesql.ResolvedExtendedCast:
+		return newExtendedCastNode(node.(*googlesql.ResolvedExtendedCastNode))
+	case googlesql.ResolvedCast:
+		return newCastNode(node.(*googlesql.ResolvedCastNode))
+	case googlesql.ResolvedMakeStruct:
+		return newMakeStructNode(node.(*googlesql.ResolvedMakeStructNode))
+	case googlesql.ResolvedMakeProto:
+		return newMakeProtoNode(node.(*googlesql.ResolvedMakeProtoNode))
+	case googlesql.ResolvedMakeProtoField:
+		return newMakeProtoFieldNode(node.(*googlesql.ResolvedMakeProtoFieldNode))
+	case googlesql.ResolvedGetStructField:
+		return newGetStructFieldNode(node.(*googlesql.ResolvedGetStructFieldNode))
+	case googlesql.ResolvedGetProtoField:
+		return newGetProtoFieldNode(node.(*googlesql.ResolvedGetProtoFieldNode))
+	case googlesql.ResolvedGetJsonField:
+		return newGetJsonFieldNode(node.(*googlesql.ResolvedGetJsonFieldNode))
+	case googlesql.ResolvedFlatten:
+		return newFlattenNode(node.(*googlesql.ResolvedFlattenNode))
+	case googlesql.ResolvedFlattenedArg:
+		return newFlattenedArgNode(node.(*googlesql.ResolvedFlattenedArgNode))
+	case googlesql.ResolvedReplaceFieldItem:
+		return newReplaceFieldItemNode(node.(*googlesql.ResolvedReplaceFieldItemNode))
+	case googlesql.ResolvedReplaceField:
+		return newReplaceFieldNode(node.(*googlesql.ResolvedReplaceFieldNode))
+	case googlesql.ResolvedSubqueryExpr:
+		return newSubqueryExprNode(node.(*googlesql.ResolvedSubqueryExprNode))
+	case ResolvedLetExpr:
+		return newLetExprNode(node.(*ResolvedLetExprNode))
+	case googlesql.ResolvedModel:
+		return newModelNode(node.(*googlesql.ResolvedModelNode))
+	case googlesql.ResolvedConnection:
+		return newConnectionNode(node.(*googlesql.ResolvedConnectionNode))
+	case googlesql.ResolvedDescriptor:
+		return newDescriptorNode(node.(*googlesql.ResolvedDescriptorNode))
+	case googlesql.ResolvedSingleRowScan:
+		return newSingleRowScanNode(node.(*googlesql.ResolvedSingleRowScanNode))
+	case googlesql.ResolvedTableScan:
+		return newTableScanNode(node.(*googlesql.ResolvedTableScanNode))
+	case googlesql.ResolvedJoinScan:
+		return newJoinScanNode(node.(*googlesql.ResolvedJoinScanNode))
+	case googlesql.ResolvedArrayScan:
+		return newArrayScanNode(node.(*googlesql.ResolvedArrayScanNode))
+	case googlesql.ResolvedColumnHolder:
+		return newColumnHolderNode(node.(*googlesql.ResolvedColumnHolderNode))
+	case googlesql.ResolvedFilterScan:
+		return newFilterScanNode(node.(*googlesql.ResolvedFilterScanNode))
+	case googlesql.ResolvedGroupingSet:
+		return newGroupingSetNode(node.(*googlesql.ResolvedGroupingSetNode))
+	case googlesql.ResolvedAggregateScan:
+		return newAggregateScanNode(node.(*googlesql.ResolvedAggregateScanNode))
+	case googlesql.ResolvedAnonymizedAggregateScan:
+		return newAnonymizedAggregateScanNode(node.(*googlesql.ResolvedAnonymizedAggregateScanNode))
+	case googlesql.ResolvedSetOperationItem:
+		return newSetOperationItemNode(node.(*googlesql.ResolvedSetOperationItemNode))
+	case googlesql.ResolvedSetOperationScan:
+		return newSetOperationScanNode(node.(*googlesql.ResolvedSetOperationScanNode))
+	case googlesql.ResolvedOrderByScan:
+		return newOrderByScanNode(node.(*googlesql.ResolvedOrderByScanNode))
+	case googlesql.ResolvedLimitOffsetScan:
+		return newLimitOffsetScanNode(node.(*googlesql.ResolvedLimitOffsetScanNode))
+	case googlesql.ResolvedWithRefScan:
+		return newWithRefScanNode(node.(*googlesql.ResolvedWithRefScanNode))
+	case googlesql.ResolvedAnalyticScan:
+		return newAnalyticScanNode(node.(*googlesql.ResolvedAnalyticScanNode))
+	case googlesql.ResolvedSampleScan:
+		return newSampleScanNode(node.(*googlesql.ResolvedSampleScanNode))
+	case googlesql.ResolvedComputedColumn:
+		return newComputedColumnNode(node.(*googlesql.ResolvedComputedColumnNode))
+	case googlesql.ResolvedOrderByItem:
+		return newOrderByItemNode(node.(*googlesql.ResolvedOrderByItemNode))
+	case googlesql.ResolvedColumnAnnotations:
+		return newColumnAnnotationsNode(node.(*googlesql.ResolvedColumnAnnotationsNode))
+	case googlesql.ResolvedGeneratedColumnInfo:
+		return newGeneratedColumnInfoNode(node.(*googlesql.ResolvedGeneratedColumnInfoNode))
+	case googlesql.ResolvedColumnDefaultValue:
+		return newColumnDefaultValueNode(node.(*googlesql.ResolvedColumnDefaultValueNode))
+	case googlesql.ResolvedColumnDefinition:
+		return newColumnDefinitionNode(node.(*googlesql.ResolvedColumnDefinitionNode))
+	case googlesql.ResolvedPrimaryKey:
+		return newPrimaryKeyNode(node.(*googlesql.ResolvedPrimaryKeyNode))
+	case googlesql.ResolvedForeignKey:
+		return newForeignKeyNode(node.(*googlesql.ResolvedForeignKeyNode))
+	case googlesql.ResolvedCheckConstraint:
+		return newCheckConstraintNode(node.(*googlesql.ResolvedCheckConstraintNode))
+	case googlesql.ResolvedOutputColumn:
+		return newOutputColumnNode(node.(*googlesql.ResolvedOutputColumnNode))
+	case googlesql.ResolvedProjectScan:
+		return newProjectScanNode(node.(*googlesql.ResolvedProjectScanNode))
+	case googlesql.ResolvedTVFScan:
+		return newTVFScanNode(node.(*googlesql.ResolvedTVFScanNode))
+	case googlesql.ResolvedGroupRowsScan:
+		return newGroupRowsScanNode(node.(*googlesql.ResolvedGroupRowsScanNode))
+	case googlesql.ResolvedFunctionArgument:
+		return newFunctionArgumentNode(node.(*googlesql.ResolvedFunctionArgumentNode))
+	case googlesql.ResolvedExplainStmt:
+		return newExplainStmtNode(node.(*googlesql.ResolvedExplainStmtNode))
+	case googlesql.ResolvedQueryStmt:
+		return newQueryStmtNode(node.(*googlesql.ResolvedQueryStmtNode))
+	case googlesql.ResolvedCreateDatabaseStmt:
+		return newCreateDatabaseStmtNode(node.(*googlesql.ResolvedCreateDatabaseStmtNode))
+	case googlesql.ResolvedIndexItem:
+		return newIndexItemNode(node.(*googlesql.ResolvedIndexItemNode))
+	case googlesql.ResolvedUnnestItem:
+		return newUnnestItemNode(node.(*googlesql.ResolvedUnnestItemNode))
+	case googlesql.ResolvedCreateIndexStmt:
+		return newCreateIndexStmtNode(node.(*googlesql.ResolvedCreateIndexStmtNode))
+	case googlesql.ResolvedCreateSchemaStmt:
+		return newCreateSchemaStmtNode(node.(*googlesql.ResolvedCreateSchemaStmtNode))
+	case googlesql.ResolvedCreateTableStmt:
+		return newCreateTableStmtNode(node.(*googlesql.ResolvedCreateTableStmtNode))
+	case googlesql.ResolvedCreateTableAsSelectStmt:
+		return newCreateTableAsSelectStmtNode(node.(*googlesql.ResolvedCreateTableAsSelectStmtNode))
+	case googlesql.ResolvedCreateModelStmt:
+		return newCreateModelStmtNode(node.(*googlesql.ResolvedCreateModelStmtNode))
+	case googlesql.ResolvedCreateViewStmt:
+		return newCreateViewStmtNode(node.(*googlesql.ResolvedCreateViewStmtNode))
+	case googlesql.ResolvedWithPartitionColumns:
+		return newWithPartitionColumnsNode(node.(*googlesql.ResolvedWithPartitionColumnsNode))
+	case googlesql.ResolvedCreateSnapshotTableStmt:
+		return newCreateSnapshotTableStmtNode(node.(*googlesql.ResolvedCreateSnapshotTableStmtNode))
+	case googlesql.ResolvedCreateExternalTableStmt:
+		return newCreateExternalTableStmtNode(node.(*googlesql.ResolvedCreateExternalTableStmtNode))
+	case googlesql.ResolvedExportModelStmt:
+		return newExportModelStmtNode(node.(*googlesql.ResolvedExportModelStmtNode))
+	case googlesql.ResolvedExportDataStmt:
+		return newExportDataStmtNode(node.(*googlesql.ResolvedExportDataStmtNode))
+	case googlesql.ResolvedDefineTableStmt:
+		return newDefineTableStmtNode(node.(*googlesql.ResolvedDefineTableStmtNode))
+	case googlesql.ResolvedDescribeStmt:
+		return newDescribeStmtNode(node.(*googlesql.ResolvedDescribeStmtNode))
+	case googlesql.ResolvedShowStmt:
+		return newShowStmtNode(node.(*googlesql.ResolvedShowStmtNode))
+	case googlesql.ResolvedBeginStmt:
+		return newBeginStmtNode(node.(*googlesql.ResolvedBeginStmtNode))
+	case googlesql.ResolvedSetTransactionStmt:
+		return newSetTransactionStmtNode(node.(*googlesql.ResolvedSetTransactionStmtNode))
+	case googlesql.ResolvedCommitStmt:
+		return newCommitStmtNode(node.(*googlesql.ResolvedCommitStmtNode))
+	case googlesql.ResolvedRollbackStmt:
+		return newRollbackStmtNode(node.(*googlesql.ResolvedRollbackStmtNode))
+	case googlesql.ResolvedStartBatchStmt:
+		return newStartBatchStmtNode(node.(*googlesql.ResolvedStartBatchStmtNode))
+	case googlesql.ResolvedRunBatchStmt:
+		return newRunBatchStmtNode(node.(*googlesql.ResolvedRunBatchStmtNode))
+	case googlesql.ResolvedAbortBatchStmt:
+		return newAbortBatchStmtNode(node.(*googlesql.ResolvedAbortBatchStmtNode))
+	case googlesql.ResolvedDropStmt:
+		return newDropStmtNode(node.(*googlesql.ResolvedDropStmtNode))
+	case googlesql.ResolvedDropMaterializedViewStmt:
+		return newDropMaterializedViewStmtNode(node.(*googlesql.ResolvedDropMaterializedViewStmtNode))
+	case googlesql.ResolvedDropSnapshotTableStmt:
+		return newDropSnapshotTableStmtNode(node.(*googlesql.ResolvedDropSnapshotTableStmtNode))
+	case googlesql.ResolvedRecursiveRefScan:
+		return newRecursiveRefScanNode(node.(*googlesql.ResolvedRecursiveRefScanNode))
+	case googlesql.ResolvedRecursiveScan:
+		return newRecursiveScanNode(node.(*googlesql.ResolvedRecursiveScanNode))
+	case googlesql.ResolvedWithScan:
+		return newWithScanNode(node.(*googlesql.ResolvedWithScanNode))
+	case googlesql.ResolvedWithEntry:
+		return newWithEntryNode(node.(*googlesql.ResolvedWithEntryNode))
+	case googlesql.ResolvedOption:
+		return newOptionNode(node.(*googlesql.ResolvedOptionNode))
+	case googlesql.ResolvedWindowPartitioning:
+		return newWindowPartitioningNode(node.(*googlesql.ResolvedWindowPartitioningNode))
+	case googlesql.ResolvedWindowOrdering:
+		return newWindowOrderingNode(node.(*googlesql.ResolvedWindowOrderingNode))
+	case googlesql.ResolvedWindowFrame:
+		return newWindowFrameNode(node.(*googlesql.ResolvedWindowFrameNode))
+	case googlesql.ResolvedAnalyticFunctionGroup:
+		return newAnalyticFunctionGroupNode(node.(*googlesql.ResolvedAnalyticFunctionGroupNode))
+	case googlesql.ResolvedWindowFrameExpr:
+		return newWindowFrameExprNode(node.(*googlesql.ResolvedWindowFrameExprNode))
+	case googlesql.ResolvedDMLValue:
+		return newDMLValueNode(node.(*googlesql.ResolvedDMLValueNode))
+	case googlesql.ResolvedDMLDefault:
+		return newDMLDefaultNode(node.(*googlesql.ResolvedDMLDefaultNode))
+	case googlesql.ResolvedAssertStmt:
+		return newAssertStmtNode(node.(*googlesql.ResolvedAssertStmtNode))
+	case googlesql.ResolvedAssertRowsModified:
+		return newAssertRowsModifiedNode(node.(*googlesql.ResolvedAssertRowsModifiedNode))
+	case googlesql.ResolvedInsertRow:
+		return newInsertRowNode(node.(*googlesql.ResolvedInsertRowNode))
+	case googlesql.ResolvedInsertStmt:
+		return newInsertStmtNode(node.(*googlesql.ResolvedInsertStmtNode))
+	case googlesql.ResolvedDeleteStmt:
+		return newDeleteStmtNode(node.(*googlesql.ResolvedDeleteStmtNode))
+	case googlesql.ResolvedUpdateItem:
+		return newUpdateItemNode(node.(*googlesql.ResolvedUpdateItemNode))
+	case ResolvedUpdateArrayItem:
+		return newUpdateArrayItemNode(node.(*ResolvedUpdateArrayItemNode))
+	case googlesql.ResolvedUpdateStmt:
+		return newUpdateStmtNode(node.(*googlesql.ResolvedUpdateStmtNode))
+	case googlesql.ResolvedMergeWhen:
+		return newMergeWhenNode(node.(*googlesql.ResolvedMergeWhenNode))
+	case googlesql.ResolvedMergeStmt:
+		return newMergeStmtNode(node.(*googlesql.ResolvedMergeStmtNode))
+	case googlesql.ResolvedTruncateStmt:
+		return newTruncateStmtNode(node.(*googlesql.ResolvedTruncateStmtNode))
+	case googlesql.ResolvedObjectUnit:
+		return newObjectUnitNode(node.(*googlesql.ResolvedObjectUnitNode))
+	case googlesql.ResolvedPrivilege:
+		return newPrivilegeNode(node.(*googlesql.ResolvedPrivilegeNode))
+	case googlesql.ResolvedGrantStmt:
+		return newGrantStmtNode(node.(*googlesql.ResolvedGrantStmtNode))
+	case googlesql.ResolvedRevokeStmt:
+		return newRevokeStmtNode(node.(*googlesql.ResolvedRevokeStmtNode))
+	case googlesql.ResolvedAlterDatabaseStmt:
+		return newAlterDatabaseStmtNode(node.(*googlesql.ResolvedAlterDatabaseStmtNode))
+	case googlesql.ResolvedAlterMaterializedViewStmt:
+		return newAlterMaterializedViewStmtNode(node.(*googlesql.ResolvedAlterMaterializedViewStmtNode))
+	case googlesql.ResolvedAlterSchemaStmt:
+		return newAlterSchemaStmtNode(node.(*googlesql.ResolvedAlterSchemaStmtNode))
+	case googlesql.ResolvedAlterTableStmt:
+		return newAlterTableStmtNode(node.(*googlesql.ResolvedAlterTableStmtNode))
+	case googlesql.ResolvedAlterViewStmt:
+		return newAlterViewStmtNode(node.(*googlesql.ResolvedAlterViewStmtNode))
+	case googlesql.ResolvedSetOptionsAction:
+		return newSetOptionsActionNode(node.(*googlesql.ResolvedSetOptionsActionNode))
+	case googlesql.ResolvedAddColumnAction:
+		return newAddColumnActionNode(node.(*googlesql.ResolvedAddColumnActionNode))
+	case googlesql.ResolvedAddConstraintAction:
+		return newAddConstraintActionNode(node.(*googlesql.ResolvedAddConstraintActionNode))
+	case googlesql.ResolvedDropConstraintAction:
+		return newDropConstraintActionNode(node.(*googlesql.ResolvedDropConstraintActionNode))
+	case googlesql.ResolvedDropPrimaryKeyAction:
+		return newDropPrimaryKeyActionNode(node.(*googlesql.ResolvedDropPrimaryKeyActionNode))
+	case googlesql.ResolvedAlterColumnOptionsAction:
+		return newAlterColumnOptionsActionNode(node.(*googlesql.ResolvedAlterColumnOptionsActionNode))
+	case googlesql.ResolvedAlterColumnDropNotNullAction:
+		return newAlterColumnDropNotNullActionNode(node.(*googlesql.ResolvedAlterColumnDropNotNullActionNode))
+	case googlesql.ResolvedAlterColumnSetDataTypeAction:
+		return newAlterColumnSetDataTypeActionNode(node.(*googlesql.ResolvedAlterColumnSetDataTypeActionNode))
+	case googlesql.ResolvedAlterColumnSetDefaultAction:
+		return newAlterColumnSetDefaultActionNode(node.(*googlesql.ResolvedAlterColumnSetDefaultActionNode))
+	case googlesql.ResolvedAlterColumnDropDefaultAction:
+		return newAlterColumnDropDefaultActionNode(node.(*googlesql.ResolvedAlterColumnDropDefaultActionNode))
+	case googlesql.ResolvedDropColumnAction:
+		return newDropColumnActionNode(node.(*googlesql.ResolvedDropColumnActionNode))
+	case googlesql.ResolvedRenameColumnAction:
+		return newRenameColumnActionNode(node.(*googlesql.ResolvedRenameColumnActionNode))
+	case googlesql.ResolvedSetAsAction:
+		return newSetAsActionNode(node.(*googlesql.ResolvedSetAsActionNode))
+	case googlesql.ResolvedSetCollateClause:
+		return newSetCollateClauseNode(node.(*googlesql.ResolvedSetCollateClauseNode))
+	case googlesql.ResolvedAlterTableSetOptionsStmt:
+		return newAlterTableSetOptionsStmtNode(node.(*googlesql.ResolvedAlterTableSetOptionsStmtNode))
+	case googlesql.ResolvedRenameStmt:
+		return newRenameStmtNode(node.(*googlesql.ResolvedRenameStmtNode))
+	case googlesql.ResolvedCreatePrivilegeRestrictionStmt:
+		return newCreatePrivilegeRestrictionStmtNode(node.(*googlesql.ResolvedCreatePrivilegeRestrictionStmtNode))
+	case googlesql.ResolvedCreateRowAccessPolicyStmt:
+		return newCreateRowAccessPolicyStmtNode(node.(*googlesql.ResolvedCreateRowAccessPolicyStmtNode))
+	case googlesql.ResolvedDropPrivilegeRestrictionStmt:
+		return newDropPrivilegeRestrictionStmtNode(node.(*googlesql.ResolvedDropPrivilegeRestrictionStmtNode))
+	case googlesql.ResolvedDropRowAccessPolicyStmt:
+		return newDropRowAccessPolicyStmtNode(node.(*googlesql.ResolvedDropRowAccessPolicyStmtNode))
+	case ResolvedDropSearchIndexStmt:
+		return newDropSearchIndexStmtNode(node.(*ResolvedDropSearchIndexStmtNode))
+	case googlesql.ResolvedGrantToAction:
+		return newGrantToActionNode(node.(*googlesql.ResolvedGrantToActionNode))
+	case googlesql.ResolvedRestrictToAction:
+		return newRestrictToActionNode(node.(*googlesql.ResolvedRestrictToActionNode))
+	case googlesql.ResolvedAddToRestricteeListAction:
+		return newAddToRestricteeListActionNode(node.(*googlesql.ResolvedAddToRestricteeListActionNode))
+	case googlesql.ResolvedRemoveFromRestricteeListAction:
+		return newRemoveFromRestricteeListActionNode(node.(*googlesql.ResolvedRemoveFromRestricteeListActionNode))
+	case googlesql.ResolvedFilterUsingAction:
+		return newFilterUsingActionNode(node.(*googlesql.ResolvedFilterUsingActionNode))
+	case googlesql.ResolvedRevokeFromAction:
+		return newRevokeFromActionNode(node.(*googlesql.ResolvedRevokeFromActionNode))
+	case googlesql.ResolvedRenameToAction:
+		return newRenameToActionNode(node.(*googlesql.ResolvedRenameToActionNode))
+	case googlesql.ResolvedAlterPrivilegeRestrictionStmt:
+		return newAlterPrivilegeRestrictionStmtNode(node.(*googlesql.ResolvedAlterPrivilegeRestrictionStmtNode))
+	case googlesql.ResolvedAlterRowAccessPolicyStmt:
+		return newAlterRowAccessPolicyStmtNode(node.(*googlesql.ResolvedAlterRowAccessPolicyStmtNode))
+	case googlesql.ResolvedAlterAllRowAccessPoliciesStmt:
+		return newAlterAllRowAccessPoliciesStmtNode(node.(*googlesql.ResolvedAlterAllRowAccessPoliciesStmtNode))
+	case googlesql.ResolvedCreateConstantStmt:
+		return newCreateConstantStmtNode(node.(*googlesql.ResolvedCreateConstantStmtNode))
+	case googlesql.ResolvedCreateFunctionStmt:
+		return newCreateFunctionStmtNode(node.(*googlesql.ResolvedCreateFunctionStmtNode))
+	case googlesql.ResolvedArgumentDef:
+		return newArgumentDefNode(node.(*googlesql.ResolvedArgumentDefNode))
+	case googlesql.ResolvedArgumentRef:
+		return newArgumentRefNode(node.(*googlesql.ResolvedArgumentRefNode))
+	case googlesql.ResolvedCreateTableFunctionStmt:
+		return newCreateTableFunctionStmtNode(node.(*googlesql.ResolvedCreateTableFunctionStmtNode))
+	case googlesql.ResolvedRelationArgumentScan:
+		return newRelationArgumentScanNode(node.(*googlesql.ResolvedRelationArgumentScanNode))
+	case googlesql.ResolvedArgumentList:
+		return newArgumentListNode(node.(*googlesql.ResolvedArgumentListNode))
+	case googlesql.ResolvedFunctionSignatureHolder:
+		return newFunctionSignatureHolderNode(node.(*googlesql.ResolvedFunctionSignatureHolderNode))
+	case googlesql.ResolvedDropFunctionStmt:
+		return newDropFunctionStmtNode(node.(*googlesql.ResolvedDropFunctionStmtNode))
+	case googlesql.ResolvedDropTableFunctionStmt:
+		return newDropTableFunctionStmtNode(node.(*googlesql.ResolvedDropTableFunctionStmtNode))
+	case googlesql.ResolvedCallStmt:
+		return newCallStmtNode(node.(*googlesql.ResolvedCallStmtNode))
+	case googlesql.ResolvedImportStmt:
+		return newImportStmtNode(node.(*googlesql.ResolvedImportStmtNode))
+	case googlesql.ResolvedModuleStmt:
+		return newModuleStmtNode(node.(*googlesql.ResolvedModuleStmtNode))
+	case googlesql.ResolvedAggregateHavingModifier:
+		return newAggregateHavingModifierNode(node.(*googlesql.ResolvedAggregateHavingModifierNode))
+	case googlesql.ResolvedCreateMaterializedViewStmt:
+		return newCreateMaterializedViewStmtNode(node.(*googlesql.ResolvedCreateMaterializedViewStmtNode))
+	case googlesql.ResolvedCreateProcedureStmt:
+		return newCreateProcedureStmtNode(node.(*googlesql.ResolvedCreateProcedureStmtNode))
+	case googlesql.ResolvedExecuteImmediateArgument:
+		return newExecuteImmediateArgumentNode(node.(*googlesql.ResolvedExecuteImmediateArgumentNode))
+	case googlesql.ResolvedExecuteImmediateStmt:
+		return newExecuteImmediateStmtNode(node.(*googlesql.ResolvedExecuteImmediateStmtNode))
+	case googlesql.ResolvedAssignmentStmt:
+		return newAssignmentStmtNode(node.(*googlesql.ResolvedAssignmentStmtNode))
+	case googlesql.ResolvedCreateEntityStmt:
+		return newCreateEntityStmtNode(node.(*googlesql.ResolvedCreateEntityStmtNode))
+	case googlesql.ResolvedAlterEntityStmt:
+		return newAlterEntityStmtNode(node.(*googlesql.ResolvedAlterEntityStmtNode))
+	case googlesql.ResolvedPivotColumn:
+		return newPivotColumnNode(node.(*googlesql.ResolvedPivotColumnNode))
+	case googlesql.ResolvedPivotScan:
+		return newPivotScanNode(node.(*googlesql.ResolvedPivotScanNode))
+	case googlesql.ResolvedReturningClause:
+		return newReturningClauseNode(node.(*googlesql.ResolvedReturningClauseNode))
+	case googlesql.ResolvedUnpivotArg:
+		return newUnpivotArgNode(node.(*googlesql.ResolvedUnpivotArgNode))
+	case googlesql.ResolvedUnpivotScan:
+		return newUnpivotScanNode(node.(*googlesql.ResolvedUnpivotScanNode))
+	case googlesql.ResolvedCloneDataStmt:
+		return newCloneDataStmtNode(node.(*googlesql.ResolvedCloneDataStmtNode))
+	case googlesql.ResolvedTableAndColumnInfo:
+		return newTableAndColumnInfoNode(node.(*googlesql.ResolvedTableAndColumnInfoNode))
+	case googlesql.ResolvedAnalyzeStmt:
+		return newAnalyzeStmtNode(node.(*googlesql.ResolvedAnalyzeStmtNode))
+	case googlesql.ResolvedAuxLoadDataStmt:
+		return newAuxLoadDataStmtNode(node.(*googlesql.ResolvedAuxLoadDataStmtNode))
 	}
 	return nil
 }
 
 type LiteralNode struct {
-	node *ast.LiteralNode
+	node *googlesql.ResolvedLiteralNode
 }
 
 type ParameterNode struct {
-	node *ast.ParameterNode
+	node *googlesql.ResolvedParameterNode
 }
 
 type ExpressionColumnNode struct {
-	node *ast.ExpressionColumnNode
+	node *googlesql.ResolvedExpressionColumnNode
 }
 
 type ColumnRefNode struct {
-	node *ast.ColumnRefNode
+	node *googlesql.ResolvedColumnRefNode
 }
 
 type ConstantNode struct {
-	node *ast.ConstantNode
+	node *googlesql.ResolvedConstantNode
 }
 
 type SystemVariableNode struct {
-	node *ast.SystemVariableNode
+	node *googlesql.ResolvedSystemVariableNode
 }
 
 type InlineLambdaNode struct {
-	node *ast.InlineLambdaNode
+	node *googlesql.ResolvedInlineLambdaNode
 }
 
 type FilterFieldArgNode struct {
-	node *ast.FilterFieldArgNode
+	node *googlesql.ResolvedFilterFieldArgNode
 }
 
 type FilterFieldNode struct {
-	node *ast.FilterFieldNode
+	node *googlesql.ResolvedFilterFieldNode
 }
 
 type FunctionCallNode struct {
-	node *ast.FunctionCallNode
+	node *googlesql.ResolvedFunctionCallNode
 }
 
 type AggregateFunctionCallNode struct {
-	node *ast.AggregateFunctionCallNode
+	node *googlesql.ResolvedAggregateFunctionCallNode
 }
 
 type AnalyticFunctionCallNode struct {
-	node *ast.AnalyticFunctionCallNode
+	node *googlesql.ResolvedAnalyticFunctionCallNode
 }
 
 type ExtendedCastElementNode struct {
-	node *ast.ExtendedCastElementNode
+	node *googlesql.ResolvedExtendedCastElementNode
 }
 
 type ExtendedCastNode struct {
-	node *ast.ExtendedCastNode
+	node *googlesql.ResolvedExtendedCastNode
 }
 
 type CastNode struct {
-	node *ast.CastNode
+	node *googlesql.ResolvedCastNode
 }
 
 type MakeStructNode struct {
-	node *ast.MakeStructNode
+	node *googlesql.ResolvedMakeStructNode
 }
 
 type MakeProtoNode struct {
-	node *ast.MakeProtoNode
+	node *googlesql.ResolvedMakeProtoNode
 }
 
 type MakeProtoFieldNode struct {
-	node *ast.MakeProtoFieldNode
+	node *googlesql.ResolvedMakeProtoFieldNode
 }
 
 type GetStructFieldNode struct {
-	node *ast.GetStructFieldNode
+	node *googlesql.ResolvedGetStructFieldNode
 }
 
 type GetProtoFieldNode struct {
-	node *ast.GetProtoFieldNode
+	node *googlesql.ResolvedGetProtoFieldNode
 }
 
 type GetJsonFieldNode struct {
-	node *ast.GetJsonFieldNode
+	node *googlesql.ResolvedGetJsonFieldNode
 }
 
 type FlattenNode struct {
-	node *ast.FlattenNode
+	node *googlesql.ResolvedFlattenNode
 }
 
 type FlattenedArgNode struct {
-	node *ast.FlattenedArgNode
+	node *googlesql.ResolvedFlattenedArgNode
 }
 
 type ReplaceFieldItemNode struct {
-	node *ast.ReplaceFieldItemNode
+	node *googlesql.ResolvedReplaceFieldItemNode
 }
 
 type ReplaceFieldNode struct {
-	node *ast.ReplaceFieldNode
+	node *googlesql.ResolvedReplaceFieldNode
 }
 
 type SubqueryExprNode struct {
-	node *ast.SubqueryExprNode
+	node *googlesql.ResolvedSubqueryExprNode
 }
 
 type LetExprNode struct {
-	node *ast.LetExprNode
+	node *ResolvedLetExprNode
 }
 
 type ModelNode struct {
-	node *ast.ModelNode
+	node *googlesql.ResolvedModelNode
 }
 
 type ConnectionNode struct {
-	node *ast.ConnectionNode
+	node *googlesql.ResolvedConnectionNode
 }
 
 type DescriptorNode struct {
-	node *ast.DescriptorNode
+	node *googlesql.ResolvedDescriptorNode
 }
 
 type SingleRowScanNode struct {
-	node *ast.SingleRowScanNode
+	node *googlesql.ResolvedSingleRowScanNode
 }
 
 type TableScanNode struct {
-	node *ast.TableScanNode
+	node *googlesql.ResolvedTableScanNode
 }
 
 type JoinScanNode struct {
-	node *ast.JoinScanNode
+	node *googlesql.ResolvedJoinScanNode
 }
 
 type ArrayScanNode struct {
-	node *ast.ArrayScanNode
+	node *googlesql.ResolvedArrayScanNode
 }
 
 type ColumnHolderNode struct {
-	node *ast.ColumnHolderNode
+	node *googlesql.ResolvedColumnHolderNode
 }
 
 type FilterScanNode struct {
-	node *ast.FilterScanNode
+	node *googlesql.ResolvedFilterScanNode
 }
 
 type GroupingSetNode struct {
-	node *ast.GroupingSetNode
+	node *googlesql.ResolvedGroupingSetNode
 }
 
 type AggregateScanNode struct {
-	node *ast.AggregateScanNode
+	node *googlesql.ResolvedAggregateScanNode
 }
 
 type AnonymizedAggregateScanNode struct {
-	node *ast.AnonymizedAggregateScanNode
+	node *googlesql.ResolvedAnonymizedAggregateScanNode
 }
 
 type SetOperationItemNode struct {
-	node *ast.SetOperationItemNode
+	node *googlesql.ResolvedSetOperationItemNode
 }
 
 type SetOperationScanNode struct {
-	node *ast.SetOperationScanNode
+	node *googlesql.ResolvedSetOperationScanNode
 }
 
 type OrderByScanNode struct {
-	node *ast.OrderByScanNode
+	node *googlesql.ResolvedOrderByScanNode
 }
 
 type LimitOffsetScanNode struct {
-	node *ast.LimitOffsetScanNode
+	node *googlesql.ResolvedLimitOffsetScanNode
 }
 
 type WithRefScanNode struct {
-	node *ast.WithRefScanNode
+	node *googlesql.ResolvedWithRefScanNode
 }
 
 type AnalyticScanNode struct {
-	node *ast.AnalyticScanNode
+	node *googlesql.ResolvedAnalyticScanNode
 }
 
 type SampleScanNode struct {
-	node *ast.SampleScanNode
+	node *googlesql.ResolvedSampleScanNode
 }
 
 type ComputedColumnNode struct {
-	node *ast.ComputedColumnNode
+	node *googlesql.ResolvedComputedColumnNode
 }
 
 type OrderByItemNode struct {
-	node *ast.OrderByItemNode
+	node *googlesql.ResolvedOrderByItemNode
 }
 
 type ColumnAnnotationsNode struct {
-	node *ast.ColumnAnnotationsNode
+	node *googlesql.ResolvedColumnAnnotationsNode
 }
 
 type GeneratedColumnInfoNode struct {
-	node *ast.GeneratedColumnInfoNode
+	node *googlesql.ResolvedGeneratedColumnInfoNode
 }
 
 type ColumnDefaultValueNode struct {
-	node *ast.ColumnDefaultValueNode
+	node *googlesql.ResolvedColumnDefaultValueNode
 }
 
 type ColumnDefinitionNode struct {
-	node *ast.ColumnDefinitionNode
+	node *googlesql.ResolvedColumnDefinitionNode
 }
 
 type PrimaryKeyNode struct {
-	node *ast.PrimaryKeyNode
+	node *googlesql.ResolvedPrimaryKeyNode
 }
 
 type ForeignKeyNode struct {
-	node *ast.ForeignKeyNode
+	node *googlesql.ResolvedForeignKeyNode
 }
 
 type CheckConstraintNode struct {
-	node *ast.CheckConstraintNode
+	node *googlesql.ResolvedCheckConstraintNode
 }
 
 type OutputColumnNode struct {
-	node *ast.OutputColumnNode
+	node *googlesql.ResolvedOutputColumnNode
 }
 
 type ProjectScanNode struct {
-	node *ast.ProjectScanNode
+	node *googlesql.ResolvedProjectScanNode
 }
 
 type TVFScanNode struct {
-	node *ast.TVFScanNode
+	node *googlesql.ResolvedTVFScanNode
 }
 
 type GroupRowsScanNode struct {
-	node *ast.GroupRowsScanNode
+	node *googlesql.ResolvedGroupRowsScanNode
 }
 
 type FunctionArgumentNode struct {
-	node *ast.FunctionArgumentNode
+	node *googlesql.ResolvedFunctionArgumentNode
 }
 
 type ExplainStmtNode struct {
-	node *ast.ExplainStmtNode
+	node *googlesql.ResolvedExplainStmtNode
 }
 
 type QueryStmtNode struct {
-	node *ast.QueryStmtNode
+	node *googlesql.ResolvedQueryStmtNode
 }
 
 type CreateDatabaseStmtNode struct {
-	node *ast.CreateDatabaseStmtNode
+	node *googlesql.ResolvedCreateDatabaseStmtNode
 }
 
 type IndexItemNode struct {
-	node *ast.IndexItemNode
+	node *googlesql.ResolvedIndexItemNode
 }
 
 type UnnestItemNode struct {
-	node *ast.UnnestItemNode
+	node *googlesql.ResolvedUnnestItemNode
 }
 
 type CreateIndexStmtNode struct {
-	node *ast.CreateIndexStmtNode
+	node *googlesql.ResolvedCreateIndexStmtNode
 }
 
 type CreateSchemaStmtNode struct {
-	node *ast.CreateSchemaStmtNode
+	node *googlesql.ResolvedCreateSchemaStmtNode
 }
 
 type CreateTableStmtNode struct {
-	node *ast.CreateTableStmtNode
+	node *googlesql.ResolvedCreateTableStmtNode
 }
 
 type CreateTableAsSelectStmtNode struct {
-	node *ast.CreateTableAsSelectStmtNode
+	node *googlesql.ResolvedCreateTableAsSelectStmtNode
 }
 
 type CreateModelStmtNode struct {
-	node *ast.CreateModelStmtNode
+	node *googlesql.ResolvedCreateModelStmtNode
 }
 
 type CreateViewStmtNode struct {
-	node *ast.CreateViewStmtNode
+	node *googlesql.ResolvedCreateViewStmtNode
 }
 
 type WithPartitionColumnsNode struct {
-	node *ast.WithPartitionColumnsNode
+	node *googlesql.ResolvedWithPartitionColumnsNode
 }
 
 type CreateSnapshotTableStmtNode struct {
-	node *ast.CreateSnapshotTableStmtNode
+	node *googlesql.ResolvedCreateSnapshotTableStmtNode
 }
 
 type CreateExternalTableStmtNode struct {
-	node *ast.CreateExternalTableStmtNode
+	node *googlesql.ResolvedCreateExternalTableStmtNode
 }
 
 type ExportModelStmtNode struct {
-	node *ast.ExportModelStmtNode
+	node *googlesql.ResolvedExportModelStmtNode
 }
 
 type ExportDataStmtNode struct {
-	node *ast.ExportDataStmtNode
+	node *googlesql.ResolvedExportDataStmtNode
 }
 
 type DefineTableStmtNode struct {
-	node *ast.DefineTableStmtNode
+	node *googlesql.ResolvedDefineTableStmtNode
 }
 
 type DescribeStmtNode struct {
-	node *ast.DescribeStmtNode
+	node *googlesql.ResolvedDescribeStmtNode
 }
 
 type ShowStmtNode struct {
-	node *ast.ShowStmtNode
+	node *googlesql.ResolvedShowStmtNode
 }
 
 type BeginStmtNode struct {
-	node *ast.BeginStmtNode
+	node *googlesql.ResolvedBeginStmtNode
 }
 
 type SetTransactionStmtNode struct {
-	node *ast.SetTransactionStmtNode
+	node *googlesql.ResolvedSetTransactionStmtNode
 }
 
 type CommitStmtNode struct {
-	node *ast.CommitStmtNode
+	node *googlesql.ResolvedCommitStmtNode
 }
 
 type RollbackStmtNode struct {
-	node *ast.RollbackStmtNode
+	node *googlesql.ResolvedRollbackStmtNode
 }
 
 type StartBatchStmtNode struct {
-	node *ast.StartBatchStmtNode
+	node *googlesql.ResolvedStartBatchStmtNode
 }
 
 type RunBatchStmtNode struct {
-	node *ast.RunBatchStmtNode
+	node *googlesql.ResolvedRunBatchStmtNode
 }
 
 type AbortBatchStmtNode struct {
-	node *ast.AbortBatchStmtNode
+	node *googlesql.ResolvedAbortBatchStmtNode
 }
 
 type DropStmtNode struct {
-	node *ast.DropStmtNode
+	node *googlesql.ResolvedDropStmtNode
 }
 
 type DropMaterializedViewStmtNode struct {
-	node *ast.DropMaterializedViewStmtNode
+	node *googlesql.ResolvedDropMaterializedViewStmtNode
 }
 
 type DropSnapshotTableStmtNode struct {
-	node *ast.DropSnapshotTableStmtNode
+	node *googlesql.ResolvedDropSnapshotTableStmtNode
 }
 
 type RecursiveRefScanNode struct {
-	node *ast.RecursiveRefScanNode
+	node *googlesql.ResolvedRecursiveRefScanNode
 }
 
 type RecursiveScanNode struct {
-	node *ast.RecursiveScanNode
+	node *googlesql.ResolvedRecursiveScanNode
 }
 
 type WithScanNode struct {
-	node *ast.WithScanNode
+	node *googlesql.ResolvedWithScanNode
 }
 
 type WithEntryNode struct {
-	node *ast.WithEntryNode
+	node *googlesql.ResolvedWithEntryNode
 }
 
 type OptionNode struct {
-	node *ast.OptionNode
+	node *googlesql.ResolvedOptionNode
 }
 
 type WindowPartitioningNode struct {
-	node *ast.WindowPartitioningNode
+	node *googlesql.ResolvedWindowPartitioningNode
 }
 
 type WindowOrderingNode struct {
-	node *ast.WindowOrderingNode
+	node *googlesql.ResolvedWindowOrderingNode
 }
 
 type WindowFrameNode struct {
-	node *ast.WindowFrameNode
+	node *googlesql.ResolvedWindowFrameNode
 }
 
 type AnalyticFunctionGroupNode struct {
-	node *ast.AnalyticFunctionGroupNode
+	node *googlesql.ResolvedAnalyticFunctionGroupNode
 }
 
 type WindowFrameExprNode struct {
-	node *ast.WindowFrameExprNode
+	node *googlesql.ResolvedWindowFrameExprNode
 }
 
 type DMLValueNode struct {
-	node *ast.DMLValueNode
+	node *googlesql.ResolvedDMLValueNode
 }
 
 type DMLDefaultNode struct {
-	node *ast.DMLDefaultNode
+	node *googlesql.ResolvedDMLDefaultNode
 }
 
 type AssertStmtNode struct {
-	node *ast.AssertStmtNode
+	node *googlesql.ResolvedAssertStmtNode
 }
 
 type AssertRowsModifiedNode struct {
-	node *ast.AssertRowsModifiedNode
+	node *googlesql.ResolvedAssertRowsModifiedNode
 }
 
 type InsertRowNode struct {
-	node *ast.InsertRowNode
+	node *googlesql.ResolvedInsertRowNode
 }
 
 type InsertStmtNode struct {
-	node *ast.InsertStmtNode
+	node *googlesql.ResolvedInsertStmtNode
 }
 
 type DeleteStmtNode struct {
-	node *ast.DeleteStmtNode
+	node *googlesql.ResolvedDeleteStmtNode
 }
 
 type UpdateItemNode struct {
-	node *ast.UpdateItemNode
+	node *googlesql.ResolvedUpdateItemNode
 }
 
 type UpdateArrayItemNode struct {
-	node *ast.UpdateArrayItemNode
+	node *ResolvedUpdateArrayItemNode
 }
 
 type UpdateStmtNode struct {
-	node *ast.UpdateStmtNode
+	node *googlesql.ResolvedUpdateStmtNode
 }
 
 type MergeWhenNode struct {
-	node *ast.MergeWhenNode
+	node *googlesql.ResolvedMergeWhenNode
 }
 
 type MergeStmtNode struct {
-	node *ast.MergeStmtNode
+	node *googlesql.ResolvedMergeStmtNode
 }
 
 type TruncateStmtNode struct {
-	node *ast.TruncateStmtNode
+	node *googlesql.ResolvedTruncateStmtNode
 }
 
 type ObjectUnitNode struct {
-	node *ast.ObjectUnitNode
+	node *googlesql.ResolvedObjectUnitNode
 }
 
 type PrivilegeNode struct {
-	node *ast.PrivilegeNode
+	node *googlesql.ResolvedPrivilegeNode
 }
 
 type GrantStmtNode struct {
-	node *ast.GrantStmtNode
+	node *googlesql.ResolvedGrantStmtNode
 }
 
 type RevokeStmtNode struct {
-	node *ast.RevokeStmtNode
+	node *googlesql.ResolvedRevokeStmtNode
 }
 
 type AlterDatabaseStmtNode struct {
-	node *ast.AlterDatabaseStmtNode
+	node *googlesql.ResolvedAlterDatabaseStmtNode
 }
 
 type AlterMaterializedViewStmtNode struct {
-	node *ast.AlterMaterializedViewStmtNode
+	node *googlesql.ResolvedAlterMaterializedViewStmtNode
 }
 
 type AlterSchemaStmtNode struct {
-	node *ast.AlterSchemaStmtNode
+	node *googlesql.ResolvedAlterSchemaStmtNode
 }
 
 type AlterTableStmtNode struct {
-	node *ast.AlterTableStmtNode
+	node *googlesql.ResolvedAlterTableStmtNode
 }
 
 type AlterViewStmtNode struct {
-	node *ast.AlterViewStmtNode
+	node *googlesql.ResolvedAlterViewStmtNode
 }
 
 type SetOptionsActionNode struct {
-	node *ast.SetOptionsActionNode
+	node *googlesql.ResolvedSetOptionsActionNode
 }
 
 type AddColumnActionNode struct {
-	node *ast.AddColumnActionNode
+	node *googlesql.ResolvedAddColumnActionNode
 }
 
 type AddConstraintActionNode struct {
-	node *ast.AddConstraintActionNode
+	node *googlesql.ResolvedAddConstraintActionNode
 }
 
 type DropConstraintActionNode struct {
-	node *ast.DropConstraintActionNode
+	node *googlesql.ResolvedDropConstraintActionNode
 }
 
 type DropPrimaryKeyActionNode struct {
-	node *ast.DropPrimaryKeyActionNode
+	node *googlesql.ResolvedDropPrimaryKeyActionNode
 }
 
 type AlterColumnOptionsActionNode struct {
-	node *ast.AlterColumnOptionsActionNode
+	node *googlesql.ResolvedAlterColumnOptionsActionNode
 }
 
 type AlterColumnDropNotNullActionNode struct {
-	node *ast.AlterColumnDropNotNullActionNode
+	node *googlesql.ResolvedAlterColumnDropNotNullActionNode
 }
 
 type AlterColumnSetDataTypeActionNode struct {
-	node *ast.AlterColumnSetDataTypeActionNode
+	node *googlesql.ResolvedAlterColumnSetDataTypeActionNode
 }
 
 type AlterColumnSetDefaultActionNode struct {
-	node *ast.AlterColumnSetDefaultActionNode
+	node *googlesql.ResolvedAlterColumnSetDefaultActionNode
 }
 
 type AlterColumnDropDefaultActionNode struct {
-	node *ast.AlterColumnDropDefaultActionNode
+	node *googlesql.ResolvedAlterColumnDropDefaultActionNode
 }
 
 type DropColumnActionNode struct {
-	node *ast.DropColumnActionNode
+	node *googlesql.ResolvedDropColumnActionNode
 }
 
 type RenameColumnActionNode struct {
-	node *ast.RenameColumnActionNode
+	node *googlesql.ResolvedRenameColumnActionNode
 }
 
 type SetAsActionNode struct {
-	node *ast.SetAsActionNode
+	node *googlesql.ResolvedSetAsActionNode
 }
 
 type SetCollateClauseNode struct {
-	node *ast.SetCollateClauseNode
+	node *googlesql.ResolvedSetCollateClauseNode
 }
 
 type AlterTableSetOptionsStmtNode struct {
-	node *ast.AlterTableSetOptionsStmtNode
+	node *googlesql.ResolvedAlterTableSetOptionsStmtNode
 }
 
 type RenameStmtNode struct {
-	node *ast.RenameStmtNode
+	node *googlesql.ResolvedRenameStmtNode
 }
 
 type CreatePrivilegeRestrictionStmtNode struct {
-	node *ast.CreatePrivilegeRestrictionStmtNode
+	node *googlesql.ResolvedCreatePrivilegeRestrictionStmtNode
 }
 
 type CreateRowAccessPolicyStmtNode struct {
-	node *ast.CreateRowAccessPolicyStmtNode
+	node *googlesql.ResolvedCreateRowAccessPolicyStmtNode
 }
 
 type DropPrivilegeRestrictionStmtNode struct {
-	node *ast.DropPrivilegeRestrictionStmtNode
+	node *googlesql.ResolvedDropPrivilegeRestrictionStmtNode
 }
 
 type DropRowAccessPolicyStmtNode struct {
-	node *ast.DropRowAccessPolicyStmtNode
+	node *googlesql.ResolvedDropRowAccessPolicyStmtNode
 }
 
 type DropSearchIndexStmtNode struct {
-	node *ast.DropSearchIndexStmtNode
+	node *ResolvedDropSearchIndexStmtNode
 }
 
 type GrantToActionNode struct {
-	node *ast.GrantToActionNode
+	node *googlesql.ResolvedGrantToActionNode
 }
 
 type RestrictToActionNode struct {
-	node *ast.RestrictToActionNode
+	node *googlesql.ResolvedRestrictToActionNode
 }
 
 type AddToRestricteeListActionNode struct {
-	node *ast.AddToRestricteeListActionNode
+	node *googlesql.ResolvedAddToRestricteeListActionNode
 }
 
 type RemoveFromRestricteeListActionNode struct {
-	node *ast.RemoveFromRestricteeListActionNode
+	node *googlesql.ResolvedRemoveFromRestricteeListActionNode
 }
 
 type FilterUsingActionNode struct {
-	node *ast.FilterUsingActionNode
+	node *googlesql.ResolvedFilterUsingActionNode
 }
 
 type RevokeFromActionNode struct {
-	node *ast.RevokeFromActionNode
+	node *googlesql.ResolvedRevokeFromActionNode
 }
 
 type RenameToActionNode struct {
-	node *ast.RenameToActionNode
+	node *googlesql.ResolvedRenameToActionNode
 }
 
 type AlterPrivilegeRestrictionStmtNode struct {
-	node *ast.AlterPrivilegeRestrictionStmtNode
+	node *googlesql.ResolvedAlterPrivilegeRestrictionStmtNode
 }
 
 type AlterRowAccessPolicyStmtNode struct {
-	node *ast.AlterRowAccessPolicyStmtNode
+	node *googlesql.ResolvedAlterRowAccessPolicyStmtNode
 }
 
 type AlterAllRowAccessPoliciesStmtNode struct {
-	node *ast.AlterAllRowAccessPoliciesStmtNode
+	node *googlesql.ResolvedAlterAllRowAccessPoliciesStmtNode
 }
 
 type CreateConstantStmtNode struct {
-	node *ast.CreateConstantStmtNode
+	node *googlesql.ResolvedCreateConstantStmtNode
 }
 
 type CreateFunctionStmtNode struct {
-	node *ast.CreateFunctionStmtNode
+	node *googlesql.ResolvedCreateFunctionStmtNode
 }
 
 type ArgumentDefNode struct {
-	node *ast.ArgumentDefNode
+	node *googlesql.ResolvedArgumentDefNode
 }
 
 type ArgumentRefNode struct {
-	node *ast.ArgumentRefNode
+	node *googlesql.ResolvedArgumentRefNode
 }
 
 type CreateTableFunctionStmtNode struct {
-	node *ast.CreateTableFunctionStmtNode
+	node *googlesql.ResolvedCreateTableFunctionStmtNode
 }
 
 type RelationArgumentScanNode struct {
-	node *ast.RelationArgumentScanNode
+	node *googlesql.ResolvedRelationArgumentScanNode
 }
 
 type ArgumentListNode struct {
-	node *ast.ArgumentListNode
+	node *googlesql.ResolvedArgumentListNode
 }
 
 type FunctionSignatureHolderNode struct {
-	node *ast.FunctionSignatureHolderNode
+	node *googlesql.ResolvedFunctionSignatureHolderNode
 }
 
 type DropFunctionStmtNode struct {
-	node *ast.DropFunctionStmtNode
+	node *googlesql.ResolvedDropFunctionStmtNode
 }
 
 type DropTableFunctionStmtNode struct {
-	node *ast.DropTableFunctionStmtNode
+	node *googlesql.ResolvedDropTableFunctionStmtNode
 }
 
 type CallStmtNode struct {
-	node *ast.CallStmtNode
+	node *googlesql.ResolvedCallStmtNode
 }
 
 type ImportStmtNode struct {
-	node *ast.ImportStmtNode
+	node *googlesql.ResolvedImportStmtNode
 }
 
 type ModuleStmtNode struct {
-	node *ast.ModuleStmtNode
+	node *googlesql.ResolvedModuleStmtNode
 }
 
 type AggregateHavingModifierNode struct {
-	node *ast.AggregateHavingModifierNode
+	node *googlesql.ResolvedAggregateHavingModifierNode
 }
 
 type CreateMaterializedViewStmtNode struct {
-	node *ast.CreateMaterializedViewStmtNode
+	node *googlesql.ResolvedCreateMaterializedViewStmtNode
 }
 
 type CreateProcedureStmtNode struct {
-	node *ast.CreateProcedureStmtNode
+	node *googlesql.ResolvedCreateProcedureStmtNode
 }
 
 type ExecuteImmediateArgumentNode struct {
-	node *ast.ExecuteImmediateArgumentNode
+	node *googlesql.ResolvedExecuteImmediateArgumentNode
 }
 
 type ExecuteImmediateStmtNode struct {
-	node *ast.ExecuteImmediateStmtNode
+	node *googlesql.ResolvedExecuteImmediateStmtNode
 }
 
 type AssignmentStmtNode struct {
-	node *ast.AssignmentStmtNode
+	node *googlesql.ResolvedAssignmentStmtNode
 }
 
 type CreateEntityStmtNode struct {
-	node *ast.CreateEntityStmtNode
+	node *googlesql.ResolvedCreateEntityStmtNode
 }
 
 type AlterEntityStmtNode struct {
-	node *ast.AlterEntityStmtNode
+	node *googlesql.ResolvedAlterEntityStmtNode
 }
 
 type PivotColumnNode struct {
-	node *ast.PivotColumnNode
+	node *googlesql.ResolvedPivotColumnNode
 }
 
 type PivotScanNode struct {
-	node *ast.PivotScanNode
+	node *googlesql.ResolvedPivotScanNode
 }
 
 type ReturningClauseNode struct {
-	node *ast.ReturningClauseNode
+	node *googlesql.ResolvedReturningClauseNode
 }
 
 type UnpivotArgNode struct {
-	node *ast.UnpivotArgNode
+	node *googlesql.ResolvedUnpivotArgNode
 }
 
 type UnpivotScanNode struct {
-	node *ast.UnpivotScanNode
+	node *googlesql.ResolvedUnpivotScanNode
 }
 
 type CloneDataStmtNode struct {
-	node *ast.CloneDataStmtNode
+	node *googlesql.ResolvedCloneDataStmtNode
 }
 
 type TableAndColumnInfoNode struct {
-	node *ast.TableAndColumnInfoNode
+	node *googlesql.ResolvedTableAndColumnInfoNode
 }
 
 type AnalyzeStmtNode struct {
-	node *ast.AnalyzeStmtNode
+	node *googlesql.ResolvedAnalyzeStmtNode
 }
 
 type AuxLoadDataStmtNode struct {
-	node *ast.AuxLoadDataStmtNode
+	node *googlesql.ResolvedAuxLoadDataStmtNode
 }
 
-func newLiteralNode(n *ast.LiteralNode) *LiteralNode {
+func newLiteralNode(n *googlesql.ResolvedLiteralNode) *LiteralNode {
 	return &LiteralNode{node: n}
 }
 
-func newParameterNode(n *ast.ParameterNode) *ParameterNode {
+func newParameterNode(n *googlesql.ResolvedParameterNode) *ParameterNode {
 	return &ParameterNode{node: n}
 }
 
-func newExpressionColumnNode(n *ast.ExpressionColumnNode) *ExpressionColumnNode {
+func newExpressionColumnNode(n *googlesql.ResolvedExpressionColumnNode) *ExpressionColumnNode {
 	return &ExpressionColumnNode{node: n}
 }
 
-func newColumnRefNode(n *ast.ColumnRefNode) *ColumnRefNode {
+func newColumnRefNode(n *googlesql.ResolvedColumnRefNode) *ColumnRefNode {
 	return &ColumnRefNode{node: n}
 }
 
-func newConstantNode(n *ast.ConstantNode) *ConstantNode {
+func newConstantNode(n *googlesql.ResolvedConstantNode) *ConstantNode {
 	return &ConstantNode{node: n}
 }
 
-func newSystemVariableNode(n *ast.SystemVariableNode) *SystemVariableNode {
+func newSystemVariableNode(n *googlesql.ResolvedSystemVariableNode) *SystemVariableNode {
 	return &SystemVariableNode{node: n}
 }
 
-func newInlineLambdaNode(n *ast.InlineLambdaNode) *InlineLambdaNode {
+func newInlineLambdaNode(n *googlesql.ResolvedInlineLambdaNode) *InlineLambdaNode {
 	return &InlineLambdaNode{node: n}
 }
 
-func newFilterFieldArgNode(n *ast.FilterFieldArgNode) *FilterFieldArgNode {
+func newFilterFieldArgNode(n *googlesql.ResolvedFilterFieldArgNode) *FilterFieldArgNode {
 	return &FilterFieldArgNode{node: n}
 }
 
-func newFilterFieldNode(n *ast.FilterFieldNode) *FilterFieldNode {
+func newFilterFieldNode(n *googlesql.ResolvedFilterFieldNode) *FilterFieldNode {
 	return &FilterFieldNode{node: n}
 }
 
-func newFunctionCallNode(n *ast.FunctionCallNode) *FunctionCallNode {
+func newFunctionCallNode(n *googlesql.ResolvedFunctionCallNode) *FunctionCallNode {
 	return &FunctionCallNode{node: n}
 }
 
-func newAggregateFunctionCallNode(n *ast.AggregateFunctionCallNode) *AggregateFunctionCallNode {
+func newAggregateFunctionCallNode(n *googlesql.ResolvedAggregateFunctionCallNode) *AggregateFunctionCallNode {
 	return &AggregateFunctionCallNode{node: n}
 }
 
-func newAnalyticFunctionCallNode(n *ast.AnalyticFunctionCallNode) *AnalyticFunctionCallNode {
+func newAnalyticFunctionCallNode(n *googlesql.ResolvedAnalyticFunctionCallNode) *AnalyticFunctionCallNode {
 	return &AnalyticFunctionCallNode{node: n}
 }
 
-func newExtendedCastElementNode(n *ast.ExtendedCastElementNode) *ExtendedCastElementNode {
+func newExtendedCastElementNode(n *googlesql.ResolvedExtendedCastElementNode) *ExtendedCastElementNode {
 	return &ExtendedCastElementNode{node: n}
 }
 
-func newExtendedCastNode(n *ast.ExtendedCastNode) *ExtendedCastNode {
+func newExtendedCastNode(n *googlesql.ResolvedExtendedCastNode) *ExtendedCastNode {
 	return &ExtendedCastNode{node: n}
 }
 
-func newCastNode(n *ast.CastNode) *CastNode {
+func newCastNode(n *googlesql.ResolvedCastNode) *CastNode {
 	return &CastNode{node: n}
 }
 
-func newMakeStructNode(n *ast.MakeStructNode) *MakeStructNode {
+func newMakeStructNode(n *googlesql.ResolvedMakeStructNode) *MakeStructNode {
 	return &MakeStructNode{node: n}
 }
 
-func newMakeProtoNode(n *ast.MakeProtoNode) *MakeProtoNode {
+func newMakeProtoNode(n *googlesql.ResolvedMakeProtoNode) *MakeProtoNode {
 	return &MakeProtoNode{node: n}
 }
 
-func newMakeProtoFieldNode(n *ast.MakeProtoFieldNode) *MakeProtoFieldNode {
+func newMakeProtoFieldNode(n *googlesql.ResolvedMakeProtoFieldNode) *MakeProtoFieldNode {
 	return &MakeProtoFieldNode{node: n}
 }
 
-func newGetStructFieldNode(n *ast.GetStructFieldNode) *GetStructFieldNode {
+func newGetStructFieldNode(n *googlesql.ResolvedGetStructFieldNode) *GetStructFieldNode {
 	return &GetStructFieldNode{node: n}
 }
 
-func newGetProtoFieldNode(n *ast.GetProtoFieldNode) *GetProtoFieldNode {
+func newGetProtoFieldNode(n *googlesql.ResolvedGetProtoFieldNode) *GetProtoFieldNode {
 	return &GetProtoFieldNode{node: n}
 }
 
-func newGetJsonFieldNode(n *ast.GetJsonFieldNode) *GetJsonFieldNode {
+func newGetJsonFieldNode(n *googlesql.ResolvedGetJsonFieldNode) *GetJsonFieldNode {
 	return &GetJsonFieldNode{node: n}
 }
 
-func newFlattenNode(n *ast.FlattenNode) *FlattenNode {
+func newFlattenNode(n *googlesql.ResolvedFlattenNode) *FlattenNode {
 	return &FlattenNode{node: n}
 }
 
-func newFlattenedArgNode(n *ast.FlattenedArgNode) *FlattenedArgNode {
+func newFlattenedArgNode(n *googlesql.ResolvedFlattenedArgNode) *FlattenedArgNode {
 	return &FlattenedArgNode{node: n}
 }
 
-func newReplaceFieldItemNode(n *ast.ReplaceFieldItemNode) *ReplaceFieldItemNode {
+func newReplaceFieldItemNode(n *googlesql.ResolvedReplaceFieldItemNode) *ReplaceFieldItemNode {
 	return &ReplaceFieldItemNode{node: n}
 }
 
-func newReplaceFieldNode(n *ast.ReplaceFieldNode) *ReplaceFieldNode {
+func newReplaceFieldNode(n *googlesql.ResolvedReplaceFieldNode) *ReplaceFieldNode {
 	return &ReplaceFieldNode{node: n}
 }
 
-func newSubqueryExprNode(n *ast.SubqueryExprNode) *SubqueryExprNode {
+func newSubqueryExprNode(n *googlesql.ResolvedSubqueryExprNode) *SubqueryExprNode {
 	return &SubqueryExprNode{node: n}
 }
 
-func newLetExprNode(n *ast.LetExprNode) *LetExprNode {
+func newLetExprNode(n *ResolvedLetExprNode) *LetExprNode {
 	return &LetExprNode{node: n}
 }
 
-func newModelNode(n *ast.ModelNode) *ModelNode {
+func newModelNode(n *googlesql.ResolvedModelNode) *ModelNode {
 	return &ModelNode{node: n}
 }
 
-func newConnectionNode(n *ast.ConnectionNode) *ConnectionNode {
+func newConnectionNode(n *googlesql.ResolvedConnectionNode) *ConnectionNode {
 	return &ConnectionNode{node: n}
 }
 
-func newDescriptorNode(n *ast.DescriptorNode) *DescriptorNode {
+func newDescriptorNode(n *googlesql.ResolvedDescriptorNode) *DescriptorNode {
 	return &DescriptorNode{node: n}
 }
 
-func newSingleRowScanNode(n *ast.SingleRowScanNode) *SingleRowScanNode {
+func newSingleRowScanNode(n *googlesql.ResolvedSingleRowScanNode) *SingleRowScanNode {
 	return &SingleRowScanNode{node: n}
 }
 
-func newTableScanNode(n *ast.TableScanNode) *TableScanNode {
+func newTableScanNode(n *googlesql.ResolvedTableScanNode) *TableScanNode {
 	return &TableScanNode{node: n}
 }
 
-func newJoinScanNode(n *ast.JoinScanNode) *JoinScanNode {
+func newJoinScanNode(n *googlesql.ResolvedJoinScanNode) *JoinScanNode {
 	return &JoinScanNode{node: n}
 }
 
-func newArrayScanNode(n *ast.ArrayScanNode) *ArrayScanNode {
+func newArrayScanNode(n *googlesql.ResolvedArrayScanNode) *ArrayScanNode {
 	return &ArrayScanNode{node: n}
 }
 
-func newColumnHolderNode(n *ast.ColumnHolderNode) *ColumnHolderNode {
+func newColumnHolderNode(n *googlesql.ResolvedColumnHolderNode) *ColumnHolderNode {
 	return &ColumnHolderNode{node: n}
 }
 
-func newFilterScanNode(n *ast.FilterScanNode) *FilterScanNode {
+func newFilterScanNode(n *googlesql.ResolvedFilterScanNode) *FilterScanNode {
 	return &FilterScanNode{node: n}
 }
 
-func newGroupingSetNode(n *ast.GroupingSetNode) *GroupingSetNode {
+func newGroupingSetNode(n *googlesql.ResolvedGroupingSetNode) *GroupingSetNode {
 	return &GroupingSetNode{node: n}
 }
 
-func newAggregateScanNode(n *ast.AggregateScanNode) *AggregateScanNode {
+func newAggregateScanNode(n *googlesql.ResolvedAggregateScanNode) *AggregateScanNode {
 	return &AggregateScanNode{node: n}
 }
 
-func newAnonymizedAggregateScanNode(n *ast.AnonymizedAggregateScanNode) *AnonymizedAggregateScanNode {
+func newAnonymizedAggregateScanNode(n *googlesql.ResolvedAnonymizedAggregateScanNode) *AnonymizedAggregateScanNode {
 	return &AnonymizedAggregateScanNode{node: n}
 }
 
-func newSetOperationItemNode(n *ast.SetOperationItemNode) *SetOperationItemNode {
+func newSetOperationItemNode(n *googlesql.ResolvedSetOperationItemNode) *SetOperationItemNode {
 	return &SetOperationItemNode{node: n}
 }
 
-func newSetOperationScanNode(n *ast.SetOperationScanNode) *SetOperationScanNode {
+func newSetOperationScanNode(n *googlesql.ResolvedSetOperationScanNode) *SetOperationScanNode {
 	return &SetOperationScanNode{node: n}
 }
 
-func newOrderByScanNode(n *ast.OrderByScanNode) *OrderByScanNode {
+func newOrderByScanNode(n *googlesql.ResolvedOrderByScanNode) *OrderByScanNode {
 	return &OrderByScanNode{node: n}
 }
 
-func newLimitOffsetScanNode(n *ast.LimitOffsetScanNode) *LimitOffsetScanNode {
+func newLimitOffsetScanNode(n *googlesql.ResolvedLimitOffsetScanNode) *LimitOffsetScanNode {
 	return &LimitOffsetScanNode{node: n}
 }
 
-func newWithRefScanNode(n *ast.WithRefScanNode) *WithRefScanNode {
+func newWithRefScanNode(n *googlesql.ResolvedWithRefScanNode) *WithRefScanNode {
 	return &WithRefScanNode{node: n}
 }
 
-func newAnalyticScanNode(n *ast.AnalyticScanNode) *AnalyticScanNode {
+func newAnalyticScanNode(n *googlesql.ResolvedAnalyticScanNode) *AnalyticScanNode {
 	return &AnalyticScanNode{node: n}
 }
 
-func newSampleScanNode(n *ast.SampleScanNode) *SampleScanNode {
+func newSampleScanNode(n *googlesql.ResolvedSampleScanNode) *SampleScanNode {
 	return &SampleScanNode{node: n}
 }
 
-func newComputedColumnNode(n *ast.ComputedColumnNode) *ComputedColumnNode {
+func newComputedColumnNode(n *googlesql.ResolvedComputedColumnNode) *ComputedColumnNode {
 	return &ComputedColumnNode{node: n}
 }
 
-func newOrderByItemNode(n *ast.OrderByItemNode) *OrderByItemNode {
+func newOrderByItemNode(n *googlesql.ResolvedOrderByItemNode) *OrderByItemNode {
 	return &OrderByItemNode{node: n}
 }
 
-func newColumnAnnotationsNode(n *ast.ColumnAnnotationsNode) *ColumnAnnotationsNode {
+func newColumnAnnotationsNode(n *googlesql.ResolvedColumnAnnotationsNode) *ColumnAnnotationsNode {
 	return &ColumnAnnotationsNode{node: n}
 }
 
-func newGeneratedColumnInfoNode(n *ast.GeneratedColumnInfoNode) *GeneratedColumnInfoNode {
+func newGeneratedColumnInfoNode(n *googlesql.ResolvedGeneratedColumnInfoNode) *GeneratedColumnInfoNode {
 	return &GeneratedColumnInfoNode{node: n}
 }
 
-func newColumnDefaultValueNode(n *ast.ColumnDefaultValueNode) *ColumnDefaultValueNode {
+func newColumnDefaultValueNode(n *googlesql.ResolvedColumnDefaultValueNode) *ColumnDefaultValueNode {
 	return &ColumnDefaultValueNode{node: n}
 }
 
-func newColumnDefinitionNode(n *ast.ColumnDefinitionNode) *ColumnDefinitionNode {
+func newColumnDefinitionNode(n *googlesql.ResolvedColumnDefinitionNode) *ColumnDefinitionNode {
 	return &ColumnDefinitionNode{node: n}
 }
 
-func newPrimaryKeyNode(n *ast.PrimaryKeyNode) *PrimaryKeyNode {
+func newPrimaryKeyNode(n *googlesql.ResolvedPrimaryKeyNode) *PrimaryKeyNode {
 	return &PrimaryKeyNode{node: n}
 }
 
-func newForeignKeyNode(n *ast.ForeignKeyNode) *ForeignKeyNode {
+func newForeignKeyNode(n *googlesql.ResolvedForeignKeyNode) *ForeignKeyNode {
 	return &ForeignKeyNode{node: n}
 }
 
-func newCheckConstraintNode(n *ast.CheckConstraintNode) *CheckConstraintNode {
+func newCheckConstraintNode(n *googlesql.ResolvedCheckConstraintNode) *CheckConstraintNode {
 	return &CheckConstraintNode{node: n}
 }
 
-func newOutputColumnNode(n *ast.OutputColumnNode) *OutputColumnNode {
+func newOutputColumnNode(n *googlesql.ResolvedOutputColumnNode) *OutputColumnNode {
 	return &OutputColumnNode{node: n}
 }
 
-func newProjectScanNode(n *ast.ProjectScanNode) *ProjectScanNode {
+func newProjectScanNode(n *googlesql.ResolvedProjectScanNode) *ProjectScanNode {
 	return &ProjectScanNode{node: n}
 }
 
-func newTVFScanNode(n *ast.TVFScanNode) *TVFScanNode {
+func newTVFScanNode(n *googlesql.ResolvedTVFScanNode) *TVFScanNode {
 	return &TVFScanNode{node: n}
 }
 
-func newGroupRowsScanNode(n *ast.GroupRowsScanNode) *GroupRowsScanNode {
+func newGroupRowsScanNode(n *googlesql.ResolvedGroupRowsScanNode) *GroupRowsScanNode {
 	return &GroupRowsScanNode{node: n}
 }
 
-func newFunctionArgumentNode(n *ast.FunctionArgumentNode) *FunctionArgumentNode {
+func newFunctionArgumentNode(n *googlesql.ResolvedFunctionArgumentNode) *FunctionArgumentNode {
 	return &FunctionArgumentNode{node: n}
 }
 
-func newExplainStmtNode(n *ast.ExplainStmtNode) *ExplainStmtNode {
+func newExplainStmtNode(n *googlesql.ResolvedExplainStmtNode) *ExplainStmtNode {
 	return &ExplainStmtNode{node: n}
 }
 
-func newQueryStmtNode(n *ast.QueryStmtNode) *QueryStmtNode {
+func newQueryStmtNode(n *googlesql.ResolvedQueryStmtNode) *QueryStmtNode {
 	return &QueryStmtNode{node: n}
 }
 
-func newCreateDatabaseStmtNode(n *ast.CreateDatabaseStmtNode) *CreateDatabaseStmtNode {
+func newCreateDatabaseStmtNode(n *googlesql.ResolvedCreateDatabaseStmtNode) *CreateDatabaseStmtNode {
 	return &CreateDatabaseStmtNode{node: n}
 }
 
-func newIndexItemNode(n *ast.IndexItemNode) *IndexItemNode {
+func newIndexItemNode(n *googlesql.ResolvedIndexItemNode) *IndexItemNode {
 	return &IndexItemNode{node: n}
 }
 
-func newUnnestItemNode(n *ast.UnnestItemNode) *UnnestItemNode {
+func newUnnestItemNode(n *googlesql.ResolvedUnnestItemNode) *UnnestItemNode {
 	return &UnnestItemNode{node: n}
 }
 
-func newCreateIndexStmtNode(n *ast.CreateIndexStmtNode) *CreateIndexStmtNode {
+func newCreateIndexStmtNode(n *googlesql.ResolvedCreateIndexStmtNode) *CreateIndexStmtNode {
 	return &CreateIndexStmtNode{node: n}
 }
 
-func newCreateSchemaStmtNode(n *ast.CreateSchemaStmtNode) *CreateSchemaStmtNode {
+func newCreateSchemaStmtNode(n *googlesql.ResolvedCreateSchemaStmtNode) *CreateSchemaStmtNode {
 	return &CreateSchemaStmtNode{node: n}
 }
 
-func newCreateTableStmtNode(n *ast.CreateTableStmtNode) *CreateTableStmtNode {
+func newCreateTableStmtNode(n *googlesql.ResolvedCreateTableStmtNode) *CreateTableStmtNode {
 	return &CreateTableStmtNode{node: n}
 }
 
-func newCreateTableAsSelectStmtNode(n *ast.CreateTableAsSelectStmtNode) *CreateTableAsSelectStmtNode {
+func newCreateTableAsSelectStmtNode(n *googlesql.ResolvedCreateTableAsSelectStmtNode) *CreateTableAsSelectStmtNode {
 	return &CreateTableAsSelectStmtNode{node: n}
 }
 
-func newCreateModelStmtNode(n *ast.CreateModelStmtNode) *CreateModelStmtNode {
+func newCreateModelStmtNode(n *googlesql.ResolvedCreateModelStmtNode) *CreateModelStmtNode {
 	return &CreateModelStmtNode{node: n}
 }
 
-func newCreateViewStmtNode(n *ast.CreateViewStmtNode) *CreateViewStmtNode {
+func newCreateViewStmtNode(n *googlesql.ResolvedCreateViewStmtNode) *CreateViewStmtNode {
 	return &CreateViewStmtNode{node: n}
 }
 
-func newWithPartitionColumnsNode(n *ast.WithPartitionColumnsNode) *WithPartitionColumnsNode {
+func newWithPartitionColumnsNode(n *googlesql.ResolvedWithPartitionColumnsNode) *WithPartitionColumnsNode {
 	return &WithPartitionColumnsNode{node: n}
 }
 
-func newCreateSnapshotTableStmtNode(n *ast.CreateSnapshotTableStmtNode) *CreateSnapshotTableStmtNode {
+func newCreateSnapshotTableStmtNode(n *googlesql.ResolvedCreateSnapshotTableStmtNode) *CreateSnapshotTableStmtNode {
 	return &CreateSnapshotTableStmtNode{node: n}
 }
 
-func newCreateExternalTableStmtNode(n *ast.CreateExternalTableStmtNode) *CreateExternalTableStmtNode {
+func newCreateExternalTableStmtNode(n *googlesql.ResolvedCreateExternalTableStmtNode) *CreateExternalTableStmtNode {
 	return &CreateExternalTableStmtNode{node: n}
 }
 
-func newExportModelStmtNode(n *ast.ExportModelStmtNode) *ExportModelStmtNode {
+func newExportModelStmtNode(n *googlesql.ResolvedExportModelStmtNode) *ExportModelStmtNode {
 	return &ExportModelStmtNode{node: n}
 }
 
-func newExportDataStmtNode(n *ast.ExportDataStmtNode) *ExportDataStmtNode {
+func newExportDataStmtNode(n *googlesql.ResolvedExportDataStmtNode) *ExportDataStmtNode {
 	return &ExportDataStmtNode{node: n}
 }
 
-func newDefineTableStmtNode(n *ast.DefineTableStmtNode) *DefineTableStmtNode {
+func newDefineTableStmtNode(n *googlesql.ResolvedDefineTableStmtNode) *DefineTableStmtNode {
 	return &DefineTableStmtNode{node: n}
 }
 
-func newDescribeStmtNode(n *ast.DescribeStmtNode) *DescribeStmtNode {
+func newDescribeStmtNode(n *googlesql.ResolvedDescribeStmtNode) *DescribeStmtNode {
 	return &DescribeStmtNode{node: n}
 }
 
-func newShowStmtNode(n *ast.ShowStmtNode) *ShowStmtNode {
+func newShowStmtNode(n *googlesql.ResolvedShowStmtNode) *ShowStmtNode {
 	return &ShowStmtNode{node: n}
 }
 
-func newBeginStmtNode(n *ast.BeginStmtNode) *BeginStmtNode {
+func newBeginStmtNode(n *googlesql.ResolvedBeginStmtNode) *BeginStmtNode {
 	return &BeginStmtNode{node: n}
 }
 
-func newSetTransactionStmtNode(n *ast.SetTransactionStmtNode) *SetTransactionStmtNode {
+func newSetTransactionStmtNode(n *googlesql.ResolvedSetTransactionStmtNode) *SetTransactionStmtNode {
 	return &SetTransactionStmtNode{node: n}
 }
 
-func newCommitStmtNode(n *ast.CommitStmtNode) *CommitStmtNode {
+func newCommitStmtNode(n *googlesql.ResolvedCommitStmtNode) *CommitStmtNode {
 	return &CommitStmtNode{node: n}
 }
 
-func newRollbackStmtNode(n *ast.RollbackStmtNode) *RollbackStmtNode {
+func newRollbackStmtNode(n *googlesql.ResolvedRollbackStmtNode) *RollbackStmtNode {
 	return &RollbackStmtNode{node: n}
 }
 
-func newStartBatchStmtNode(n *ast.StartBatchStmtNode) *StartBatchStmtNode {
+func newStartBatchStmtNode(n *googlesql.ResolvedStartBatchStmtNode) *StartBatchStmtNode {
 	return &StartBatchStmtNode{node: n}
 }
 
-func newRunBatchStmtNode(n *ast.RunBatchStmtNode) *RunBatchStmtNode {
+func newRunBatchStmtNode(n *googlesql.ResolvedRunBatchStmtNode) *RunBatchStmtNode {
 	return &RunBatchStmtNode{node: n}
 }
 
-func newAbortBatchStmtNode(n *ast.AbortBatchStmtNode) *AbortBatchStmtNode {
+func newAbortBatchStmtNode(n *googlesql.ResolvedAbortBatchStmtNode) *AbortBatchStmtNode {
 	return &AbortBatchStmtNode{node: n}
 }
 
-func newDropStmtNode(n *ast.DropStmtNode) *DropStmtNode {
+func newDropStmtNode(n *googlesql.ResolvedDropStmtNode) *DropStmtNode {
 	return &DropStmtNode{node: n}
 }
 
-func newDropMaterializedViewStmtNode(n *ast.DropMaterializedViewStmtNode) *DropMaterializedViewStmtNode {
+func newDropMaterializedViewStmtNode(n *googlesql.ResolvedDropMaterializedViewStmtNode) *DropMaterializedViewStmtNode {
 	return &DropMaterializedViewStmtNode{node: n}
 }
 
-func newDropSnapshotTableStmtNode(n *ast.DropSnapshotTableStmtNode) *DropSnapshotTableStmtNode {
+func newDropSnapshotTableStmtNode(n *googlesql.ResolvedDropSnapshotTableStmtNode) *DropSnapshotTableStmtNode {
 	return &DropSnapshotTableStmtNode{node: n}
 }
 
-func newRecursiveRefScanNode(n *ast.RecursiveRefScanNode) *RecursiveRefScanNode {
+func newRecursiveRefScanNode(n *googlesql.ResolvedRecursiveRefScanNode) *RecursiveRefScanNode {
 	return &RecursiveRefScanNode{node: n}
 }
 
-func newRecursiveScanNode(n *ast.RecursiveScanNode) *RecursiveScanNode {
+func newRecursiveScanNode(n *googlesql.ResolvedRecursiveScanNode) *RecursiveScanNode {
 	return &RecursiveScanNode{node: n}
 }
 
-func newWithScanNode(n *ast.WithScanNode) *WithScanNode {
+func newWithScanNode(n *googlesql.ResolvedWithScanNode) *WithScanNode {
 	return &WithScanNode{node: n}
 }
 
-func newWithEntryNode(n *ast.WithEntryNode) *WithEntryNode {
+func newWithEntryNode(n *googlesql.ResolvedWithEntryNode) *WithEntryNode {
 	return &WithEntryNode{node: n}
 }
 
-func newOptionNode(n *ast.OptionNode) *OptionNode {
+func newOptionNode(n *googlesql.ResolvedOptionNode) *OptionNode {
 	return &OptionNode{node: n}
 }
 
-func newWindowPartitioningNode(n *ast.WindowPartitioningNode) *WindowPartitioningNode {
+func newWindowPartitioningNode(n *googlesql.ResolvedWindowPartitioningNode) *WindowPartitioningNode {
 	return &WindowPartitioningNode{node: n}
 }
 
-func newWindowOrderingNode(n *ast.WindowOrderingNode) *WindowOrderingNode {
+func newWindowOrderingNode(n *googlesql.ResolvedWindowOrderingNode) *WindowOrderingNode {
 	return &WindowOrderingNode{node: n}
 }
 
-func newWindowFrameNode(n *ast.WindowFrameNode) *WindowFrameNode {
+func newWindowFrameNode(n *googlesql.ResolvedWindowFrameNode) *WindowFrameNode {
 	return &WindowFrameNode{node: n}
 }
 
-func newAnalyticFunctionGroupNode(n *ast.AnalyticFunctionGroupNode) *AnalyticFunctionGroupNode {
+func newAnalyticFunctionGroupNode(n *googlesql.ResolvedAnalyticFunctionGroupNode) *AnalyticFunctionGroupNode {
 	return &AnalyticFunctionGroupNode{node: n}
 }
 
-func newWindowFrameExprNode(n *ast.WindowFrameExprNode) *WindowFrameExprNode {
+func newWindowFrameExprNode(n *googlesql.ResolvedWindowFrameExprNode) *WindowFrameExprNode {
 	return &WindowFrameExprNode{node: n}
 }
 
-func newDMLValueNode(n *ast.DMLValueNode) *DMLValueNode {
+func newDMLValueNode(n *googlesql.ResolvedDMLValueNode) *DMLValueNode {
 	return &DMLValueNode{node: n}
 }
 
-func newDMLDefaultNode(n *ast.DMLDefaultNode) *DMLDefaultNode {
+func newDMLDefaultNode(n *googlesql.ResolvedDMLDefaultNode) *DMLDefaultNode {
 	return &DMLDefaultNode{node: n}
 }
 
-func newAssertStmtNode(n *ast.AssertStmtNode) *AssertStmtNode {
+func newAssertStmtNode(n *googlesql.ResolvedAssertStmtNode) *AssertStmtNode {
 	return &AssertStmtNode{node: n}
 }
 
-func newAssertRowsModifiedNode(n *ast.AssertRowsModifiedNode) *AssertRowsModifiedNode {
+func newAssertRowsModifiedNode(n *googlesql.ResolvedAssertRowsModifiedNode) *AssertRowsModifiedNode {
 	return &AssertRowsModifiedNode{node: n}
 }
 
-func newInsertRowNode(n *ast.InsertRowNode) *InsertRowNode {
+func newInsertRowNode(n *googlesql.ResolvedInsertRowNode) *InsertRowNode {
 	return &InsertRowNode{node: n}
 }
 
-func newInsertStmtNode(n *ast.InsertStmtNode) *InsertStmtNode {
+func newInsertStmtNode(n *googlesql.ResolvedInsertStmtNode) *InsertStmtNode {
 	return &InsertStmtNode{node: n}
 }
 
-func newDeleteStmtNode(n *ast.DeleteStmtNode) *DeleteStmtNode {
+func newDeleteStmtNode(n *googlesql.ResolvedDeleteStmtNode) *DeleteStmtNode {
 	return &DeleteStmtNode{node: n}
 }
 
-func newUpdateItemNode(n *ast.UpdateItemNode) *UpdateItemNode {
+func newUpdateItemNode(n *googlesql.ResolvedUpdateItemNode) *UpdateItemNode {
 	return &UpdateItemNode{node: n}
 }
 
-func newUpdateArrayItemNode(n *ast.UpdateArrayItemNode) *UpdateArrayItemNode {
+func newUpdateArrayItemNode(n *ResolvedUpdateArrayItemNode) *UpdateArrayItemNode {
 	return &UpdateArrayItemNode{node: n}
 }
 
-func newUpdateStmtNode(n *ast.UpdateStmtNode) *UpdateStmtNode {
+func newUpdateStmtNode(n *googlesql.ResolvedUpdateStmtNode) *UpdateStmtNode {
 	return &UpdateStmtNode{node: n}
 }
 
-func newMergeWhenNode(n *ast.MergeWhenNode) *MergeWhenNode {
+func newMergeWhenNode(n *googlesql.ResolvedMergeWhenNode) *MergeWhenNode {
 	return &MergeWhenNode{node: n}
 }
 
-func newMergeStmtNode(n *ast.MergeStmtNode) *MergeStmtNode {
+func newMergeStmtNode(n *googlesql.ResolvedMergeStmtNode) *MergeStmtNode {
 	return &MergeStmtNode{node: n}
 }
 
-func newTruncateStmtNode(n *ast.TruncateStmtNode) *TruncateStmtNode {
+func newTruncateStmtNode(n *googlesql.ResolvedTruncateStmtNode) *TruncateStmtNode {
 	return &TruncateStmtNode{node: n}
 }
 
-func newObjectUnitNode(n *ast.ObjectUnitNode) *ObjectUnitNode {
+func newObjectUnitNode(n *googlesql.ResolvedObjectUnitNode) *ObjectUnitNode {
 	return &ObjectUnitNode{node: n}
 }
 
-func newPrivilegeNode(n *ast.PrivilegeNode) *PrivilegeNode {
+func newPrivilegeNode(n *googlesql.ResolvedPrivilegeNode) *PrivilegeNode {
 	return &PrivilegeNode{node: n}
 }
 
-func newGrantStmtNode(n *ast.GrantStmtNode) *GrantStmtNode {
+func newGrantStmtNode(n *googlesql.ResolvedGrantStmtNode) *GrantStmtNode {
 	return &GrantStmtNode{node: n}
 }
 
-func newRevokeStmtNode(n *ast.RevokeStmtNode) *RevokeStmtNode {
+func newRevokeStmtNode(n *googlesql.ResolvedRevokeStmtNode) *RevokeStmtNode {
 	return &RevokeStmtNode{node: n}
 }
 
-func newAlterDatabaseStmtNode(n *ast.AlterDatabaseStmtNode) *AlterDatabaseStmtNode {
+func newAlterDatabaseStmtNode(n *googlesql.ResolvedAlterDatabaseStmtNode) *AlterDatabaseStmtNode {
 	return &AlterDatabaseStmtNode{node: n}
 }
 
-func newAlterMaterializedViewStmtNode(n *ast.AlterMaterializedViewStmtNode) *AlterMaterializedViewStmtNode {
+func newAlterMaterializedViewStmtNode(n *googlesql.ResolvedAlterMaterializedViewStmtNode) *AlterMaterializedViewStmtNode {
 	return &AlterMaterializedViewStmtNode{node: n}
 }
 
-func newAlterSchemaStmtNode(n *ast.AlterSchemaStmtNode) *AlterSchemaStmtNode {
+func newAlterSchemaStmtNode(n *googlesql.ResolvedAlterSchemaStmtNode) *AlterSchemaStmtNode {
 	return &AlterSchemaStmtNode{node: n}
 }
 
-func newAlterTableStmtNode(n *ast.AlterTableStmtNode) *AlterTableStmtNode {
+func newAlterTableStmtNode(n *googlesql.ResolvedAlterTableStmtNode) *AlterTableStmtNode {
 	return &AlterTableStmtNode{node: n}
 }
 
-func newAlterViewStmtNode(n *ast.AlterViewStmtNode) *AlterViewStmtNode {
+func newAlterViewStmtNode(n *googlesql.ResolvedAlterViewStmtNode) *AlterViewStmtNode {
 	return &AlterViewStmtNode{node: n}
 }
 
-func newSetOptionsActionNode(n *ast.SetOptionsActionNode) *SetOptionsActionNode {
+func newSetOptionsActionNode(n *googlesql.ResolvedSetOptionsActionNode) *SetOptionsActionNode {
 	return &SetOptionsActionNode{node: n}
 }
 
-func newAddColumnActionNode(n *ast.AddColumnActionNode) *AddColumnActionNode {
+func newAddColumnActionNode(n *googlesql.ResolvedAddColumnActionNode) *AddColumnActionNode {
 	return &AddColumnActionNode{node: n}
 }
 
-func newAddConstraintActionNode(n *ast.AddConstraintActionNode) *AddConstraintActionNode {
+func newAddConstraintActionNode(n *googlesql.ResolvedAddConstraintActionNode) *AddConstraintActionNode {
 	return &AddConstraintActionNode{node: n}
 }
 
-func newDropConstraintActionNode(n *ast.DropConstraintActionNode) *DropConstraintActionNode {
+func newDropConstraintActionNode(n *googlesql.ResolvedDropConstraintActionNode) *DropConstraintActionNode {
 	return &DropConstraintActionNode{node: n}
 }
 
-func newDropPrimaryKeyActionNode(n *ast.DropPrimaryKeyActionNode) *DropPrimaryKeyActionNode {
+func newDropPrimaryKeyActionNode(n *googlesql.ResolvedDropPrimaryKeyActionNode) *DropPrimaryKeyActionNode {
 	return &DropPrimaryKeyActionNode{node: n}
 }
 
-func newAlterColumnOptionsActionNode(n *ast.AlterColumnOptionsActionNode) *AlterColumnOptionsActionNode {
+func newAlterColumnOptionsActionNode(n *googlesql.ResolvedAlterColumnOptionsActionNode) *AlterColumnOptionsActionNode {
 	return &AlterColumnOptionsActionNode{node: n}
 }
 
-func newAlterColumnDropNotNullActionNode(n *ast.AlterColumnDropNotNullActionNode) *AlterColumnDropNotNullActionNode {
+func newAlterColumnDropNotNullActionNode(n *googlesql.ResolvedAlterColumnDropNotNullActionNode) *AlterColumnDropNotNullActionNode {
 	return &AlterColumnDropNotNullActionNode{node: n}
 }
 
-func newAlterColumnSetDataTypeActionNode(n *ast.AlterColumnSetDataTypeActionNode) *AlterColumnSetDataTypeActionNode {
+func newAlterColumnSetDataTypeActionNode(n *googlesql.ResolvedAlterColumnSetDataTypeActionNode) *AlterColumnSetDataTypeActionNode {
 	return &AlterColumnSetDataTypeActionNode{node: n}
 }
 
-func newAlterColumnSetDefaultActionNode(n *ast.AlterColumnSetDefaultActionNode) *AlterColumnSetDefaultActionNode {
+func newAlterColumnSetDefaultActionNode(n *googlesql.ResolvedAlterColumnSetDefaultActionNode) *AlterColumnSetDefaultActionNode {
 	return &AlterColumnSetDefaultActionNode{node: n}
 }
 
-func newAlterColumnDropDefaultActionNode(n *ast.AlterColumnDropDefaultActionNode) *AlterColumnDropDefaultActionNode {
+func newAlterColumnDropDefaultActionNode(n *googlesql.ResolvedAlterColumnDropDefaultActionNode) *AlterColumnDropDefaultActionNode {
 	return &AlterColumnDropDefaultActionNode{node: n}
 }
 
-func newDropColumnActionNode(n *ast.DropColumnActionNode) *DropColumnActionNode {
+func newDropColumnActionNode(n *googlesql.ResolvedDropColumnActionNode) *DropColumnActionNode {
 	return &DropColumnActionNode{node: n}
 }
 
-func newRenameColumnActionNode(n *ast.RenameColumnActionNode) *RenameColumnActionNode {
+func newRenameColumnActionNode(n *googlesql.ResolvedRenameColumnActionNode) *RenameColumnActionNode {
 	return &RenameColumnActionNode{node: n}
 }
 
-func newSetAsActionNode(n *ast.SetAsActionNode) *SetAsActionNode {
+func newSetAsActionNode(n *googlesql.ResolvedSetAsActionNode) *SetAsActionNode {
 	return &SetAsActionNode{node: n}
 }
 
-func newSetCollateClauseNode(n *ast.SetCollateClauseNode) *SetCollateClauseNode {
+func newSetCollateClauseNode(n *googlesql.ResolvedSetCollateClauseNode) *SetCollateClauseNode {
 	return &SetCollateClauseNode{node: n}
 }
 
-func newAlterTableSetOptionsStmtNode(n *ast.AlterTableSetOptionsStmtNode) *AlterTableSetOptionsStmtNode {
+func newAlterTableSetOptionsStmtNode(n *googlesql.ResolvedAlterTableSetOptionsStmtNode) *AlterTableSetOptionsStmtNode {
 	return &AlterTableSetOptionsStmtNode{node: n}
 }
 
-func newRenameStmtNode(n *ast.RenameStmtNode) *RenameStmtNode {
+func newRenameStmtNode(n *googlesql.ResolvedRenameStmtNode) *RenameStmtNode {
 	return &RenameStmtNode{node: n}
 }
 
-func newCreatePrivilegeRestrictionStmtNode(n *ast.CreatePrivilegeRestrictionStmtNode) *CreatePrivilegeRestrictionStmtNode {
+func newCreatePrivilegeRestrictionStmtNode(n *googlesql.ResolvedCreatePrivilegeRestrictionStmtNode) *CreatePrivilegeRestrictionStmtNode {
 	return &CreatePrivilegeRestrictionStmtNode{node: n}
 }
 
-func newCreateRowAccessPolicyStmtNode(n *ast.CreateRowAccessPolicyStmtNode) *CreateRowAccessPolicyStmtNode {
+func newCreateRowAccessPolicyStmtNode(n *googlesql.ResolvedCreateRowAccessPolicyStmtNode) *CreateRowAccessPolicyStmtNode {
 	return &CreateRowAccessPolicyStmtNode{node: n}
 }
 
-func newDropPrivilegeRestrictionStmtNode(n *ast.DropPrivilegeRestrictionStmtNode) *DropPrivilegeRestrictionStmtNode {
+func newDropPrivilegeRestrictionStmtNode(n *googlesql.ResolvedDropPrivilegeRestrictionStmtNode) *DropPrivilegeRestrictionStmtNode {
 	return &DropPrivilegeRestrictionStmtNode{node: n}
 }
 
-func newDropRowAccessPolicyStmtNode(n *ast.DropRowAccessPolicyStmtNode) *DropRowAccessPolicyStmtNode {
+func newDropRowAccessPolicyStmtNode(n *googlesql.ResolvedDropRowAccessPolicyStmtNode) *DropRowAccessPolicyStmtNode {
 	return &DropRowAccessPolicyStmtNode{node: n}
 }
 
-func newDropSearchIndexStmtNode(n *ast.DropSearchIndexStmtNode) *DropSearchIndexStmtNode {
+func newDropSearchIndexStmtNode(n *ResolvedDropSearchIndexStmtNode) *DropSearchIndexStmtNode {
 	return &DropSearchIndexStmtNode{node: n}
 }
 
-func newGrantToActionNode(n *ast.GrantToActionNode) *GrantToActionNode {
+func newGrantToActionNode(n *googlesql.ResolvedGrantToActionNode) *GrantToActionNode {
 	return &GrantToActionNode{node: n}
 }
 
-func newRestrictToActionNode(n *ast.RestrictToActionNode) *RestrictToActionNode {
+func newRestrictToActionNode(n *googlesql.ResolvedRestrictToActionNode) *RestrictToActionNode {
 	return &RestrictToActionNode{node: n}
 }
 
-func newAddToRestricteeListActionNode(n *ast.AddToRestricteeListActionNode) *AddToRestricteeListActionNode {
+func newAddToRestricteeListActionNode(n *googlesql.ResolvedAddToRestricteeListActionNode) *AddToRestricteeListActionNode {
 	return &AddToRestricteeListActionNode{node: n}
 }
 
-func newRemoveFromRestricteeListActionNode(n *ast.RemoveFromRestricteeListActionNode) *RemoveFromRestricteeListActionNode {
+func newRemoveFromRestricteeListActionNode(n *googlesql.ResolvedRemoveFromRestricteeListActionNode) *RemoveFromRestricteeListActionNode {
 	return &RemoveFromRestricteeListActionNode{node: n}
 }
 
-func newFilterUsingActionNode(n *ast.FilterUsingActionNode) *FilterUsingActionNode {
+func newFilterUsingActionNode(n *googlesql.ResolvedFilterUsingActionNode) *FilterUsingActionNode {
 	return &FilterUsingActionNode{node: n}
 }
 
-func newRevokeFromActionNode(n *ast.RevokeFromActionNode) *RevokeFromActionNode {
+func newRevokeFromActionNode(n *googlesql.ResolvedRevokeFromActionNode) *RevokeFromActionNode {
 	return &RevokeFromActionNode{node: n}
 }
 
-func newRenameToActionNode(n *ast.RenameToActionNode) *RenameToActionNode {
+func newRenameToActionNode(n *googlesql.ResolvedRenameToActionNode) *RenameToActionNode {
 	return &RenameToActionNode{node: n}
 }
 
-func newAlterPrivilegeRestrictionStmtNode(n *ast.AlterPrivilegeRestrictionStmtNode) *AlterPrivilegeRestrictionStmtNode {
+func newAlterPrivilegeRestrictionStmtNode(n *googlesql.ResolvedAlterPrivilegeRestrictionStmtNode) *AlterPrivilegeRestrictionStmtNode {
 	return &AlterPrivilegeRestrictionStmtNode{node: n}
 }
 
-func newAlterRowAccessPolicyStmtNode(n *ast.AlterRowAccessPolicyStmtNode) *AlterRowAccessPolicyStmtNode {
+func newAlterRowAccessPolicyStmtNode(n *googlesql.ResolvedAlterRowAccessPolicyStmtNode) *AlterRowAccessPolicyStmtNode {
 	return &AlterRowAccessPolicyStmtNode{node: n}
 }
 
-func newAlterAllRowAccessPoliciesStmtNode(n *ast.AlterAllRowAccessPoliciesStmtNode) *AlterAllRowAccessPoliciesStmtNode {
+func newAlterAllRowAccessPoliciesStmtNode(n *googlesql.ResolvedAlterAllRowAccessPoliciesStmtNode) *AlterAllRowAccessPoliciesStmtNode {
 	return &AlterAllRowAccessPoliciesStmtNode{node: n}
 }
 
-func newCreateConstantStmtNode(n *ast.CreateConstantStmtNode) *CreateConstantStmtNode {
+func newCreateConstantStmtNode(n *googlesql.ResolvedCreateConstantStmtNode) *CreateConstantStmtNode {
 	return &CreateConstantStmtNode{node: n}
 }
 
-func newCreateFunctionStmtNode(n *ast.CreateFunctionStmtNode) *CreateFunctionStmtNode {
+func newCreateFunctionStmtNode(n *googlesql.ResolvedCreateFunctionStmtNode) *CreateFunctionStmtNode {
 	return &CreateFunctionStmtNode{node: n}
 }
 
-func newArgumentDefNode(n *ast.ArgumentDefNode) *ArgumentDefNode {
+func newArgumentDefNode(n *googlesql.ResolvedArgumentDefNode) *ArgumentDefNode {
 	return &ArgumentDefNode{node: n}
 }
 
-func newArgumentRefNode(n *ast.ArgumentRefNode) *ArgumentRefNode {
+func newArgumentRefNode(n *googlesql.ResolvedArgumentRefNode) *ArgumentRefNode {
 	return &ArgumentRefNode{node: n}
 }
 
-func newCreateTableFunctionStmtNode(n *ast.CreateTableFunctionStmtNode) *CreateTableFunctionStmtNode {
+func newCreateTableFunctionStmtNode(n *googlesql.ResolvedCreateTableFunctionStmtNode) *CreateTableFunctionStmtNode {
 	return &CreateTableFunctionStmtNode{node: n}
 }
 
-func newRelationArgumentScanNode(n *ast.RelationArgumentScanNode) *RelationArgumentScanNode {
+func newRelationArgumentScanNode(n *googlesql.ResolvedRelationArgumentScanNode) *RelationArgumentScanNode {
 	return &RelationArgumentScanNode{node: n}
 }
 
-func newArgumentListNode(n *ast.ArgumentListNode) *ArgumentListNode {
+func newArgumentListNode(n *googlesql.ResolvedArgumentListNode) *ArgumentListNode {
 	return &ArgumentListNode{node: n}
 }
 
-func newFunctionSignatureHolderNode(n *ast.FunctionSignatureHolderNode) *FunctionSignatureHolderNode {
+func newFunctionSignatureHolderNode(n *googlesql.ResolvedFunctionSignatureHolderNode) *FunctionSignatureHolderNode {
 	return &FunctionSignatureHolderNode{node: n}
 }
 
-func newDropFunctionStmtNode(n *ast.DropFunctionStmtNode) *DropFunctionStmtNode {
+func newDropFunctionStmtNode(n *googlesql.ResolvedDropFunctionStmtNode) *DropFunctionStmtNode {
 	return &DropFunctionStmtNode{node: n}
 }
 
-func newDropTableFunctionStmtNode(n *ast.DropTableFunctionStmtNode) *DropTableFunctionStmtNode {
+func newDropTableFunctionStmtNode(n *googlesql.ResolvedDropTableFunctionStmtNode) *DropTableFunctionStmtNode {
 	return &DropTableFunctionStmtNode{node: n}
 }
 
-func newCallStmtNode(n *ast.CallStmtNode) *CallStmtNode {
+func newCallStmtNode(n *googlesql.ResolvedCallStmtNode) *CallStmtNode {
 	return &CallStmtNode{node: n}
 }
 
-func newImportStmtNode(n *ast.ImportStmtNode) *ImportStmtNode {
+func newImportStmtNode(n *googlesql.ResolvedImportStmtNode) *ImportStmtNode {
 	return &ImportStmtNode{node: n}
 }
 
-func newModuleStmtNode(n *ast.ModuleStmtNode) *ModuleStmtNode {
+func newModuleStmtNode(n *googlesql.ResolvedModuleStmtNode) *ModuleStmtNode {
 	return &ModuleStmtNode{node: n}
 }
 
-func newAggregateHavingModifierNode(n *ast.AggregateHavingModifierNode) *AggregateHavingModifierNode {
+func newAggregateHavingModifierNode(n *googlesql.ResolvedAggregateHavingModifierNode) *AggregateHavingModifierNode {
 	return &AggregateHavingModifierNode{node: n}
 }
 
-func newCreateMaterializedViewStmtNode(n *ast.CreateMaterializedViewStmtNode) *CreateMaterializedViewStmtNode {
+func newCreateMaterializedViewStmtNode(n *googlesql.ResolvedCreateMaterializedViewStmtNode) *CreateMaterializedViewStmtNode {
 	return &CreateMaterializedViewStmtNode{node: n}
 }
 
-func newCreateProcedureStmtNode(n *ast.CreateProcedureStmtNode) *CreateProcedureStmtNode {
+func newCreateProcedureStmtNode(n *googlesql.ResolvedCreateProcedureStmtNode) *CreateProcedureStmtNode {
 	return &CreateProcedureStmtNode{node: n}
 }
 
-func newExecuteImmediateArgumentNode(n *ast.ExecuteImmediateArgumentNode) *ExecuteImmediateArgumentNode {
+func newExecuteImmediateArgumentNode(n *googlesql.ResolvedExecuteImmediateArgumentNode) *ExecuteImmediateArgumentNode {
 	return &ExecuteImmediateArgumentNode{node: n}
 }
 
-func newExecuteImmediateStmtNode(n *ast.ExecuteImmediateStmtNode) *ExecuteImmediateStmtNode {
+func newExecuteImmediateStmtNode(n *googlesql.ResolvedExecuteImmediateStmtNode) *ExecuteImmediateStmtNode {
 	return &ExecuteImmediateStmtNode{node: n}
 }
 
-func newAssignmentStmtNode(n *ast.AssignmentStmtNode) *AssignmentStmtNode {
+func newAssignmentStmtNode(n *googlesql.ResolvedAssignmentStmtNode) *AssignmentStmtNode {
 	return &AssignmentStmtNode{node: n}
 }
 
-func newCreateEntityStmtNode(n *ast.CreateEntityStmtNode) *CreateEntityStmtNode {
+func newCreateEntityStmtNode(n *googlesql.ResolvedCreateEntityStmtNode) *CreateEntityStmtNode {
 	return &CreateEntityStmtNode{node: n}
 }
 
-func newAlterEntityStmtNode(n *ast.AlterEntityStmtNode) *AlterEntityStmtNode {
+func newAlterEntityStmtNode(n *googlesql.ResolvedAlterEntityStmtNode) *AlterEntityStmtNode {
 	return &AlterEntityStmtNode{node: n}
 }
 
-func newPivotColumnNode(n *ast.PivotColumnNode) *PivotColumnNode {
+func newPivotColumnNode(n *googlesql.ResolvedPivotColumnNode) *PivotColumnNode {
 	return &PivotColumnNode{node: n}
 }
 
-func newPivotScanNode(n *ast.PivotScanNode) *PivotScanNode {
+func newPivotScanNode(n *googlesql.ResolvedPivotScanNode) *PivotScanNode {
 	return &PivotScanNode{node: n}
 }
 
-func newReturningClauseNode(n *ast.ReturningClauseNode) *ReturningClauseNode {
+func newReturningClauseNode(n *googlesql.ResolvedReturningClauseNode) *ReturningClauseNode {
 	return &ReturningClauseNode{node: n}
 }
 
-func newUnpivotArgNode(n *ast.UnpivotArgNode) *UnpivotArgNode {
+func newUnpivotArgNode(n *googlesql.ResolvedUnpivotArgNode) *UnpivotArgNode {
 	return &UnpivotArgNode{node: n}
 }
 
-func newUnpivotScanNode(n *ast.UnpivotScanNode) *UnpivotScanNode {
+func newUnpivotScanNode(n *googlesql.ResolvedUnpivotScanNode) *UnpivotScanNode {
 	return &UnpivotScanNode{node: n}
 }
 
-func newCloneDataStmtNode(n *ast.CloneDataStmtNode) *CloneDataStmtNode {
+func newCloneDataStmtNode(n *googlesql.ResolvedCloneDataStmtNode) *CloneDataStmtNode {
 	return &CloneDataStmtNode{node: n}
 }
 
-func newTableAndColumnInfoNode(n *ast.TableAndColumnInfoNode) *TableAndColumnInfoNode {
+func newTableAndColumnInfoNode(n *googlesql.ResolvedTableAndColumnInfoNode) *TableAndColumnInfoNode {
 	return &TableAndColumnInfoNode{node: n}
 }
 
-func newAnalyzeStmtNode(n *ast.AnalyzeStmtNode) *AnalyzeStmtNode {
+func newAnalyzeStmtNode(n *googlesql.ResolvedAnalyzeStmtNode) *AnalyzeStmtNode {
 	return &AnalyzeStmtNode{node: n}
 }
 
-func newAuxLoadDataStmtNode(n *ast.AuxLoadDataStmtNode) *AuxLoadDataStmtNode {
+func newAuxLoadDataStmtNode(n *googlesql.ResolvedAuxLoadDataStmtNode) *AuxLoadDataStmtNode {
 	return &AuxLoadDataStmtNode{node: n}
 }

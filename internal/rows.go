@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/goccy/go-json"
-	"github.com/goccy/go-zetasql/types"
+	googlesql "github.com/goccy/go-googlesql"
 )
 
 type Rows struct {
@@ -209,68 +209,68 @@ func (r *Rows) assignValue(src interface{}, dst reflect.Value, typ *Type) error 
 }
 
 func (r *Rows) assignInterfaceValue(src Value, dst reflect.Value, typ *Type) error {
-	switch types.TypeKind(typ.Kind) {
-	case types.INT32, types.INT64, types.UINT32, types.UINT64:
+	switch googlesql.TypeKind(typ.Kind) {
+	case googlesql.TypeKindTypeInt32, googlesql.TypeKindTypeInt64, googlesql.TypeKindTypeUint32, googlesql.TypeKindTypeUint64:
 		i64, err := src.ToInt64()
 		if err != nil {
 			return err
 		}
 		dst.Set(reflect.ValueOf(i64))
-	case types.BOOL:
+	case googlesql.TypeKindTypeBool:
 		b, err := src.ToBool()
 		if err != nil {
 			return err
 		}
 		dst.Set(reflect.ValueOf(b))
-	case types.FLOAT, types.DOUBLE:
+	case googlesql.TypeKindTypeFloat, googlesql.TypeKindTypeDouble:
 		f64, err := src.ToFloat64()
 		if err != nil {
 			return err
 		}
 		dst.Set(reflect.ValueOf(f64))
-	case types.BYTES:
+	case googlesql.TypeKindTypeBytes:
 		s, err := src.ToString()
 		if err != nil {
 			return err
 		}
 		dst.Set(reflect.ValueOf(s))
-	case types.STRING:
+	case googlesql.TypeKindTypeString:
 		s, err := src.ToString()
 		if err != nil {
 			return err
 		}
 		dst.Set(reflect.ValueOf(s))
-	case types.NUMERIC:
+	case googlesql.TypeKindTypeNumeric:
 		s, err := src.ToString()
 		if err != nil {
 			return err
 		}
 		dst.Set(reflect.ValueOf(s))
-	case types.BIG_NUMERIC:
+	case googlesql.TypeKindTypeBignumeric:
 		s, err := src.ToString()
 		if err != nil {
 			return err
 		}
 		dst.Set(reflect.ValueOf(s))
-	case types.DATE:
+	case googlesql.TypeKindTypeDate:
 		date, err := src.ToJSON()
 		if err != nil {
 			return err
 		}
 		dst.Set(reflect.ValueOf(date))
-	case types.DATETIME:
+	case googlesql.TypeKindTypeDatetime:
 		datetime, err := src.ToJSON()
 		if err != nil {
 			return err
 		}
 		dst.Set(reflect.ValueOf(datetime))
-	case types.TIME:
+	case googlesql.TypeKindTypeTime:
 		t, err := src.ToJSON()
 		if err != nil {
 			return err
 		}
 		dst.Set(reflect.ValueOf(t))
-	case types.TIMESTAMP:
+	case googlesql.TypeKindTypeTimestamp:
 		t, err := src.ToTime()
 		if err != nil {
 			return err
@@ -279,25 +279,25 @@ func (r *Rows) assignInterfaceValue(src Value, dst reflect.Value, typ *Type) err
 		sec := unixmicro / int64(time.Millisecond)
 		nsec := unixmicro - sec*int64(time.Millisecond)
 		dst.Set(reflect.ValueOf(fmt.Sprintf("%d.%d", sec, nsec)))
-	case types.INTERVAL:
+	case googlesql.TypeKindTypeInterval:
 		s, err := src.ToString()
 		if err != nil {
 			return err
 		}
 		dst.Set(reflect.ValueOf(s))
-	case types.JSON:
+	case googlesql.TypeKindTypeJson:
 		v, err := src.ToJSON()
 		if err != nil {
 			return err
 		}
 		dst.Set(reflect.ValueOf(v))
-	case types.STRUCT:
+	case googlesql.TypeKindTypeStruct:
 		s, err := src.ToStruct()
 		if err != nil {
 			return err
 		}
 		dst.Set(reflect.ValueOf(s.Interface()))
-	case types.ARRAY:
+	case googlesql.TypeKindTypeArray:
 		array, err := src.ToArray()
 		if err != nil {
 			return err
@@ -317,7 +317,7 @@ func (r *Rows) assignInterfaceValue(src Value, dst reflect.Value, typ *Type) err
 			sliceRef.Elem().Set(reflect.Append(sliceRef.Elem(), refV.Elem()))
 		}
 		dst.Set(sliceRef.Elem())
-	case types.GEOGRAPHY:
+	case googlesql.TypeKindTypeGeography:
 		s, err := src.ToString()
 		if err != nil {
 			return err

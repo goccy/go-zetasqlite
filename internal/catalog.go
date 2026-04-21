@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/goccy/go-json"
-	"github.com/goccy/go-zetasql/types"
+	googlesql "github.com/goccy/go-googlesql"
 )
 
 var (
@@ -60,13 +60,13 @@ type Catalog struct {
 	mu           sync.Mutex
 	tables       []*TableSpec
 	functions    []*FunctionSpec
-	catalog      *types.SimpleCatalog
+	catalog      *googlesql.SimpleCatalog
 	tableMap     map[string]*TableSpec
 	funcMap      map[string]*FunctionSpec
 }
 
-func newSimpleCatalog(name string) *types.SimpleCatalog {
-	catalog := types.NewSimpleCatalog(name)
+func newSimpleCatalog(name string) *googlesql.SimpleCatalog {
+	catalog := googlesql.NewSimpleCatalog(name)
 	catalog.AddZetaSQLBuiltinFunctions(nil)
 	return catalog
 }
@@ -84,7 +84,7 @@ func (c *Catalog) FullName() string {
 	return c.catalog.FullName()
 }
 
-func (c *Catalog) FindTable(path []string) (types.Table, error) {
+func (c *Catalog) FindTable(path []string) (googlesql.Table, error) {
 	if c.isWildcardTable(path) {
 		return c.createWildcardTable(path)
 	}
@@ -107,39 +107,39 @@ func (c *Catalog) normalizeTablePath(path []string) []string {
 	return result
 }
 
-func (c *Catalog) FindModel(path []string) (types.Model, error) {
+func (c *Catalog) FindModel(path []string) (googlesql.Model, error) {
 	return c.catalog.FindModel(path)
 }
 
-func (c *Catalog) FindConnection(path []string) (types.Connection, error) {
+func (c *Catalog) FindConnection(path []string) (googlesql.Connection, error) {
 	return c.catalog.FindConnection(path)
 }
 
-func (c *Catalog) FindFunction(path []string) (*types.Function, error) {
+func (c *Catalog) FindFunction(path []string) (*googlesql.Function, error) {
 	return c.catalog.FindFunction(path)
 }
 
-func (c *Catalog) FindTableValuedFunction(path []string) (types.TableValuedFunction, error) {
+func (c *Catalog) FindTableValuedFunction(path []string) (googlesql.TableValuedFunction, error) {
 	return c.catalog.FindTableValuedFunction(path)
 }
 
-func (c *Catalog) FindProcedure(path []string) (*types.Procedure, error) {
+func (c *Catalog) FindProcedure(path []string) (*googlesql.Procedure, error) {
 	return c.catalog.FindProcedure(path)
 }
 
-func (c *Catalog) FindType(path []string) (types.Type, error) {
+func (c *Catalog) FindType(path []string) (googlesql.Googlesql_Type, error) {
 	return c.catalog.FindType(path)
 }
 
-func (c *Catalog) FindConstant(path []string) (types.Constant, int, error) {
+func (c *Catalog) FindConstant(path []string) (googlesql.Constant, int, error) {
 	return c.catalog.FindConstant(path)
 }
 
-func (c *Catalog) FindConversion(from, to types.Type) (types.Conversion, error) {
+func (c *Catalog) FindConversion(from, to googlesql.Googlesql_Type) (googlesql.Conversion, error) {
 	return c.catalog.FindConversion(from, to)
 }
 
-func (c *Catalog) ExtendedTypeSuperTypes(typ types.Type) (*types.TypeListView, error) {
+func (c *Catalog) ExtendedTypeSuperTypes(typ googlesql.Googlesql_Type) (*googlesql.TypeListView, error) {
 	return c.catalog.ExtendedTypeSuperTypes(typ)
 }
 
@@ -454,7 +454,7 @@ func (c *Catalog) addTableSpec(spec *TableSpec) error {
 	return nil
 }
 
-func (c *Catalog) addTableSpecRecursive(cat *types.SimpleCatalog, spec *TableSpec) error {
+func (c *Catalog) addTableSpecRecursive(cat *googlesql.SimpleCatalog, spec *TableSpec) error {
 	if len(spec.NamePath) > 1 {
 		subCatalogName := spec.NamePath[0]
 		subCatalog, _ := cat.Catalog(subCatalogName)
@@ -497,21 +497,21 @@ func (c *Catalog) addTableSpecRecursive(cat *types.SimpleCatalog, spec *TableSpe
 	return nil
 }
 
-func (c *Catalog) createSimpleTable(tableName string, spec *TableSpec) (*types.SimpleTable, error) {
-	columns := []types.Column{}
+func (c *Catalog) createSimpleTable(tableName string, spec *TableSpec) (*googlesql.SimpleTable, error) {
+	columns := []googlesql.Googlesql_Column{}
 	for _, column := range spec.Columns {
 		typ, err := column.Type.ToZetaSQLType()
 		if err != nil {
 			return nil, err
 		}
-		columns = append(columns, types.NewSimpleColumn(
+		columns = append(columns, googlesql.NewSimpleColumn(
 			tableName, column.Name, typ,
 		))
 	}
-	return types.NewSimpleTable(tableName, columns), nil
+	return googlesql.NewSimpleTable(tableName, columns), nil
 }
 
-func (c *Catalog) addFunctionSpecRecursive(cat *types.SimpleCatalog, spec *FunctionSpec) error {
+func (c *Catalog) addFunctionSpecRecursive(cat *googlesql.SimpleCatalog, spec *FunctionSpec) error {
 	if len(spec.NamePath) > 1 {
 		subCatalogName := spec.NamePath[0]
 		subCatalog, _ := cat.Catalog(subCatalogName)
@@ -538,7 +538,7 @@ func (c *Catalog) addFunctionSpecRecursive(cat *types.SimpleCatalog, spec *Funct
 	if c.existsFunction(cat, funcName) {
 		return nil
 	}
-	argTypes := []*types.FunctionArgumentType{}
+	argTypes := []*googlesql.FunctionArgumentType{}
 	for _, arg := range spec.Args {
 		argType, err := arg.FunctionArgumentType()
 		if err != nil {
@@ -550,23 +550,23 @@ func (c *Catalog) addFunctionSpecRecursive(cat *types.SimpleCatalog, spec *Funct
 	if err != nil {
 		return err
 	}
-	sig := types.NewFunctionSignature(retType, argTypes)
-	newFunc := types.NewFunction([]string{funcName}, "", types.ScalarMode, []*types.FunctionSignature{sig})
+	sig := googlesql.NewFunctionSignature(retType, argTypes)
+	newFunc := NewFunction([]string{funcName}, "", ScalarMode, []*googlesql.FunctionSignature{sig})
 	cat.AddFunction(newFunc)
 	return nil
 }
 
-func (c *Catalog) existsTable(cat *types.SimpleCatalog, name string) bool {
+func (c *Catalog) existsTable(cat *googlesql.SimpleCatalog, name string) bool {
 	foundTable, _ := cat.FindTable([]string{name})
 	return !c.isNilTable(foundTable)
 }
 
-func (c *Catalog) existsFunction(cat *types.SimpleCatalog, name string) bool {
+func (c *Catalog) existsFunction(cat *googlesql.SimpleCatalog, name string) bool {
 	foundFunc, _ := cat.FindFunction([]string{name})
 	return foundFunc != nil
 }
 
-func (c *Catalog) isNilTable(t types.Table) bool {
+func (c *Catalog) isNilTable(t googlesql.Table) bool {
 	v := reflect.ValueOf(t)
 	if !v.IsValid() {
 		return true

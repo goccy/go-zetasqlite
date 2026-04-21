@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/dop251/goja"
-	"github.com/goccy/go-zetasql/types"
+	googlesql "github.com/goccy/go-googlesql"
 )
 
 func EVAL_JAVASCRIPT(code string, retType *Type, argNames []string, args []Value) (Value, error) {
@@ -48,58 +48,58 @@ zetasqlite_javascript_func();
 	return value, nil
 }
 
-func castJavaScriptValue(t types.Type, v goja.Value) (Value, error) {
+func castJavaScriptValue(t googlesql.Googlesql_Type, v goja.Value) (Value, error) {
 	if v == nil {
 		return nil, nil
 	}
 	switch t.Kind() {
-	case types.INT32, types.INT64, types.UINT32, types.UINT64:
+	case googlesql.TypeKindTypeInt32, googlesql.TypeKindTypeInt64, googlesql.TypeKindTypeUint32, googlesql.TypeKindTypeUint64:
 		return IntValue(v.ToInteger()), nil
-	case types.BOOL:
+	case googlesql.TypeKindTypeBool:
 		return BoolValue(v.ToBoolean()), nil
-	case types.FLOAT, types.DOUBLE:
+	case googlesql.TypeKindTypeFloat, googlesql.TypeKindTypeDouble:
 		return FloatValue(v.ToFloat()), nil
-	case types.STRING, types.ENUM:
+	case googlesql.TypeKindTypeString, googlesql.TypeKindTypeEnum:
 		return StringValue(v.ToString().String()), nil
-	case types.BYTES:
+	case googlesql.TypeKindTypeBytes:
 		return BytesValue(v.ToString().String()), nil
-	case types.DATE:
+	case googlesql.TypeKindTypeDate:
 		t, err := parseDate(v.ToString().String())
 		if err != nil {
 			return nil, err
 		}
 		return DateValue(t), nil
-	case types.DATETIME:
+	case googlesql.TypeKindTypeDatetime:
 		t, err := parseDatetime(v.ToString().String())
 		if err != nil {
 			return nil, err
 		}
 		return DatetimeValue(t), nil
-	case types.TIME:
+	case googlesql.TypeKindTypeTime:
 		t, err := parseTime(v.ToString().String())
 		if err != nil {
 			return nil, err
 		}
 		return TimeValue(t), nil
-	case types.TIMESTAMP:
+	case googlesql.TypeKindTypeTimestamp:
 		t, err := parseTimestamp(v.ToString().String(), time.UTC)
 		if err != nil {
 			return nil, err
 		}
 		return TimestampValue(t), nil
-	case types.INTERVAL:
+	case googlesql.TypeKindTypeInterval:
 		return parseInterval(v.ToString().String())
-	case types.NUMERIC:
+	case googlesql.TypeKindTypeNumeric:
 		r := new(big.Rat)
 		r.SetString(v.ToNumber().String())
 		return &NumericValue{Rat: r}, nil
-	case types.BIG_NUMERIC:
+	case googlesql.TypeKindTypeBignumeric:
 		r := new(big.Rat)
 		r.SetString(v.ToNumber().String())
 		return &NumericValue{Rat: r}, nil
-	case types.JSON:
+	case googlesql.TypeKindTypeJson:
 		return JsonValue(v.ToString().String()), nil
-	case types.ARRAY:
+	case googlesql.TypeKindTypeArray:
 		elemType := t.AsArray().ElementType()
 		var ret ArrayValue
 		for _, vv := range v.Export().([]interface{}) {
@@ -114,13 +114,13 @@ func castJavaScriptValue(t types.Type, v goja.Value) (Value, error) {
 			ret.values = append(ret.values, elem)
 		}
 		return &ret, nil
-	case types.STRUCT:
+	case googlesql.TypeKindTypeStruct:
 		base, err := ValueFromGoValue(v.Export())
 		if err != nil {
 			return nil, err
 		}
 		return CastValue(t, base)
-	case types.GEOGRAPHY:
+	case googlesql.TypeKindTypeGeography:
 		base, err := ValueFromGoValue(v.Export())
 		if err != nil {
 			return nil, err

@@ -13,11 +13,10 @@ import (
 	"time"
 
 	"github.com/goccy/go-json"
-	ast "github.com/goccy/go-zetasql/resolved_ast"
-	"github.com/goccy/go-zetasql/types"
+	googlesql "github.com/goccy/go-googlesql"
 )
 
-func EncodeNamedValues(v []driver.NamedValue, params []*ast.ParameterNode) ([]sql.NamedArg, error) {
+func EncodeNamedValues(v []driver.NamedValue, params []*googlesql.ResolvedParameterNode) ([]sql.NamedArg, error) {
 	if len(v) != len(params) {
 		return nil, fmt.Errorf(
 			"failed to match named values num (%d) and params num (%d)",
@@ -35,7 +34,7 @@ func EncodeNamedValues(v []driver.NamedValue, params []*ast.ParameterNode) ([]sq
 	return ret, nil
 }
 
-func EncodeGoValues(v []interface{}, params []*ast.ParameterNode) ([]interface{}, error) {
+func EncodeGoValues(v []interface{}, params []*googlesql.ResolvedParameterNode) ([]interface{}, error) {
 	if len(v) != len(params) {
 		return nil, fmt.Errorf(
 			"failed to match args values num (%d) and params num (%d)",
@@ -53,7 +52,7 @@ func EncodeGoValues(v []interface{}, params []*ast.ParameterNode) ([]interface{}
 	return ret, nil
 }
 
-func EncodeGoValue(t types.Type, v interface{}) (interface{}, error) {
+func EncodeGoValue(t googlesql.Googlesql_Type, v interface{}) (interface{}, error) {
 	value, err := ValueFromGoValue(v)
 	if err != nil {
 		return nil, err
@@ -132,7 +131,7 @@ func LiteralFromValue(v Value) (string, error) {
 	return fmt.Sprintf("%q", base64.StdEncoding.EncodeToString(b)), nil
 }
 
-func LiteralFromZetaSQLValue(v types.Value) (string, error) {
+func LiteralFromZetaSQLValue(v googlesql.Value) (string, error) {
 	value, err := ValueFromZetaSQLValue(v)
 	if err != nil {
 		return "", err
@@ -140,44 +139,44 @@ func LiteralFromZetaSQLValue(v types.Value) (string, error) {
 	return LiteralFromValue(value)
 }
 
-func ValueFromZetaSQLValue(v types.Value) (Value, error) {
+func ValueFromZetaSQLValue(v googlesql.Value) (Value, error) {
 	if v.IsNull() {
 		return nil, nil
 	}
 	switch v.Type().Kind() {
-	case types.INT32, types.INT64, types.UINT32, types.UINT64:
+	case googlesql.TypeKindTypeInt32, googlesql.TypeKindTypeInt64, googlesql.TypeKindTypeUint32, googlesql.TypeKindTypeUint64:
 		return intValueFromLiteral(v.SQLLiteral(0))
-	case types.BOOL:
+	case googlesql.TypeKindTypeBool:
 		return boolValueFromLiteral(v.SQLLiteral(0))
-	case types.FLOAT, types.DOUBLE:
+	case googlesql.TypeKindTypeFloat, googlesql.TypeKindTypeDouble:
 		return floatValueFromLiteral(v.SQLLiteral(0))
-	case types.STRING:
+	case googlesql.TypeKindTypeString:
 		return StringValue(v.StringValue()), nil
-	case types.ENUM:
+	case googlesql.TypeKindTypeEnum:
 		return stringValueFromLiteral(v.SQLLiteral(0))
-	case types.BYTES:
+	case googlesql.TypeKindTypeBytes:
 		return bytesValueFromLiteral(v.SQLLiteral(0)), nil
-	case types.DATE:
+	case googlesql.TypeKindTypeDate:
 		return dateValueFromLiteral(v.ToInt64()), nil
-	case types.DATETIME:
+	case googlesql.TypeKindTypeDatetime:
 		return datetimeValueFromLiteral(v.ToPacked64DatetimeMicros()), nil
-	case types.TIME:
+	case googlesql.TypeKindTypeTime:
 		return timeValueFromLiteral(v.ToPacked64TimeMicros()), nil
-	case types.TIMESTAMP:
+	case googlesql.TypeKindTypeTimestamp:
 		microsec := v.ToUnixMicros()
 		microSecondsInSecond := int64(time.Second) / int64(time.Microsecond)
 		sec := microsec / microSecondsInSecond
 		remainder := microsec - (sec * microSecondsInSecond)
 		return timestampValueFromLiteral(time.Unix(sec, remainder*int64(time.Microsecond)))
-	case types.NUMERIC, types.BIG_NUMERIC:
+	case googlesql.TypeKindTypeNumeric, googlesql.TypeKindTypeBignumeric:
 		return numericValueFromLiteral(v.SQLLiteral(0))
-	case types.INTERVAL:
+	case googlesql.TypeKindTypeInterval:
 		return intervalValueFromLiteral(v.SQLLiteral(0))
-	case types.JSON:
+	case googlesql.TypeKindTypeJson:
 		return jsonValueFromLiteral(v.JSONString())
-	case types.ARRAY:
+	case googlesql.TypeKindTypeArray:
 		return arrayValueFromLiteral(v)
-	case types.STRUCT:
+	case googlesql.TypeKindTypeStruct:
 		return structValueFromLiteral(v)
 	}
 	return nil, fmt.Errorf("unsupported literal type: %s", v.Type().Kind())
@@ -321,7 +320,7 @@ func intervalValueFromLiteral(lit string) (*IntervalValue, error) {
 	return parseInterval(intervalLit)
 }
 
-func arrayValueFromLiteral(v types.Value) (*ArrayValue, error) {
+func arrayValueFromLiteral(v googlesql.Value) (*ArrayValue, error) {
 	ret := &ArrayValue{}
 	for i := 0; i < v.NumElements(); i++ {
 		elem := v.Element(i)
@@ -334,7 +333,7 @@ func arrayValueFromLiteral(v types.Value) (*ArrayValue, error) {
 	return ret, nil
 }
 
-func structValueFromLiteral(v types.Value) (*StructValue, error) {
+func structValueFromLiteral(v googlesql.Value) (*StructValue, error) {
 	ret := &StructValue{
 		m: map[string]Value{},
 	}
@@ -353,72 +352,72 @@ func structValueFromLiteral(v types.Value) (*StructValue, error) {
 	return ret, nil
 }
 
-func CastValue(t types.Type, v Value) (Value, error) {
+func CastValue(t googlesql.Googlesql_Type, v Value) (Value, error) {
 	if v == nil {
 		return nil, nil
 	}
 	switch t.Kind() {
-	case types.INT32, types.INT64, types.UINT32, types.UINT64:
+	case googlesql.TypeKindTypeInt32, googlesql.TypeKindTypeInt64, googlesql.TypeKindTypeUint32, googlesql.TypeKindTypeUint64:
 		i64, err := v.ToInt64()
 		if err != nil {
 			return nil, err
 		}
 		return IntValue(i64), nil
-	case types.BOOL:
+	case googlesql.TypeKindTypeBool:
 		b, err := v.ToBool()
 		if err != nil {
 			return nil, err
 		}
 		return BoolValue(b), nil
-	case types.FLOAT, types.DOUBLE:
+	case googlesql.TypeKindTypeFloat, googlesql.TypeKindTypeDouble:
 		f64, err := v.ToFloat64()
 		if err != nil {
 			return nil, err
 		}
 		return FloatValue(f64), nil
-	case types.STRING, types.ENUM:
+	case googlesql.TypeKindTypeString, googlesql.TypeKindTypeEnum:
 		s, err := v.ToString()
 		if err != nil {
 			return nil, err
 		}
 		return StringValue(s), nil
-	case types.BYTES:
+	case googlesql.TypeKindTypeBytes:
 		b, err := v.ToBytes()
 		if err != nil {
 			return nil, err
 		}
 		return BytesValue(b), nil
-	case types.DATE:
+	case googlesql.TypeKindTypeDate:
 		t, err := v.ToTime()
 		if err != nil {
 			return nil, err
 		}
 		return DateValue(t), nil
-	case types.DATETIME:
+	case googlesql.TypeKindTypeDatetime:
 		t, err := v.ToTime()
 		if err != nil {
 			return nil, err
 		}
 		return DatetimeValue(t), nil
-	case types.TIME:
+	case googlesql.TypeKindTypeTime:
 		t, err := v.ToTime()
 		if err != nil {
 			return nil, err
 		}
 		return TimeValue(t), nil
-	case types.TIMESTAMP:
+	case googlesql.TypeKindTypeTimestamp:
 		t, err := v.ToTime()
 		if err != nil {
 			return nil, err
 		}
 		return TimestampValue(t), nil
-	case types.INTERVAL:
+	case googlesql.TypeKindTypeInterval:
 		s, err := v.ToString()
 		if err != nil {
 			return nil, err
 		}
 		return parseInterval(s)
-	case types.ARRAY:
+	case googlesql.TypeKindTypeArray:
 		array, err := v.ToArray()
 		if err != nil {
 			return nil, err
@@ -433,7 +432,7 @@ func CastValue(t types.Type, v Value) (Value, error) {
 			ret.values = append(ret.values, casted)
 		}
 		return ret, nil
-	case types.STRUCT:
+	case googlesql.TypeKindTypeStruct:
 		if array, ok := v.(*ArrayValue); ok {
 			ret := &StructValue{m: map[string]Value{}}
 			for _, value := range array.values {
@@ -481,25 +480,25 @@ func CastValue(t types.Type, v Value) (Value, error) {
 			ret.m[key] = casted
 		}
 		return ret, nil
-	case types.NUMERIC:
+	case googlesql.TypeKindTypeNumeric:
 		r, err := v.ToRat()
 		if err != nil {
 			return nil, err
 		}
 		return &NumericValue{Rat: r}, nil
-	case types.BIG_NUMERIC:
+	case googlesql.TypeKindTypeBignumeric:
 		r, err := v.ToRat()
 		if err != nil {
 			return nil, err
 		}
 		return &NumericValue{Rat: r, isBigNumeric: true}, nil
-	case types.JSON:
+	case googlesql.TypeKindTypeJson:
 		j, err := v.ToJSON()
 		if err != nil {
 			return nil, err
 		}
 		return JsonValue(j), nil
-	case types.GEOGRAPHY:
+	case googlesql.TypeKindTypeGeography:
 		return v, nil
 	}
 	return nil, fmt.Errorf("unsupported cast %s value", t.Kind())
@@ -589,7 +588,7 @@ func valueFromGoReflectValue(v reflect.Value) (Value, error) {
 	return nil, fmt.Errorf("cannot convert %s type to zetasqlite value type", kind)
 }
 
-func encodeNamedValue(v driver.NamedValue, param *ast.ParameterNode) (sql.NamedArg, error) {
+func encodeNamedValue(v driver.NamedValue, param *googlesql.ResolvedParameterNode) (sql.NamedArg, error) {
 	value, err := EncodeGoValue(param.Type(), v.Value)
 	if err != nil {
 		return sql.NamedArg{}, err

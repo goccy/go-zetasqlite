@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	"github.com/goccy/go-json"
-	ast "github.com/goccy/go-zetasql/resolved_ast"
+	googlesql "github.com/goccy/go-googlesql"
 )
 
 type WindowFuncOptionType string
@@ -102,34 +102,34 @@ type WindowBoundary struct {
 	Offset int64              `json:"offset"`
 }
 
-func getWindowFrameUnitOptionFuncSQL(frameUnit ast.FrameUnit) string {
+func getWindowFrameUnitOptionFuncSQL(frameUnit googlesql.ResolvedWindowFrameEnums_FrameUnit) string {
 	var typ WindowFrameUnitType
 	switch frameUnit {
-	case ast.FrameUnitRows:
+	case googlesql.ResolvedWindowFrameEnums_FrameUnitRows:
 		typ = WindowFrameUnitRows
-	case ast.FrameUnitRange:
+	case googlesql.ResolvedWindowFrameEnums_FrameUnitRange:
 		typ = WindowFrameUnitRange
 	}
 	return fmt.Sprintf("zetasqlite_window_frame_unit(%d)", typ)
 }
 
-func toWindowBoundaryType(boundaryType ast.BoundaryType) WindowBoundaryType {
+func toWindowBoundaryType(boundaryType googlesql.ResolvedWindowFrameExprEnums_BoundaryType) WindowBoundaryType {
 	switch boundaryType {
-	case ast.UnboundedPrecedingType:
+	case googlesql.ResolvedWindowFrameExprEnums_BoundaryTypeUnboundedPreceding:
 		return WindowUnboundedPrecedingType
-	case ast.OffsetPrecedingType:
+	case googlesql.ResolvedWindowFrameExprEnums_BoundaryTypeOffsetPreceding:
 		return WindowOffsetPrecedingType
-	case ast.CurrentRowType:
+	case googlesql.ResolvedWindowFrameExprEnums_BoundaryTypeCurrentRow:
 		return WindowCurrentRowType
-	case ast.OffsetFollowingType:
+	case googlesql.ResolvedWindowFrameExprEnums_BoundaryTypeOffsetFollowing:
 		return WindowOffsetFollowingType
-	case ast.UnboundedFollowingType:
+	case googlesql.ResolvedWindowFrameExprEnums_BoundaryTypeUnboundedFollowing:
 		return WindowUnboundedFollowingType
 	}
 	return WindowBoundaryTypeUnknown
 }
 
-func getWindowBoundaryStartOptionFuncSQL(boundaryType ast.BoundaryType, offset string) string {
+func getWindowBoundaryStartOptionFuncSQL(boundaryType googlesql.ResolvedWindowFrameExprEnums_BoundaryType, offset string) string {
 	typ := toWindowBoundaryType(boundaryType)
 	if offset == "" {
 		offset = "0"
@@ -137,7 +137,7 @@ func getWindowBoundaryStartOptionFuncSQL(boundaryType ast.BoundaryType, offset s
 	return fmt.Sprintf("zetasqlite_window_boundary_start(%d, %s)", typ, offset)
 }
 
-func getWindowBoundaryEndOptionFuncSQL(boundaryType ast.BoundaryType, offset string) string {
+func getWindowBoundaryEndOptionFuncSQL(boundaryType googlesql.ResolvedWindowFrameExprEnums_BoundaryType, offset string) string {
 	typ := toWindowBoundaryType(boundaryType)
 	if offset == "" {
 		offset = "0"
