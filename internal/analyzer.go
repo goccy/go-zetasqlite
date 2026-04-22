@@ -290,7 +290,7 @@ func (a *Analyzer) analyzeTemplatedFunctionWithRuntimeArgument(ctx context.Conte
 }
 
 func (a *Analyzer) newStmtAction(ctx context.Context, query string, args []driver.NamedValue, node googlesql.ResolvedStatementNode) (StmtAction, error) {
-	kind, _ := AsResolvedNode(node).NodeKind()
+	kind, _ := node.NodeKind()
 	switch kind {
 	case googlesql.ResolvedNodeKindResolvedCreateTableStmt:
 		return a.newCreateTableStmtAction(ctx, query, args, node.(googlesql.ResolvedCreateTableStmtNode))
@@ -321,7 +321,7 @@ func (a *Analyzer) newStmtAction(ctx context.Context, query string, args []drive
 	case googlesql.ResolvedNodeKindResolvedCommitStmt:
 		return a.newCommitStmtAction(ctx, query, args, node)
 	}
-	dbg, _ := AsResolvedNode(node).DebugString()
+	dbg, _ := node.DebugString()
 	return nil, fmt.Errorf("unsupported stmt %s", dbg)
 }
 
@@ -594,10 +594,10 @@ func (a *Analyzer) newMergeStmtAction(ctx context.Context, _ string, args []driv
 	if !ok {
 		return nil, fmt.Errorf("currently MERGE expression is supported equal expression only")
 	}
-	if m1(fn.AsResolvedFunctionCallBase().FunctionMethod()).FullName(false) != "$equal" {
+	if m1(fn.FunctionMethod()).FullName(false) != "$equal" {
 		return nil, fmt.Errorf("currently MERGE expression is supported equal expression only")
 	}
-	argList := m1(fn.AsResolvedFunctionCallBase().ArgumentList())
+	argList := m1(fn.ArgumentList())
 	if len(argList) != 2 {
 		return nil, fmt.Errorf("unexpected MERGE expression column num. expected 2 column but specified %d column", len(args))
 	}

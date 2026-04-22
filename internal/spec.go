@@ -55,26 +55,30 @@ func (s *FunctionSpec) SQL() string {
 	args := []string{}
 	for _, arg := range s.Args {
 		t, _ := arg.Type.ToZetaSQLType()
-		args = append(args, fmt.Sprintf("%s %s", arg.Name, m1(t.KindMethod())))
+		tp := &handlePtr{ptr: t.RawPtr()}
+		gt := (*googlesql.Googlesql_Type)(unsafe.Pointer(tp))
+		args = append(args, fmt.Sprintf("%s %s", arg.Name, m1(gt.KindMethod())))
 	}
 	retType, _ := s.Return.ToZetaSQLType()
+	rp := &handlePtr{ptr: retType.RawPtr()}
+	rg := (*googlesql.Googlesql_Type)(unsafe.Pointer(rp))
 	return fmt.Sprintf(
-		"CREATE FUNCTION `%s`(%s) RETURNS %s AS (%s)",
+		"CREATE FUNCTION `%s`(%s) RETURNS %v AS (%s)",
 		s.FuncName(),
 		strings.Join(args, ", "),
-		retType.Kind(),
+		m1(rg.KindMethod()),
 		s.Body,
 	)
 }
 
 func (s *FunctionSpec) CallSQL(ctx context.Context, callNode *ResolvedBaseFunctionCallNode, argValues []string) (string, error) {
-	args := callNode.ArgumentList()
+	args, _ := callNode.ArgumentList()
 	var body string
 	if s.Body == "" {
 		// templated argument func
 		definedArgs := make([]string, 0, len(args))
 		for idx, arg := range args {
-			typeName := newType(arg.Type()).FormatType()
+			typeName := newType(m1(arg.Type())).FormatType()
 			definedArgs = append(
 				definedArgs,
 				fmt.Sprintf("%s %s", s.Args[idx].Name, typeName),

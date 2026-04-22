@@ -44,7 +44,7 @@ func EncodeGoValues(v []interface{}, params []googlesql.ResolvedParameterNode) (
 	}
 	ret := make([]interface{}, 0, len(v))
 	for idx, vv := range v {
-		value, err := EncodeGoValue(m1(params[idx].AsResolvedExpr().Type()), vv)
+		value, err := EncodeGoValue(m1(params[idx].Type()), vv)
 		if err != nil {
 			return nil, err
 		}
@@ -569,7 +569,7 @@ func valueFromGoReflectValue(v reflect.Value) (Value, error) {
 }
 
 func encodeNamedValue(v driver.NamedValue, param googlesql.ResolvedParameterNode) (sql.NamedArg, error) {
-	value, err := EncodeGoValue(m1(param.AsResolvedExpr().Type()), v.Value)
+	value, err := EncodeGoValue(m1(param.Type()), v.Value)
 	if err != nil {
 		return sql.NamedArg{}, err
 	}

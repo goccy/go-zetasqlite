@@ -8,7 +8,7 @@ func newNode(node googlesql.ResolvedNodeNode) Formatter {
 	if node == nil {
 		return nil
 	}
-	switch m1(AsResolvedNode(node).NodeKind()) {
+	switch m1(node.NodeKind()) {
 	case googlesql.ResolvedNodeKindResolvedLiteral:
 		return newLiteralNode(node.(googlesql.ResolvedLiteralNode))
 	case googlesql.ResolvedNodeKindResolvedParameter:
