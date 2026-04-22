@@ -438,7 +438,7 @@ func (a *Analyzer) inferTemplatedTypeByRealType(query string, node googlesql.Res
 func (a *Analyzer) buildScalarTypeFuncFromTemplatedFunc(node googlesql.ResolvedCreateFunctionStmtNode, realType string) string {
 	signature, _ := node.Signature()
 	var args []string
-	for _, arg := range signature.Arguments() {
+	for _, arg := range compatSignatureArguments(signature) {
 		typ := realType
 		if !arg.IsTemplated() {
 			typ = newType(arg.Type()).FormatType()
@@ -455,7 +455,7 @@ func (a *Analyzer) buildScalarTypeFuncFromTemplatedFunc(node googlesql.ResolvedC
 func (a *Analyzer) buildArrayTypeFuncFromTemplatedFunc(node googlesql.ResolvedCreateFunctionStmtNode, realType string) string {
 	signature, _ := node.Signature()
 	var args []string
-	for _, arg := range signature.Arguments() {
+	for _, arg := range compatSignatureArguments(signature) {
 		typ := fmt.Sprintf("ARRAY<%s>", realType)
 		if !arg.IsTemplated() {
 			typ = newType(arg.Type()).FormatType()
@@ -483,7 +483,7 @@ func (a *Analyzer) newDropStmtAction(ctx context.Context, query string, args []d
 		return nil, err
 	}
 	objectType, _ := node.ObjectType()
-	name := a.namePath.format(node.NamePath())
+	name := a.namePath.format2(node.NamePath())
 	return &DropStmtAction{
 		name:           name,
 		objectType:     objectType,
@@ -501,7 +501,7 @@ func (a *Analyzer) newDropFunctionStmtAction(ctx context.Context, query string, 
 	if err != nil {
 		return nil, err
 	}
-	name := a.namePath.format(node.NamePath())
+	name := a.namePath.format2(node.NamePath())
 	return &DropStmtAction{
 		name:       name,
 		objectType: "FUNCTION",
@@ -594,10 +594,10 @@ func (a *Analyzer) newMergeStmtAction(ctx context.Context, _ string, args []driv
 	if !ok {
 		return nil, fmt.Errorf("currently MERGE expression is supported equal expression only")
 	}
-	if fn.Function().FullName(false) != "$equal" {
+	if m1(fn.AsResolvedFunctionCallBase().FunctionMethod()).FullName(false) != "$equal" {
 		return nil, fmt.Errorf("currently MERGE expression is supported equal expression only")
 	}
-	argList := fn.ArgumentList()
+	argList := m1(fn.AsResolvedFunctionCallBase().ArgumentList())
 	if len(argList) != 2 {
 		return nil, fmt.Errorf("unexpected MERGE expression column num. expected 2 column but specified %d column", len(args))
 	}

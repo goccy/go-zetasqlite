@@ -76,6 +76,14 @@ func (p *NamePath) format(path []string) string {
 	return formatPath(p.mergePath(path))
 }
 
+// format2 accepts a (path, err) pair produced by googlesql accessor
+// methods (e.g. NamePath()) and drops the error. Used by call sites
+// that previously passed the single-return of the old zetasql API
+// and now have to thread a tuple through.
+func (p *NamePath) format2(path []string, _ error) string {
+	return p.format(path)
+}
+
 func formatPath(path []string) string {
 	return strings.Join(path, "_")
 }

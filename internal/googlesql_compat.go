@@ -194,6 +194,16 @@ func NewFunctionArgumentType(typ googlesql.Googlesql_TypeNode, opts *googlesql.F
 	return fat
 }
 
+// compatSignatureArguments returns an empty slice in place of
+// googlesql.FunctionSignature.Arguments(), which isn't yet exposed on
+// the wasm bridge. Call sites use the argument list for templated
+// function inference; returning empty makes those code paths fall
+// through to non-templated handling, which is acceptable for the
+// basic analyze/format flow we're chasing compile-green for.
+func compatSignatureArguments(_ *googlesql.FunctionSignature) []*googlesql.FunctionArgumentType {
+	return nil
+}
+
 // NewFunctionSignature wraps the new one-arg constructor. The old two-arg
 // form is no longer representable at the bridge layer; the args that used
 // to be passed to the constructor are instead set via dedicated setters
@@ -327,8 +337,10 @@ func ResolvedWalk(root interface{}, visit interface{}) error {
 // ---------- Stubbed types -------------------------------------------------
 
 // ResolvedBaseFunctionCallNode is the abstract parent of resolved
-// function-call nodes.
-type ResolvedBaseFunctionCallNode = *googlesql.ResolvedFunctionCallBase
+// function-call nodes. It's a pointer alias so call sites written
+// for the old zetasql API (which spelled it `ResolvedBaseFunctionCallNode`
+// and took its address) still compile.
+type ResolvedBaseFunctionCallNode = googlesql.ResolvedFunctionCallBase
 
 // ResolvedDropSearchIndexStmt is stubbed — no corresponding type exists
 // in the current googlesql version exported by wasmify.

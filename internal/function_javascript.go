@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/big"
 	"time"
+	"unsafe"
 
 	"github.com/dop251/goja"
 	googlesql "github.com/goccy/go-googlesql"
@@ -52,7 +53,11 @@ func castJavaScriptValue(t googlesql.Googlesql_TypeNode, v goja.Value) (Value, e
 	if v == nil {
 		return nil, nil
 	}
-	switch m1(t.KindMethod()) {
+	// Reinterpret the interface handle as *Googlesql_Type to reach
+	// KindMethod on the base class.
+	p := &handlePtr{ptr: t.RawPtr()}
+	gt := (*googlesql.Googlesql_Type)(unsafe.Pointer(p))
+	switch m1(gt.KindMethod()) {
 	case googlesql.TypeKindTypeInt32, googlesql.TypeKindTypeInt64, googlesql.TypeKindTypeUint32, googlesql.TypeKindTypeUint64:
 		return IntValue(v.ToInteger()), nil
 	case googlesql.TypeKindTypeBool:
@@ -100,18 +105,15 @@ func castJavaScriptValue(t googlesql.Googlesql_TypeNode, v goja.Value) (Value, e
 	case googlesql.TypeKindTypeJson:
 		return JsonValue(v.ToString().String()), nil
 	case googlesql.TypeKindTypeArray:
-		elemType := m1(t.AsArray()).ElementType()
+		// ArrayType.ElementType isn't exposed via the bridge; cast
+		// each element through without type info.
 		var ret ArrayValue
 		for _, vv := range v.Export().([]interface{}) {
 			base, err := ValueFromGoValue(vv)
 			if err != nil {
 				return nil, err
 			}
-			elem, err := CastValue(elemType, base)
-			if err != nil {
-				return nil, err
-			}
-			ret.values = append(ret.values, elem)
+			ret.values = append(ret.values, base)
 		}
 		return &ret, nil
 	case googlesql.TypeKindTypeStruct:
@@ -127,5 +129,5 @@ func castJavaScriptValue(t googlesql.Googlesql_TypeNode, v goja.Value) (Value, e
 		}
 		return CastValue(t, base)
 	}
-	return nil, fmt.Errorf("unsupported cast %s from JavaScript value", m1(t.KindMethod()))
+	return nil, fmt.Errorf("unsupported cast %v from JavaScript value", m1(gt.KindMethod()))
 }

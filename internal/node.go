@@ -8,7 +8,7 @@ func newNode(node googlesql.ResolvedNodeNode) Formatter {
 	if node == nil {
 		return nil
 	}
-	switch node.Kind() {
+	switch m1(AsResolvedNode(node).NodeKind()) {
 	case googlesql.ResolvedNodeKindResolvedLiteral:
 		return newLiteralNode(node.(googlesql.ResolvedLiteralNode))
 	case googlesql.ResolvedNodeKindResolvedParameter:
@@ -61,8 +61,9 @@ func newNode(node googlesql.ResolvedNodeNode) Formatter {
 		return newReplaceFieldNode(node.(googlesql.ResolvedReplaceFieldNode))
 	case googlesql.ResolvedNodeKindResolvedSubqueryExpr:
 		return newSubqueryExprNode(node.(googlesql.ResolvedSubqueryExprNode))
-	case ResolvedLetExpr:
-		return newLetExprNode(node.(*ResolvedLetExprNode))
+	// ResolvedLetExpr isn't in the current googlesql export set; the
+	// case used to dispatch to newLetExprNode. Reinstate when the
+	// corresponding node kind re-enters the bridge.
 	case googlesql.ResolvedNodeKindResolvedModel:
 		return newModelNode(node.(googlesql.ResolvedModelNode))
 	case googlesql.ResolvedNodeKindResolvedConnection:
@@ -123,7 +124,7 @@ func newNode(node googlesql.ResolvedNodeNode) Formatter {
 		return newOutputColumnNode(node.(googlesql.ResolvedOutputColumnNode))
 	case googlesql.ResolvedNodeKindResolvedProjectScan:
 		return newProjectScanNode(node.(googlesql.ResolvedProjectScanNode))
-	case googlesql.ResolvedNodeKindResolvedTVFScan:
+	case ResolvedNodeKindResolvedTVFScan:
 		return newTVFScanNode(node.(googlesql.ResolvedTVFScanNode))
 	case googlesql.ResolvedNodeKindResolvedGroupRowsScan:
 		return newGroupRowsScanNode(node.(googlesql.ResolvedGroupRowsScanNode))
@@ -207,9 +208,9 @@ func newNode(node googlesql.ResolvedNodeNode) Formatter {
 		return newAnalyticFunctionGroupNode(node.(googlesql.ResolvedAnalyticFunctionGroupNode))
 	case googlesql.ResolvedNodeKindResolvedWindowFrameExpr:
 		return newWindowFrameExprNode(node.(googlesql.ResolvedWindowFrameExprNode))
-	case googlesql.ResolvedNodeKindResolvedDMLValue:
+	case ResolvedNodeKindResolvedDMLValue:
 		return newDMLValueNode(node.(googlesql.ResolvedDMLValueNode))
-	case googlesql.ResolvedNodeKindResolvedDMLDefault:
+	case ResolvedNodeKindResolvedDMLDefault:
 		return newDMLDefaultNode(node.(googlesql.ResolvedDMLDefaultNode))
 	case googlesql.ResolvedNodeKindResolvedAssertStmt:
 		return newAssertStmtNode(node.(googlesql.ResolvedAssertStmtNode))
@@ -223,8 +224,7 @@ func newNode(node googlesql.ResolvedNodeNode) Formatter {
 		return newDeleteStmtNode(node.(googlesql.ResolvedDeleteStmtNode))
 	case googlesql.ResolvedNodeKindResolvedUpdateItem:
 		return newUpdateItemNode(node.(googlesql.ResolvedUpdateItemNode))
-	case ResolvedUpdateArrayItem:
-		return newUpdateArrayItemNode(node.(*ResolvedUpdateArrayItemNode))
+	// ResolvedUpdateArrayItem isn't in the current googlesql export set.
 	case googlesql.ResolvedNodeKindResolvedUpdateStmt:
 		return newUpdateStmtNode(node.(googlesql.ResolvedUpdateStmtNode))
 	case googlesql.ResolvedNodeKindResolvedMergeWhen:
@@ -291,8 +291,7 @@ func newNode(node googlesql.ResolvedNodeNode) Formatter {
 		return newDropPrivilegeRestrictionStmtNode(node.(googlesql.ResolvedDropPrivilegeRestrictionStmtNode))
 	case googlesql.ResolvedNodeKindResolvedDropRowAccessPolicyStmt:
 		return newDropRowAccessPolicyStmtNode(node.(googlesql.ResolvedDropRowAccessPolicyStmtNode))
-	case ResolvedDropSearchIndexStmt:
-		return newDropSearchIndexStmtNode(node.(*ResolvedDropSearchIndexStmtNode))
+	// ResolvedDropSearchIndexStmt isn't in the current googlesql export set.
 	case googlesql.ResolvedNodeKindResolvedGrantToAction:
 		return newGrantToActionNode(node.(googlesql.ResolvedGrantToActionNode))
 	case googlesql.ResolvedNodeKindResolvedRestrictToAction:

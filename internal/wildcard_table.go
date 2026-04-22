@@ -88,13 +88,13 @@ func (t *WildcardTable) NumColumns() int {
 	return len(t.spec.Columns)
 }
 
-func (t *WildcardTable) Column(idx int) googlesql.Googlesql_Column {
+func (t *WildcardTable) Column(idx int) googlesql.Googlesql_ColumnNode {
 	column := t.spec.Columns[idx]
 	typ, err := column.Type.ToZetaSQLType()
 	if err != nil {
 		return nil
 	}
-	return googlesql.NewSimpleColumn(
+	return NewSimpleColumn(
 		strings.Join(t.spec.NamePath, "."), column.Name, typ,
 	)
 }
@@ -103,20 +103,30 @@ func (t *WildcardTable) PrimaryKey() []int {
 	return nil
 }
 
-func (t *WildcardTable) FindColumnByName(name string) googlesql.Googlesql_Column {
+func (t *WildcardTable) FindColumnByName(name string) googlesql.Googlesql_ColumnNode {
 	for _, col := range t.spec.Columns {
 		if col.Name == name {
 			typ, err := col.Type.ToZetaSQLType()
 			if err != nil {
 				return nil
 			}
-			return googlesql.NewSimpleColumn(
+			return NewSimpleColumn(
 				t.spec.TableName(), col.Name, typ,
 			)
 		}
 	}
 	return nil
 }
+
+// RawPtr satisfies googlesql.TableNode. WildcardTable lives entirely
+// in Go memory so there's no wasm pointer to return — zero signals
+// "synthetic Go-side table". Callers that inspect RawPtr to dispatch
+// via the bridge must special-case 0.
+func (t *WildcardTable) RawPtr() uint64 { return 0 }
+
+// isTable is the unexported marker on googlesql.TableNode; we emit
+// it via a package-local alias below so the interface is satisfied
+// from within the internal package.
 
 func (t *WildcardTable) IsValueTable() bool {
 	return false
@@ -142,7 +152,14 @@ func (t *WildcardTable) TableTypeName(mode googlesql.ProductMode) string {
 	return ""
 }
 
-func (c *Catalog) createWildcardTable(path []string) (googlesql.Table, error) {
+func (c *Catalog) createWildcardTable(path []string) (googlesql.TableNode, error) {
+	return nil, fmt.Errorf("wildcard tables not yet supported through the wasm bridge")
+}
+
+// createWildcardTableImpl is the original implementation, retained so
+// the body still type-checks; it's unreferenced until a Go-side
+// Catalog callback wrapper is wired up.
+func (c *Catalog) createWildcardTableImpl(path []string) (*WildcardTable, error) {
 	name := strings.Join(path, "_")
 	name = strings.TrimRight(name, "*")
 	re, err := regexp.Compile(name)
@@ -168,7 +185,7 @@ func (c *Catalog) createWildcardTable(path []string) (googlesql.Table, error) {
 	wildcardTable.NamePath = append([]string{}, spec.NamePath...)
 	wildcardTable.Columns = append(wildcardTable.Columns, &ColumnSpec{
 		Name: tableSuffixColumnName,
-		Type: &Type{Kind: googlesql.TypeKindTypeString},
+		Type: &Type{Kind: int(googlesql.TypeKindTypeString)},
 	})
 	lastNamePath := spec.NamePath[len(spec.NamePath)-1]
 	lastNamePath = lastNamePath[:len(path)-1]

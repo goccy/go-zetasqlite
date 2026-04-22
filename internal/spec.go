@@ -337,13 +337,13 @@ func newTypeFromFunctionArgumentType(t *googlesql.FunctionArgumentType) *Type {
 	if m1(t.IsTemplated()) {
 		return &Type{SignatureKind: m1(t.KindMethod())}
 	}
-	return newType(t.Type())
+	return newType(m1(t.Type()))
 }
 
 func newFunctionSpec(ctx context.Context, namePath *NamePath, stmt googlesql.ResolvedCreateFunctionStmtNode) (*FunctionSpec, error) {
 	args := []*NameWithType{}
 	signature, _ := stmt.Signature()
-	for _, arg := range signature.Arguments() {
+	for _, arg := range compatSignatureArguments(signature) {
 		args = append(args, &NameWithType{
 			Name: arg.ArgumentName(),
 			Type: newTypeFromFunctionArgumentType(arg),
@@ -416,15 +416,15 @@ func newTypeFromFunctionArgumentTypeByRealType(t *googlesql.FunctionArgumentType
 		}
 		return &Type{SignatureKind: googlesql.SignatureArgumentKindArgTypeAny1}
 	}
-	return newType(t.Type())
+	return newType(m1(t.Type()))
 }
 
 func newTemplatedFunctionSpec(ctx context.Context, namePath *NamePath, stmt googlesql.ResolvedCreateFunctionStmtNode, realStmts []googlesql.ResolvedCreateFunctionStmtNode) (*FunctionSpec, error) {
 	signature, _ := stmt.Signature()
-	arguments := signature.Arguments()
+	arguments := compatSignatureArguments(signature)
 	realStmt := realStmts[0]
 	realSignature, _ := realStmt.Signature()
-	realArguments := realSignature.Arguments()
+	realArguments := compatSignatureArguments(realSignature)
 	resultType := newType(m1(realSignature.ResultType()).Type())
 	resultTypeName := resultType.FormatType()
 
