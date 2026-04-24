@@ -85,10 +85,11 @@ func StringType() googlesql.Googlesql_TypeNode {
 
 // StringArrayType returns ARRAY<STRING>.
 func StringArrayType() googlesql.Googlesql_TypeNode {
-	elem := StringType()
-	var arr googlesql.ArrayType
-	_ = tf().MakeArrayType(elem, &arr)
-	return &arr
+	arr, err := tf().MakeArrayType(StringType())
+	if err != nil || arr == nil {
+		return nil
+	}
+	return arr
 }
 
 // TypeFromKind returns a simple (primitive) type handle given a TypeKind
@@ -103,11 +104,11 @@ func TypeFromKind(k googlesql.TypeKind) googlesql.Googlesql_TypeNode {
 // returns the array type directly. Matches the former zetasql.NewArrayType
 // signature.
 func NewArrayType(elem googlesql.Googlesql_TypeNode) (googlesql.Googlesql_TypeNode, error) {
-	var arr googlesql.ArrayType
-	if err := tf().MakeArrayType(elem, &arr); err != nil {
+	arr, err := tf().MakeArrayType(elem)
+	if err != nil {
 		return nil, err
 	}
-	return &arr, nil
+	return arr, nil
 }
 
 // StructField is a minimal record describing a struct field. The real
@@ -392,8 +393,29 @@ func ResolvedWindowFrameFrameUnit(h *googlesql.ResolvedWindowFrame) googlesql.Re
 }
 
 // ResolvedWindowFrameExprBoundaryType returns CurrentRow.
+// ResolvedWindowFrameExprBoundaryType recovers the enum value through the
+// bridge-exposed GetBoundaryTypeString accessor; the raw enum getter is
+// not yet bridged. The string form matches the googlesql enum names.
 func ResolvedWindowFrameExprBoundaryType(h googlesql.ResolvedWindowFrameExprNode) googlesql.ResolvedWindowFrameExprEnums_BoundaryType {
-	_ = h
+	if h == nil {
+		return 0
+	}
+	s, err := h.GetBoundaryTypeString()
+	if err != nil {
+		return 0
+	}
+	switch s {
+	case "UNBOUNDED PRECEDING":
+		return googlesql.ResolvedWindowFrameExprEnums_BoundaryTypeUnboundedPreceding
+	case "OFFSET PRECEDING":
+		return googlesql.ResolvedWindowFrameExprEnums_BoundaryTypeOffsetPreceding
+	case "CURRENT ROW":
+		return googlesql.ResolvedWindowFrameExprEnums_BoundaryTypeCurrentRow
+	case "OFFSET FOLLOWING":
+		return googlesql.ResolvedWindowFrameExprEnums_BoundaryTypeOffsetFollowing
+	case "UNBOUNDED FOLLOWING":
+		return googlesql.ResolvedWindowFrameExprEnums_BoundaryTypeUnboundedFollowing
+	}
 	return 0
 }
 

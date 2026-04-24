@@ -610,13 +610,31 @@ func newType(t googlesql.Googlesql_TypeNode) *Type {
 		elem       *Type
 		fieldTypes []*NameWithType
 	)
-	// ArrayType.ElementType and StructType.Fields aren't yet exposed
-	// on the bridge export set; leave the nested composition empty
-	// and let the kind carry enough information for the SQL
-	// formatter's primitive-type path.
+	// Composite types need the nested element information so
+	// CAST(... AS ARRAY<T>) and friends can round-trip through the
+	// formatter. ArrayType.ElementType and StructType.Fields are now
+	// exposed on the bridge; recurse into them when the dynamic type
+	// matches.
 	switch kind {
 	case googlesql.TypeKindTypeArray:
+		if at, ok := t.(*googlesql.ArrayType); ok {
+			if e, err := at.ElementType(); err == nil && e != nil {
+				elem = newType(e)
+			}
+		}
 	case googlesql.TypeKindTypeStruct:
+		if st, ok := t.(*googlesql.StructType); ok {
+			fields, _ := st.Fields()
+			for _, field := range fields {
+				if field == nil || field.Type_ == nil {
+					continue
+				}
+				fieldTypes = append(fieldTypes, &NameWithType{
+					Name: field.Name,
+					Type: newType(field.Type_),
+				})
+			}
+		}
 	}
 	// Googlesql_TypeNode interface does not expose TypeName(mode); use
 	// DebugString instead which gives an equivalent printable form.
