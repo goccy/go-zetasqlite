@@ -466,8 +466,40 @@ func CastValue(t googlesql.Googlesql_TypeNode, v Value) (Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		// StructType.Fields() isn't exposed via the bridge yet; pass
-		// the struct through unchanged. See TODO on ArrayType.
+		// Reshape the source struct to match the target struct type's
+		// declared fields: preserve declaration order, fill absent
+		// fields with nil, and recursively cast field values by type.
+		// Required for Go-callers that build structs from sparse maps
+		// (e.g. map[string]interface{}{"fieldB": ...} targeting a
+		// STRUCT<fieldA, fieldB>). Without this the downstream SQL
+		// STRUCT_FIELD(struct, index) call panics with
+		// "index out of range" because only the supplied subset of
+		// fields made it through.
+		if st, ok := t.(*googlesql.StructType); ok && st != nil {
+			fields, err := st.Fields()
+			if err == nil && len(fields) > 0 {
+				reshaped := &StructValue{m: map[string]Value{}}
+				for _, f := range fields {
+					key := f.Name
+					var fieldValue Value
+					if existing, found := s.m[key]; found {
+						if f.Type_ != nil {
+							casted, err := CastValue(f.Type_, existing)
+							if err != nil {
+								return nil, err
+							}
+							fieldValue = casted
+						} else {
+							fieldValue = existing
+						}
+					}
+					reshaped.keys = append(reshaped.keys, key)
+					reshaped.values = append(reshaped.values, fieldValue)
+					reshaped.m[key] = fieldValue
+				}
+				return reshaped, nil
+			}
+		}
 		return s, nil
 	case googlesql.TypeKindTypeNumeric:
 		r, err := v.ToRat()
@@ -498,6 +530,48 @@ func ValueFromGoValue(v interface{}) (Value, error) {
 		return nil, nil
 	}
 	return valueFromGoReflectValue(reflect.ValueOf(v))
+}
+
+// EncodeGoValueForDriver converts complex Go values (maps, nested slices,
+// user structs) into the zetasqlite value-layout base64 string so the
+// underlying sqlite3 driver accepts them as a plain string. Primitive
+// values (int64, float64, bool, string, []byte, time.Time) and nil pass
+// through untouched because the sqlite3 driver already understands them.
+// Returning the original value unchanged for unsupported shapes would
+// let sqlite3 report the "unsupported type" error itself, which is
+// better than us guessing.
+func EncodeGoValueForDriver(v interface{}) (interface{}, error) {
+	if v == nil {
+		return nil, nil
+	}
+	switch v.(type) {
+	case int64, float64, bool, string, []byte, time.Time:
+		return v, nil
+	}
+	rv := reflect.ValueOf(v)
+	k := rv.Kind()
+	// Primitive kinds pass through; only encode maps / non-byte slices /
+	// user structs which sqlite3 would otherwise reject.
+	switch k {
+	case reflect.Invalid, reflect.Bool,
+		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+		reflect.Float32, reflect.Float64, reflect.String:
+		return v, nil
+	case reflect.Slice, reflect.Array:
+		if rv.Type().Elem().Kind() == reflect.Uint8 {
+			return v, nil
+		}
+	}
+	val, err := ValueFromGoValue(v)
+	if err != nil {
+		return nil, err
+	}
+	encoded, err := EncodeValue(val)
+	if err != nil {
+		return nil, err
+	}
+	return encoded, nil
 }
 
 func valueFromGoReflectValue(v reflect.Value) (Value, error) {

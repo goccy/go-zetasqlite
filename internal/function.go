@@ -158,6 +158,16 @@ func STRUCT_FIELD(v Value, idx int) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Struct values passed in from the Go driver (via map[string]interface{})
+	// may not include every declared field — e.g. a table schema of
+	// STRUCT<fieldA, fieldB> receiving a row that only sets fieldB. The
+	// stored value then has fewer entries than the declared field count,
+	// and an out-of-range index that the analyzer emitted against the
+	// declared schema would panic here. Treat out-of-range reads as NULL,
+	// matching BigQuery's behavior for missing struct fields.
+	if idx < 0 || idx >= len(sv.values) {
+		return nil, nil
+	}
 	return sv.values[idx], nil
 }
 
