@@ -6,7 +6,6 @@ import (
 	"reflect"
 	"strings"
 	"time"
-	"unsafe"
 
 	"github.com/goccy/go-json"
 	googlesql "github.com/goccy/go-googlesql"
@@ -55,18 +54,14 @@ func (s *FunctionSpec) SQL() string {
 	args := []string{}
 	for _, arg := range s.Args {
 		t, _ := arg.Type.ToZetaSQLType()
-		tp := &handlePtr{ptr: t.RawPtr()}
-		gt := (*googlesql.Googlesql_Type)(unsafe.Pointer(tp))
-		args = append(args, fmt.Sprintf("%s %s", arg.Name, m1(gt.KindMethod())))
+		args = append(args, fmt.Sprintf("%s %s", arg.Name, m1(t.KindMethod())))
 	}
 	retType, _ := s.Return.ToZetaSQLType()
-	rp := &handlePtr{ptr: retType.RawPtr()}
-	rg := (*googlesql.Googlesql_Type)(unsafe.Pointer(rp))
 	return fmt.Sprintf(
 		"CREATE FUNCTION `%s`(%s) RETURNS %v AS (%s)",
 		s.FuncName(),
 		strings.Join(args, ", "),
-		m1(rg.KindMethod()),
+		m1(retType.KindMethod()),
 		s.Body,
 	)
 }
@@ -249,8 +244,14 @@ func (t *Type) GoReflectType() (reflect.Type, error) {
 }
 
 func (t *Type) ToZetaSQLType() (googlesql.Googlesql_TypeNode, error) {
+	if t == nil {
+		return nil, fmt.Errorf("nil Type cannot be converted to googlesql type")
+	}
 	switch t.kindAs() {
 	case googlesql.TypeKindTypeArray:
+		if t.ElementType == nil {
+			return nil, fmt.Errorf("ArrayType.ElementType is nil")
+		}
 		typ, err := t.ElementType.ToZetaSQLType()
 		if err != nil {
 			return nil, err
@@ -349,7 +350,7 @@ func newFunctionSpec(ctx context.Context, namePath *NamePath, stmt googlesql.Res
 	signature, _ := stmt.Signature()
 	for _, arg := range compatSignatureArguments(signature) {
 		args = append(args, &NameWithType{
-			Name: arg.ArgumentName(),
+			Name: m1(arg.ArgumentName()),
 			Type: newTypeFromFunctionArgumentType(arg),
 		})
 	}
@@ -362,7 +363,7 @@ func newFunctionSpec(ctx context.Context, namePath *NamePath, stmt googlesql.Res
 		if err != nil {
 			return nil, err
 		}
-		encodedType, err := json.Marshal(newType(stmt.ReturnType()))
+		encodedType, err := json.Marshal(newType(m1(stmt.ReturnType())))
 		if err != nil {
 			return nil, err
 		}
@@ -401,10 +402,10 @@ func newFunctionSpec(ctx context.Context, namePath *NamePath, stmt googlesql.Res
 	}
 	now := time.Now()
 	return &FunctionSpec{
-		IsTemp:    stmt.CreateScope() == googlesql.ResolvedCreateStatementEnums_CreateScopeCreateTemp,
-		NamePath:  namePath.mergePath(stmt.NamePath()),
+		IsTemp:    ResolvedCreateStatementCreateScope(stmt) == googlesql.ResolvedCreateStatementEnums_CreateScopeCreateTemp,
+		NamePath:  namePath.mergePath(m1(stmt.NamePath())),
 		Args:      args,
-		Return:    newType(stmt.ReturnType()),
+		Return:    newType(m1(stmt.ReturnType())),
 		Code:      m1(stmt.Code()),
 		Body:      body,
 		Language:  language,
@@ -429,12 +430,12 @@ func newTemplatedFunctionSpec(ctx context.Context, namePath *NamePath, stmt goog
 	realStmt := realStmts[0]
 	realSignature, _ := realStmt.Signature()
 	realArguments := compatSignatureArguments(realSignature)
-	resultType := newType(m1(realSignature.ResultType()).Type())
+	resultType := newType(m1(m1(realSignature.ResultType()).Type()))
 	resultTypeName := resultType.FormatType()
 
 	allSameResultType := true
 	for _, stmt := range realStmts {
-		if newType(m1(m1(stmt.Signature()).ResultType()).Type()).FormatType() != resultTypeName {
+		if newType(m1(m1(m1(stmt.Signature()).ResultType()).Type())).FormatType() != resultTypeName {
 			allSameResultType = false
 			break
 		}
@@ -451,10 +452,10 @@ func newTemplatedFunctionSpec(ctx context.Context, namePath *NamePath, stmt goog
 	args := []*NameWithType{}
 	for i := 0; i < len(arguments); i++ {
 		args = append(args, &NameWithType{
-			Name: arguments[i].ArgumentName(),
+			Name: m1(arguments[i].ArgumentName()),
 			Type: newTypeFromFunctionArgumentTypeByRealType(
 				arguments[i],
-				realArguments[i].Type(),
+				m1(realArguments[i].Type()),
 			),
 		})
 	}
@@ -469,8 +470,8 @@ func newTemplatedFunctionSpec(ctx context.Context, namePath *NamePath, stmt goog
 	}
 	now := time.Now()
 	return &FunctionSpec{
-		IsTemp:    stmt.CreateScope() == googlesql.ResolvedCreateStatementEnums_CreateScopeCreateTemp,
-		NamePath:  namePath.mergePath(stmt.NamePath()),
+		IsTemp:    ResolvedCreateStatementCreateScope(stmt) == googlesql.ResolvedCreateStatementEnums_CreateScopeCreateTemp,
+		NamePath:  namePath.mergePath(m1(stmt.NamePath())),
 		Args:      args,
 		Return:    retType,
 		Code:      m1(stmt.Code()),
@@ -487,16 +488,13 @@ func newColumnsFromDef(def []googlesql.ResolvedColumnDefinitionNode) []*ColumnSp
 		annotation, _ := columnNode.Annotations()
 		var isNotNull bool
 		if annotation != nil {
-			params := annotation.TypeParameters()
-			if params != nil {
-				//TODO: get type param from params
-				_ = params
-			}
+			// annotation.TypeParameters isn't exposed on the bridge
+			// yet; keep the hook but skip type-param extraction.
 			isNotNull, _ = annotation.NotNull()
 		}
 		columns = append(columns, &ColumnSpec{
 			Name:      m1(columnNode.Name()),
-			Type:      newType(columnNode.Type()),
+			Type:      newType(m1(columnNode.Type())),
 			IsNotNull: isNotNull,
 		})
 	}
@@ -510,7 +508,7 @@ func newColumnsFromOutputColumns(def []googlesql.ResolvedOutputColumnNode) []*Co
 
 		columns = append(columns, &ColumnSpec{
 			Name: m1(columnNode.Name()),
-			Type: newType(column.Type()),
+			Type: newType(m1(column.Type())),
 		})
 	}
 	return columns
@@ -520,28 +518,49 @@ func newPrimaryKey(key googlesql.ResolvedPrimaryKeyNode) []string {
 	if key == nil {
 		return nil
 	}
-	return key.ColumnNameList()
+	names, _ := key.ColumnNameList()
+	return names
 }
 
 func newTableSpec(namePath *NamePath, stmt googlesql.ResolvedCreateTableStmtNode) *TableSpec {
+	return newTableSpecWithQuery(namePath, "", stmt)
+}
+
+func newTableSpecWithQuery(namePath *NamePath, query string, stmt googlesql.ResolvedCreateTableStmtNode) *TableSpec {
 	now := time.Now()
 	return &TableSpec{
-		IsTemp:     stmt.CreateScope() == googlesql.ResolvedCreateStatementEnums_CreateScopeCreateTemp,
-		NamePath:   namePath.mergePath(stmt.NamePath()),
-		Columns:    newColumnsFromDef(stmt.ColumnDefinitionList()),
-		PrimaryKey: newPrimaryKey(stmt.PrimaryKey()),
-		CreateMode: stmt.CreateMode(),
+		IsTemp:     isTempCreate(query, stmt),
+		NamePath:   namePath.mergePath(m1(stmt.NamePath())),
+		Columns:    newColumnsFromDef(m1(stmt.ColumnDefinitionList())),
+		PrimaryKey: newPrimaryKey(m1(stmt.PrimaryKey())),
+		CreateMode: ResolvedCreateStatementCreateMode(stmt),
 		UpdatedAt:  now,
 		CreatedAt:  now,
 	}
 }
 
+// isTempCreate prefers the resolved-tree CreateScope accessor when it
+// returns a non-default value, and falls back to scanning the original
+// query text while that accessor is still stubbed out.
+func isTempCreate(query string, stmt any) bool {
+	scope := ResolvedCreateStatementCreateScope(stmt)
+	if scope == googlesql.ResolvedCreateStatementEnums_CreateScopeCreateTemp {
+		return true
+	}
+	if query != "" && ResolvedCreateStatementIsTempFromQuery(query) {
+		return true
+	}
+	return false
+}
+
 func newTableAsViewSpec(namePath *NamePath, query string, stmt googlesql.ResolvedCreateViewStmtNode) *TableSpec {
 	var outputColumns []string
-	for _, column := range stmt.OutputColumnList() {
-		colName := column.Name()
-		refColumnName := column.Column().Name()
-		colID := column.Column().ColumnId()
+	outList, _ := stmt.OutputColumnList()
+	for _, column := range outList {
+		colName, _ := column.Name()
+		col, _ := column.Column()
+		refColumnName, _ := col.Name()
+		colID, _ := col.ColumnId()
 		outputColumns = append(
 			outputColumns,
 			fmt.Sprintf("`%s#%d` AS `%s`", refColumnName, colID, colName),
@@ -549,11 +568,11 @@ func newTableAsViewSpec(namePath *NamePath, query string, stmt googlesql.Resolve
 	}
 	now := time.Now()
 	return &TableSpec{
-		IsTemp:     stmt.CreateScope() == googlesql.ResolvedCreateStatementEnums_CreateScopeCreateTemp,
+		IsTemp:     ResolvedCreateStatementCreateScope(stmt) == googlesql.ResolvedCreateStatementEnums_CreateScopeCreateTemp,
 		IsView:     true,
-		NamePath:   namePath.mergePath(stmt.NamePath()),
-		Columns:    newColumnsFromOutputColumns(stmt.OutputColumnList()),
-		CreateMode: stmt.CreateMode(),
+		NamePath:   namePath.mergePath(m1(stmt.NamePath())),
+		Columns:    newColumnsFromOutputColumns(m1(stmt.OutputColumnList())),
+		CreateMode: ResolvedCreateStatementCreateMode(stmt),
 		Query:      fmt.Sprintf("SELECT %s FROM (%s)", strings.Join(outputColumns, ","), query),
 		UpdatedAt:  now,
 		CreatedAt:  now,
@@ -573,11 +592,11 @@ func newTableAsSelectSpec(namePath *NamePath, query string, stmt googlesql.Resol
 	}
 	now := time.Now()
 	return &TableSpec{
-		IsTemp:     stmt.CreateScope() == googlesql.ResolvedCreateStatementEnums_CreateScopeCreateTemp,
-		NamePath:   namePath.mergePath(stmt.NamePath()),
-		Columns:    newColumnsFromDef(stmt.ColumnDefinitionList()),
-		PrimaryKey: newPrimaryKey(stmt.PrimaryKey()),
-		CreateMode: stmt.CreateMode(),
+		IsTemp:     ResolvedCreateStatementCreateScope(stmt) == googlesql.ResolvedCreateStatementEnums_CreateScopeCreateTemp,
+		NamePath:   namePath.mergePath(m1(stmt.NamePath())),
+		Columns:    newColumnsFromDef(m1(stmt.ColumnDefinitionList())),
+		PrimaryKey: newPrimaryKey(m1(stmt.PrimaryKey())),
+		CreateMode: ResolvedCreateStatementCreateMode(stmt),
 		Query:      fmt.Sprintf("SELECT %s FROM (%s)", strings.Join(outputColumns, ","), query),
 		UpdatedAt:  now,
 		CreatedAt:  now,
@@ -585,13 +604,8 @@ func newTableAsSelectSpec(namePath *NamePath, query string, stmt googlesql.Resol
 }
 
 func newType(t googlesql.Googlesql_TypeNode) *Type {
-	// Reinterpret the interface handle as *Googlesql_Type so the
-	// base-class accessors (KindMethod, TypeName, ...) are callable.
-	// Every concrete implementation of Googlesql_TypeNode shares the
-	// {ptr uint64} layout, so the cast is always safe.
-	p := &handlePtr{ptr: t.RawPtr()}
-	gt := (*googlesql.Googlesql_Type)(unsafe.Pointer(p))
-	kind := m1(gt.KindMethod())
+	// Googlesql_TypeNode exposes the base-class accessors directly.
+	kind := m1(t.KindMethod())
 	var (
 		elem       *Type
 		fieldTypes []*NameWithType
@@ -604,7 +618,9 @@ func newType(t googlesql.Googlesql_TypeNode) *Type {
 	case googlesql.TypeKindTypeArray:
 	case googlesql.TypeKindTypeStruct:
 	}
-	name, _ := gt.TypeName(googlesql.ProductModeProductInternal)
+	// Googlesql_TypeNode interface does not expose TypeName(mode); use
+	// DebugString instead which gives an equivalent printable form.
+	name, _ := t.DebugString(false)
 	return &Type{
 		Name:        name,
 		Kind:        int(kind),

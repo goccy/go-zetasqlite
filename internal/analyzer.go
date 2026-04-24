@@ -2,8 +2,10 @@ package internal
 
 import (
 	"context"
+	"database/sql"
 	"database/sql/driver"
 	"fmt"
+	"runtime"
 	"strings"
 
 	googlesql "github.com/goccy/go-googlesql"
@@ -15,6 +17,7 @@ type Analyzer struct {
 	isExplainMode   bool
 	catalog         *Catalog
 	opt             *googlesql.AnalyzerOptions
+	parserOpts      *googlesql.ParserOptions
 }
 
 func NewAnalyzer(catalog *Catalog) (*Analyzer, error) {
@@ -31,6 +34,9 @@ func NewAnalyzer(catalog *Catalog) (*Analyzer, error) {
 
 func newAnalyzerOptions() (*googlesql.AnalyzerOptions, error) {
 	langOpt := NewLanguageOptions()
+	if langOpt == nil {
+		return nil, fmt.Errorf("failed to create LanguageOptions (wasm error)")
+	}
 	langOpt.SetNameResolutionMode(googlesql.NameResolutionModeNameResolutionDefault)
 	langOpt.SetProductMode(googlesql.ProductModeProductInternal)
 	for _, f := range []googlesql.LanguageFeature{
@@ -102,6 +108,9 @@ func newAnalyzerOptions() (*googlesql.AnalyzerOptions, error) {
 		return nil, err
 	}
 	opt := NewAnalyzerOptions()
+	if opt == nil {
+		return nil, fmt.Errorf("failed to create AnalyzerOptions (wasm error)")
+	}
 	opt.SetAllowUndeclaredParameters(true)
 	opt.SetLanguage(langOpt)
 	opt.SetParseLocationRecordType(googlesql.ParseLocationRecordTypeParseLocationRecordFullNodeScope)
@@ -136,18 +145,61 @@ func (a *Analyzer) AddNamePath(path string) error {
 	return a.namePath.addPath(path)
 }
 
-func (a *Analyzer) parseScript(query string) ([]googlesql.ASTStatementNode, error) {
-	loc := NewParseResumeLocationFromString(query)
-	parserOpts, err := a.opt.GetParserOptions()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get parser options: %w", err)
+// parsedScript bundles parsed statements with the ParseResumeLocation and
+// ParserOutputs they were produced from. The wasmify generator does not yet
+// propagate parent-child ownership to the Go wrappers (child handles don't
+// retain their owning parent), so callers must hold on to the parent handles
+// for as long as they keep using any AST nodes — otherwise a Go GC cycle can
+// free the parent's wasm-side tree while the children are still in use.
+type parsedScript struct {
+	loc     *googlesql.ParseResumeLocation
+	outputs []*googlesql.ParserOutput
+	stmts   []googlesql.ASTStatementNode
+}
+
+// Close releases the wasm-side C++ objects owned by this parsed script. It
+// is idempotent — double-close is a no-op because the generated Close()
+// methods guard on a zeroed ptr.
+func (p *parsedScript) Close() {
+	if p == nil {
+		return
 	}
-	var stmts []googlesql.ASTStatementNode
+	for _, out := range p.outputs {
+		if out != nil {
+			out.Close()
+		}
+	}
+	p.outputs = nil
+	if p.loc != nil {
+		p.loc.Close()
+		p.loc = nil
+	}
+	p.stmts = nil
+}
+
+func (a *Analyzer) parseScript(query string) (*parsedScript, error) {
+	loc, locErr := googlesql.NewParseResumeLocationFromString(query)
+	if loc == nil {
+		return nil, fmt.Errorf("failed to create parse resume location for %q: %w", query, locErr)
+	}
+	// Cache the ParserOptions on the Analyzer. GetParserOptions returns a
+	// fresh handle each time (the C++ side builds a copy) and, without
+	// caching, every query adds one more ParserOptions to the wasm heap
+	// until the module exhausts its 4 GiB linear memory.
+	if a.parserOpts == nil {
+		parserOpts, err := a.opt.GetParserOptions()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get parser options: %w", err)
+		}
+		a.parserOpts = parserOpts
+	}
+	result := &parsedScript{loc: loc}
 	for {
-		out, err := googlesql.ParseNextScriptStatement(loc, parserOpts)
+		out, err := googlesql.ParseNextScriptStatement(loc, a.parserOpts)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse statement: %w", err)
 		}
+		result.outputs = append(result.outputs, out)
 		stmt, err := out.Statement()
 		if err != nil {
 			return nil, fmt.Errorf("failed to get statement from parser output: %w", err)
@@ -156,17 +208,17 @@ func (a *Analyzer) parseScript(query string) ([]googlesql.ASTStatementNode, erro
 		if block, ok := stmt.(*googlesql.ASTBeginEndBlock); ok {
 			list, err := block.StatementListNode()
 			if err == nil && list != nil {
-				stmts = append(stmts, collectStatementsFromList(list)...)
+				result.stmts = append(result.stmts, collectStatementsFromList(list)...)
 			}
 		} else {
-			stmts = append(stmts, stmt)
+			result.stmts = append(result.stmts, stmt)
 		}
 		// Bridge doesn't expose AtEnd on ParseResumeLocation yet; a single
 		// ParseNextScriptStatement call is sufficient for the single-stmt
 		// case exercised by tests today.
 		break
 	}
-	return stmts, nil
+	return result, nil
 }
 
 // collectStatementsFromList walks an ASTStatementList gathering its
@@ -216,7 +268,7 @@ func (a *Analyzer) Analyze(ctx context.Context, conn *Conn, query string, args [
 	if err := a.catalog.Sync(ctx, conn); err != nil {
 		return nil, fmt.Errorf("failed to sync catalog: %w", err)
 	}
-	stmts, err := a.parseScript(query)
+	parsed, err := a.parseScript(query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse statements: %w", err)
 	}
@@ -224,10 +276,15 @@ func (a *Analyzer) Analyze(ctx context.Context, conn *Conn, query string, args [
 	for _, spec := range a.catalog.getFunctions(a.namePath) {
 		funcMap[spec.FuncName()] = spec
 	}
-	actionFuncs := make([]StmtActionFunc, 0, len(stmts))
-	for _, stmt := range stmts {
+	actionFuncs := make([]StmtActionFunc, 0, len(parsed.stmts))
+	for idx, stmt := range parsed.stmts {
 		stmt := stmt
+		isLast := idx == len(parsed.stmts)-1
 		actionFuncs = append(actionFuncs, func() (StmtAction, error) {
+			// Keep the ParseResumeLocation / ParserOutputs alive so the
+			// AST tree stmt points into is not freed out from under us
+			// while this action runs. See parsedScript for context.
+			defer runtime.KeepAlive(parsed)
 			mode, err := a.getParameterMode(stmt)
 			if err != nil {
 				return nil, err
@@ -251,10 +308,46 @@ func (a *Analyzer) Analyze(ctx context.Context, conn *Conn, query string, args [
 			if mode == googlesql.ParameterModeParameterPositional {
 				args = args[len(action.Args()):]
 			}
-			return action, nil
+			// Wrap with closingStmtAction so that Cleanup also releases
+			// the AnalyzerOutput (which owns the huge resolved tree) and
+			// — on the last stmt — the ParseResumeLocation + ParserOutputs.
+			// Without this, running many queries against a single analyzer
+			// accumulates wasm heap until wasm_alloc traps with "out of
+			// bounds memory access". Finalizers are too late.
+			wrapped := &closingStmtAction{StmtAction: action, analyzerOutput: out}
+			if isLast {
+				wrapped.parsed = parsed
+			}
+			return wrapped, nil
 		})
 	}
+	if len(actionFuncs) == 0 {
+		// No actions produced — still release the handles immediately.
+		parsed.Close()
+	}
 	return actionFuncs, nil
+}
+
+// closingStmtAction wraps a StmtAction so that Cleanup also releases the
+// wasm-side C++ handles owned by this statement (AnalyzerOutput; and the
+// parsed-script handles on the last action of an Analyze batch).
+type closingStmtAction struct {
+	StmtAction
+	analyzerOutput *googlesql.AnalyzerOutput
+	parsed         *parsedScript // non-nil only for the last action
+}
+
+func (c *closingStmtAction) Cleanup(ctx context.Context, conn *Conn) error {
+	err := c.StmtAction.Cleanup(ctx, conn)
+	if c.analyzerOutput != nil {
+		c.analyzerOutput.Close()
+		c.analyzerOutput = nil
+	}
+	if c.parsed != nil {
+		c.parsed.Close()
+		c.parsed = nil
+	}
+	return err
 }
 
 func (a *Analyzer) context(
@@ -326,7 +419,7 @@ func (a *Analyzer) newStmtAction(ctx context.Context, query string, args []drive
 }
 
 func (a *Analyzer) newCreateTableStmtAction(_ context.Context, query string, args []driver.NamedValue, node googlesql.ResolvedCreateTableStmtNode) (*CreateTableStmtAction, error) {
-	spec := newTableSpec(a.namePath, node)
+	spec := newTableSpecWithQuery(a.namePath, query, node)
 	params := getParamsFromNode(node)
 	queryArgs, err := getArgsFromParams(args, params)
 	if err != nil {
@@ -363,7 +456,7 @@ func (a *Analyzer) newCreateTableAsSelectStmtAction(ctx context.Context, _ strin
 
 func (a *Analyzer) newCreateFunctionStmtAction(ctx context.Context, query string, _ []driver.NamedValue, node googlesql.ResolvedCreateFunctionStmtNode) (*CreateFunctionStmtAction, error) {
 	var spec *FunctionSpec
-	if a.resultTypeIsTemplatedType(node.Signature()) {
+	if a.resultTypeIsTemplatedType(m1(node.Signature())) {
 		realStmts, err := a.inferTemplatedTypeByRealType(query, node)
 		if err != nil {
 			return nil, err
@@ -404,7 +497,11 @@ func (a *Analyzer) resultTypeIsTemplatedType(sig *googlesql.FunctionSignature) b
 	if !m1(sig.IsTemplated()) {
 		return false
 	}
-	return m1(sig.ResultType()).IsTemplated()
+	rt := m1(sig.ResultType())
+	if rt == nil {
+		return false
+	}
+	return m1(rt.IsTemplated())
 }
 
 var inferTypes = []string{
@@ -440,10 +537,10 @@ func (a *Analyzer) buildScalarTypeFuncFromTemplatedFunc(node googlesql.ResolvedC
 	var args []string
 	for _, arg := range compatSignatureArguments(signature) {
 		typ := realType
-		if !arg.IsTemplated() {
-			typ = newType(arg.Type()).FormatType()
+		if !m1(arg.IsTemplated()) {
+			typ = newType(m1(arg.Type())).FormatType()
 		}
-		args = append(args, fmt.Sprintf("%s %s", arg.ArgumentName(), typ))
+		args = append(args, fmt.Sprintf("%s %s", m1(arg.ArgumentName()), typ))
 	}
 	return fmt.Sprintf(
 		"CREATE TEMP FUNCTION __zetasqlite_func__(%s) as (%s)",
@@ -457,10 +554,10 @@ func (a *Analyzer) buildArrayTypeFuncFromTemplatedFunc(node googlesql.ResolvedCr
 	var args []string
 	for _, arg := range compatSignatureArguments(signature) {
 		typ := fmt.Sprintf("ARRAY<%s>", realType)
-		if !arg.IsTemplated() {
-			typ = newType(arg.Type()).FormatType()
+		if !m1(arg.IsTemplated()) {
+			typ = newType(m1(arg.Type())).FormatType()
 		}
-		args = append(args, fmt.Sprintf("%s %s", arg.ArgumentName(), typ))
+		args = append(args, fmt.Sprintf("%s %s", m1(arg.ArgumentName()), typ))
 	}
 	return fmt.Sprintf(
 		"CREATE TEMP FUNCTION __zetasqlite_func__(%s) as (%s)",
@@ -538,7 +635,7 @@ func (a *Analyzer) newQueryStmtAction(ctx context.Context, query string, args []
 	for _, col := range m1(node.OutputColumnList()) {
 		outputColumns = append(outputColumns, &ColumnSpec{
 			Name: m1(col.Name()),
-			Type: newType(m1(col.Column()).Type()),
+			Type: newType(m1(m1(col.Column()).Type())),
 		})
 	}
 	formattedQuery, err := newNode(node).FormatSQL(ctx)
@@ -573,7 +670,7 @@ func (a *Analyzer) newCommitStmtAction(ctx context.Context, query string, args [
 
 //nolint:unparam
 func (a *Analyzer) newTruncateStmtAction(_ context.Context, _ string, _ []driver.NamedValue, node googlesql.ResolvedTruncateStmtNode) (*TruncateStmtAction, error) {
-	table := m1(node.TableScan()).Table().Name()
+	table, _ := m1(m1(node.TableScan()).TableMethod()).Name()
 	return &TruncateStmtAction{query: fmt.Sprintf("DELETE FROM `%s`", table)}, nil
 }
 
@@ -594,7 +691,7 @@ func (a *Analyzer) newMergeStmtAction(ctx context.Context, _ string, args []driv
 	if !ok {
 		return nil, fmt.Errorf("currently MERGE expression is supported equal expression only")
 	}
-	if m1(fn.FunctionMethod()).FullName(false) != "$equal" {
+	if m1(m1(fn.FunctionMethod()).FullName(false)) != "$equal" {
 		return nil, fmt.Errorf("currently MERGE expression is supported equal expression only")
 	}
 	argList := m1(fn.ArgumentList())
@@ -613,12 +710,12 @@ func (a *Analyzer) newMergeStmtAction(ctx context.Context, _ string, args []driv
 		sourceColumn *googlesql.ResolvedColumn
 		targetColumn *googlesql.ResolvedColumn
 	)
-	if strings.Contains(sourceTable, colA.Column().TableName()) {
-		sourceColumn = colA.Column()
-		targetColumn = colB.Column()
+	if strings.Contains(sourceTable, m1(m1(colA.Column()).TableName())) {
+		sourceColumn = m1(colA.Column())
+		targetColumn = m1(colB.Column())
 	} else {
-		sourceColumn = colB.Column()
-		targetColumn = colA.Column()
+		sourceColumn = m1(colB.Column())
+		targetColumn = m1(colA.Column())
 	}
 	mergedTableSourceColumnName := fmt.Sprintf("`%s`", uniqueColumnName(ctx, sourceColumn))
 	mergedTableTargetColumnName := fmt.Sprintf("`%s`", uniqueColumnName(ctx, targetColumn))
@@ -657,7 +754,7 @@ func (a *Analyzer) newMergeStmtAction(ctx context.Context, _ string, args []driv
 	)
 	for _, when := range m1(node.WhenClauseList()) {
 		var fromStmt string
-		switch when.MatchType() {
+		switch ResolvedMergeWhenMatchType(when) {
 		case googlesql.ResolvedMergeWhenEnums_MatchTypeMatched:
 			fromStmt = matchedFromStmt
 		case googlesql.ResolvedMergeWhenEnums_MatchTypeNotMatchedBySource:
@@ -670,7 +767,7 @@ func (a *Analyzer) newMergeStmtAction(ctx context.Context, _ string, args []driv
 			strings.Join(mergedTableOutputColumns, ","),
 			fromStmt,
 		)
-		switch when.ActionType() {
+		switch ResolvedMergeWhenActionType(when) {
 		case googlesql.ResolvedMergeWhenEnums_ActionTypeInsert:
 			var columns []string
 			for _, col := range m1(when.InsertColumnList()) {
@@ -741,6 +838,22 @@ func getParamsFromNode(node googlesql.ResolvedNodeNode) []googlesql.ResolvedPara
 func getArgsFromParams(values []driver.NamedValue, params []googlesql.ResolvedParameterNode) ([]interface{}, error) {
 	if values == nil {
 		return nil, nil
+	}
+	// The resolved-tree walker is a placeholder while ResolvedNode
+	// child iteration isn't yet bridged, so params may be empty even
+	// when the user supplied real parameters. In that case pass the
+	// named values straight through and let SQLite handle native
+	// @name / ? binding.
+	if len(params) == 0 && len(values) > 0 {
+		out := make([]interface{}, 0, len(values))
+		for _, v := range values {
+			if v.Name != "" {
+				out = append(out, sql.Named(v.Name, v.Value))
+			} else {
+				out = append(out, v.Value)
+			}
+		}
+		return out, nil
 	}
 	argNum := len(params)
 	if len(values) < argNum {

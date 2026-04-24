@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math/big"
 	"time"
-	"unsafe"
 
 	"github.com/dop251/goja"
 	googlesql "github.com/goccy/go-googlesql"
@@ -53,11 +52,8 @@ func castJavaScriptValue(t googlesql.Googlesql_TypeNode, v goja.Value) (Value, e
 	if v == nil {
 		return nil, nil
 	}
-	// Reinterpret the interface handle as *Googlesql_Type to reach
-	// KindMethod on the base class.
-	p := &handlePtr{ptr: t.RawPtr()}
-	gt := (*googlesql.Googlesql_Type)(unsafe.Pointer(p))
-	switch m1(gt.KindMethod()) {
+	// Googlesql_TypeNode carries KindMethod directly.
+	switch m1(t.KindMethod()) {
 	case googlesql.TypeKindTypeInt32, googlesql.TypeKindTypeInt64, googlesql.TypeKindTypeUint32, googlesql.TypeKindTypeUint64:
 		return IntValue(v.ToInteger()), nil
 	case googlesql.TypeKindTypeBool:
@@ -129,5 +125,5 @@ func castJavaScriptValue(t googlesql.Googlesql_TypeNode, v goja.Value) (Value, e
 		}
 		return CastValue(t, base)
 	}
-	return nil, fmt.Errorf("unsupported cast %v from JavaScript value", m1(gt.KindMethod()))
+	return nil, fmt.Errorf("unsupported cast %v from JavaScript value", m1(t.KindMethod()))
 }

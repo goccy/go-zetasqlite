@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unsafe"
 
 	"github.com/goccy/go-json"
 	googlesql "github.com/goccy/go-googlesql"
@@ -360,11 +359,8 @@ func CastValue(t googlesql.Googlesql_TypeNode, v Value) (Value, error) {
 	if v == nil {
 		return nil, nil
 	}
-	// t is an interface handle; reinterpret as *Googlesql_Type so the
-	// base-class KindMethod accessor is reachable.
-	p := &handlePtr{ptr: t.RawPtr()}
-	gt := (*googlesql.Googlesql_Type)(unsafe.Pointer(p))
-	switch m1(gt.KindMethod()) {
+	// Googlesql_TypeNode carries KindMethod directly, no upcast needed.
+	switch m1(t.KindMethod()) {
 	case googlesql.TypeKindTypeInt32, googlesql.TypeKindTypeInt64, googlesql.TypeKindTypeUint32, googlesql.TypeKindTypeUint64:
 		i64, err := v.ToInt64()
 		if err != nil {
@@ -481,7 +477,7 @@ func CastValue(t googlesql.Googlesql_TypeNode, v Value) (Value, error) {
 	case googlesql.TypeKindTypeGeography:
 		return v, nil
 	}
-	return nil, fmt.Errorf("unsupported cast %v value", m1(gt.KindMethod()))
+	return nil, fmt.Errorf("unsupported cast %v value", m1(t.KindMethod()))
 }
 
 func ValueFromGoValue(v interface{}) (Value, error) {

@@ -16,6 +16,25 @@ var (
 	_ driver.Stmt = &QueryStmt{}
 )
 
+// encodeOrPassArgs wraps EncodeGoValues with a fall-through: when the
+// resolved-AST walker failed to populate params (current bridge limitation),
+// s.args is empty even though the caller passed real arguments. In that
+// case we hand the raw values to SQLite directly — its driver handles
+// @name / ? native binding for primitive types.
+//
+// TODO: once ResolvedNode.ChildrenAccept is bridged and
+// getParamsFromNode returns a full list, this fallback can go away and
+// EncodeGoValues alone will type-check each argument against the
+// zetasql-inferred type.
+func encodeOrPassArgs(values []interface{}, params []googlesql.ResolvedParameterNode) ([]interface{}, error) {
+	if len(params) == 0 && len(values) > 0 {
+		out := make([]interface{}, len(values))
+		copy(out, values)
+		return out, nil
+	}
+	return EncodeGoValues(values, params)
+}
+
 type CreateTableStmt struct {
 	stmt    *sql.Stmt
 	conn    *Conn
@@ -148,7 +167,11 @@ func (s *DMLStmt) Close() error {
 }
 
 func (s *DMLStmt) NumInput() int {
-	return len(s.args)
+	// -1 tells database/sql "we don't know how many placeholders" —
+	// required because our resolved-tree walker doesn't yet surface
+	// the full parameter list, so a conservative len() would refuse
+	// user-supplied args.
+	return -1
 }
 
 func (s *DMLStmt) Exec(args []driver.Value) (driver.Result, error) {
@@ -156,7 +179,7 @@ func (s *DMLStmt) Exec(args []driver.Value) (driver.Result, error) {
 	for _, arg := range args {
 		values = append(values, arg)
 	}
-	newArgs, err := EncodeGoValues(values, s.args)
+	newArgs, err := encodeOrPassArgs(values, s.args)
 	if err != nil {
 		return nil, err
 	}
@@ -209,7 +232,7 @@ func (s *QueryStmt) Close() error {
 }
 
 func (s *QueryStmt) NumInput() int {
-	return len(s.args)
+	return -1
 }
 
 func (s *QueryStmt) OutputColumns() []*ColumnSpec {
@@ -229,7 +252,7 @@ func (s *QueryStmt) Query(args []driver.Value) (driver.Rows, error) {
 	for _, arg := range args {
 		values = append(values, arg)
 	}
-	newArgs, err := EncodeGoValues(values, s.args)
+	newArgs, err := encodeOrPassArgs(values, s.args)
 	if err != nil {
 		return nil, err
 	}

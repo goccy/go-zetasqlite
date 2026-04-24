@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	googlesql "github.com/goccy/go-googlesql"
@@ -25,10 +26,46 @@ func (c *Catalog) isWildcardTable(path []string) bool {
 	return lastChar == '*'
 }
 
+// WildcardTable captures the set of real tables that a wildcard pattern
+// expanded to, plus the merged column list the analyzer sees. The
+// analyzer-visible handle is the embedded *SimpleTable (already a real
+// wasm-side googlesql.TableNode) — WildcardTable itself never crosses the
+// bridge. At SQL-emission time the formatter looks up the metadata by the
+// SimpleTable's handle ptr and rewrites the scan into a UNION ALL.
 type WildcardTable struct {
 	spec   *TableSpec
 	tables []*TableSpec
 	prefix string
+}
+
+// wildcardTableRegistry maps a SimpleTable's wasm handle ptr to the
+// WildcardTable metadata. googlesql.SimpleTable is the object the
+// analyzer receives from the catalog; the formatter consults this
+// registry when emitting SQL for a ResolvedTableScan to decide whether
+// to expand the scan into a UNION across the real tables.
+var (
+	wildcardTableRegistryMu sync.RWMutex
+	wildcardTableRegistry   = map[uint64]*WildcardTable{}
+)
+
+func registerWildcardTable(handle *googlesql.SimpleTable, wt *WildcardTable) {
+	ptr := handleRawPtr(handle)
+	if ptr == 0 {
+		return
+	}
+	wildcardTableRegistryMu.Lock()
+	defer wildcardTableRegistryMu.Unlock()
+	wildcardTableRegistry[ptr] = wt
+}
+
+func lookupWildcardTable(table googlesql.TableNode) *WildcardTable {
+	ptr := handleRawPtr(table)
+	if ptr == 0 {
+		return nil
+	}
+	wildcardTableRegistryMu.RLock()
+	defer wildcardTableRegistryMu.RUnlock()
+	return wildcardTableRegistry[ptr]
 }
 
 func (t *WildcardTable) existsColumn(table *TableSpec, column string) bool {
@@ -76,89 +113,26 @@ func (t *WildcardTable) FormatSQL(ctx context.Context) (string, error) {
 	return strings.Join(queries, " UNION ALL "), nil
 }
 
-func (t *WildcardTable) Name() string {
-	return strings.Join(t.spec.NamePath, ".")
-}
-
-func (t *WildcardTable) FullName() string {
-	return t.spec.TableName()
-}
-
-func (t *WildcardTable) NumColumns() int {
-	return len(t.spec.Columns)
-}
-
-func (t *WildcardTable) Column(idx int) googlesql.Googlesql_ColumnNode {
-	column := t.spec.Columns[idx]
-	typ, err := column.Type.ToZetaSQLType()
-	if err != nil {
-		return nil
-	}
-	return NewSimpleColumn(
-		strings.Join(t.spec.NamePath, "."), column.Name, typ,
-	)
-}
-
-func (t *WildcardTable) PrimaryKey() []int {
-	return nil
-}
-
-func (t *WildcardTable) FindColumnByName(name string) googlesql.Googlesql_ColumnNode {
-	for _, col := range t.spec.Columns {
-		if col.Name == name {
-			typ, err := col.Type.ToZetaSQLType()
-			if err != nil {
-				return nil
-			}
-			return NewSimpleColumn(
-				t.spec.TableName(), col.Name, typ,
-			)
-		}
-	}
-	return nil
-}
-
-// RawPtr satisfies googlesql.TableNode. WildcardTable lives entirely
-// in Go memory so there's no wasm pointer to return — zero signals
-// "synthetic Go-side table". Callers that inspect RawPtr to dispatch
-// via the bridge must special-case 0.
-func (t *WildcardTable) RawPtr() uint64 { return 0 }
-
-// isTable is the unexported marker on googlesql.TableNode; we emit
-// it via a package-local alias below so the interface is satisfied
-// from within the internal package.
-
-func (t *WildcardTable) IsValueTable() bool {
-	return false
-}
-
-func (t *WildcardTable) SerializationID() int64 {
-	return 0
-}
-
-func (t *WildcardTable) CreateEvaluatorTableIterator(columnIdxs []int) (*googlesql.EvaluatorTableIterator, error) {
-	return nil, nil
-}
-
-func (t *WildcardTable) AnonymizationInfo() *googlesql.AnonymizationInfo {
-	return nil
-}
-
-func (t *WildcardTable) SupportsAnonymization() bool {
-	return false
-}
-
-func (t *WildcardTable) TableTypeName(mode googlesql.ProductMode) string {
-	return ""
-}
-
+// createWildcardTable builds a *googlesql.SimpleTable covering the merged
+// wildcard column list and registers the corresponding WildcardTable
+// metadata so the formatter can rewrite scans into UNION queries.
 func (c *Catalog) createWildcardTable(path []string) (googlesql.TableNode, error) {
-	return nil, fmt.Errorf("wildcard tables not yet supported through the wasm bridge")
+	wt, err := c.createWildcardTableImpl(path)
+	if err != nil {
+		return nil, err
+	}
+	tableName := strings.Join(wt.spec.NamePath, ".")
+	simpleTable, err := c.createSimpleTable(tableName, wt.spec)
+	if err != nil {
+		return nil, err
+	}
+	registerWildcardTable(simpleTable, wt)
+	return simpleTable, nil
 }
 
-// createWildcardTableImpl is the original implementation, retained so
-// the body still type-checks; it's unreferenced until a Go-side
-// Catalog callback wrapper is wired up.
+// createWildcardTableImpl builds the WildcardTable metadata (matched
+// tables, merged column list, prefix) without touching the wasm-side
+// catalog.
 func (c *Catalog) createWildcardTableImpl(path []string) (*WildcardTable, error) {
 	name := strings.Join(path, "_")
 	name = strings.TrimRight(name, "*")

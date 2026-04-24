@@ -61,7 +61,12 @@ func (a *CreateTableStmtAction) createIndexAutomatically(ctx context.Context, co
 }
 
 func (a *CreateTableStmtAction) exec(ctx context.Context, conn *Conn) error {
-	if a.spec.CreateMode == googlesql.ResolvedCreateStatementEnums_CreateModeCreateOrReplace {
+	// TEMP tables have "replace-on-recreate" semantics: re-running a
+	// `CREATE TEMP TABLE foo` is expected to overwrite the previous
+	// temp definition, not error out. The analyzer treats CREATE OR
+	// REPLACE differently from CREATE TEMP, so we need the explicit
+	// drop here as well.
+	if a.spec.CreateMode == googlesql.ResolvedCreateStatementEnums_CreateModeCreateOrReplace || a.spec.IsTemp {
 		if _, err := conn.ExecContext(
 			ctx,
 			fmt.Sprintf("DROP TABLE IF EXISTS `%s`", a.spec.TableName()),

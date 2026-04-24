@@ -63,6 +63,11 @@ type Catalog struct {
 	catalog      *googlesql.SimpleCatalog
 	tableMap     map[string]*TableSpec
 	funcMap      map[string]*FunctionSpec
+	// subCatalogs maps a parent SimpleCatalog's wasm handle ptr to its
+	// name→sub-catalog table, so every AddCatalog call happens at most
+	// once per (parent, name) — the wasm side traps if you try to add
+	// the same name twice.
+	subCatalogs map[uint64]map[string]*googlesql.SimpleCatalog
 }
 
 func newSimpleCatalog(name string) *googlesql.SimpleCatalog {
@@ -73,11 +78,40 @@ func newSimpleCatalog(name string) *googlesql.SimpleCatalog {
 
 func NewCatalog(db *sql.DB) *Catalog {
 	return &Catalog{
-		db:       db,
-		catalog:  newSimpleCatalog(catalogName),
-		tableMap: map[string]*TableSpec{},
-		funcMap:  map[string]*FunctionSpec{},
+		db:          db,
+		catalog:     newSimpleCatalog(catalogName),
+		tableMap:    map[string]*TableSpec{},
+		funcMap:     map[string]*FunctionSpec{},
+		subCatalogs: map[uint64]map[string]*googlesql.SimpleCatalog{},
 	}
+}
+
+// getOrCreateSubCatalog returns the sub-catalog registered under
+// parent+name, creating and attaching it on first use. AddCatalog is
+// called exactly once per (parent ptr, sub-name) so wasm-side
+// deduplication traps are impossible.
+func (c *Catalog) getOrCreateSubCatalog(parent *googlesql.SimpleCatalog, name string) *googlesql.SimpleCatalog {
+	parentPtr := handleRawPtr(parent)
+	if parentPtr != 0 {
+		subs := c.subCatalogs[parentPtr]
+		if subs == nil {
+			subs = map[string]*googlesql.SimpleCatalog{}
+			c.subCatalogs[parentPtr] = subs
+		}
+		if existing, ok := subs[name]; ok {
+			return existing
+		}
+		sub := newSimpleCatalog(name)
+		_ = parent.AddCatalog(sub)
+		subs[name] = sub
+		return sub
+	}
+	// Parent has no recoverable ptr — fall back to a fresh catalog
+	// (this only happens when reflection can't find the ptr field,
+	// which shouldn't occur for a SimpleCatalog handle).
+	sub := newSimpleCatalog(name)
+	_ = parent.AddCatalog(sub)
+	return sub
 }
 
 func (c *Catalog) FullName() string {
@@ -461,18 +495,21 @@ func (c *Catalog) addTableSpec(spec *TableSpec) error {
 func (c *Catalog) addTableSpecRecursive(cat *googlesql.SimpleCatalog, spec *TableSpec) error {
 	if len(spec.NamePath) > 1 {
 		subCatalogName := spec.NamePath[0]
-		// googlesql bridge doesn't currently expose a per-name Catalog()
-		// lookup on SimpleCatalog; always create a fresh sub-catalog.
-		// TODO: replace with lookup once the bridge exposes it.
-		subCatalog := newSimpleCatalog(subCatalogName)
-		_ = cat.AddCatalog(subCatalog)
+		// Reuse the previously-added sub-catalog when the same name
+		// reappears (e.g. "project" on the path of every table). Adding
+		// a new SimpleCatalog handle under an already-registered name
+		// traps the wasm runtime because SimpleCatalog::AddCatalog
+		// rejects duplicates via an CHECK.
+		subCatalog := c.getOrCreateSubCatalog(cat, subCatalogName)
 		fullTableName := strings.Join(spec.NamePath, ".")
 		if !c.existsTable(cat, fullTableName) {
 			table, err := c.createSimpleTable(fullTableName, spec)
 			if err != nil {
 				return err
 			}
-			_ = cat.AddTable(table)
+			if err := cat.AddTable(table); err != nil {
+				return fmt.Errorf("SimpleCatalog.AddTable(%q): %w", fullTableName, err)
+			}
 		}
 		newNamePath := spec.NamePath[1:]
 		// add sub catalog to root catalog
@@ -497,7 +534,9 @@ func (c *Catalog) addTableSpecRecursive(cat *googlesql.SimpleCatalog, spec *Tabl
 	if err != nil {
 		return err
 	}
-	_ = cat.AddTable(table)
+	if err := cat.AddTable(table); err != nil {
+		return fmt.Errorf("SimpleCatalog.AddTable(%q): %w", tableName, err)
+	}
 	return nil
 }
 
@@ -518,10 +557,7 @@ func (c *Catalog) createSimpleTable(tableName string, spec *TableSpec) (*googles
 func (c *Catalog) addFunctionSpecRecursive(cat *googlesql.SimpleCatalog, spec *FunctionSpec) error {
 	if len(spec.NamePath) > 1 {
 		subCatalogName := spec.NamePath[0]
-		// See note in addTableSpecRecursive — SimpleCatalog doesn't
-		// expose a per-name Catalog lookup through the bridge yet.
-		subCatalog := newSimpleCatalog(subCatalogName)
-		_ = cat.AddCatalog(subCatalog)
+		subCatalog := c.getOrCreateSubCatalog(cat, subCatalogName)
 		newNamePath := spec.NamePath[1:]
 		// add sub catalog to root catalog
 		if err := c.addFunctionSpecRecursive(cat, c.copyFunctionSpec(spec, newNamePath)); err != nil {
@@ -563,17 +599,36 @@ func (c *Catalog) addFunctionSpecRecursive(cat *googlesql.SimpleCatalog, spec *F
 }
 
 func (c *Catalog) existsTable(cat *googlesql.SimpleCatalog, name string) bool {
-	// FindTable isn't exposed on SimpleCatalog through the bridge; table
-	// presence is tracked in Go via c.tableMap so this is a soft check.
-	_, ok := c.tableMap[name]
-	return ok
+	// Checks presence on the *wasm-side* SimpleCatalog via TableNames().
+	// The earlier implementation short-circuited against c.tableMap,
+	// which caused AddTable to be skipped for tables that were already
+	// recorded on the Go side but never propagated into the wasm
+	// catalog — the analyzer then couldn't find them.
+	names, err := cat.TableNames()
+	if err != nil {
+		return false
+	}
+	target := strings.ToLower(name)
+	for _, n := range names {
+		if strings.ToLower(n) == target {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *Catalog) existsFunction(cat *googlesql.SimpleCatalog, name string) bool {
-	// Similar to existsTable, bridge doesn't expose FindFunction — rely
-	// on the Go-side funcMap.
-	_, ok := c.funcMap[name]
-	return ok
+	names, err := cat.FunctionNames()
+	if err != nil {
+		return false
+	}
+	target := strings.ToLower(name)
+	for _, n := range names {
+		if strings.ToLower(n) == target {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *Catalog) isNilTable(t googlesql.TableNode) bool {
