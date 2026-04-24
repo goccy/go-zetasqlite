@@ -1,19 +1,54 @@
 package internal
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
 	"math/big"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/goccy/go-json"
 )
 
+// jsonUnmarshalPreserveNumbers decodes JSON into v with json.Number so
+// integer literals don't collapse to float64 when landing in an
+// interface{} slot. The post-pass rewrites json.Number nodes to int64
+// or float64 based on the source shape (presence of '.' or 'e').
+func jsonUnmarshalPreserveNumbers(data []byte, v interface{}) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.UseNumber()
+	if err := dec.Decode(v); err != nil {
+		return err
+	}
+	return nil
+}
+
+// coerceJSONNumber converts a json.Number into int64 (no decimal / exponent)
+// or float64 (otherwise). Non-json.Number values pass through untouched.
+func coerceJSONNumber(v interface{}) interface{} {
+	n, ok := v.(json.Number)
+	if !ok {
+		return v
+	}
+	s := string(n)
+	if !strings.ContainsAny(s, ".eE") {
+		if i, err := strconv.ParseInt(s, 10, 64); err == nil {
+			return i
+		}
+	}
+	if f, err := strconv.ParseFloat(s, 64); err == nil {
+		return f
+	}
+	return v
+}
+
 func DecodeValue(v interface{}) (Value, error) {
 	if isNullValue(v) {
 		return nil, nil
 	}
+	v = coerceJSONNumber(v)
 	switch vv := v.(type) {
 	case int64:
 		return IntValue(vv), nil
@@ -88,7 +123,7 @@ func decodeFromValueLayout(layout *ValueLayout) (Value, error) {
 		return JsonValue(layout.Body), nil
 	case ArrayValueType:
 		var arr []interface{}
-		if err := json.Unmarshal([]byte(layout.Body), &arr); err != nil {
+		if err := jsonUnmarshalPreserveNumbers([]byte(layout.Body), &arr); err != nil {
 			return nil, fmt.Errorf("failed to decode array body: %w", err)
 		}
 		ret := &ArrayValue{
@@ -104,7 +139,7 @@ func decodeFromValueLayout(layout *ValueLayout) (Value, error) {
 		return ret, nil
 	case StructValueType:
 		var structLayout StructValueLayout
-		if err := json.Unmarshal([]byte(layout.Body), &structLayout); err != nil {
+		if err := jsonUnmarshalPreserveNumbers([]byte(layout.Body), &structLayout); err != nil {
 			return nil, err
 		}
 		m := map[string]Value{}

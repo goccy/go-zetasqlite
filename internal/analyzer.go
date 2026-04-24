@@ -194,10 +194,15 @@ func (a *Analyzer) parseScript(query string) (*parsedScript, error) {
 		a.parserOpts = parserOpts
 	}
 	result := &parsedScript{loc: loc}
+	input, _ := loc.Input()
+	inputLen := int32(len(input))
 	for {
 		out, err := googlesql.ParseNextScriptStatement(loc, a.parserOpts)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse statement: %w", err)
+		}
+		if out == nil {
+			break
 		}
 		result.outputs = append(result.outputs, out)
 		stmt, err := out.Statement()
@@ -213,10 +218,15 @@ func (a *Analyzer) parseScript(query string) (*parsedScript, error) {
 		} else {
 			result.stmts = append(result.stmts, stmt)
 		}
-		// Bridge doesn't expose AtEnd on ParseResumeLocation yet; a single
-		// ParseNextScriptStatement call is sufficient for the single-stmt
-		// case exercised by tests today.
-		break
+		pos, _ := loc.BytePosition()
+		if pos >= inputLen {
+			break
+		}
+		// Skip any trailing whitespace / semicolon noise that follows
+		// the last statement. If only whitespace remains we're done.
+		if strings.TrimSpace(input[pos:]) == "" {
+			break
+		}
 	}
 	return result, nil
 }
@@ -234,6 +244,23 @@ func collectStatementsFromList(list *googlesql.ASTStatementList) []googlesql.AST
 		out = append(out, s)
 	}
 	return out
+}
+
+// countPositionalParams walks the AST counting `?` occurrences. Used to
+// split positional arguments across statements in a multi-statement
+// script, where the resolved-tree walker's limited descent otherwise
+// mis-reports per-statement parameter counts.
+func countPositionalParams(stmt googlesql.ASTStatementNode) int {
+	var n int
+	_ = ASTWalk(stmt, func(node googlesql.ASTNodeNode) error {
+		if p, ok := node.(googlesql.ASTParameterExprNode); ok {
+			if m1(p.Position()) > 0 {
+				n++
+			}
+		}
+		return nil
+	})
+	return n
 }
 
 func (a *Analyzer) getParameterMode(stmt googlesql.ASTStatementNode) (googlesql.ParameterMode, error) {
@@ -306,7 +333,14 @@ func (a *Analyzer) Analyze(ctx context.Context, conn *Conn, query string, args [
 				return nil, err
 			}
 			if mode == googlesql.ParameterModeParameterPositional {
-				args = args[len(action.Args()):]
+				// Count positional parameters directly from the AST;
+				// action.Args() reflects a later (possibly all-args)
+				// fallback when the resolved-tree walker can't descend.
+				consumed := countPositionalParams(stmt)
+				if consumed > len(args) {
+					consumed = len(args)
+				}
+				args = args[consumed:]
 			}
 			// Wrap with closingStmtAction so that Cleanup also releases
 			// the AnalyzerOutput (which owns the huge resolved tree) and

@@ -50,9 +50,6 @@ func getTableName(ctx context.Context, n googlesql.ResolvedNodeNode) (string, er
 func getFuncName(ctx context.Context, n googlesql.ResolvedNodeNode) (string, error) {
 	nodeMap := nodeMapFromContext(ctx)
 	found := nodeMap.FindNodeFromResolvedNode(n)
-	if len(found) == 0 {
-		return "", fmt.Errorf("failed to find path node from function node %T", n)
-	}
 	var foundCallNode googlesql.ASTFunctionCallNode
 	for _, node := range found {
 		fcallNode, ok := node.(googlesql.ASTFunctionCallNode)
@@ -62,15 +59,29 @@ func getFuncName(ctx context.Context, n googlesql.ResolvedNodeNode) (string, err
 		foundCallNode = fcallNode
 		break
 	}
-	if foundCallNode == nil {
-		return "", fmt.Errorf("failed to find function call node from %T", n)
-	}
-	path, err := getPathFromNode(m1(foundCallNode.FunctionMethod()))
-	if err != nil {
-		return "", fmt.Errorf("failed to find path: %w", err)
-	}
 	namePath := namePathFromContext(ctx)
-	return namePath.format(path), nil
+	if foundCallNode != nil {
+		path, err := getPathFromNode(m1(foundCallNode.FunctionMethod()))
+		if err != nil {
+			return "", fmt.Errorf("failed to find path: %w", err)
+		}
+		return namePath.format(path), nil
+	}
+	// Fallback: NodeMap didn't record an AST node for this resolved
+	// function call (the map is populated only for paths the analyzer
+	// context walks). Read the function identity straight off the
+	// resolved node instead.
+	type fnCall interface {
+		FunctionMethod() (*googlesql.Function, error)
+	}
+	if fc, ok := n.(fnCall); ok {
+		if fn, err := fc.FunctionMethod(); err == nil && fn != nil {
+			if name, err := fn.Name(); err == nil && name != "" {
+				return namePath.format([]string{name}), nil
+			}
+		}
+	}
+	return "", fmt.Errorf("failed to find path node from function node %T", n)
 }
 
 func getPathFromNode(n googlesql.ASTNodeNode) ([]string, error) {

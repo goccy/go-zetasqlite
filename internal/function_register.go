@@ -200,6 +200,7 @@ var normalFuncs = []*FuncInfo{
 	{Name: "bool", BindFunc: bindBool},
 	{Name: "int64", BindFunc: bindInt64},
 	{Name: "double", BindFunc: bindDouble},
+	{Name: "float64", BindFunc: bindDouble},
 	{Name: "json_type", BindFunc: bindJsonType},
 
 	// math functions

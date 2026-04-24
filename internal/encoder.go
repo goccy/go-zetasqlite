@@ -338,12 +338,25 @@ func structValueFromLiteral(v googlesql.Value) (*StructValue, error) {
 	ret := &StructValue{
 		m: map[string]Value{},
 	}
-	// StructType.Field(i).Name() isn't exposed through the bridge;
-	// fall back to index-based field names until that RPC lands.
+	var fieldNames []string
+	if t, err := v.Type(); err == nil && t != nil {
+		if st, err := t.AsStruct(); err == nil && st != nil {
+			if fields, err := st.Fields(); err == nil {
+				for _, f := range fields {
+					fieldNames = append(fieldNames, f.Name)
+				}
+			}
+		}
+	}
 	n, _ := v.NumFields()
 	for i := int32(0); i < n; i++ {
 		field, _ := v.Field(i)
-		name := fmt.Sprintf("_field_%d", i)
+		var name string
+		if int(i) < len(fieldNames) && fieldNames[int(i)] != "" {
+			name = fieldNames[int(i)]
+		} else {
+			name = fmt.Sprintf("_field_%d", i)
+		}
 		value, err := ValueFromZetaSQLValue(*field)
 		if err != nil {
 			return nil, err

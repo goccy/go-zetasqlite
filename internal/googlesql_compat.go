@@ -124,15 +124,26 @@ func NewStructField(name string, t googlesql.Googlesql_TypeNode) *StructField {
 	return &StructField{Name: name, Type: t}
 }
 
-// NewStructType builds a StructType from field descriptors.
-//
-// TODO(go-googlesql): TypeFactory does not yet expose MakeStructType
-// through the wasm bridge (the C++ method takes a std::vector<StructType::
-// Field> which the generator can't marshal today). When that lands this
-// can dispatch to it. Until then return an error so callers surface the
-// limitation rather than silently getting a nil handle.
+// NewStructType builds a StructType from field descriptors via the
+// bridge-exposed TypeFactory.MakeStructType. Each StructField is
+// converted to the googlesql proto struct and the resulting struct
+// type handle is returned.
 func NewStructType(fields []*StructField) (googlesql.Googlesql_TypeNode, error) {
-	return nil, fmt.Errorf("NewStructType: not yet supported via wasm bridge")
+	bridgeFields := make([]*googlesql.StructField, 0, len(fields))
+	for _, f := range fields {
+		if f == nil {
+			continue
+		}
+		bridgeFields = append(bridgeFields, &googlesql.StructField{
+			Name:  f.Name,
+			Type_: f.Type,
+		})
+	}
+	st, err := tf().MakeStructType(bridgeFields)
+	if err != nil {
+		return nil, err
+	}
+	return st, nil
 }
 
 // ---------- Analyzer / parser constructor shims ---------------------------
@@ -280,11 +291,41 @@ func NewFunctionSignature(result *googlesql.FunctionArgumentType, args []*google
 	return sig
 }
 
-// NewFunction is a stub — googlesql::Function's constructors take a
-// std::vector<FunctionSignature> and the marshaller cannot describe that
-// today. Callers surface the limitation at runtime.
+// NewFunction constructs a googlesql Function and attaches each
+// provided signature via the bridge-exposed AddSignature accessor. The
+// upstream C++ constructors take a std::vector<FunctionSignature> which
+// the bridge still cannot marshal directly; AddSignature is the
+// canonical alternative and keeps the resulting Function semantically
+// identical.
 func NewFunction(namePath []string, group string, mode int, signatures interface{}, options interface{}) (*googlesql.Function, error) {
-	return nil, fmt.Errorf("NewFunction: not yet supported via wasm bridge")
+	name := ""
+	if len(namePath) > 0 {
+		name = strings.Join(namePath, ".")
+	}
+	var fnOptions *googlesql.FunctionOptions
+	if options != nil {
+		if fo, ok := options.(*googlesql.FunctionOptions); ok {
+			fnOptions = fo
+		}
+	}
+	fn, err := googlesql.NewFunction(name, group, googlesql.FunctionEnums_Mode(mode), fnOptions)
+	if err != nil {
+		return nil, err
+	}
+	if fn == nil {
+		return nil, fmt.Errorf("NewFunction returned nil handle")
+	}
+	if sigs, ok := signatures.([]*googlesql.FunctionSignature); ok {
+		for _, sig := range sigs {
+			if sig == nil {
+				continue
+			}
+			if err := fn.AddSignature(sig); err != nil {
+				return nil, fmt.Errorf("Function.AddSignature: %w", err)
+			}
+		}
+	}
+	return fn, nil
 }
 
 // NewTemplatedFunctionArgumentType constructs a FunctionArgumentType bound
@@ -306,12 +347,23 @@ func NewTemplatedFunctionArgumentType(kind googlesql.SignatureArgumentKind, opti
 // these specific paths is degraded but the common analyze/format flow
 // doesn't hit them.
 
-// ResolvedCreateStatementCreateScope returns the default scope. The real
-// bridge entry point is unreachable while the nested-enum generator fix
-// is pending, so callers that care specifically about TEMP-vs-permanent
-// should use ResolvedCreateStatementIsTempFromQuery on the source SQL
-// text instead.
+// ResolvedCreateStatementCreateScope returns the scope (DEFAULT / TEMP /
+// PRIVATE / PUBLIC) of any ResolvedCreateStatement-derived node. All
+// CREATE-family resolved nodes embed *ResolvedCreateStatement, so the
+// CreateScope() accessor is method-promoted onto them; the interface
+// check below picks it up regardless of the concrete subtype.
 func ResolvedCreateStatementCreateScope(h interface{}) googlesql.ResolvedCreateStatementEnums_CreateScope {
+	if h == nil {
+		return googlesql.ResolvedCreateStatementEnums_CreateScopeCreateDefaultScope
+	}
+	type scopeGetter interface {
+		CreateScope() (googlesql.ResolvedCreateStatementEnums_CreateScope, error)
+	}
+	if g, ok := h.(scopeGetter); ok {
+		if v, err := g.CreateScope(); err == nil {
+			return v
+		}
+	}
 	return googlesql.ResolvedCreateStatementEnums_CreateScopeCreateDefaultScope
 }
 
@@ -339,8 +391,21 @@ func ResolvedCreateStatementIsTempFromQuery(query string) bool {
 		strings.HasPrefix(rest, "TEMPORARY VIEW")
 }
 
-// ResolvedCreateStatementCreateMode returns CreateDefault.
+// ResolvedCreateStatementCreateMode returns the CREATE mode (DEFAULT /
+// OR_REPLACE / IF_NOT_EXISTS) of any ResolvedCreateStatement-derived
+// node via method-promoted CreateMode() accessor.
 func ResolvedCreateStatementCreateMode(h interface{}) googlesql.ResolvedCreateStatementEnums_CreateMode {
+	if h == nil {
+		return googlesql.ResolvedCreateStatementEnums_CreateModeCreateDefault
+	}
+	type modeGetter interface {
+		CreateMode() (googlesql.ResolvedCreateStatementEnums_CreateMode, error)
+	}
+	if g, ok := h.(modeGetter); ok {
+		if v, err := g.CreateMode(); err == nil {
+			return v
+		}
+	}
 	return googlesql.ResolvedCreateStatementEnums_CreateModeCreateDefault
 }
 
