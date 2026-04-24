@@ -172,7 +172,12 @@ func (c *Catalog) FindConversion(from, to googlesql.Googlesql_TypeNode) (*google
 	return nil, fmt.Errorf("catalog: FindConversion not yet supported via wasm bridge")
 }
 
-func (c *Catalog) ExtendedTypeSuperTypes(typ googlesql.Googlesql_TypeNode) (*googlesql.TypeListView, error) {
+// ExtendedTypeSuperTypes used to return *TypeListView but that alias was
+// dropped when the clang-AST parser started expanding the FileScope
+// typedef (TypeListView = absl::Span<const Type *const>) at parse time.
+// Callers of this method only ever checked the error, so returning an
+// empty slice keeps the contract without depending on the removed alias.
+func (c *Catalog) ExtendedTypeSuperTypes(typ googlesql.Googlesql_TypeNode) ([]googlesql.Googlesql_TypeNode, error) {
 	return nil, fmt.Errorf("catalog: ExtendedTypeSuperTypes not yet supported via wasm bridge")
 }
 

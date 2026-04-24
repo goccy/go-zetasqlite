@@ -282,7 +282,53 @@ func (t *Type) FormatType() string {
 	case googlesql.TypeKindTypeArray:
 		return fmt.Sprintf("ARRAY<%s>", t.ElementType.FormatType())
 	}
-	return fmt.Sprintf("%v", t.kindAs())
+	return typeKindToSQLName(t.kindAs())
+}
+
+// typeKindToSQLName returns the canonical SQL type-name string for a
+// TypeKind — "INT64" rather than the enum's Go String() which is
+// "TypeKindTypeInt64". The formatter embeds these names into
+// re-analyzed SQL, where the extra prefix would crash the analyzer.
+func typeKindToSQLName(kind googlesql.TypeKind) string {
+	switch kind {
+	case googlesql.TypeKindTypeInt32:
+		return "INT32"
+	case googlesql.TypeKindTypeInt64:
+		return "INT64"
+	case googlesql.TypeKindTypeUint32:
+		return "UINT32"
+	case googlesql.TypeKindTypeUint64:
+		return "UINT64"
+	case googlesql.TypeKindTypeBool:
+		return "BOOL"
+	case googlesql.TypeKindTypeFloat:
+		return "FLOAT"
+	case googlesql.TypeKindTypeDouble:
+		return "DOUBLE"
+	case googlesql.TypeKindTypeString:
+		return "STRING"
+	case googlesql.TypeKindTypeBytes:
+		return "BYTES"
+	case googlesql.TypeKindTypeDate:
+		return "DATE"
+	case googlesql.TypeKindTypeTimestamp:
+		return "TIMESTAMP"
+	case googlesql.TypeKindTypeDatetime:
+		return "DATETIME"
+	case googlesql.TypeKindTypeTime:
+		return "TIME"
+	case googlesql.TypeKindTypeInterval:
+		return "INTERVAL"
+	case googlesql.TypeKindTypeNumeric:
+		return "NUMERIC"
+	case googlesql.TypeKindTypeBignumeric:
+		return "BIGNUMERIC"
+	case googlesql.TypeKindTypeJson:
+		return "JSON"
+	case googlesql.TypeKindTypeGeography:
+		return "GEOGRAPHY"
+	}
+	return fmt.Sprintf("%v", kind)
 }
 
 func (s *ColumnSpec) SQLiteSchema() string {
@@ -640,9 +686,10 @@ func newType(t googlesql.Googlesql_TypeNode) *Type {
 	// DebugString instead which gives an equivalent printable form.
 	name, _ := t.DebugString(false)
 	return &Type{
-		Name:        name,
-		Kind:        int(kind),
-		ElementType: elem,
-		FieldTypes:  fieldTypes,
+		Name:          name,
+		Kind:          int(kind),
+		SignatureKind: googlesql.SignatureArgumentKindArgTypeFixed,
+		ElementType:   elem,
+		FieldTypes:    fieldTypes,
 	}
 }

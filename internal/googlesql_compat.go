@@ -261,14 +261,17 @@ func NewFunctionArgumentType(typ googlesql.Googlesql_TypeNode, opts *googlesql.F
 	return fat
 }
 
-// compatSignatureArguments returns an empty slice in place of
-// googlesql.FunctionSignature.Arguments(), which isn't yet exposed on
-// the wasm bridge. Call sites use the argument list for templated
-// function inference; returning empty makes those code paths fall
-// through to non-templated handling, which is acceptable for the
-// basic analyze/format flow we're chasing compile-green for.
-func compatSignatureArguments(_ *googlesql.FunctionSignature) []*googlesql.FunctionArgumentType {
-	return nil
+// compatSignatureArguments returns the argument list of a
+// FunctionSignature via the bridged Arguments() accessor.
+func compatSignatureArguments(sig *googlesql.FunctionSignature) []*googlesql.FunctionArgumentType {
+	if sig == nil {
+		return nil
+	}
+	args, err := sig.Arguments()
+	if err != nil {
+		return nil
+	}
+	return args
 }
 
 // NewFunctionSignature wraps the new one-arg constructor. The old two-arg
@@ -278,63 +281,50 @@ func compatSignatureArguments(_ *googlesql.FunctionSignature) []*googlesql.Funct
 //
 // Returns nil on wasm failure so a single malformed signature does not
 // tear down the whole test binary; callers must tolerate a nil handle.
+// NewFunctionSignature builds a FunctionSignature from a result type
+// and an argument list via the now-bridged primary constructor
+// (FunctionSignature3 = FunctionSignature(result, arguments, context_id)).
 func NewFunctionSignature(result *googlesql.FunctionArgumentType, args []*googlesql.FunctionArgumentType) *googlesql.FunctionSignature {
-	sig, err := googlesql.NewFunctionSignature(0)
+	sig, err := googlesql.NewFunctionSignature3(result, args, 0)
 	if err != nil {
 		return nil
 	}
-	// Result-type and argument-list setters aren't exposed on the wasm
-	// bridge yet; retain the signature handle so the Function constructor
-	// path keeps a valid *FunctionSignature value for downstream calls.
-	_ = result
-	_ = args
 	return sig
 }
 
-// NewFunction constructs a googlesql Function and attaches each
-// provided signature via the bridge-exposed AddSignature accessor. The
-// upstream C++ constructors take a std::vector<FunctionSignature> which
-// the bridge still cannot marshal directly; AddSignature is the
-// canonical alternative and keeps the resulting Function semantically
-// identical.
+// NewFunction constructs a googlesql Function with a full signature
+// list via the bridged primary constructor. Accepts
+// []*FunctionSignature for signatures; options may be nil.
 func NewFunction(namePath []string, group string, mode int, signatures interface{}, options interface{}) (*googlesql.Function, error) {
-	name := ""
-	if len(namePath) > 0 {
-		name = strings.Join(namePath, ".")
-	}
 	var fnOptions *googlesql.FunctionOptions
 	if options != nil {
 		if fo, ok := options.(*googlesql.FunctionOptions); ok {
 			fnOptions = fo
 		}
 	}
-	fn, err := googlesql.NewFunction(name, group, googlesql.FunctionEnums_Mode(mode), fnOptions)
+	var sigs []*googlesql.FunctionSignature
+	if s, ok := signatures.([]*googlesql.FunctionSignature); ok {
+		sigs = s
+	}
+	fn, err := googlesql.NewFunction(namePath, group, googlesql.FunctionEnums_Mode(mode), sigs, fnOptions)
 	if err != nil {
 		return nil, err
 	}
 	if fn == nil {
 		return nil, fmt.Errorf("NewFunction returned nil handle")
 	}
-	if sigs, ok := signatures.([]*googlesql.FunctionSignature); ok {
-		for _, sig := range sigs {
-			if sig == nil {
-				continue
-			}
-			if err := fn.AddSignature(sig); err != nil {
-				return nil, fmt.Errorf("Function.AddSignature: %w", err)
-			}
-		}
-	}
 	return fn, nil
 }
 
-// NewTemplatedFunctionArgumentType constructs a FunctionArgumentType bound
-// to a signature-argument kind. The bridge currently only exposes the
-// variant that takes a concrete Type; templated variants return nil.
+// NewTemplatedFunctionArgumentType constructs a FunctionArgumentType
+// whose type is templated (ANY TYPE, ANY ARRAY TYPE, etc.). Now
+// bridged via NewFunctionArgumentType5(kind, options, numOccurrences).
 func NewTemplatedFunctionArgumentType(kind googlesql.SignatureArgumentKind, options *googlesql.FunctionArgumentTypeOptions) *googlesql.FunctionArgumentType {
-	_ = kind
-	_ = options
-	return nil
+	fat, err := googlesql.NewFunctionArgumentType5(kind, options, -1)
+	if err != nil {
+		return nil
+	}
+	return fat
 }
 
 // ---------- Nested-enum accessor stubs -----------------------------------
