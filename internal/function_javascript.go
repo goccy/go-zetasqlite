@@ -53,7 +53,7 @@ func castJavaScriptValue(t googlesql.Googlesql_TypeNode, v goja.Value) (Value, e
 		return nil, nil
 	}
 	// Googlesql_TypeNode carries KindMethod directly.
-	switch m1(t.KindMethod()) {
+	switch m1(t.Kind()) {
 	case googlesql.TypeKindTypeInt32, googlesql.TypeKindTypeInt64, googlesql.TypeKindTypeUint32, googlesql.TypeKindTypeUint64:
 		return IntValue(v.ToInteger()), nil
 	case googlesql.TypeKindTypeBool:
@@ -125,5 +125,5 @@ func castJavaScriptValue(t googlesql.Googlesql_TypeNode, v goja.Value) (Value, e
 		}
 		return CastValue(t, base)
 	}
-	return nil, fmt.Errorf("unsupported cast %v from JavaScript value", m1(t.KindMethod()))
+	return nil, fmt.Errorf("unsupported cast %v from JavaScript value", m1(t.Kind()))
 }

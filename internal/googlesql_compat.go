@@ -344,91 +344,145 @@ func ResolvedCreateStatementCreateMode(h interface{}) googlesql.ResolvedCreateSt
 	return googlesql.ResolvedCreateStatementEnums_CreateModeCreateDefault
 }
 
-// ResolvedMergeWhenMatchType returns the default (Matched).
+// ResolvedMergeWhenMatchType reads the MATCHED / NOT MATCHED kind from the
+// resolved node via the bridge-exposed accessor.
 func ResolvedMergeWhenMatchType(h *googlesql.ResolvedMergeWhen) googlesql.ResolvedMergeWhenEnums_MatchType {
-	_ = h
-	return 0
+	if h == nil {
+		return 0
+	}
+	v, err := h.MatchTypeMethod()
+	if err != nil {
+		return 0
+	}
+	return v
 }
 
-// ResolvedMergeWhenActionType returns the default (Insert).
+// ResolvedMergeWhenActionType reads the INSERT / UPDATE / DELETE kind from
+// the resolved node.
 func ResolvedMergeWhenActionType(h *googlesql.ResolvedMergeWhen) googlesql.ResolvedMergeWhenEnums_ActionType {
-	_ = h
-	return 0
+	if h == nil {
+		return 0
+	}
+	v, err := h.ActionTypeMethod()
+	if err != nil {
+		return 0
+	}
+	return v
 }
 
-// ResolvedJoinScanJoinType returns InnerJoin.
+// ResolvedJoinScanJoinType returns the concrete join kind from the resolved
+// scan. Relies on the bridge-exposed JoinTypeMethod accessor.
 func ResolvedJoinScanJoinType(h googlesql.ResolvedJoinScanNode) googlesql.ResolvedJoinScanEnums_JoinType {
-	_ = h
-	return 0
+	if h == nil {
+		return 0
+	}
+	t, err := h.JoinTypeMethod()
+	if err != nil {
+		return 0
+	}
+	return t
 }
 
-// ResolvedSetOperationScanOpType returns UnionAll.
+// ResolvedSetOperationScanOpType reads the concrete set-op kind
+// (UNION / INTERSECT / EXCEPT, all / distinct variants).
 func ResolvedSetOperationScanOpType(h googlesql.ResolvedSetOperationScanNode) googlesql.ResolvedSetOperationScanEnums_SetOperationType {
-	_ = h
-	return 0
+	if h == nil {
+		return 0
+	}
+	v, err := h.OpType()
+	if err != nil {
+		return 0
+	}
+	return v
 }
 
-// ResolvedOrderByItemNullOrder returns the default ordering.
+// ResolvedOrderByItemNullOrder reads the null-order specification.
 func ResolvedOrderByItemNullOrder(h *googlesql.ResolvedOrderByItem) googlesql.ResolvedOrderByItemEnums_NullOrderMode {
-	_ = h
-	return 0
+	if h == nil {
+		return 0
+	}
+	v, err := h.NullOrder()
+	if err != nil {
+		return 0
+	}
+	return v
 }
 
-// ResolvedAggregateFunctionCallNullHandlingModifier returns default.
+// ResolvedAggregateFunctionCallNullHandlingModifier reads the promoted
+// base-class accessor NullHandlingModifierMethod.
 func ResolvedAggregateFunctionCallNullHandlingModifier(h googlesql.ResolvedAggregateFunctionCallNode) googlesql.ResolvedNonScalarFunctionCallBaseEnums_NullHandlingModifier {
-	_ = h
-	return 0
+	if h == nil {
+		return 0
+	}
+	v, err := h.NullHandlingModifierMethod()
+	if err != nil {
+		return 0
+	}
+	return v
 }
 
-// ResolvedAnalyticFunctionCallNullHandlingModifier returns default.
+// ResolvedAnalyticFunctionCallNullHandlingModifier is the analytic-call
+// counterpart of the aggregate accessor.
 func ResolvedAnalyticFunctionCallNullHandlingModifier(h googlesql.ResolvedAnalyticFunctionCallNode) googlesql.ResolvedNonScalarFunctionCallBaseEnums_NullHandlingModifier {
-	_ = h
-	return 0
+	if h == nil {
+		return 0
+	}
+	v, err := h.NullHandlingModifierMethod()
+	if err != nil {
+		return 0
+	}
+	return v
 }
 
-// ResolvedWindowFrameFrameUnit returns ROWS.
+// ResolvedWindowFrameFrameUnit reads ROWS / RANGE.
 func ResolvedWindowFrameFrameUnit(h *googlesql.ResolvedWindowFrame) googlesql.ResolvedWindowFrameEnums_FrameUnit {
-	_ = h
-	return 0
+	if h == nil {
+		return 0
+	}
+	v, err := h.FrameUnitMethod()
+	if err != nil {
+		return 0
+	}
+	return v
 }
 
-// ResolvedWindowFrameExprBoundaryType returns CurrentRow.
-// ResolvedWindowFrameExprBoundaryType recovers the enum value through the
-// bridge-exposed GetBoundaryTypeString accessor; the raw enum getter is
-// not yet bridged. The string form matches the googlesql enum names.
+// ResolvedWindowFrameExprBoundaryType reads the UNBOUNDED /
+// CURRENT ROW / OFFSET PRECEDING/FOLLOWING boundary kind.
 func ResolvedWindowFrameExprBoundaryType(h googlesql.ResolvedWindowFrameExprNode) googlesql.ResolvedWindowFrameExprEnums_BoundaryType {
 	if h == nil {
 		return 0
 	}
-	s, err := h.GetBoundaryTypeString()
+	v, err := h.BoundaryTypeMethod()
 	if err != nil {
 		return 0
 	}
-	switch s {
-	case "UNBOUNDED PRECEDING":
-		return googlesql.ResolvedWindowFrameExprEnums_BoundaryTypeUnboundedPreceding
-	case "OFFSET PRECEDING":
-		return googlesql.ResolvedWindowFrameExprEnums_BoundaryTypeOffsetPreceding
-	case "CURRENT ROW":
-		return googlesql.ResolvedWindowFrameExprEnums_BoundaryTypeCurrentRow
-	case "OFFSET FOLLOWING":
-		return googlesql.ResolvedWindowFrameExprEnums_BoundaryTypeOffsetFollowing
-	case "UNBOUNDED FOLLOWING":
-		return googlesql.ResolvedWindowFrameExprEnums_BoundaryTypeUnboundedFollowing
-	}
-	return 0
+	return v
 }
 
-// ResolvedFunctionCallBaseErrorMode returns DefaultErrorMode.
+// ResolvedFunctionCallBaseErrorMode reads the error-mode modifier
+// (DEFAULT / SAFE_ERROR_MODE).
 func ResolvedFunctionCallBaseErrorMode(h *googlesql.ResolvedFunctionCallBase) googlesql.ResolvedFunctionCallBaseEnums_ErrorMode {
-	_ = h
-	return googlesql.ResolvedFunctionCallBaseEnums_ErrorModeDefaultErrorMode
+	if h == nil {
+		return 0
+	}
+	v, err := h.ErrorMode()
+	if err != nil {
+		return 0
+	}
+	return v
 }
 
-// ResolvedSubqueryExprSubqueryType returns Scalar.
+// ResolvedSubqueryExprSubqueryType reads the subquery kind
+// (SCALAR / ARRAY / EXISTS / IN).
 func ResolvedSubqueryExprSubqueryType(h googlesql.ResolvedSubqueryExprNode) googlesql.ResolvedSubqueryExprEnums_SubqueryType {
-	_ = h
-	return 0
+	if h == nil {
+		return 0
+	}
+	v, err := h.SubqueryType()
+	if err != nil {
+		return 0
+	}
+	return v
 }
 
 // ---------- Node walking / map -------------------------------------------

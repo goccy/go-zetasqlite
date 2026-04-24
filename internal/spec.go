@@ -54,14 +54,14 @@ func (s *FunctionSpec) SQL() string {
 	args := []string{}
 	for _, arg := range s.Args {
 		t, _ := arg.Type.ToZetaSQLType()
-		args = append(args, fmt.Sprintf("%s %s", arg.Name, m1(t.KindMethod())))
+		args = append(args, fmt.Sprintf("%s %s", arg.Name, m1(t.Kind())))
 	}
 	retType, _ := s.Return.ToZetaSQLType()
 	return fmt.Sprintf(
 		"CREATE FUNCTION `%s`(%s) RETURNS %v AS (%s)",
 		s.FuncName(),
 		strings.Join(args, ", "),
-		m1(retType.KindMethod()),
+		m1(retType.Kind()),
 		s.Body,
 	)
 }
@@ -340,7 +340,7 @@ func (s *ColumnSpec) SQLiteSchema() string {
 
 func newTypeFromFunctionArgumentType(t *googlesql.FunctionArgumentType) *Type {
 	if m1(t.IsTemplated()) {
-		return &Type{SignatureKind: m1(t.KindMethod())}
+		return &Type{SignatureKind: m1(t.Kind())}
 	}
 	return newType(m1(t.Type()))
 }
@@ -605,7 +605,7 @@ func newTableAsSelectSpec(namePath *NamePath, query string, stmt googlesql.Resol
 
 func newType(t googlesql.Googlesql_TypeNode) *Type {
 	// Googlesql_TypeNode exposes the base-class accessors directly.
-	kind := m1(t.KindMethod())
+	kind := m1(t.Kind())
 	var (
 		elem       *Type
 		fieldTypes []*NameWithType

@@ -360,7 +360,7 @@ func CastValue(t googlesql.Googlesql_TypeNode, v Value) (Value, error) {
 		return nil, nil
 	}
 	// Googlesql_TypeNode carries KindMethod directly, no upcast needed.
-	switch m1(t.KindMethod()) {
+	switch m1(t.Kind()) {
 	case googlesql.TypeKindTypeInt32, googlesql.TypeKindTypeInt64, googlesql.TypeKindTypeUint32, googlesql.TypeKindTypeUint64:
 		i64, err := v.ToInt64()
 		if err != nil {
@@ -477,7 +477,7 @@ func CastValue(t googlesql.Googlesql_TypeNode, v Value) (Value, error) {
 	case googlesql.TypeKindTypeGeography:
 		return v, nil
 	}
-	return nil, fmt.Errorf("unsupported cast %v value", m1(t.KindMethod()))
+	return nil, fmt.Errorf("unsupported cast %v value", m1(t.Kind()))
 }
 
 func ValueFromGoValue(v interface{}) (Value, error) {
