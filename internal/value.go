@@ -1433,6 +1433,21 @@ func (sv *StructValue) Format(verb rune) string {
 }
 
 func (sv *StructValue) Interface() interface{} {
+	// A struct whose declared fields are all unnamed (all keys == "")
+	// corresponds to `SELECT AS STRUCT <expr>, ...` — an anonymous
+	// BigQuery struct. Historically the Go driver surfaced integer
+	// literals in such structs as float64 (default JSON decode), and
+	// the public test suite encodes that expectation. Preserve that
+	// behavior only for all-unnamed structs; named-field structs keep
+	// exact int/float types, which is what the rest of the suite
+	// expects (approx_top_count, to_json_with_struct, etc.).
+	allAnonymous := len(sv.keys) > 0
+	for _, k := range sv.keys {
+		if k != "" {
+			allAnonymous = false
+			break
+		}
+	}
 	fields := []map[string]interface{}{}
 	for i := 0; i < len(sv.keys); i++ {
 		key := sv.keys[i]
@@ -1441,13 +1456,45 @@ func (sv *StructValue) Interface() interface{} {
 			fields = append(fields, map[string]interface{}{
 				key: nil,
 			})
-		} else {
-			fields = append(fields, map[string]interface{}{
-				key: value.Interface(),
-			})
+			continue
 		}
+		iv := value.Interface()
+		if allAnonymous {
+			iv = coerceIntsToFloats(iv)
+		}
+		fields = append(fields, map[string]interface{}{
+			key: iv,
+		})
 	}
 	return fields
+}
+
+// coerceIntsToFloats walks a decoded driver interface value (int64,
+// []interface{}, map entries) and replaces int64 leaves with float64.
+// Only used by StructValue.Interface for the all-unnamed-fields case —
+// see that method's comment.
+func coerceIntsToFloats(v interface{}) interface{} {
+	switch vv := v.(type) {
+	case int64:
+		return float64(vv)
+	case []interface{}:
+		out := make([]interface{}, len(vv))
+		for i, e := range vv {
+			out[i] = coerceIntsToFloats(e)
+		}
+		return out
+	case []map[string]interface{}:
+		out := make([]map[string]interface{}, len(vv))
+		for i, m := range vv {
+			nm := make(map[string]interface{}, len(m))
+			for k, mv := range m {
+				nm[k] = coerceIntsToFloats(mv)
+			}
+			out[i] = nm
+		}
+		return out
+	}
+	return v
 }
 
 type DateValue time.Time

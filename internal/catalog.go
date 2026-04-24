@@ -131,6 +131,52 @@ func (c *Catalog) FindTable(path []string) (googlesql.TableNode, error) {
 	return nil, fmt.Errorf("catalog: FindTable not yet supported via wasm bridge")
 }
 
+// registerWildcardTableByPath pre-creates a wildcard table for `path`
+// and installs it into the googlesql catalog so the analyzer can
+// resolve the reference. Called from the analyzer before a statement
+// is analyzed (see preRegisterWildcardTables). Silent if the path
+// does not match any registered tables.
+func (c *Catalog) registerWildcardTableByPath(path []string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if !c.isWildcardTable(path) {
+		return
+	}
+	wt, err := c.createWildcardTableImpl(path)
+	if err != nil || wt == nil {
+		return
+	}
+	simpleTable, err := c.createSimpleTable(strings.Join(path, "."), wt.spec)
+	if err != nil {
+		return
+	}
+	registerWildcardTable(simpleTable, wt)
+	// Install into the wasm-side catalog tree. Walk the leading path
+	// segments as sub-catalogs so the analyzer resolves the reference
+	// in either form (fully-qualified or dataset-qualified).
+	c.installWildcardIntoCatalog(c.catalog, path, simpleTable)
+}
+
+// installWildcardIntoCatalog adds `table` under each leading namespace
+// prefix of `path`, so `project.dataset.table_*` resolves regardless
+// of whether the query omits the project identifier.
+func (c *Catalog) installWildcardIntoCatalog(cat *googlesql.SimpleCatalog, path []string, table *googlesql.SimpleTable) {
+	if len(path) == 0 {
+		return
+	}
+	if len(path) == 1 {
+		if c.existsTable(cat, path[0]) {
+			return
+		}
+		_ = cat.AddTable2(path[0], table)
+		return
+	}
+	subName := path[0]
+	sub := c.getOrCreateSubCatalog(cat, subName)
+	c.installWildcardIntoCatalog(cat, path[1:], table)
+	c.installWildcardIntoCatalog(sub, path[1:], table)
+}
+
 func (c *Catalog) normalizeTablePath(path []string) []string {
 	result := []string{}
 	for _, p := range path {

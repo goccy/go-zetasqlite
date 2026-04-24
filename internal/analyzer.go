@@ -6,6 +6,7 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"runtime"
+	"strconv"
 	"strings"
 
 	googlesql "github.com/goccy/go-googlesql"
@@ -246,6 +247,125 @@ func collectStatementsFromList(list *googlesql.ASTStatementList) []googlesql.AST
 	return out
 }
 
+// validateLiteralCasts walks the AST looking for CAST(<string-literal>
+// AS <numeric-type>) expressions where the literal would fail at
+// runtime. googlesql's analyzer currently does not fold such casts at
+// analysis time; rejecting them here produces the
+// "Could not cast literal" message users expect, and matches the
+// historical zetasql behavior.
+func validateLiteralCasts(stmt googlesql.ASTStatementNode, query string) error {
+	var firstErr error
+	_ = ASTWalk(stmt, func(node googlesql.ASTNodeNode) error {
+		if firstErr != nil {
+			return nil
+		}
+		cast, ok := node.(googlesql.ASTCastExpressionNode)
+		if !ok {
+			return nil
+		}
+		exprNode, _ := cast.Expr()
+		strLit, ok := exprNode.(googlesql.ASTStringLiteralNode)
+		if !ok {
+			return nil
+		}
+		strVal, _ := strLit.StringValue()
+		typeNode, _ := cast.Type()
+		simple, ok := typeNode.(googlesql.ASTSimpleTypeNode)
+		if !ok {
+			return nil
+		}
+		path, _ := simple.TypeName()
+		ids, _ := path.ToIdentifierVector()
+		if len(ids) != 1 {
+			return nil
+		}
+		typeName := strings.ToUpper(ids[0])
+		switch typeName {
+		case "INT32", "INT64", "UINT32", "UINT64":
+			// Mirror StringValue.ToInt64: base 0 for hex/0x-prefixed.
+			base := 10
+			if strings.Contains(strings.ToLower(strVal), "0x") {
+				base = 0
+			}
+			if _, perr := strconv.ParseInt(strVal, base, 64); perr == nil {
+				return nil
+			}
+			if _, perr := strconv.ParseInt(strVal, 0, 64); perr == nil {
+				return nil
+			}
+		case "FLOAT", "FLOAT64", "DOUBLE":
+			if _, perr := strconv.ParseFloat(strVal, 64); perr == nil {
+				return nil
+			}
+		default:
+			return nil
+		}
+		if m1(cast.IsSafeCast()) {
+			return nil
+		}
+		line, col := parseLocationLineCol(cast, query)
+		firstErr = fmt.Errorf(
+			"failed to analyze: INVALID_ARGUMENT: Could not cast literal %q to type %s [at %d:%d]",
+			strVal, typeName, line, col,
+		)
+		return nil
+	})
+	return firstErr
+}
+
+// parseLocationLineCol converts the byte offset of an AST node's start
+// location into a 1-indexed (line, column) pair relative to the query
+// string. Falls back to (1, 1) if the location isn't available.
+func parseLocationLineCol(node googlesql.ASTNodeNode, query string) (int, int) {
+	sp, err := node.StartLocation()
+	if err != nil || sp == nil {
+		return 1, 1
+	}
+	off, err := sp.GetByteOffset()
+	if err != nil {
+		return 1, 1
+	}
+	line, col := 1, 1
+	for i := int32(0); i < off && int(i) < len(query); i++ {
+		if query[i] == '\n' {
+			line++
+			col = 1
+		} else {
+			col++
+		}
+	}
+	return line, col
+}
+
+// preRegisterWildcardTables walks the AST looking for table references
+// whose last path segment ends with `*` (e.g. `project.dataset.table_*`).
+// For each such reference, build the corresponding wildcard table and
+// add it to the wasm-side catalog so the analyzer resolves the
+// reference. The googlesql SimpleCatalog has no native wildcard
+// support, so we pre-register an equivalent SimpleTable here.
+func (a *Analyzer) preRegisterWildcardTables(stmt googlesql.ASTStatementNode) {
+	_ = ASTWalk(stmt, func(node googlesql.ASTNodeNode) error {
+		tpath, ok := node.(googlesql.ASTTablePathExpressionNode)
+		if !ok {
+			return nil
+		}
+		pe, _ := tpath.PathExpr()
+		if pe == nil {
+			return nil
+		}
+		ids, _ := pe.ToIdentifierVector()
+		if len(ids) == 0 {
+			return nil
+		}
+		last := ids[len(ids)-1]
+		if last == "" || last[len(last)-1] != '*' {
+			return nil
+		}
+		a.catalog.registerWildcardTableByPath(ids)
+		return nil
+	})
+}
+
 // countPositionalParams walks the AST counting `?` occurrences. Used to
 // split positional arguments across statements in a multi-statement
 // script, where the resolved-tree walker's limited descent otherwise
@@ -316,6 +436,10 @@ func (a *Analyzer) Analyze(ctx context.Context, conn *Conn, query string, args [
 			if err != nil {
 				return nil, err
 			}
+			if err := validateLiteralCasts(stmt, query); err != nil {
+				return nil, err
+			}
+			a.preRegisterWildcardTables(stmt)
 			a.opt.SetParameterMode(mode)
 			out, err := AnalyzeStatementFromParserAST(
 				query,
@@ -644,6 +768,10 @@ func (a *Analyzer) newDropFunctionStmtAction(ctx context.Context, query string, 
 }
 
 func (a *Analyzer) newDMLStmtAction(ctx context.Context, query string, args []driver.NamedValue, node googlesql.ResolvedNodeNode) (*DMLStmtAction, error) {
+	// For INSERT statements, reshape struct-valued args against the
+	// target InsertColumnList types so sparse Go maps expand to match
+	// the declared STRUCT field order. See reshapeInsertArgs.
+	args = reshapeInsertArgs(args, node)
 	formattedQuery, err := newNode(node).FormatSQL(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to format query %s: %w", query, err)
@@ -662,6 +790,70 @@ func (a *Analyzer) newDMLStmtAction(ctx context.Context, query string, args []dr
 		args:           queryArgs,
 		formattedQuery: formattedQuery,
 	}, nil
+}
+
+// reshapeInsertArgs adjusts args for ResolvedInsertStmt so struct-typed
+// columns receive fully-populated struct values (missing fields filled
+// with nil, fields in declaration order). Go callers sometimes pass
+// sparse maps that don't enumerate every declared field; without this,
+// downstream STRUCT_FIELD(value, index) reads land out-of-range.
+func reshapeInsertArgs(args []driver.NamedValue, node googlesql.ResolvedNodeNode) []driver.NamedValue {
+	if len(args) == 0 {
+		return args
+	}
+	insert, ok := node.(googlesql.ResolvedInsertStmtNode)
+	if !ok {
+		return args
+	}
+	cols, err := insert.InsertColumnList()
+	if err != nil || len(cols) == 0 {
+		return args
+	}
+	// Align args to columns positionally. Fewer args than columns is
+	// fine (extra columns may receive defaults); extra args are passed
+	// through unchanged (they may belong to WHERE clauses).
+	out := make([]driver.NamedValue, len(args))
+	copy(out, args)
+	n := len(cols)
+	if n > len(out) {
+		n = len(out)
+	}
+	for i := 0; i < n; i++ {
+		colType, err := cols[i].Type()
+		if err != nil || colType == nil {
+			continue
+		}
+		out[i].Value = reshapeArgToType(out[i].Value, colType)
+	}
+	return out
+}
+
+// reshapeArgToType takes a single arg value (possibly a
+// zetasqlite-encoded base64 string or a raw Go value) and a declared
+// googlesql type, and returns a value whose underlying structure
+// matches the declared type. Only STRUCT reshape is interesting here;
+// other shapes pass through unchanged.
+func reshapeArgToType(v interface{}, t googlesql.Googlesql_TypeNode) interface{} {
+	if v == nil || t == nil {
+		return v
+	}
+	kind, _ := t.Kind()
+	if kind != googlesql.TypeKindTypeStruct {
+		return v
+	}
+	val, err := DecodeValue(v)
+	if err != nil || val == nil {
+		return v
+	}
+	reshaped, err := CastValue(t, val)
+	if err != nil || reshaped == nil {
+		return v
+	}
+	out, err := EncodeValue(reshaped)
+	if err != nil {
+		return v
+	}
+	return out
 }
 
 func (a *Analyzer) newQueryStmtAction(ctx context.Context, query string, args []driver.NamedValue, node googlesql.ResolvedQueryStmtNode) (*QueryStmtAction, error) {
