@@ -156,6 +156,16 @@ func (c *ZetaSQLiteConn) AddNamePath(path string) error {
 }
 
 func (s *ZetaSQLiteConn) CheckNamedValue(value *driver.NamedValue) error {
+	// sqlite3 only accepts standard driver.Value types. Complex Go
+	// shapes such as map[string]interface{} (STRUCT) or
+	// []interface{} (ARRAY) must be encoded into the zetasqlite
+	// base64 value layout here; otherwise Stmt.Exec rejects them as
+	// "unsupported type".
+	v, err := internal.EncodeGoValueForDriver(value.Value)
+	if err != nil {
+		return err
+	}
+	value.Value = v
 	return nil
 }
 
