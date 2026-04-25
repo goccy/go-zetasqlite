@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"runtime"
 	"strconv"
 	"strings"
 
@@ -18,7 +17,6 @@ type Analyzer struct {
 	isExplainMode   bool
 	catalog         *Catalog
 	opt             *googlesql.AnalyzerOptions
-	parserOpts      *googlesql.ParserOptions
 }
 
 func NewAnalyzer(catalog *Catalog) (*Analyzer, error) {
@@ -146,36 +144,13 @@ func (a *Analyzer) AddNamePath(path string) error {
 	return a.namePath.addPath(path)
 }
 
-// parsedScript bundles parsed statements with the ParseResumeLocation and
-// ParserOutputs they were produced from. The wasmify generator does not yet
-// propagate parent-child ownership to the Go wrappers (child handles don't
-// retain their owning parent), so callers must hold on to the parent handles
-// for as long as they keep using any AST nodes — otherwise a Go GC cycle can
-// free the parent's wasm-side tree while the children are still in use.
+// parsedScript bundles parsed statements with the handles they point
+// into. The ParserOutput handles own the AST subtrees referenced by
+// stmts; keeping them live here lets callers iterate AST nodes without
+// them being freed mid-iteration.
 type parsedScript struct {
-	loc     *googlesql.ParseResumeLocation
 	outputs []*googlesql.ParserOutput
 	stmts   []googlesql.ASTStatementNode
-}
-
-// Close releases the wasm-side C++ objects owned by this parsed script. It
-// is idempotent — double-close is a no-op because the generated Close()
-// methods guard on a zeroed ptr.
-func (p *parsedScript) Close() {
-	if p == nil {
-		return
-	}
-	for _, out := range p.outputs {
-		if out != nil {
-			out.Close()
-		}
-	}
-	p.outputs = nil
-	if p.loc != nil {
-		p.loc.Close()
-		p.loc = nil
-	}
-	p.stmts = nil
 }
 
 func (a *Analyzer) parseScript(query string) (*parsedScript, error) {
@@ -183,22 +158,15 @@ func (a *Analyzer) parseScript(query string) (*parsedScript, error) {
 	if loc == nil {
 		return nil, fmt.Errorf("failed to create parse resume location for %q: %w", query, locErr)
 	}
-	// Cache the ParserOptions on the Analyzer. GetParserOptions returns a
-	// fresh handle each time (the C++ side builds a copy) and, without
-	// caching, every query adds one more ParserOptions to the wasm heap
-	// until the module exhausts its 4 GiB linear memory.
-	if a.parserOpts == nil {
-		parserOpts, err := a.opt.GetParserOptions()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get parser options: %w", err)
-		}
-		a.parserOpts = parserOpts
+	parserOpts, err := a.opt.GetParserOptions()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get parser options: %w", err)
 	}
-	result := &parsedScript{loc: loc}
+	result := &parsedScript{}
 	input, _ := loc.Input()
 	inputLen := int32(len(input))
 	for {
-		out, err := googlesql.ParseNextScriptStatement(loc, a.parserOpts)
+		out, err := googlesql.ParseNextScriptStatement(loc, parserOpts)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse statement: %w", err)
 		}
@@ -424,14 +392,9 @@ func (a *Analyzer) Analyze(ctx context.Context, conn *Conn, query string, args [
 		funcMap[spec.FuncName()] = spec
 	}
 	actionFuncs := make([]StmtActionFunc, 0, len(parsed.stmts))
-	for idx, stmt := range parsed.stmts {
+	for _, stmt := range parsed.stmts {
 		stmt := stmt
-		isLast := idx == len(parsed.stmts)-1
 		actionFuncs = append(actionFuncs, func() (StmtAction, error) {
-			// Keep the ParseResumeLocation / ParserOutputs alive so the
-			// AST tree stmt points into is not freed out from under us
-			// while this action runs. See parsedScript for context.
-			defer runtime.KeepAlive(parsed)
 			mode, err := a.getParameterMode(stmt)
 			if err != nil {
 				return nil, err
@@ -466,46 +429,10 @@ func (a *Analyzer) Analyze(ctx context.Context, conn *Conn, query string, args [
 				}
 				args = args[consumed:]
 			}
-			// Wrap with closingStmtAction so that Cleanup also releases
-			// the AnalyzerOutput (which owns the huge resolved tree) and
-			// — on the last stmt — the ParseResumeLocation + ParserOutputs.
-			// Without this, running many queries against a single analyzer
-			// accumulates wasm heap until wasm_alloc traps with "out of
-			// bounds memory access". Finalizers are too late.
-			wrapped := &closingStmtAction{StmtAction: action, analyzerOutput: out}
-			if isLast {
-				wrapped.parsed = parsed
-			}
-			return wrapped, nil
+			return action, nil
 		})
 	}
-	if len(actionFuncs) == 0 {
-		// No actions produced — still release the handles immediately.
-		parsed.Close()
-	}
 	return actionFuncs, nil
-}
-
-// closingStmtAction wraps a StmtAction so that Cleanup also releases the
-// wasm-side C++ handles owned by this statement (AnalyzerOutput; and the
-// parsed-script handles on the last action of an Analyze batch).
-type closingStmtAction struct {
-	StmtAction
-	analyzerOutput *googlesql.AnalyzerOutput
-	parsed         *parsedScript // non-nil only for the last action
-}
-
-func (c *closingStmtAction) Cleanup(ctx context.Context, conn *Conn) error {
-	err := c.StmtAction.Cleanup(ctx, conn)
-	if c.analyzerOutput != nil {
-		c.analyzerOutput.Close()
-		c.analyzerOutput = nil
-	}
-	if c.parsed != nil {
-		c.parsed.Close()
-		c.parsed = nil
-	}
-	return err
 }
 
 func (a *Analyzer) context(

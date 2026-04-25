@@ -8,7 +8,6 @@ package internal
 import (
 	"fmt"
 	"reflect"
-	"strings"
 	"unsafe"
 
 	googlesql "github.com/goccy/go-googlesql"
@@ -327,25 +326,12 @@ func NewTemplatedFunctionArgumentType(kind googlesql.SignatureArgumentKind, opti
 	return fat
 }
 
-// ---------- Nested-enum accessor stubs -----------------------------------
-//
-// The wasmify generator currently drops methods whose return type is a
-// C++ nested enum (e.g. `ResolvedCreateStatement::CreateScope`) because
-// the proto layer wraps those enums in `<Class>Enums::` and the type
-// resolver doesn't yet follow that alias. Until that lands, provide
-// zero-value fallbacks so call sites compile; runtime behaviour for
-// these specific paths is degraded but the common analyze/format flow
-// doesn't hit them.
-
 // ResolvedCreateStatementCreateScope returns the scope (DEFAULT / TEMP /
-// PRIVATE / PUBLIC) of any ResolvedCreateStatement-derived node. All
-// CREATE-family resolved nodes embed *ResolvedCreateStatement, so the
-// CreateScope() accessor is method-promoted onto them; the interface
-// check below picks it up regardless of the concrete subtype.
+// PRIVATE / PUBLIC) of any ResolvedCreateStatement-derived node. Every
+// CREATE-family resolved node embeds *ResolvedCreateStatement, so the
+// CreateScope() accessor is method-promoted; the interface assertion
+// below picks it up regardless of the concrete subtype.
 func ResolvedCreateStatementCreateScope(h interface{}) googlesql.ResolvedCreateStatementEnums_CreateScope {
-	if h == nil {
-		return googlesql.ResolvedCreateStatementEnums_CreateScopeCreateDefaultScope
-	}
 	type scopeGetter interface {
 		CreateScope() (googlesql.ResolvedCreateStatementEnums_CreateScope, error)
 	}
@@ -357,37 +343,11 @@ func ResolvedCreateStatementCreateScope(h interface{}) googlesql.ResolvedCreateS
 	return googlesql.ResolvedCreateStatementEnums_CreateScopeCreateDefaultScope
 }
 
-// ResolvedCreateStatementIsTempFromQuery returns true when the raw SQL
-// text carries a TEMP / TEMPORARY keyword on the CREATE statement.
-// Workaround until the generator exposes CreateScope() as an accessor
-// on ResolvedCreateStatement (nested-enum return type).
-func ResolvedCreateStatementIsTempFromQuery(query string) bool {
-	q := strings.ToUpper(query)
-	// Strip leading whitespace before matching.
-	q = strings.TrimLeft(q, " \t\r\n")
-	if !strings.HasPrefix(q, "CREATE") {
-		return false
-	}
-	rest := strings.TrimLeft(q[len("CREATE"):], " \t\r\n")
-	// Optional OR REPLACE.
-	if strings.HasPrefix(rest, "OR REPLACE") {
-		rest = strings.TrimLeft(rest[len("OR REPLACE"):], " \t\r\n")
-	}
-	return strings.HasPrefix(rest, "TEMP TABLE") ||
-		strings.HasPrefix(rest, "TEMPORARY TABLE") ||
-		strings.HasPrefix(rest, "TEMP FUNCTION") ||
-		strings.HasPrefix(rest, "TEMPORARY FUNCTION") ||
-		strings.HasPrefix(rest, "TEMP VIEW") ||
-		strings.HasPrefix(rest, "TEMPORARY VIEW")
-}
-
-// ResolvedCreateStatementCreateMode returns the CREATE mode (DEFAULT /
-// OR_REPLACE / IF_NOT_EXISTS) of any ResolvedCreateStatement-derived
-// node via method-promoted CreateMode() accessor.
+// ResolvedCreateStatementCreateMode returns the CREATE mode
+// (DEFAULT / OR_REPLACE / IF_NOT_EXISTS) of any
+// ResolvedCreateStatement-derived node via the method-promoted
+// CreateMode() accessor.
 func ResolvedCreateStatementCreateMode(h interface{}) googlesql.ResolvedCreateStatementEnums_CreateMode {
-	if h == nil {
-		return googlesql.ResolvedCreateStatementEnums_CreateModeCreateDefault
-	}
 	type modeGetter interface {
 		CreateMode() (googlesql.ResolvedCreateStatementEnums_CreateMode, error)
 	}
@@ -705,33 +665,16 @@ const (
 
 // ---------- Multi-return → single-value helpers --------------------------
 
-// mustNode accepts a (node, err) pair returned by googlesql accessor
-// methods and adapts it to the Formatter-returning `newNode` that the
-// analyzer and formatter packages expect. Errors from accessors are
-// dropped — they only fire when the handle pointer is zero, which in
-// the resolved-AST flow means "field was unset" and the caller is
-// already prepared to handle nil. Generic so the compiler lets
-// subclass-interfaces through (ResolvedScanNode etc.) without an
-// explicit cast at the call site.
-func mustNode[T googlesql.ResolvedNodeNode](n T, _ error) googlesql.ResolvedNodeNode {
-	return n
-}
-
-// nn is a forgiving wrapper around newNode that accepts either a bare
-// ResolvedNodeNode or a (ResolvedNodeNode, error) pair — whichever the
-// googlesql accessor happens to return.
+// nn unwraps a ResolvedNodeNode from a googlesql accessor (which
+// always returns (Node, error)) so callers that only need the node
+// can pass it directly to newNode / FormatSQL without an intermediate
+// variable.
 func nn(args ...interface{}) googlesql.ResolvedNodeNode {
-	switch len(args) {
-	case 1:
-		if v, ok := args[0].(googlesql.ResolvedNodeNode); ok {
-			return v
-		}
-	case 2:
-		if v, ok := args[0].(googlesql.ResolvedNodeNode); ok {
-			return v
-		}
+	if len(args) == 0 {
+		return nil
 	}
-	return nil
+	v, _ := args[0].(googlesql.ResolvedNodeNode)
+	return v
 }
 
 // m1 drops the error from a (T, error) pair returned by googlesql

@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"runtime"
 	"sync"
 
 	"github.com/mattn/go-sqlite3"
@@ -23,7 +22,6 @@ var (
 	nameToCatalogMap = map[string]*internal.Catalog{}
 	nameToDBMap      = map[string]*sql.DB{}
 	nameToValueMapMu sync.Mutex
-	memoryCounter    uint64
 )
 
 func init() {
@@ -42,37 +40,17 @@ func init() {
 func newDBAndCatalog(name string) (*sql.DB, *internal.Catalog, error) {
 	nameToValueMapMu.Lock()
 	defer nameToValueMapMu.Unlock()
-	// `:memory:` identifies a private per-connection SQLite database, so
-	// two `sql.Open(":memory:")` calls should not share a Catalog. We
-	// disambiguate repeats with an internal counter; non-":memory:" names
-	// continue to share Catalogs keyed on the literal name so repeated
-	// opens against the same file see the same registered tables.
-	cacheKey := name
-	if name == ":memory:" {
-		memoryCounter++
-		cacheKey = fmt.Sprintf(":memory:#%d", memoryCounter)
-	}
-	if db, exists := nameToDBMap[cacheKey]; exists {
-		return db, nameToCatalogMap[cacheKey], nil
+	db, exists := nameToDBMap[name]
+	if exists {
+		return db, nameToCatalogMap[name], nil
 	}
 	db, err := sql.Open("zetasqlite_sqlite3", name)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to open database by %s: %w", name, err)
 	}
 	catalog := internal.NewCatalog(db)
-	nameToDBMap[cacheKey] = db
-	nameToCatalogMap[cacheKey] = catalog
-	// Hold weak-ish references only: once the user's *sql.DB.Close() is
-	// called, drop our references so the Catalog handle's finalizers can
-	// release the wasm-side builtin function set. TestQuery opens many
-	// :memory: dbs sequentially, and without this hook the SimpleCatalog
-	// builtins accumulate until wasm linear memory is exhausted.
-	runtime.SetFinalizer(db, func(d *sql.DB) {
-		nameToValueMapMu.Lock()
-		defer nameToValueMapMu.Unlock()
-		delete(nameToDBMap, cacheKey)
-		delete(nameToCatalogMap, cacheKey)
-	})
+	nameToDBMap[name] = db
+	nameToCatalogMap[name] = catalog
 	return db, catalog, nil
 }
 

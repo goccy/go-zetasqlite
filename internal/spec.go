@@ -575,7 +575,7 @@ func newTableSpec(namePath *NamePath, stmt googlesql.ResolvedCreateTableStmtNode
 func newTableSpecWithQuery(namePath *NamePath, query string, stmt googlesql.ResolvedCreateTableStmtNode) *TableSpec {
 	now := time.Now()
 	return &TableSpec{
-		IsTemp:     isTempCreate(query, stmt),
+		IsTemp:     ResolvedCreateStatementCreateScope(stmt) == googlesql.ResolvedCreateStatementEnums_CreateScopeCreateTemp,
 		NamePath:   namePath.mergePath(m1(stmt.NamePath())),
 		Columns:    newColumnsFromDef(m1(stmt.ColumnDefinitionList())),
 		PrimaryKey: newPrimaryKey(m1(stmt.PrimaryKey())),
@@ -583,20 +583,6 @@ func newTableSpecWithQuery(namePath *NamePath, query string, stmt googlesql.Reso
 		UpdatedAt:  now,
 		CreatedAt:  now,
 	}
-}
-
-// isTempCreate prefers the resolved-tree CreateScope accessor when it
-// returns a non-default value, and falls back to scanning the original
-// query text while that accessor is still stubbed out.
-func isTempCreate(query string, stmt any) bool {
-	scope := ResolvedCreateStatementCreateScope(stmt)
-	if scope == googlesql.ResolvedCreateStatementEnums_CreateScopeCreateTemp {
-		return true
-	}
-	if query != "" && ResolvedCreateStatementIsTempFromQuery(query) {
-		return true
-	}
-	return false
 }
 
 func newTableAsViewSpec(namePath *NamePath, query string, stmt googlesql.ResolvedCreateViewStmtNode) *TableSpec {
