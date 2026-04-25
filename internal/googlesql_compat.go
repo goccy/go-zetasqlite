@@ -365,7 +365,7 @@ func ResolvedMergeWhenMatchType(h *googlesql.ResolvedMergeWhen) googlesql.Resolv
 	if h == nil {
 		return 0
 	}
-	v, err := h.MatchTypeMethod()
+	v, err := h.MatchType()
 	if err != nil {
 		return 0
 	}
@@ -378,7 +378,7 @@ func ResolvedMergeWhenActionType(h *googlesql.ResolvedMergeWhen) googlesql.Resol
 	if h == nil {
 		return 0
 	}
-	v, err := h.ActionTypeMethod()
+	v, err := h.ActionType()
 	if err != nil {
 		return 0
 	}
@@ -386,12 +386,12 @@ func ResolvedMergeWhenActionType(h *googlesql.ResolvedMergeWhen) googlesql.Resol
 }
 
 // ResolvedJoinScanJoinType returns the concrete join kind from the resolved
-// scan. Relies on the bridge-exposed JoinTypeMethod accessor.
-func ResolvedJoinScanJoinType(h googlesql.ResolvedJoinScanNode) googlesql.ResolvedJoinScanEnums_JoinType {
+// scan. Relies on the bridge-exposed JoinType accessor.
+func ResolvedJoinScanJoinType(h *googlesql.ResolvedJoinScan) googlesql.ResolvedJoinScanEnums_JoinType {
 	if h == nil {
 		return 0
 	}
-	t, err := h.JoinTypeMethod()
+	t, err := h.JoinType()
 	if err != nil {
 		return 0
 	}
@@ -400,7 +400,7 @@ func ResolvedJoinScanJoinType(h googlesql.ResolvedJoinScanNode) googlesql.Resolv
 
 // ResolvedSetOperationScanOpType reads the concrete set-op kind
 // (UNION / INTERSECT / EXCEPT, all / distinct variants).
-func ResolvedSetOperationScanOpType(h googlesql.ResolvedSetOperationScanNode) googlesql.ResolvedSetOperationScanEnums_SetOperationType {
+func ResolvedSetOperationScanOpType(h *googlesql.ResolvedSetOperationScan) googlesql.ResolvedSetOperationScanEnums_SetOperationType {
 	if h == nil {
 		return 0
 	}
@@ -424,12 +424,12 @@ func ResolvedOrderByItemNullOrder(h *googlesql.ResolvedOrderByItem) googlesql.Re
 }
 
 // ResolvedAggregateFunctionCallNullHandlingModifier reads the promoted
-// base-class accessor NullHandlingModifierMethod.
-func ResolvedAggregateFunctionCallNullHandlingModifier(h googlesql.ResolvedAggregateFunctionCallNode) googlesql.ResolvedNonScalarFunctionCallBaseEnums_NullHandlingModifier {
+// base-class accessor NullHandlingModifier.
+func ResolvedAggregateFunctionCallNullHandlingModifier(h *googlesql.ResolvedAggregateFunctionCall) googlesql.ResolvedNonScalarFunctionCallBaseEnums_NullHandlingModifier {
 	if h == nil {
 		return 0
 	}
-	v, err := h.NullHandlingModifierMethod()
+	v, err := h.NullHandlingModifier()
 	if err != nil {
 		return 0
 	}
@@ -438,11 +438,11 @@ func ResolvedAggregateFunctionCallNullHandlingModifier(h googlesql.ResolvedAggre
 
 // ResolvedAnalyticFunctionCallNullHandlingModifier is the analytic-call
 // counterpart of the aggregate accessor.
-func ResolvedAnalyticFunctionCallNullHandlingModifier(h googlesql.ResolvedAnalyticFunctionCallNode) googlesql.ResolvedNonScalarFunctionCallBaseEnums_NullHandlingModifier {
+func ResolvedAnalyticFunctionCallNullHandlingModifier(h *googlesql.ResolvedAnalyticFunctionCall) googlesql.ResolvedNonScalarFunctionCallBaseEnums_NullHandlingModifier {
 	if h == nil {
 		return 0
 	}
-	v, err := h.NullHandlingModifierMethod()
+	v, err := h.NullHandlingModifier()
 	if err != nil {
 		return 0
 	}
@@ -454,7 +454,7 @@ func ResolvedWindowFrameFrameUnit(h *googlesql.ResolvedWindowFrame) googlesql.Re
 	if h == nil {
 		return 0
 	}
-	v, err := h.FrameUnitMethod()
+	v, err := h.FrameUnit()
 	if err != nil {
 		return 0
 	}
@@ -463,11 +463,11 @@ func ResolvedWindowFrameFrameUnit(h *googlesql.ResolvedWindowFrame) googlesql.Re
 
 // ResolvedWindowFrameExprBoundaryType reads the UNBOUNDED /
 // CURRENT ROW / OFFSET PRECEDING/FOLLOWING boundary kind.
-func ResolvedWindowFrameExprBoundaryType(h googlesql.ResolvedWindowFrameExprNode) googlesql.ResolvedWindowFrameExprEnums_BoundaryType {
+func ResolvedWindowFrameExprBoundaryType(h *googlesql.ResolvedWindowFrameExpr) googlesql.ResolvedWindowFrameExprEnums_BoundaryType {
 	if h == nil {
 		return 0
 	}
-	v, err := h.BoundaryTypeMethod()
+	v, err := h.BoundaryType()
 	if err != nil {
 		return 0
 	}
@@ -489,7 +489,7 @@ func ResolvedFunctionCallBaseErrorMode(h *googlesql.ResolvedFunctionCallBase) go
 
 // ResolvedSubqueryExprSubqueryType reads the subquery kind
 // (SCALAR / ARRAY / EXISTS / IN).
-func ResolvedSubqueryExprSubqueryType(h googlesql.ResolvedSubqueryExprNode) googlesql.ResolvedSubqueryExprEnums_SubqueryType {
+func ResolvedSubqueryExprSubqueryType(h *googlesql.ResolvedSubqueryExpr) googlesql.ResolvedSubqueryExprEnums_SubqueryType {
 	if h == nil {
 		return 0
 	}
@@ -540,7 +540,7 @@ func (n *NodeMap) Set(node any, value interface{}) {
 // zetasql.NodeMap.FindNodeFromResolvedNode shape; in practice we only
 // ever store at most one parser node per resolved key, so the slice
 // is either empty or single-element.
-func (n *NodeMap) FindNodeFromResolvedNode(node interface{}) []googlesql.ASTNodeNode {
+func (n *NodeMap) FindNodeFromResolvedNode(node interface{}) []googlesql.ASTNode {
 	ptr := rawPtrOf(node)
 	if ptr == 0 {
 		return nil
@@ -549,8 +549,8 @@ func (n *NodeMap) FindNodeFromResolvedNode(node interface{}) []googlesql.ASTNode
 	if !ok {
 		return nil
 	}
-	if astNode, ok := v.(googlesql.ASTNodeNode); ok {
-		return []googlesql.ASTNodeNode{astNode}
+	if astNode, ok := v.(googlesql.ASTNode); ok {
+		return []googlesql.ASTNode{astNode}
 	}
 	return nil
 }
@@ -560,25 +560,25 @@ func (n *NodeMap) FindNodeFromResolvedNode(node interface{}) []googlesql.ASTNode
 // Returns the first error the visitor produces. visit is typed as
 // interface{} so call sites can keep the old
 //
-//	func(n ASTNodeNode) error
+//	func(n ASTNode) error
 //
 // closure shape from go-zetasql.
 func ASTWalk(root interface{}, visit interface{}) error {
-	astRoot, _ := root.(googlesql.ASTNodeNode)
+	astRoot, _ := root.(googlesql.ASTNode)
 	if astRoot == nil {
 		return nil
 	}
-	invoke := func(n googlesql.ASTNodeNode) error {
+	invoke := func(n googlesql.ASTNode) error {
 		switch v := visit.(type) {
 		case func(node interface{}) error:
 			return v(n)
-		case func(node googlesql.ASTNodeNode) error:
+		case func(node googlesql.ASTNode) error:
 			return v(n)
 		}
 		return nil
 	}
-	var walk func(n googlesql.ASTNodeNode) error
-	walk = func(n googlesql.ASTNodeNode) error {
+	var walk func(n googlesql.ASTNode) error
+	walk = func(n googlesql.ASTNode) error {
 		if n == nil {
 			return nil
 		}
@@ -612,8 +612,8 @@ func ResolvedWalk(root interface{}, visit interface{}) error {
 	switch v := visit.(type) {
 	case func(node interface{}) error:
 		return v(root)
-	case func(n googlesql.ResolvedNodeNode) error:
-		if n, ok := root.(googlesql.ResolvedNodeNode); ok {
+	case func(n googlesql.ResolvedNode) error:
+		if n, ok := root.(googlesql.ResolvedNode); ok {
 			return v(n)
 		}
 	}
@@ -665,15 +665,15 @@ const (
 
 // ---------- Multi-return → single-value helpers --------------------------
 
-// nn unwraps a ResolvedNodeNode from a googlesql accessor (which
+// nn unwraps a ResolvedNode from a googlesql accessor (which
 // always returns (Node, error)) so callers that only need the node
 // can pass it directly to newNode / FormatSQL without an intermediate
 // variable.
-func nn(args ...interface{}) googlesql.ResolvedNodeNode {
+func nn(args ...interface{}) googlesql.ResolvedNode {
 	if len(args) == 0 {
 		return nil
 	}
-	v, _ := args[0].(googlesql.ResolvedNodeNode)
+	v, _ := args[0].(googlesql.ResolvedNode)
 	return v
 }
 

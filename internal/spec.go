@@ -391,7 +391,7 @@ func newTypeFromFunctionArgumentType(t *googlesql.FunctionArgumentType) *Type {
 	return newType(m1(t.Type()))
 }
 
-func newFunctionSpec(ctx context.Context, namePath *NamePath, stmt googlesql.ResolvedCreateFunctionStmtNode) (*FunctionSpec, error) {
+func newFunctionSpec(ctx context.Context, namePath *NamePath, stmt *googlesql.ResolvedCreateFunctionStmt) (*FunctionSpec, error) {
 	args := []*NameWithType{}
 	signature, _ := stmt.Signature()
 	for _, arg := range compatSignatureArguments(signature) {
@@ -470,7 +470,7 @@ func newTypeFromFunctionArgumentTypeByRealType(t *googlesql.FunctionArgumentType
 	return newType(m1(t.Type()))
 }
 
-func newTemplatedFunctionSpec(ctx context.Context, namePath *NamePath, stmt googlesql.ResolvedCreateFunctionStmtNode, realStmts []googlesql.ResolvedCreateFunctionStmtNode) (*FunctionSpec, error) {
+func newTemplatedFunctionSpec(ctx context.Context, namePath *NamePath, stmt *googlesql.ResolvedCreateFunctionStmt, realStmts []*googlesql.ResolvedCreateFunctionStmt) (*FunctionSpec, error) {
 	signature, _ := stmt.Signature()
 	arguments := compatSignatureArguments(signature)
 	realStmt := realStmts[0]
@@ -528,7 +528,7 @@ func newTemplatedFunctionSpec(ctx context.Context, namePath *NamePath, stmt goog
 	}, nil
 }
 
-func newColumnsFromDef(def []googlesql.ResolvedColumnDefinitionNode) []*ColumnSpec {
+func newColumnsFromDef(def []*googlesql.ResolvedColumnDefinition) []*ColumnSpec {
 	columns := []*ColumnSpec{}
 	for _, columnNode := range def {
 		annotation, _ := columnNode.Annotations()
@@ -547,7 +547,7 @@ func newColumnsFromDef(def []googlesql.ResolvedColumnDefinitionNode) []*ColumnSp
 	return columns
 }
 
-func newColumnsFromOutputColumns(def []googlesql.ResolvedOutputColumnNode) []*ColumnSpec {
+func newColumnsFromOutputColumns(def []*googlesql.ResolvedOutputColumn) []*ColumnSpec {
 	columns := []*ColumnSpec{}
 	for _, columnNode := range def {
 		column, _ := columnNode.Column()
@@ -560,7 +560,7 @@ func newColumnsFromOutputColumns(def []googlesql.ResolvedOutputColumnNode) []*Co
 	return columns
 }
 
-func newPrimaryKey(key googlesql.ResolvedPrimaryKeyNode) []string {
+func newPrimaryKey(key *googlesql.ResolvedPrimaryKey) []string {
 	if key == nil {
 		return nil
 	}
@@ -568,11 +568,11 @@ func newPrimaryKey(key googlesql.ResolvedPrimaryKeyNode) []string {
 	return names
 }
 
-func newTableSpec(namePath *NamePath, stmt googlesql.ResolvedCreateTableStmtNode) *TableSpec {
+func newTableSpec(namePath *NamePath, stmt *googlesql.ResolvedCreateTableStmt) *TableSpec {
 	return newTableSpecWithQuery(namePath, "", stmt)
 }
 
-func newTableSpecWithQuery(namePath *NamePath, query string, stmt googlesql.ResolvedCreateTableStmtNode) *TableSpec {
+func newTableSpecWithQuery(namePath *NamePath, query string, stmt *googlesql.ResolvedCreateTableStmt) *TableSpec {
 	now := time.Now()
 	return &TableSpec{
 		IsTemp:     ResolvedCreateStatementCreateScope(stmt) == googlesql.ResolvedCreateStatementEnums_CreateScopeCreateTemp,
@@ -585,7 +585,7 @@ func newTableSpecWithQuery(namePath *NamePath, query string, stmt googlesql.Reso
 	}
 }
 
-func newTableAsViewSpec(namePath *NamePath, query string, stmt googlesql.ResolvedCreateViewStmtNode) *TableSpec {
+func newTableAsViewSpec(namePath *NamePath, query string, stmt *googlesql.ResolvedCreateViewStmt) *TableSpec {
 	var outputColumns []string
 	outList, _ := stmt.OutputColumnList()
 	for _, column := range outList {
@@ -611,7 +611,7 @@ func newTableAsViewSpec(namePath *NamePath, query string, stmt googlesql.Resolve
 	}
 }
 
-func newTableAsSelectSpec(namePath *NamePath, query string, stmt googlesql.ResolvedCreateTableAsSelectStmtNode) *TableSpec {
+func newTableAsSelectSpec(namePath *NamePath, query string, stmt *googlesql.ResolvedCreateTableAsSelectStmt) *TableSpec {
 	var outputColumns []string
 	for _, column := range m1(stmt.OutputColumnList()) {
 		colName, _ := column.Name()

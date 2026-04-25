@@ -26,7 +26,7 @@ var (
 // getParamsFromNode returns a full list, this fallback can go away and
 // EncodeGoValues alone will type-check each argument against the
 // zetasql-inferred type.
-func encodeOrPassArgs(values []interface{}, params []googlesql.ResolvedParameterNode) ([]interface{}, error) {
+func encodeOrPassArgs(values []interface{}, params []*googlesql.ResolvedParameter) ([]interface{}, error) {
 	if len(params) == 0 && len(values) > 0 {
 		out := make([]interface{}, len(values))
 		copy(out, values)
@@ -146,11 +146,11 @@ func newCreateFunctionStmt(conn *Conn, catalog *Catalog, spec *FunctionSpec) *Cr
 
 type DMLStmt struct {
 	stmt           *sql.Stmt
-	args           []googlesql.ResolvedParameterNode
+	args           []*googlesql.ResolvedParameter
 	formattedQuery string
 }
 
-func newDMLStmt(stmt *sql.Stmt, args []googlesql.ResolvedParameterNode, formattedQuery string) *DMLStmt {
+func newDMLStmt(stmt *sql.Stmt, args []*googlesql.ResolvedParameter, formattedQuery string) *DMLStmt {
 	return &DMLStmt{
 		stmt:           stmt,
 		args:           args,
@@ -209,12 +209,12 @@ func (s *DMLStmt) QueryContext(ctx context.Context, query string, args []driver.
 
 type QueryStmt struct {
 	stmt           *sql.Stmt
-	args           []googlesql.ResolvedParameterNode
+	args           []*googlesql.ResolvedParameter
 	formattedQuery string
 	outputColumns  []*ColumnSpec
 }
 
-func newQueryStmt(stmt *sql.Stmt, args []googlesql.ResolvedParameterNode, formattedQuery string, outputColumns []*ColumnSpec) *QueryStmt {
+func newQueryStmt(stmt *sql.Stmt, args []*googlesql.ResolvedParameter, formattedQuery string, outputColumns []*ColumnSpec) *QueryStmt {
 	return &QueryStmt{
 		stmt:           stmt,
 		args:           args,

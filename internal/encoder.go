@@ -16,7 +16,7 @@ import (
 	googlesql "github.com/goccy/go-googlesql"
 )
 
-func EncodeNamedValues(v []driver.NamedValue, params []googlesql.ResolvedParameterNode) ([]sql.NamedArg, error) {
+func EncodeNamedValues(v []driver.NamedValue, params []*googlesql.ResolvedParameter) ([]sql.NamedArg, error) {
 	if len(v) != len(params) {
 		return nil, fmt.Errorf(
 			"failed to match named values num (%d) and params num (%d)",
@@ -34,7 +34,7 @@ func EncodeNamedValues(v []driver.NamedValue, params []googlesql.ResolvedParamet
 	return ret, nil
 }
 
-func EncodeGoValues(v []interface{}, params []googlesql.ResolvedParameterNode) ([]interface{}, error) {
+func EncodeGoValues(v []interface{}, params []*googlesql.ResolvedParameter) ([]interface{}, error) {
 	if len(v) != len(params) {
 		return nil, fmt.Errorf(
 			"failed to match args values num (%d) and params num (%d)",
@@ -143,7 +143,7 @@ func ValueFromZetaSQLValue(v googlesql.Value) (Value, error) {
 	if m1(v.IsNull()) {
 		return nil, nil
 	}
-	switch m1(v.TypeKindMethod()) {
+	switch m1(v.TypeKind()) {
 	case googlesql.TypeKindTypeInt32, googlesql.TypeKindTypeInt64, googlesql.TypeKindTypeUint32, googlesql.TypeKindTypeUint64:
 		return intValueFromLiteral(m1(v.GetSQLLiteral()))
 	case googlesql.TypeKindTypeBool:
@@ -151,7 +151,7 @@ func ValueFromZetaSQLValue(v googlesql.Value) (Value, error) {
 	case googlesql.TypeKindTypeFloat, googlesql.TypeKindTypeDouble:
 		return floatValueFromLiteral(m1(v.GetSQLLiteral()))
 	case googlesql.TypeKindTypeString:
-		return StringValue(m1(v.StringValueMethod())), nil
+		return StringValue(m1(v.StringValue())), nil
 	case googlesql.TypeKindTypeEnum:
 		return stringValueFromLiteral(m1(v.GetSQLLiteral()))
 	case googlesql.TypeKindTypeBytes:
@@ -179,7 +179,7 @@ func ValueFromZetaSQLValue(v googlesql.Value) (Value, error) {
 	case googlesql.TypeKindTypeStruct:
 		return structValueFromLiteral(v)
 	}
-	return nil, fmt.Errorf("unsupported literal type: %v", m1(v.TypeKindMethod()))
+	return nil, fmt.Errorf("unsupported literal type: %v", m1(v.TypeKind()))
 }
 
 func intValueFromLiteral(lit string) (IntValue, error) {
@@ -372,7 +372,7 @@ func CastValue(t googlesql.Googlesql_TypeNode, v Value) (Value, error) {
 	if v == nil {
 		return nil, nil
 	}
-	// Googlesql_TypeNode carries KindMethod directly, no upcast needed.
+	// Googlesql_TypeNode carries Kind directly, no upcast needed.
 	switch m1(t.Kind()) {
 	case googlesql.TypeKindTypeInt32, googlesql.TypeKindTypeInt64, googlesql.TypeKindTypeUint32, googlesql.TypeKindTypeUint64:
 		i64, err := v.ToInt64()
@@ -651,7 +651,7 @@ func valueFromGoReflectValue(v reflect.Value) (Value, error) {
 	return nil, fmt.Errorf("cannot convert %s type to zetasqlite value type", kind)
 }
 
-func encodeNamedValue(v driver.NamedValue, param googlesql.ResolvedParameterNode) (sql.NamedArg, error) {
+func encodeNamedValue(v driver.NamedValue, param *googlesql.ResolvedParameter) (sql.NamedArg, error) {
 	value, err := EncodeGoValue(m1(param.Type()), v.Value)
 	if err != nil {
 		return sql.NamedArg{}, err

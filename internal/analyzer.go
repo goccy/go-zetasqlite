@@ -223,22 +223,22 @@ func collectStatementsFromList(list *googlesql.ASTStatementList) []googlesql.AST
 // historical zetasql behavior.
 func validateLiteralCasts(stmt googlesql.ASTStatementNode, query string) error {
 	var firstErr error
-	_ = ASTWalk(stmt, func(node googlesql.ASTNodeNode) error {
+	_ = ASTWalk(stmt, func(node googlesql.ASTNode) error {
 		if firstErr != nil {
 			return nil
 		}
-		cast, ok := node.(googlesql.ASTCastExpressionNode)
+		cast, ok := node.(*googlesql.ASTCastExpression)
 		if !ok {
 			return nil
 		}
 		exprNode, _ := cast.Expr()
-		strLit, ok := exprNode.(googlesql.ASTStringLiteralNode)
+		strLit, ok := exprNode.(*googlesql.ASTStringLiteral)
 		if !ok {
 			return nil
 		}
 		strVal, _ := strLit.StringValue()
 		typeNode, _ := cast.Type()
-		simple, ok := typeNode.(googlesql.ASTSimpleTypeNode)
+		simple, ok := typeNode.(*googlesql.ASTSimpleType)
 		if !ok {
 			return nil
 		}
@@ -284,7 +284,7 @@ func validateLiteralCasts(stmt googlesql.ASTStatementNode, query string) error {
 // parseLocationLineCol converts the byte offset of an AST node's start
 // location into a 1-indexed (line, column) pair relative to the query
 // string. Falls back to (1, 1) if the location isn't available.
-func parseLocationLineCol(node googlesql.ASTNodeNode, query string) (int, int) {
+func parseLocationLineCol(node googlesql.ASTNode, query string) (int, int) {
 	sp, err := node.StartLocation()
 	if err != nil || sp == nil {
 		return 1, 1
@@ -312,8 +312,8 @@ func parseLocationLineCol(node googlesql.ASTNodeNode, query string) (int, int) {
 // reference. The googlesql SimpleCatalog has no native wildcard
 // support, so we pre-register an equivalent SimpleTable here.
 func (a *Analyzer) preRegisterWildcardTables(stmt googlesql.ASTStatementNode) {
-	_ = ASTWalk(stmt, func(node googlesql.ASTNodeNode) error {
-		tpath, ok := node.(googlesql.ASTTablePathExpressionNode)
+	_ = ASTWalk(stmt, func(node googlesql.ASTNode) error {
+		tpath, ok := node.(*googlesql.ASTTablePathExpression)
 		if !ok {
 			return nil
 		}
@@ -340,8 +340,8 @@ func (a *Analyzer) preRegisterWildcardTables(stmt googlesql.ASTStatementNode) {
 // mis-reports per-statement parameter counts.
 func countPositionalParams(stmt googlesql.ASTStatementNode) int {
 	var n int
-	_ = ASTWalk(stmt, func(node googlesql.ASTNodeNode) error {
-		if p, ok := node.(googlesql.ASTParameterExprNode); ok {
+	_ = ASTWalk(stmt, func(node googlesql.ASTNode) error {
+		if p, ok := node.(*googlesql.ASTParameterExpr); ok {
 			if m1(p.Position()) > 0 {
 				n++
 			}
@@ -356,9 +356,9 @@ func (a *Analyzer) getParameterMode(stmt googlesql.ASTStatementNode) (googlesql.
 		enabledNamedParameter      bool
 		enabledPositionalParameter bool
 	)
-	_ = ASTWalk(stmt, func(node googlesql.ASTNodeNode) error {
+	_ = ASTWalk(stmt, func(node googlesql.ASTNode) error {
 		switch n := node.(type) {
-		case googlesql.ASTParameterExprNode:
+		case *googlesql.ASTParameterExpr:
 			if m1(n.Position()) > 0 {
 				enabledPositionalParameter = true
 			}
@@ -413,7 +413,7 @@ func (a *Analyzer) Analyze(ctx context.Context, conn *Conn, query string, args [
 			if err != nil {
 				return nil, fmt.Errorf("failed to analyze: %w", err)
 			}
-			stmtNode, _ := out.ResolvedStatementMethod()
+			stmtNode, _ := out.ResolvedStatement()
 			ctx = a.context(ctx, funcMap, stmtNode, stmt)
 			action, err := a.newStmtAction(ctx, query, args, stmtNode)
 			if err != nil {
@@ -455,8 +455,8 @@ func (a *Analyzer) analyzeTemplatedFunctionWithRuntimeArgument(ctx context.Conte
 	if err != nil {
 		return nil, fmt.Errorf("failed to analyze: %w", err)
 	}
-	node, _ := out.ResolvedStatementMethod()
-	stmt, ok := node.(googlesql.ResolvedCreateFunctionStmtNode)
+	node, _ := out.ResolvedStatement()
+	stmt, ok := node.(*googlesql.ResolvedCreateFunctionStmt)
 	if !ok {
 		return nil, fmt.Errorf("unexpected create function query %s", query)
 	}
@@ -471,29 +471,29 @@ func (a *Analyzer) newStmtAction(ctx context.Context, query string, args []drive
 	kind, _ := node.NodeKind()
 	switch kind {
 	case googlesql.ResolvedNodeKindResolvedCreateTableStmt:
-		return a.newCreateTableStmtAction(ctx, query, args, node.(googlesql.ResolvedCreateTableStmtNode))
+		return a.newCreateTableStmtAction(ctx, query, args, node.(*googlesql.ResolvedCreateTableStmt))
 	case googlesql.ResolvedNodeKindResolvedCreateTableAsSelectStmt:
 		ctx = withUseColumnID(ctx)
-		return a.newCreateTableAsSelectStmtAction(ctx, query, args, node.(googlesql.ResolvedCreateTableAsSelectStmtNode))
+		return a.newCreateTableAsSelectStmtAction(ctx, query, args, node.(*googlesql.ResolvedCreateTableAsSelectStmt))
 	case googlesql.ResolvedNodeKindResolvedCreateFunctionStmt:
-		return a.newCreateFunctionStmtAction(ctx, query, args, node.(googlesql.ResolvedCreateFunctionStmtNode))
+		return a.newCreateFunctionStmtAction(ctx, query, args, node.(*googlesql.ResolvedCreateFunctionStmt))
 	case googlesql.ResolvedNodeKindResolvedCreateViewStmt:
 		ctx = withUseColumnID(ctx)
-		return a.newCreateViewStmtAction(ctx, query, args, node.(googlesql.ResolvedCreateViewStmtNode))
+		return a.newCreateViewStmtAction(ctx, query, args, node.(*googlesql.ResolvedCreateViewStmt))
 	case googlesql.ResolvedNodeKindResolvedDropStmt:
-		return a.newDropStmtAction(ctx, query, args, node.(googlesql.ResolvedDropStmtNode))
+		return a.newDropStmtAction(ctx, query, args, node.(*googlesql.ResolvedDropStmt))
 	case googlesql.ResolvedNodeKindResolvedDropFunctionStmt:
-		return a.newDropFunctionStmtAction(ctx, query, args, node.(googlesql.ResolvedDropFunctionStmtNode))
+		return a.newDropFunctionStmtAction(ctx, query, args, node.(*googlesql.ResolvedDropFunctionStmt))
 	case googlesql.ResolvedNodeKindResolvedInsertStmt, googlesql.ResolvedNodeKindResolvedUpdateStmt, googlesql.ResolvedNodeKindResolvedDeleteStmt:
 		return a.newDMLStmtAction(ctx, query, args, node)
 	case googlesql.ResolvedNodeKindResolvedTruncateStmt:
-		return a.newTruncateStmtAction(ctx, query, args, node.(googlesql.ResolvedTruncateStmtNode))
+		return a.newTruncateStmtAction(ctx, query, args, node.(*googlesql.ResolvedTruncateStmt))
 	case googlesql.ResolvedNodeKindResolvedMergeStmt:
 		ctx = withUseColumnID(ctx)
-		return a.newMergeStmtAction(ctx, query, args, node.(googlesql.ResolvedMergeStmtNode))
+		return a.newMergeStmtAction(ctx, query, args, node.(*googlesql.ResolvedMergeStmt))
 	case googlesql.ResolvedNodeKindResolvedQueryStmt:
 		ctx = withUseColumnID(ctx)
-		return a.newQueryStmtAction(ctx, query, args, node.(googlesql.ResolvedQueryStmtNode))
+		return a.newQueryStmtAction(ctx, query, args, node.(*googlesql.ResolvedQueryStmt))
 	case googlesql.ResolvedNodeKindResolvedBeginStmt:
 		return a.newBeginStmtAction(ctx, query, args, node)
 	case googlesql.ResolvedNodeKindResolvedCommitStmt:
@@ -503,7 +503,7 @@ func (a *Analyzer) newStmtAction(ctx context.Context, query string, args []drive
 	return nil, fmt.Errorf("unsupported stmt %s", dbg)
 }
 
-func (a *Analyzer) newCreateTableStmtAction(_ context.Context, query string, args []driver.NamedValue, node googlesql.ResolvedCreateTableStmtNode) (*CreateTableStmtAction, error) {
+func (a *Analyzer) newCreateTableStmtAction(_ context.Context, query string, args []driver.NamedValue, node *googlesql.ResolvedCreateTableStmt) (*CreateTableStmtAction, error) {
 	spec := newTableSpecWithQuery(a.namePath, query, node)
 	params := getParamsFromNode(node)
 	queryArgs, err := getArgsFromParams(args, params)
@@ -519,7 +519,7 @@ func (a *Analyzer) newCreateTableStmtAction(_ context.Context, query string, arg
 	}, nil
 }
 
-func (a *Analyzer) newCreateTableAsSelectStmtAction(ctx context.Context, _ string, args []driver.NamedValue, node googlesql.ResolvedCreateTableAsSelectStmtNode) (*CreateTableStmtAction, error) {
+func (a *Analyzer) newCreateTableAsSelectStmtAction(ctx context.Context, _ string, args []driver.NamedValue, node *googlesql.ResolvedCreateTableAsSelectStmt) (*CreateTableStmtAction, error) {
 	query, err := newNode(nn(node.Query())).FormatSQL(ctx)
 	if err != nil {
 		return nil, err
@@ -539,7 +539,7 @@ func (a *Analyzer) newCreateTableAsSelectStmtAction(ctx context.Context, _ strin
 	}, nil
 }
 
-func (a *Analyzer) newCreateFunctionStmtAction(ctx context.Context, query string, _ []driver.NamedValue, node googlesql.ResolvedCreateFunctionStmtNode) (*CreateFunctionStmtAction, error) {
+func (a *Analyzer) newCreateFunctionStmtAction(ctx context.Context, query string, _ []driver.NamedValue, node *googlesql.ResolvedCreateFunctionStmt) (*CreateFunctionStmtAction, error) {
 	var spec *FunctionSpec
 	if a.resultTypeIsTemplatedType(m1(node.Signature())) {
 		realStmts, err := a.inferTemplatedTypeByRealType(query, node)
@@ -565,7 +565,7 @@ func (a *Analyzer) newCreateFunctionStmtAction(ctx context.Context, query string
 	}, nil
 }
 
-func (a *Analyzer) newCreateViewStmtAction(ctx context.Context, _ string, _ []driver.NamedValue, node googlesql.ResolvedCreateViewStmtNode) (*CreateViewStmtAction, error) {
+func (a *Analyzer) newCreateViewStmtAction(ctx context.Context, _ string, _ []driver.NamedValue, node *googlesql.ResolvedCreateViewStmt) (*CreateViewStmtAction, error) {
 	query, err := newNode(nn(node.Query())).FormatSQL(ctx)
 	if err != nil {
 		return nil, err
@@ -596,11 +596,11 @@ var inferTypes = []string{
 	"STRUCT<>",
 }
 
-func (a *Analyzer) inferTemplatedTypeByRealType(query string, node googlesql.ResolvedCreateFunctionStmtNode) ([]googlesql.ResolvedCreateFunctionStmtNode, error) {
-	var stmts []googlesql.ResolvedCreateFunctionStmtNode
+func (a *Analyzer) inferTemplatedTypeByRealType(query string, node *googlesql.ResolvedCreateFunctionStmt) ([]*googlesql.ResolvedCreateFunctionStmt, error) {
+	var stmts []*googlesql.ResolvedCreateFunctionStmt
 	for _, typ := range inferTypes {
 		if out, err := AnalyzeStatement(a.buildScalarTypeFuncFromTemplatedFunc(node, typ), a.catalog, a.opt); err == nil {
-			stmts = append(stmts, m1(out.ResolvedStatementMethod()).(googlesql.ResolvedCreateFunctionStmtNode))
+			stmts = append(stmts, m1(out.ResolvedStatement()).(*googlesql.ResolvedCreateFunctionStmt))
 		}
 	}
 	if len(stmts) != 0 {
@@ -608,7 +608,7 @@ func (a *Analyzer) inferTemplatedTypeByRealType(query string, node googlesql.Res
 	}
 	for _, typ := range inferTypes {
 		if out, err := AnalyzeStatement(a.buildArrayTypeFuncFromTemplatedFunc(node, typ), a.catalog, a.opt); err == nil {
-			stmts = append(stmts, m1(out.ResolvedStatementMethod()).(googlesql.ResolvedCreateFunctionStmtNode))
+			stmts = append(stmts, m1(out.ResolvedStatement()).(*googlesql.ResolvedCreateFunctionStmt))
 		}
 	}
 	if len(stmts) != 0 {
@@ -617,7 +617,7 @@ func (a *Analyzer) inferTemplatedTypeByRealType(query string, node googlesql.Res
 	return nil, fmt.Errorf("failed to infer templated function result type for %s", query)
 }
 
-func (a *Analyzer) buildScalarTypeFuncFromTemplatedFunc(node googlesql.ResolvedCreateFunctionStmtNode, realType string) string {
+func (a *Analyzer) buildScalarTypeFuncFromTemplatedFunc(node *googlesql.ResolvedCreateFunctionStmt, realType string) string {
 	signature, _ := node.Signature()
 	var args []string
 	for _, arg := range compatSignatureArguments(signature) {
@@ -634,7 +634,7 @@ func (a *Analyzer) buildScalarTypeFuncFromTemplatedFunc(node googlesql.ResolvedC
 	)
 }
 
-func (a *Analyzer) buildArrayTypeFuncFromTemplatedFunc(node googlesql.ResolvedCreateFunctionStmtNode, realType string) string {
+func (a *Analyzer) buildArrayTypeFuncFromTemplatedFunc(node *googlesql.ResolvedCreateFunctionStmt, realType string) string {
 	signature, _ := node.Signature()
 	var args []string
 	for _, arg := range compatSignatureArguments(signature) {
@@ -651,7 +651,7 @@ func (a *Analyzer) buildArrayTypeFuncFromTemplatedFunc(node googlesql.ResolvedCr
 	)
 }
 
-func (a *Analyzer) newDropStmtAction(ctx context.Context, query string, args []driver.NamedValue, node googlesql.ResolvedDropStmtNode) (*DropStmtAction, error) {
+func (a *Analyzer) newDropStmtAction(ctx context.Context, query string, args []driver.NamedValue, node *googlesql.ResolvedDropStmt) (*DropStmtAction, error) {
 	formattedQuery, err := newNode(node).FormatSQL(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to format query %s: %w", query, err)
@@ -677,7 +677,7 @@ func (a *Analyzer) newDropStmtAction(ctx context.Context, query string, args []d
 	}, nil
 }
 
-func (a *Analyzer) newDropFunctionStmtAction(ctx context.Context, query string, args []driver.NamedValue, node googlesql.ResolvedDropFunctionStmtNode) (*DropStmtAction, error) {
+func (a *Analyzer) newDropFunctionStmtAction(ctx context.Context, query string, args []driver.NamedValue, node *googlesql.ResolvedDropFunctionStmt) (*DropStmtAction, error) {
 	params := getParamsFromNode(node)
 	queryArgs, err := getArgsFromParams(args, params)
 	if err != nil {
@@ -694,7 +694,7 @@ func (a *Analyzer) newDropFunctionStmtAction(ctx context.Context, query string, 
 	}, nil
 }
 
-func (a *Analyzer) newDMLStmtAction(ctx context.Context, query string, args []driver.NamedValue, node googlesql.ResolvedNodeNode) (*DMLStmtAction, error) {
+func (a *Analyzer) newDMLStmtAction(ctx context.Context, query string, args []driver.NamedValue, node googlesql.ResolvedNode) (*DMLStmtAction, error) {
 	// For INSERT statements, reshape struct-valued args against the
 	// target InsertColumnList types so sparse Go maps expand to match
 	// the declared STRUCT field order. See reshapeInsertArgs.
@@ -724,11 +724,11 @@ func (a *Analyzer) newDMLStmtAction(ctx context.Context, query string, args []dr
 // with nil, fields in declaration order). Go callers sometimes pass
 // sparse maps that don't enumerate every declared field; without this,
 // downstream STRUCT_FIELD(value, index) reads land out-of-range.
-func reshapeInsertArgs(args []driver.NamedValue, node googlesql.ResolvedNodeNode) []driver.NamedValue {
+func reshapeInsertArgs(args []driver.NamedValue, node googlesql.ResolvedNode) []driver.NamedValue {
 	if len(args) == 0 {
 		return args
 	}
-	insert, ok := node.(googlesql.ResolvedInsertStmtNode)
+	insert, ok := node.(*googlesql.ResolvedInsertStmt)
 	if !ok {
 		return args
 	}
@@ -783,7 +783,7 @@ func reshapeArgToType(v interface{}, t googlesql.Googlesql_TypeNode) interface{}
 	return out
 }
 
-func (a *Analyzer) newQueryStmtAction(ctx context.Context, query string, args []driver.NamedValue, node googlesql.ResolvedQueryStmtNode) (*QueryStmtAction, error) {
+func (a *Analyzer) newQueryStmtAction(ctx context.Context, query string, args []driver.NamedValue, node *googlesql.ResolvedQueryStmt) (*QueryStmtAction, error) {
 	outputColumns := []*ColumnSpec{}
 	for _, col := range m1(node.OutputColumnList()) {
 		outputColumns = append(outputColumns, &ColumnSpec{
@@ -813,21 +813,21 @@ func (a *Analyzer) newQueryStmtAction(ctx context.Context, query string, args []
 	}, nil
 }
 
-func (a *Analyzer) newBeginStmtAction(ctx context.Context, query string, args []driver.NamedValue, node googlesql.ResolvedNodeNode) (*BeginStmtAction, error) {
+func (a *Analyzer) newBeginStmtAction(ctx context.Context, query string, args []driver.NamedValue, node googlesql.ResolvedNode) (*BeginStmtAction, error) {
 	return &BeginStmtAction{}, nil
 }
 
-func (a *Analyzer) newCommitStmtAction(ctx context.Context, query string, args []driver.NamedValue, node googlesql.ResolvedNodeNode) (*CommitStmtAction, error) {
+func (a *Analyzer) newCommitStmtAction(ctx context.Context, query string, args []driver.NamedValue, node googlesql.ResolvedNode) (*CommitStmtAction, error) {
 	return &CommitStmtAction{}, nil
 }
 
 //nolint:unparam
-func (a *Analyzer) newTruncateStmtAction(_ context.Context, _ string, _ []driver.NamedValue, node googlesql.ResolvedTruncateStmtNode) (*TruncateStmtAction, error) {
-	table, _ := m1(m1(node.TableScan()).TableMethod()).Name()
+func (a *Analyzer) newTruncateStmtAction(_ context.Context, _ string, _ []driver.NamedValue, node *googlesql.ResolvedTruncateStmt) (*TruncateStmtAction, error) {
+	table, _ := m1(m1(node.TableScan()).Table()).Name()
 	return &TruncateStmtAction{query: fmt.Sprintf("DELETE FROM `%s`", table)}, nil
 }
 
-func (a *Analyzer) newMergeStmtAction(ctx context.Context, _ string, args []driver.NamedValue, node googlesql.ResolvedMergeStmtNode) (*MergeStmtAction, error) {
+func (a *Analyzer) newMergeStmtAction(ctx context.Context, _ string, args []driver.NamedValue, node *googlesql.ResolvedMergeStmt) (*MergeStmtAction, error) {
 	targetTable, err := newNode(nn(node.TableScan())).FormatSQL(ctx)
 	if err != nil {
 		return nil, err
@@ -840,22 +840,22 @@ func (a *Analyzer) newMergeStmtAction(ctx context.Context, _ string, args []driv
 	if err != nil {
 		return nil, err
 	}
-	fn, ok := m1(node.MergeExpr()).(googlesql.ResolvedFunctionCallNode)
+	fn, ok := m1(node.MergeExpr()).(*googlesql.ResolvedFunctionCall)
 	if !ok {
 		return nil, fmt.Errorf("currently MERGE expression is supported equal expression only")
 	}
-	if m1(m1(fn.FunctionMethod()).FullName(false)) != "$equal" {
+	if m1(m1(fn.Function()).FullName(false)) != "$equal" {
 		return nil, fmt.Errorf("currently MERGE expression is supported equal expression only")
 	}
 	argList := m1(fn.ArgumentList())
 	if len(argList) != 2 {
 		return nil, fmt.Errorf("unexpected MERGE expression column num. expected 2 column but specified %d column", len(args))
 	}
-	colA, ok := argList[0].(googlesql.ResolvedColumnRefNode)
+	colA, ok := argList[0].(*googlesql.ResolvedColumnRef)
 	if !ok {
 		return nil, fmt.Errorf("unexpected MERGE expression. expected column reference but got %T", argList[0])
 	}
-	colB, ok := argList[1].(googlesql.ResolvedColumnRefNode)
+	colB, ok := argList[1].(*googlesql.ResolvedColumnRef)
 	if !ok {
 		return nil, fmt.Errorf("unexpected MERGE expression. expected column reference but got %T", argList[1])
 	}
@@ -965,13 +965,13 @@ func (a *Analyzer) newMergeStmtAction(ctx context.Context, _ string, args []driv
 	return &MergeStmtAction{stmts: stmts}, nil
 }
 
-func getParamsFromNode(node googlesql.ResolvedNodeNode) []googlesql.ResolvedParameterNode {
+func getParamsFromNode(node googlesql.ResolvedNode) []*googlesql.ResolvedParameter {
 	var (
-		params       []googlesql.ResolvedParameterNode
+		params       []*googlesql.ResolvedParameter
 		paramNameMap = map[string]struct{}{}
 	)
-	_ = ResolvedWalk(node, func(n googlesql.ResolvedNodeNode) error {
-		param, ok := n.(googlesql.ResolvedParameterNode)
+	_ = ResolvedWalk(node, func(n googlesql.ResolvedNode) error {
+		param, ok := n.(*googlesql.ResolvedParameter)
 		if ok {
 			name, _ := param.Name()
 			if name != "" {
@@ -988,7 +988,7 @@ func getParamsFromNode(node googlesql.ResolvedNodeNode) []googlesql.ResolvedPara
 	return params
 }
 
-func getArgsFromParams(values []driver.NamedValue, params []googlesql.ResolvedParameterNode) ([]interface{}, error) {
+func getArgsFromParams(values []driver.NamedValue, params []*googlesql.ResolvedParameter) ([]interface{}, error) {
 	if values == nil {
 		return nil, nil
 	}
@@ -1014,7 +1014,7 @@ func getArgsFromParams(values []driver.NamedValue, params []googlesql.ResolvedPa
 	}
 	namedValuesMap := map[string]driver.NamedValue{}
 	for _, value := range values {
-		// Name() value of googlesql.ResolvedParameterNode always returns lowercase name.
+		// Name() value of *googlesql.ResolvedParameter always returns lowercase name.
 		namedValuesMap[strings.ToLower(value.Name)] = value
 	}
 	var namedValues []driver.NamedValue

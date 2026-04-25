@@ -14,11 +14,11 @@ type Formatter interface {
 	FormatSQL(context.Context) (string, error)
 }
 
-func New(node googlesql.ResolvedNodeNode) Formatter {
+func New(node googlesql.ResolvedNode) Formatter {
 	return newNode(node)
 }
 
-func getTableName(ctx context.Context, n googlesql.ResolvedNodeNode) (string, error) {
+func getTableName(ctx context.Context, n googlesql.ResolvedNode) (string, error) {
 	// Preferred path: pull the bound Table off a ResolvedTableScan and
 	// ask it for its name. The go-zetasql version used a side-car
 	// nodeMap that mapped ResolvedTableScan → ASTPathExpression to
@@ -27,7 +27,7 @@ func getTableName(ctx context.Context, n googlesql.ResolvedNodeNode) (string, er
 	// case (single-segment table names) the catalog-bound Table.Name()
 	// is equivalent.
 	if scan, ok := n.(*googlesql.ResolvedTableScan); ok {
-		if table, err := scan.TableMethod(); err == nil && table != nil {
+		if table, err := scan.Table(); err == nil && table != nil {
 			if name, err := table.Name(); err == nil && name != "" {
 				namePath := namePathFromContext(ctx)
 				return namePath.format([]string{name}), nil
@@ -47,12 +47,12 @@ func getTableName(ctx context.Context, n googlesql.ResolvedNodeNode) (string, er
 	return namePath.format(path), nil
 }
 
-func getFuncName(ctx context.Context, n googlesql.ResolvedNodeNode) (string, error) {
+func getFuncName(ctx context.Context, n googlesql.ResolvedNode) (string, error) {
 	nodeMap := nodeMapFromContext(ctx)
 	found := nodeMap.FindNodeFromResolvedNode(n)
-	var foundCallNode googlesql.ASTFunctionCallNode
+	var foundCallNode *googlesql.ASTFunctionCall
 	for _, node := range found {
-		fcallNode, ok := node.(googlesql.ASTFunctionCallNode)
+		fcallNode, ok := node.(*googlesql.ASTFunctionCall)
 		if !ok {
 			continue
 		}
@@ -61,7 +61,7 @@ func getFuncName(ctx context.Context, n googlesql.ResolvedNodeNode) (string, err
 	}
 	namePath := namePathFromContext(ctx)
 	if foundCallNode != nil {
-		path, err := getPathFromNode(m1(foundCallNode.FunctionMethod()))
+		path, err := getPathFromNode(m1(foundCallNode.Function()))
 		if err != nil {
 			return "", fmt.Errorf("failed to find path: %w", err)
 		}
@@ -72,10 +72,10 @@ func getFuncName(ctx context.Context, n googlesql.ResolvedNodeNode) (string, err
 	// context walks). Read the function identity straight off the
 	// resolved node instead.
 	type fnCall interface {
-		FunctionMethod() (*googlesql.Function, error)
+		Function() (*googlesql.Function, error)
 	}
 	if fc, ok := n.(fnCall); ok {
-		if fn, err := fc.FunctionMethod(); err == nil && fn != nil {
+		if fn, err := fc.Function(); err == nil && fn != nil {
 			if name, err := fn.Name(); err == nil && name != "" {
 				return namePath.format([]string{name}), nil
 			}
@@ -84,16 +84,16 @@ func getFuncName(ctx context.Context, n googlesql.ResolvedNodeNode) (string, err
 	return "", fmt.Errorf("failed to find path node from function node %T", n)
 }
 
-func getPathFromNode(n googlesql.ASTNodeNode) ([]string, error) {
+func getPathFromNode(n googlesql.ASTNode) ([]string, error) {
 	var path []string
 	switch node := n.(type) {
-	case googlesql.ASTIdentifierNode:
+	case *googlesql.ASTIdentifier:
 		path = append(path, m1(node.GetAsString()))
-	case googlesql.ASTPathExpressionNode:
+	case *googlesql.ASTPathExpression:
 		for _, name := range m1(node.ToIdentifierVector()) {
 			path = append(path, name)
 		}
-	case googlesql.ASTTablePathExpressionNode:
+	case *googlesql.ASTTablePathExpression:
 		switch {
 		case m1(node.PathExpr()) != nil:
 			for _, name := range m1(m1(node.PathExpr()).ToIdentifierVector()) {
@@ -164,7 +164,7 @@ func getFuncNameAndArgs(ctx context.Context, node *ResolvedBaseFunctionCallNode,
 		}
 		args = append(args, arg)
 	}
-	funcName := m1(m1(node.FunctionMethod()).FullName(false))
+	funcName := m1(m1(node.Function()).FullName(false))
 	funcName = strings.Replace(funcName, ".", "_", -1)
 
 	_, existsCurrentTimeFunc := currentTimeFuncMap[funcName]
@@ -218,7 +218,7 @@ func (n *LiteralNode) FormatSQL(ctx context.Context) (string, error) {
 	if n.node == nil {
 		return "", nil
 	}
-	return LiteralFromZetaSQLValue(*m1(n.node.ValueMethod()))
+	return LiteralFromZetaSQLValue(*m1(n.node.Value()))
 }
 
 func (n *ParameterNode) FormatSQL(ctx context.Context) (string, error) {
@@ -430,7 +430,7 @@ func (n *AnalyticFunctionCallNode) FormatSQL(ctx context.Context) (string, error
 	), nil
 }
 
-func (n *AnalyticFunctionCallNode) getWindowBoundaryOptionFuncSQL(ctx context.Context, expr googlesql.ResolvedWindowFrameExprNode, isStart bool) (string, error) {
+func (n *AnalyticFunctionCallNode) getWindowBoundaryOptionFuncSQL(ctx context.Context, expr *googlesql.ResolvedWindowFrameExpr, isStart bool) (string, error) {
 	typ := ResolvedWindowFrameExprBoundaryType(expr)
 	switch typ {
 	case googlesql.ResolvedWindowFrameExprEnums_BoundaryTypeUnboundedPreceding, googlesql.ResolvedWindowFrameExprEnums_BoundaryTypeCurrentRow, googlesql.ResolvedWindowFrameExprEnums_BoundaryTypeUnboundedFollowing:
@@ -640,7 +640,7 @@ func (n *TableScanNode) FormatSQL(ctx context.Context) (string, error) {
 	// wildcardTableRegistry under the SimpleTable's wasm handle ptr —
 	// rewrite the scan into the UNION-ALL pattern. Otherwise fall through
 	// to a regular table reference.
-	table := m1(n.node.TableMethod())
+	table := m1(n.node.Table())
 	if wc := lookupWildcardTable(table); wc != nil {
 		query, err := wc.FormatSQL(ctx)
 		if err != nil {
@@ -1579,7 +1579,7 @@ func (n *DMLValueNode) FormatSQL(ctx context.Context) (string, error) {
 	if n == nil {
 		return "", nil
 	}
-	return newNode(nn(m1(n.node.ValueMethod()))).FormatSQL(ctx)
+	return newNode(nn(m1(n.node.Value()))).FormatSQL(ctx)
 }
 
 func (n *DMLDefaultNode) FormatSQL(ctx context.Context) (string, error) {
