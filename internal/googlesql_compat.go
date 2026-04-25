@@ -684,21 +684,15 @@ func m1[T any](v T, _ error) T { return v }
 
 // ---------- Upcast helpers -----------------------------------------------
 //
-// The wasmify-generated Go bindings don't carry inherited methods onto
-// derived concrete types (e.g. ResolvedParameter doesn't expose Type()
-// even though its C++ ancestor ResolvedExpr does). Each generated
-// handle struct has the same layout — a single uint64 `ptr` field —
-// so we can reinterpret the pointer to call a base-class method. The
-// bridge dispatches by (service_id, method_id) and doesn't care which
-// exact C++ subclass the handle points at, so reading the same ptr as
-// a base handle is safe.
+// The wasmify-generated Go bindings embed the base class by pointer, so
+// method promotion usually handles upcast transparently. A handful of
+// call sites still need to materialise the base explicitly though —
+// e.g. interface-typed arguments that the formatter wants to invoke
+// base-class accessors on. asBase walks the struct graph via
+// reflection until it finds the embedded *T pointer.
 
-type handlePtr struct{ ptr uint64 }
-
-// asBase finds the embedded *T base inside any googlesql handle h. Every
-// derived handle has its base-chain stored via named embedding (`*Base`),
-// so walking the struct graph via reflection is deterministic. Returns
-// nil when h is nil or doesn't have *T anywhere in its chain.
+// asBase finds the embedded *T base inside any googlesql handle h.
+// Returns nil when h is nil or doesn't embed *T in its chain.
 func asBase[T any](h any) *T {
 	if h == nil {
 		return nil
@@ -736,24 +730,4 @@ func AsResolvedExpr(h any) *googlesql.ResolvedExpr {
 // AsResolvedScan returns the node as its ResolvedScan base.
 func AsResolvedScan(h any) *googlesql.ResolvedScan {
 	return asBase[googlesql.ResolvedScan](h)
-}
-
-// AsResolvedStatement returns the node as its ResolvedStatement base.
-func AsResolvedStatement(h any) *googlesql.ResolvedStatement {
-	return asBase[googlesql.ResolvedStatement](h)
-}
-
-// AsResolvedNode returns the node as the most abstract ResolvedNode base.
-func AsResolvedNode(h any) *googlesql.ResolvedNode {
-	return asBase[googlesql.ResolvedNode](h)
-}
-
-// AsResolvedFunctionCallBase returns the node as ResolvedFunctionCallBase.
-func AsResolvedFunctionCallBase(h any) *googlesql.ResolvedFunctionCallBase {
-	return asBase[googlesql.ResolvedFunctionCallBase](h)
-}
-
-// AsASTNode returns any AST handle as its ASTNode base.
-func AsASTNode(h any) *googlesql.ASTNode {
-	return asBase[googlesql.ASTNode](h)
 }
