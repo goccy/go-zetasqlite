@@ -103,15 +103,17 @@ func (s *FunctionSpec) CallSQL(ctx context.Context, callNode *ast.BaseFunctionCa
 }
 
 type TableSpec struct {
-	IsTemp     bool           `json:"isTemp"`
-	IsView     bool           `json:"isView"`
-	NamePath   []string       `json:"namePath"`
-	Columns    []*ColumnSpec  `json:"columns"`
-	PrimaryKey []string       `json:"primaryKey"`
-	CreateMode ast.CreateMode `json:"createMode"`
-	Query      string         `json:"query"`
-	UpdatedAt  time.Time      `json:"updatedAt"`
-	CreatedAt  time.Time      `json:"createdAt"`
+	IsTemp      bool           `json:"isTemp"`
+	IsView      bool           `json:"isView"`
+	NamePath    []string       `json:"namePath"`
+	Columns     []*ColumnSpec  `json:"columns"`
+	PrimaryKey  []string       `json:"primaryKey"`
+	CreateMode  ast.CreateMode `json:"createMode"`
+	Query       string         `json:"query"`
+	PartitionBy []string       `json:"partitionBy,omitempty"`
+	ClusterBy   []string       `json:"clusterBy,omitempty"`
+	UpdatedAt   time.Time      `json:"updatedAt"`
+	CreatedAt   time.Time      `json:"createdAt"`
 }
 
 func (s *TableSpec) Column(name string) *ColumnSpec {
@@ -516,14 +518,45 @@ func newPrimaryKey(key *ast.PrimaryKeyNode) []string {
 func newTableSpec(namePath *NamePath, stmt *ast.CreateTableStmtNode) *TableSpec {
 	now := time.Now()
 	return &TableSpec{
-		IsTemp:     stmt.CreateScope() == ast.CreateScopeTemp,
-		NamePath:   namePath.mergePath(stmt.NamePath()),
-		Columns:    newColumnsFromDef(stmt.ColumnDefinitionList()),
-		PrimaryKey: newPrimaryKey(stmt.PrimaryKey()),
-		CreateMode: stmt.CreateMode(),
-		UpdatedAt:  now,
-		CreatedAt:  now,
+		IsTemp:      stmt.CreateScope() == ast.CreateScopeTemp,
+		NamePath:    namePath.mergePath(stmt.NamePath()),
+		Columns:     newColumnsFromDef(stmt.ColumnDefinitionList()),
+		PrimaryKey:  newPrimaryKey(stmt.PrimaryKey()),
+		CreateMode:  stmt.CreateMode(),
+		PartitionBy: exprsToStrings(stmt.PartitionByList()),
+		ClusterBy:   exprsToStrings(stmt.ClusterByList()),
+		UpdatedAt:   now,
+		CreatedAt:   now,
 	}
+}
+
+func exprsToStrings(exprs []ast.ExprNode) []string {
+	if len(exprs) == 0 {
+		return nil
+	}
+	out := make([]string, len(exprs))
+	for i, expr := range exprs {
+		out[i] = extractColumnName(expr)
+	}
+	return out
+}
+
+// extractColumnName extracts the column name from a resolved AST expression.
+// For ColumnRef nodes, it returns the column name directly.
+// For FunctionCall nodes (e.g. DATE(ts)), it walks the arguments to find the column.
+// Falls back to DebugString if no column reference is found.
+func extractColumnName(expr ast.ExprNode) string {
+	switch expr.Kind() {
+	case ast.ColumnRef:
+		return expr.(*ast.ColumnRefNode).Column().Name()
+	case ast.FunctionCall:
+		for _, arg := range expr.(*ast.FunctionCallNode).ArgumentList() {
+			if name := extractColumnName(arg); name != "" {
+				return name
+			}
+		}
+	}
+	return expr.DebugString()
 }
 
 func newTableAsViewSpec(namePath *NamePath, query string, stmt *ast.CreateViewStmtNode) *TableSpec {
@@ -563,14 +596,16 @@ func newTableAsSelectSpec(namePath *NamePath, query string, stmt *ast.CreateTabl
 	}
 	now := time.Now()
 	return &TableSpec{
-		IsTemp:     stmt.CreateScope() == ast.CreateScopeTemp,
-		NamePath:   namePath.mergePath(stmt.NamePath()),
-		Columns:    newColumnsFromDef(stmt.ColumnDefinitionList()),
-		PrimaryKey: newPrimaryKey(stmt.PrimaryKey()),
-		CreateMode: stmt.CreateMode(),
-		Query:      fmt.Sprintf("SELECT %s FROM (%s)", strings.Join(outputColumns, ","), query),
-		UpdatedAt:  now,
-		CreatedAt:  now,
+		IsTemp:      stmt.CreateScope() == ast.CreateScopeTemp,
+		NamePath:    namePath.mergePath(stmt.NamePath()),
+		Columns:     newColumnsFromDef(stmt.ColumnDefinitionList()),
+		PrimaryKey:  newPrimaryKey(stmt.PrimaryKey()),
+		CreateMode:  stmt.CreateMode(),
+		Query:       fmt.Sprintf("SELECT %s FROM (%s)", strings.Join(outputColumns, ","), query),
+		PartitionBy: exprsToStrings(stmt.PartitionByList()),
+		ClusterBy:   exprsToStrings(stmt.ClusterByList()),
+		UpdatedAt:   now,
+		CreatedAt:   now,
 	}
 }
 

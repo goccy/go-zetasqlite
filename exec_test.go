@@ -339,6 +339,134 @@ func TestWildcardTable(t *testing.T) {
 	})
 }
 
+func TestCreateTableWithPartitionBy(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("zetasqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	t.Run("partition by date", func(t *testing.T) {
+		if _, err := db.ExecContext(ctx, `
+			CREATE TABLE partition_test1 (
+				id INT64,
+				name STRING,
+				created_at TIMESTAMP
+			) PARTITION BY DATE(created_at)
+		`); err != nil {
+			t.Fatal(err)
+		}
+		// table should be queryable
+		if _, err := db.ExecContext(ctx, `INSERT INTO partition_test1 (id, name, created_at) VALUES (1, 'test', '2024-01-01 00:00:00+00')`); err != nil {
+			t.Fatal(err)
+		}
+		rows, err := db.QueryContext(ctx, "SELECT id, name FROM partition_test1")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer rows.Close()
+		rows.Next()
+		var id int64
+		var name string
+		if err := rows.Scan(&id, &name); err != nil {
+			t.Fatal(err)
+		}
+		if id != 1 || name != "test" {
+			t.Fatalf("unexpected row: id=%d, name=%s", id, name)
+		}
+		if err := rows.Err(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("cluster by", func(t *testing.T) {
+		if _, err := db.ExecContext(ctx, `
+			CREATE TABLE cluster_test1 (
+				id INT64,
+				name STRING,
+				category STRING
+			) CLUSTER BY name, category
+		`); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := db.ExecContext(ctx, `INSERT INTO cluster_test1 (id, name, category) VALUES (1, 'a', 'b')`); err != nil {
+			t.Fatal(err)
+		}
+		rows, err := db.QueryContext(ctx, "SELECT id FROM cluster_test1")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer rows.Close()
+		rows.Next()
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			t.Fatal(err)
+		}
+		if id != 1 {
+			t.Fatalf("unexpected id: %d", id)
+		}
+		if err := rows.Err(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("partition by and cluster by", func(t *testing.T) {
+		if _, err := db.ExecContext(ctx, `
+			CREATE TABLE partition_cluster_test1 (
+				run_id STRING NOT NULL,
+				pr_number INT64,
+				pr_author STRING,
+				created_at TIMESTAMP
+			)
+			PARTITION BY DATE(created_at)
+			CLUSTER BY run_id, pr_number, pr_author
+		`); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := db.ExecContext(ctx, `INSERT INTO partition_cluster_test1 (run_id, pr_number, pr_author, created_at) VALUES ('run1', 123, 'marcus', '2024-01-01 00:00:00+00')`); err != nil {
+			t.Fatal(err)
+		}
+		rows, err := db.QueryContext(ctx, "SELECT run_id, pr_number, pr_author FROM partition_cluster_test1")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer rows.Close()
+		rows.Next()
+		var runID, prAuthor string
+		var prNumber int64
+		if err := rows.Scan(&runID, &prNumber, &prAuthor); err != nil {
+			t.Fatal(err)
+		}
+		if runID != "run1" || prNumber != 123 || prAuthor != "marcus" {
+			t.Fatalf("unexpected row: run_id=%s, pr_number=%d, pr_author=%s", runID, prNumber, prAuthor)
+		}
+		if err := rows.Err(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("create if not exists with partition", func(t *testing.T) {
+		if _, err := db.ExecContext(ctx, `
+			CREATE TABLE IF NOT EXISTS partition_ifne_test (
+				id INT64,
+				ts TIMESTAMP
+			) PARTITION BY DATE(ts)
+		`); err != nil {
+			t.Fatal(err)
+		}
+		// creating again should not error
+		if _, err := db.ExecContext(ctx, `
+			CREATE TABLE IF NOT EXISTS partition_ifne_test (
+				id INT64,
+				ts TIMESTAMP
+			) PARTITION BY DATE(ts)
+		`); err != nil {
+			t.Fatal(err)
+		}
+	})
+}
+
 func TestTemplatedArgFunc(t *testing.T) {
 	ctx := context.Background()
 	db, err := sql.Open("zetasqlite", ":memory:")
