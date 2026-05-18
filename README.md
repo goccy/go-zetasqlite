@@ -1,5 +1,14 @@
 # go-zetasqlite
 
+> [!IMPORTANT]
+> **This project has moved to [googlesqlite](https://github.com/goccy/googlesqlite).**
+>
+> `go-zetasqlite` is no longer maintained and this repository is archived.
+> Please use [googlesqlite](https://github.com/goccy/googlesqlite) instead — it
+> is the successor project and resolves the known issues of `go-zetasqlite`.
+> [bigquery-emulator](https://github.com/goccy/bigquery-emulator) has already
+> completed its migration to googlesqlite as of v0.7.0.
+
 ![Go](https://github.com/goccy/go-zetasqlite/workflows/Go/badge.svg)
 [![GoDoc](https://godoc.org/github.com/goccy/go-zetasqlite?status.svg)](https://pkg.go.dev/github.com/goccy/go-zetasqlite?tab=doc)
 [![codecov](https://codecov.io/gh/goccy/go-zetasqlite/branch/main/graph/badge.svg)](https://codecov.io/gh/goccy/go-zetasqlite)
